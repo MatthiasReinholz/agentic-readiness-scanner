@@ -27,6 +27,14 @@ describe('parseRobotsTxt', () => {
     expect(robots.groups[1]?.agents).toEqual(['gptbot', 'ccbot']);
   });
 
+  it('strips comments, including a line of many hashes', () => {
+    const parsed = parseRobotsTxt(
+      `User-agent: * # all\nDisallow: /x # hidden\n${'#'.repeat(100_000)}\n`,
+    );
+    expect(parsed.groups[0]?.rules).toEqual([{ type: 'disallow', pattern: '/x' }]);
+    expect(parsed.unknownLines).toEqual([]);
+  });
+
   it('collects sitemaps and content signals', () => {
     expect(robots.sitemaps).toEqual(['https://example.shop/sitemap.xml']);
     expect(robots.contentSignals).toEqual({ 'ai-train': 'no', search: 'yes' });

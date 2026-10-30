@@ -58,14 +58,28 @@ export function parseSitemap(xml: string): ParsedSitemap {
   return { kind: 'invalid', sitemaps: [], urls: [], error: 'no sitemapindex or urlset root' };
 }
 
-/** Sitemap file names that hold products: product-sitemap.xml, wp-sitemap-posts-product-1.xml, sitemap_products_1.xml. */
-const PRODUCT_SITEMAP_PATTERN =
-  /(^|\/)(wp-sitemap-posts-product-\d+\.xml|(products?|produkte?|produits?|productos?)[-_]?sitemap[^/]*\.xml|sitemap[-_]?(products?|produkte?|produits?|productos?)[^/]*\.xml)(\?.*)?$/i;
+/**
+ * Sitemap file names that hold products: product-sitemap.xml, wp-sitemap-posts-product-1.xml,
+ * sitemap_products_1.xml. Tested against the file name only (no query string, no directories)
+ * with anchored patterns so matching stays linear in the input length.
+ */
+const PRODUCT_SITEMAP_NAME_PATTERNS: readonly RegExp[] = [
+  /^wp-sitemap-posts-product-\d+\.xml$/i,
+  /^(?:products?|produkte?|produits?|productos?)[-_]?sitemap/i,
+  /^sitemap[-_]?(?:products?|produkte?|produits?|productos?)/i,
+];
 const PRODUCT_URL_PATTERN =
   /\/(product|products|produkt|produkte|produit|producto|item|p)\/[^/?#]+/i;
 
+function fileNameOf(url: string): string {
+  const withoutQuery = url.split(/[?#]/, 1)[0] ?? '';
+  return withoutQuery.slice(withoutQuery.lastIndexOf('/') + 1).toLowerCase();
+}
+
 export function looksLikeProductSitemap(url: string): boolean {
-  return PRODUCT_SITEMAP_PATTERN.test(url);
+  const name = fileNameOf(url);
+  if (!name.endsWith('.xml')) return false;
+  return PRODUCT_SITEMAP_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 export function looksLikeProductUrl(url: string): boolean {

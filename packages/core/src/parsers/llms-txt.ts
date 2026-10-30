@@ -11,7 +11,34 @@ export interface LlmsTxt {
   links: LlmsTxtLink[];
 }
 
-const LINK_PATTERN = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+/**
+ * Extracts Markdown links `[text](url "optional title")` from one line with a single
+ * forward scan. A hand-written scanner is used instead of a regular expression so that
+ * hostile input (thousands of unbalanced brackets) cannot trigger quadratic backtracking.
+ */
+export function extractMarkdownLinks(line: string): { text: string; url: string }[] {
+  const found: { text: string; url: string }[] = [];
+  let index = 0;
+  while (index < line.length) {
+    const open = line.indexOf('[', index);
+    if (open === -1) break;
+    const close = line.indexOf(']', open + 1);
+    if (close === -1) break;
+    if (line[close + 1] !== '(') {
+      index = close + 1;
+      continue;
+    }
+    const end = line.indexOf(')', close + 2);
+    if (end === -1) break;
+    const target = line.slice(close + 2, end).trim();
+    const url = target.split(/\s+/, 1)[0] ?? '';
+    if (url.length > 0) {
+      found.push({ text: line.slice(open + 1, close), url });
+    }
+    index = end + 1;
+  }
+  return found;
+}
 
 export function parseLlmsTxt(text: string): LlmsTxt {
   let title: string | null = null;
@@ -36,8 +63,8 @@ export function parseLlmsTxt(text: string): LlmsTxt {
       sections.push(section);
       continue;
     }
-    for (const match of line.matchAll(LINK_PATTERN)) {
-      links.push({ text: match[1] ?? '', url: match[2] ?? '', section });
+    for (const link of extractMarkdownLinks(line)) {
+      links.push({ ...link, section });
     }
   }
 

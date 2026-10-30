@@ -13,7 +13,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(packageRoot, '..', '..');
 
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 }
 
 function weightLabel(check: CheckDefinition): string {

@@ -17,6 +17,21 @@ describe('parseLlmsTxt', () => {
     expect(isWellFormedLlmsTxt(parsed)).toBe(true);
   });
 
+  it('keeps link titles out of the URL and ignores unbalanced brackets', () => {
+    const parsed = parseLlmsTxt(
+      '# T\n- [Docs](https://a.example/docs "Documentation") and [x](y\n',
+    );
+    expect(parsed.links).toEqual([{ text: 'Docs', url: 'https://a.example/docs', section: null }]);
+  });
+
+  it('parses hostile input in linear time', () => {
+    const hostile = `# T\n${'['.repeat(50_000)}${'[](!'.repeat(20_000)}`;
+    const started = performance.now();
+    const parsed = parseLlmsTxt(hostile);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(parsed.links).toEqual([]);
+  });
+
   it('flags a file without title or links as malformed', () => {
     expect(isWellFormedLlmsTxt(parseLlmsTxt('Just some prose.'))).toBe(false);
   });

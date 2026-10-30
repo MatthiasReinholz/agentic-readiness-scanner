@@ -42,7 +42,8 @@ export function parseRobotsTxt(text: string): RobotsTxt {
   let lastWasAgent = false;
 
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/#.*$/, '').trim();
+    const hash = rawLine.indexOf('#');
+    const line = (hash === -1 ? rawLine : rawLine.slice(0, hash)).trim();
     if (!line) continue;
     const separator = line.indexOf(':');
     if (separator === -1) {

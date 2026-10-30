@@ -47,13 +47,17 @@ function nextVersion(type, requested) {
 }
 
 function changelogSection(version) {
-  const text = readFileSync(join(root, CHANGELOG), 'utf8');
-  const pattern = new RegExp(
-    `^## \\[${version.replace(/\./g, '\\.')}\\][^\\n]*\\n([\\s\\S]*?)(?=^## \\[|\\Z)`,
-    'm',
-  );
-  const match = pattern.exec(text);
-  return match ? match[1].trim() : '';
+  if (!SEMVER.test(version)) throw new Error(`invalid version ${version}`);
+  const lines = readFileSync(join(root, CHANGELOG), 'utf8').split('\n');
+  const heading = `## [${version}]`;
+  const start = lines.findIndex((line) => line.startsWith(heading));
+  if (start === -1) return '';
+  const body = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## [')) break;
+    body.push(line);
+  }
+  return body.join('\n').trim();
 }
 
 function apply(version) {

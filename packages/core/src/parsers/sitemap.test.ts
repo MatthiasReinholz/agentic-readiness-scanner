@@ -33,5 +33,10 @@ describe('parseSitemap', () => {
     expect(looksLikeProductSitemap('https://a.example/sitemap_products_1.xml?from=1')).toBe(true);
     expect(looksLikeProductSitemap('https://a.example/product_update-sitemap.xml')).toBe(false);
     expect(looksLikeProductSitemap('https://a.example/page-sitemap.xml')).toBe(false);
+    expect(looksLikeProductSitemap('https://a.example/products-sitemap.xml?page=2#top')).toBe(true);
+    expect(looksLikeProductSitemap('https://a.example/product-sitemap.xml.bak')).toBe(false);
+    expect(
+      looksLikeProductSitemap(`https://a.example/productsitemap.xml?${'.xml?'.repeat(50_000)}`),
+    ).toBe(true);
   });
 });
