@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+packages/catalog/src/generated/
+apps/web/.spacefast/state.json
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/

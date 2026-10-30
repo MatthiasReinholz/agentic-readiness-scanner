@@ -1,0 +1,56 @@
+[
+  {
+    "id": "A1",
+    "title": "Discoverability",
+    "dimension": "ingestion",
+    "description": "Can an agent find the site, its sitemap, its product URLs and its agent-facing index files?"
+  },
+  {
+    "id": "A2",
+    "title": "Bot access control",
+    "dimension": "ingestion",
+    "description": "Do robots.txt, response headers and the WAF let shopping agents in, and are AI-training rules explicit rather than accidental?"
+  },
+  {
+    "id": "A3",
+    "title": "Content accessibility",
+    "dimension": "ingestion",
+    "description": "Can an agent read product content without executing JavaScript, and can it ask for Markdown instead of HTML?"
+  },
+  {
+    "id": "A4",
+    "title": "Protocol discovery",
+    "dimension": "ingestion",
+    "description": "Does the site publish machine-readable discovery documents (MCP, API catalog, OAuth, Agent Skills, A2A)? Low weight: expected to be absent on most stores today."
+  },
+  {
+    "id": "B1",
+    "title": "Catalog exposure",
+    "dimension": "commerce",
+    "description": "Can an agent read the catalog as data: Store API, feeds, and a sitemap that agrees with them?"
+  },
+  {
+    "id": "B2",
+    "title": "Product structured data",
+    "dimension": "commerce",
+    "description": "Do product pages carry schema.org Product markup with live price, availability, variants, shipping and returns?"
+  },
+  {
+    "id": "B3",
+    "title": "Product identity",
+    "dimension": "commerce",
+    "description": "Can an agent match products to real-world entities through GTIN, brand, MPN and SKU, the way Google, Meta, ACP and UCP require?"
+  },
+  {
+    "id": "B4",
+    "title": "Merchant trust and policies",
+    "dimension": "commerce",
+    "description": "Are the policies a checkout needs (returns, shipping, privacy, terms) and the merchant's identity findable and readable?"
+  },
+  {
+    "id": "B5",
+    "title": "Checkout and payment protocols",
+    "dimension": "commerce",
+    "description": "Can an agent start a transaction: UCP manifest, ACP checkout, payment handlers, guest checkout and cart API?"
+  }
+]

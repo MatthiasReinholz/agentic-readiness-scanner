@@ -1,0 +1,5 @@
+# Workflow, script and dependency-policy changes are privileged infrastructure changes.
+/.github/            @MatthiasReinholz
+/scripts/            @MatthiasReinholz
+/pnpm-lock.yaml      @MatthiasReinholz
+/packages/catalog/   @MatthiasReinholz

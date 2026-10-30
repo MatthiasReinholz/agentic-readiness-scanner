@@ -1,0 +1,4 @@
+Contact: mailto:security@ceramics.example
+Expires: 2030-12-31T23:59:59Z
+Preferred-Languages: en, de
+Canonical: https://ceramics.example/.well-known/security.txt

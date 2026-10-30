@@ -1,0 +1,17 @@
+[
+  {
+    "id": 101,
+    "name": "Stoneware Mug, 350 ml",
+    "slug": "stoneware-mug",
+    "permalink": "https://ceramics.example/product/stoneware-mug/",
+    "sku": "MUG-350-BLU",
+    "global_unique_id": "4006381333931",
+    "type": "simple",
+    "prices": { "price": "2400", "currency_code": "EUR", "currency_minor_unit": 2 },
+    "is_in_stock": true,
+    "images": [
+      { "src": "https://ceramics.example/wp-content/uploads/mug.jpg", "alt": "Blue stoneware mug" }
+    ],
+    "categories": [{ "id": 5, "name": "Mugs" }]
+  }
+]

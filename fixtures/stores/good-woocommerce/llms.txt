@@ -1,0 +1,16 @@
+# Example Ceramics
+
+> Independent retailer of hand-thrown stoneware tableware, shipping from Berlin to the EU and UK.
+
+## Catalog
+
+- [Product feed](https://ceramics.example/feed/products.xml): Google-format XML, refreshed hourly
+- [Store API](https://ceramics.example/wp-json/wc/store/v1/products): JSON, live price and stock
+- [Product sitemap](https://ceramics.example/wp-sitemap-posts-product-1.xml)
+
+## Policies
+
+- [Shipping](https://ceramics.example/shipping/)
+- [Returns](https://ceramics.example/returns/)
+- [Terms](https://ceramics.example/terms/)
+- [Privacy](https://ceramics.example/privacy-policy/)

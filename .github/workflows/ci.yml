@@ -1,0 +1,139 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - 'feature/**'
+      - 'release/**'
+      - 'hotfix/**'
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Repository hygiene
+        run: pnpm check:repo
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Markdown lint
+        run: pnpm lint:md
+
+      - name: Build
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Catalog validation
+        run: pnpm check:catalog
+
+      - name: Generated docs parity
+        run: pnpm check:docs
+
+      - name: Upload web bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist-${{ github.sha }}
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  preview:
+    name: Spacefast preview
+    needs: validate
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SPACEFAST_TOKEN: ${{ secrets.SPACEFAST_TOKEN }}
+      SPACEFAST_SPACE: ${{ vars.SPACEFAST_SPACE }}
+    steps:
+      - name: Skip when Spacefast is not configured
+        id: gate
+        run: |
+          if [ -z "${SPACEFAST_TOKEN}" ] || [ -z "${SPACEFAST_SPACE}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "SPACEFAST_TOKEN or SPACEFAST_SPACE is not set; skipping preview publish."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        if: steps.gate.outputs.configured == 'true'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Build
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Publish preview version
+        if: steps.gate.outputs.configured == 'true'
+        id: publish
+        working-directory: apps/web
+        run: |
+          npm install -g spacefast
+          sf publish ./dist --target preview --message "PR #${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.sha }}" --json > receipt.json
+          echo "url=$(jq -r '.data.version.immutableUrl' receipt.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_URL: ${{ steps.publish.outputs.url }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
+            --body "Spacefast preview for ${{ github.event.pull_request.head.sha }}: ${PREVIEW_URL}"
