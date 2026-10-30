@@ -72,6 +72,27 @@ export class HtmlDocument {
     return result;
   }
 
+  /**
+   * Hostnames of external assets (script src, link href, img src), lower-cased, resolved
+   * against `base`. Relative and unparsable URLs are skipped.
+   */
+  assetHosts(base: string): Set<string> {
+    const hosts = new Set<string>();
+    const add = (value: string | undefined): void => {
+      if (!value) return;
+      try {
+        const url = new URL(value, base);
+        if (url.protocol === 'http:' || url.protocol === 'https:') hosts.add(url.hostname);
+      } catch {
+        // not a URL
+      }
+    };
+    for (const element of this.elements('script')) add(getAttributeValue(element, 'src'));
+    for (const element of this.elements('link')) add(getAttributeValue(element, 'href'));
+    for (const element of this.elements('img')) add(getAttributeValue(element, 'src'));
+    return hosts;
+  }
+
   bodyClasses(): string[] {
     const body = this.elements('body')[0];
     const classes = body ? getAttributeValue(body, 'class') : undefined;

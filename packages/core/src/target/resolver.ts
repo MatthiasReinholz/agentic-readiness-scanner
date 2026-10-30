@@ -47,13 +47,12 @@ const POLICY_PATTERNS: Record<PolicyKind, RegExp> = {
 const LISTING_PATTERN =
   /\/(shop|store|products|collections|product-category|kategorie|categorie)\/?/i;
 
-/** Platform fingerprint only (never a trust decision): an asset URL on Shopify's CDN host. */
-const SHOPIFY_CDN_PATTERN = /(?:https?:)?\/\/cdn\.shopify\.com\//i;
-
 export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Platform {
   const generator = (doc.meta('generator') ?? '').toLowerCase();
   const classes = doc.bodyClasses().map((c) => c.toLowerCase());
   const body = response.body.toLowerCase();
+  // Platform fingerprints only, never trust decisions.
+  const assetHosts = doc.assetHosts(response.finalUrl);
   if (
     classes.includes('woocommerce') ||
     generator.includes('woocommerce') ||
@@ -64,7 +63,7 @@ export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Pl
   }
   if (
     generator.includes('shopify') ||
-    SHOPIFY_CDN_PATTERN.test(body) ||
+    assetHosts.has('cdn.shopify.com') ||
     body.includes('shopify.theme')
   ) {
     return 'shopify';

@@ -1,5 +1,7 @@
-// Bundles the worker entry for Spacefast Functions into dist/ and copies static files.
-// esbuild resolves workspace packages, so the published folder is self-contained.
+// Bundles the worker entry for Spacefast Functions into dist/ and copies static files
+// and the runtime configuration. esbuild resolves workspace packages from their built
+// dist/ folders, so run it through turbo (`pnpm build` at the repository root), which
+// builds those packages first; the published folder is then self-contained.
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -21,5 +23,7 @@ await build({
 });
 
 cpSync('public', 'dist', { recursive: true });
+// Spacefast reads sf.jsonc from the root of the published directory.
+cpSync('sf.jsonc', 'dist/sf.jsonc');
 writeFileSync('dist/.gitkeep', '');
 console.log('Built dist/handler.js');

@@ -12,8 +12,9 @@ Verified against the Spacefast docs on 2026-10-30:
 
 ## How the app uses it
 
-- `apps/web/sf.jsonc` declares the Functions runtime with `handler.js` as entry, a daily cleanup cron, security headers, and a `Link` header on `/` that advertises `llms.txt` and the MCP server card.
-- `apps/web/build.mjs` bundles `src/handler.ts` and its workspace dependencies into `dist/handler.js` with esbuild and copies `public/` next to it. `sf publish ./dist` publishes that folder.
+- `apps/web/sf.jsonc` declares the Functions runtime with `handler.js` as entry, a daily cleanup cron, security headers, and a `Link` header on `/` that advertises `llms.txt` and the MCP server card. Spacefast reads `sf.jsonc` from the root of the directory it publishes, so the build copies this file into `dist/`.
+- `apps/web/build.mjs` bundles `src/handler.ts` and its workspace dependencies into `dist/handler.js` with esbuild and copies `public/` and `sf.jsonc` next to it. It needs the workspace packages built first, so always run it through turbo (`pnpm build` at the repository root). `sf publish ./dist` publishes that folder.
+- The repository-root `sf.jsonc` holds only the `build` block for the connected GitHub repository: install with `corepack enable && pnpm install --frozen-lockfile`, build with `pnpm turbo run build --filter=@agentic-readiness/web...`, publish `apps/web/dist`. Build settings in the Spacefast dashboard override this file, so leave them on "Auto" there.
 - Results are stored through `SqlResultStore` in a `scans` table (MySQL DDL). Fix text is stripped before storage and re-attached from the catalog on read, which keeps rows small.
 - Per-target cooldown replaces per-IP rate limiting: a host is scanned at most once per `TARGET_COOLDOWN_SECONDS`; within that window the stored result is served.
 - Configuration comes from Space variables: `APP_BASE_URL`, `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `PLUGIN_URL`, `REPOSITORY_URL`. Set them with `sf env set NAME value`.
@@ -24,11 +25,12 @@ Verified against the Spacefast docs on 2026-10-30:
 
 ## Deployment flow
 
-Pull requests from this repository publish a preview version (`sf publish --target preview`) and comment its immutable URL. Merging a release pull request tags, publishes npm packages and the GitHub release, then publishes the live version, smoke-tests `/health`, the server card and one reference scan, and rolls back on failure. Secrets and variables: `SPACEFAST_TOKEN` (a publish-only key from `sf api-keys create --preset ci_deploy`), `SPACEFAST_SPACE`, optional `SMOKE_TARGET`.
+The repository is connected to the Space through Spacefast's GitHub integration (`sf git connect`, or Builds → Connect GitHub in the dashboard). Spacefast builds every push: the production branch publishes to the `live` channel and every other branch or pull request gets a preview build with its own alias. Both are on by default and can be switched off per connection. The build runs the commands from the root `sf.jsonc` and reports a "Spacefast Builds" check on the commit.
+
+In addition, pull requests from this repository publish a preview version (`sf publish --target preview`) and comment its immutable URL. Merging a release pull request tags, publishes npm packages and the GitHub release, then publishes the live version, smoke-tests `/health`, the server card and one reference scan, and rolls back on failure. Secrets and variables: `SPACEFAST_TOKEN` (a publish-only key from `sf api-keys create --preset ci_deploy`), `SPACEFAST_SPACE`, optional `SMOKE_TARGET`.
 
 ## To verify on the first real publish
 
-- Whether `sf.jsonc` is read from the project root (`apps/web`) or must sit inside the published `dist` folder. The docs say project root; the build copies nothing, so adjust `build.mjs` if the platform expects it in `dist`.
 - CPU and wall-clock limits of the Functions isolate for a scan of up to 40 sequential requests. The docs do not state them. If a full scan does not fit one request, split it: `POST /scan` creates the record, the worker continues with `waitUntil`, the report page polls.
 - Whether the D1-shaped broker accepts the MySQL DDL in `apps/web/src/store/sql.ts` as written, including the inline index.
 - The outbound policy for private address ranges after DNS resolution. The worker checks hostnames and literal IPs; DNS-level protection is the platform's.

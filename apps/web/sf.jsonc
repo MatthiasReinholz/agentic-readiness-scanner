@@ -1,5 +1,7 @@
 {
   "$schema": "https://spacefast.com/schema/sf.json",
+  // Runtime configuration, copied to dist/ by build.mjs. Build settings for the connected
+  // repository live in the repository-root sf.jsonc.
   // Set after the first `sf publish` creates the Space, or via SPACEFAST_SPACE in CI.
   // "space": "agentic-readiness",
   "name": "Agentic Readiness Scanner",

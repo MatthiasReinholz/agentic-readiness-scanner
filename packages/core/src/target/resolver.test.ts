@@ -1,7 +1,42 @@
 import { describe, expect, it } from 'vitest';
 
 import { HtmlDocument } from '../parsers/html.js';
-import { findPolicyLinks } from './resolver.js';
+import type { FetchedResponse } from '../http/types.js';
+import { detectPlatform, findPolicyLinks } from './resolver.js';
+
+function response(body: string): FetchedResponse {
+  return {
+    url: 'https://shop.example/',
+    finalUrl: 'https://shop.example/',
+    status: 200,
+    headers: {},
+    body,
+    bytes: body.length,
+    truncated: false,
+    redirects: 0,
+    durationMs: 1,
+    fromCache: false,
+  };
+}
+
+describe('detectPlatform', () => {
+  it('recognizes Shopify by an asset served from its CDN host', () => {
+    const html =
+      '<html><head><script src="//cdn.shopify.com/s/files/1/theme.js"></script></head><body></body></html>';
+    expect(detectPlatform(new HtmlDocument(html), response(html))).toBe('shopify');
+  });
+
+  it('does not treat a mention of the CDN host in text or a look-alike host as Shopify', () => {
+    const html =
+      '<html><body><p>Hosted on cdn.shopify.com? No.</p><img src="https://cdn.shopify.com.evil.example/x.png"></body></html>';
+    expect(detectPlatform(new HtmlDocument(html), response(html))).toBe('unknown');
+  });
+
+  it('recognizes WooCommerce by the body class', () => {
+    const html = '<html><body class="home woocommerce"></body></html>';
+    expect(detectPlatform(new HtmlDocument(html), response(html))).toBe('woocommerce');
+  });
+});
 
 describe('findPolicyLinks', () => {
   it('prefers same-origin links and keeps cross-origin ones as a fallback', () => {
