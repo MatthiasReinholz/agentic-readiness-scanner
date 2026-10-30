@@ -8,7 +8,7 @@ Spacefast offers two dynamic runtimes. Zero runs TypeScript in a QuickJS sandbox
 
 ## Decision
 
-The hosted app is a Hono application. Hono runs unchanged on the Functions isolate (`apps/web/src/handler.ts`) and on Node (`apps/web/src/dev.ts`), which solves local development. Results are stored through a `ResultStore` interface with a SQL implementation for `env.DB` and a memory implementation for development and tests. esbuild bundles the worker and its workspace dependencies into one file that `sf publish` ships.
+The hosted app is a Hono application. Hono runs unchanged on the Functions isolate (`apps/web/src/handler.ts`) and on Node (`apps/web/src/dev.ts`), which solves local development. Results are stored through a `ResultStore` interface with a SQL implementation for `env.DB` and a memory implementation for development and tests. esbuild bundles the worker and its workspace dependencies into one file that Spacefast publishes.
 
 ## Consequences
 

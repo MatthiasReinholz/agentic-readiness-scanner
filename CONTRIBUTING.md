@@ -56,7 +56,7 @@ A change to any check's definition, weight or fix is a catalog change: bump `ver
 
 ## What CI enforces
 
-`ci.yml` runs on every pull request: hygiene (no OS junk, no unpinned actions, no broken relative links), Prettier, markdownlint, build, ESLint, type-check, tests, catalog validation and generated-docs parity. `codeql.yml` and `dependency-review.yml` run alongside. Same-repository pull requests also get a Spacefast preview when the secrets are configured.
+`ci.yml` runs on every pull request: hygiene (no OS junk, no unpinned actions, no broken relative links), Prettier, markdownlint, build, ESLint, type-check, tests, catalog validation and generated-docs parity. `codeql.yml` and `dependency-review.yml` run alongside. Spacefast's GitHub integration builds every push on its own and reports a "Spacefast Builds" check with a preview URL for branches and pull requests; see [docs/hosting.md](docs/hosting.md).
 
 ## Releases
 

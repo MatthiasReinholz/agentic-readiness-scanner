@@ -1,9 +1,9 @@
 name: finalize-release
 
 # Runs when a release/x.y.z or hotfix/x.y.z pull request merges into main:
-# tags, builds, attests, publishes npm packages and the GitHub release, then
-# deploys the hosted app to Spacefast and smoke-tests it, rolling back on failure.
-# A branch push never publishes anything.
+# tags, builds, attests, publishes npm packages and the GitHub release.
+# The hosted app is deployed by Spacefast's GitHub integration from main,
+# not from this workflow. A branch push never publishes anything.
 
 on:
   pull_request:
@@ -30,8 +30,6 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    outputs:
-      version: ${{ steps.version.outputs.value }}
     steps:
       - name: Derive version from branch
         id: version
@@ -124,91 +122,4 @@ jobs:
             gh release upload "v${VERSION}" .release/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "v${VERSION}" .release/* --repo "$GITHUB_REPOSITORY" --title "v${VERSION}" --notes "$notes"
-          fi
-
-  deploy:
-    name: Deploy to Spacefast
-    needs: release
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production
-    permissions:
-      contents: read
-    env:
-      SPACEFAST_TOKEN: ${{ secrets.SPACEFAST_TOKEN }}
-      SPACEFAST_SPACE: ${{ vars.SPACEFAST_SPACE }}
-      SMOKE_TARGET: ${{ vars.SMOKE_TARGET }}
-    steps:
-      - name: Skip when Spacefast is not configured
-        id: gate
-        run: |
-          if [ -z "${SPACEFAST_TOKEN}" ] || [ -z "${SPACEFAST_SPACE}" ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "SPACEFAST_TOKEN or SPACEFAST_SPACE is not set; skipping deploy."
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Checkout tag
-        if: steps.gate.outputs.configured == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: v${{ needs.release.outputs.version }}
-          persist-credentials: false
-
-      - name: Set up pnpm
-        if: steps.gate.outputs.configured == 'true'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
-      - name: Set up Node.js
-        if: steps.gate.outputs.configured == 'true'
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Build
-        if: steps.gate.outputs.configured == 'true'
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: Publish live version
-        if: steps.gate.outputs.configured == 'true'
-        id: publish
-        working-directory: apps/web
-        run: |
-          set -euo pipefail
-          npm install -g spacefast
-          sf versions --json > before.json || echo '{}' > before.json
-          sf publish ./dist --message "v${{ needs.release.outputs.version }}" --json > receipt.json
-          jq . receipt.json
-          echo "live=$(jq -r '.data.space.liveUrl' receipt.json)" >> "$GITHUB_OUTPUT"
-          echo "version=$(jq -r '.data.version.ref // .data.version.id' receipt.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Smoke test the live address
-        if: steps.gate.outputs.configured == 'true'
-        id: smoke
-        env:
-          LIVE: ${{ steps.publish.outputs.live }}
-        run: |
-          set -euo pipefail
-          curl -fsS "${LIVE}/health" | jq -e '.ok == true'
-          curl -fsS "${LIVE}/.well-known/mcp/server-card.json" | jq -e '.endpoint'
-          if [ -n "${SMOKE_TARGET}" ]; then
-            curl -fsS -X POST "${LIVE}/api/scan" -H 'content-type: application/json' \
-              -d "{\"url\":\"${SMOKE_TARGET}\"}" | jq -e '.result.level.value >= 0'
-          fi
-
-      - name: Roll back on smoke failure
-        if: steps.gate.outputs.configured == 'true' && failure() && steps.publish.outcome == 'success'
-        working-directory: apps/web
-        run: |
-          set -euo pipefail
-          previous="$(jq -r '[.data[]? | select(.live == true or .isLive == true)][0].ref // empty' before.json)"
-          if [ -n "$previous" ]; then
-            echo "Rolling back live to $previous"
-            sf rollback "$previous" --yes --json
-          else
-            echo "No previous live version recorded; leaving the pointer in place." >&2
           fi
