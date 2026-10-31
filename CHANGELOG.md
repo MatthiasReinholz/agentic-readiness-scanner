@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- The visual system moves to a new `packages/ui` built on the app-base UI standard's framework layer: Tailwind CSS 3.4 with the shadcn token contract, class recipes transcribed from its primitives (button, badge, card, input, select, alert, textarea), lucide icons and self-hosted Inter, compiled at build time and inlined so the CLI's HTML report stays one file. The report and the hosted pages are re-rendered on it; dark stays the default theme, with a bright blue primary in both themes ([decision 0008](docs/decisions/0008-ui-standard.md)). No React or app framework.
+- The hosted app serves the latin subset of Inter under `/fonts` and the development server serves `public/` and the fonts like production.
+
+### Fixed
+
+- `pnpm scan <url>` at the repository root runs the CLI again (it invoked a bin that is not linked inside its own package and omitted the `scan` command).
+
 ## [0.2.0] - 2026-10-31
 
 ### Added

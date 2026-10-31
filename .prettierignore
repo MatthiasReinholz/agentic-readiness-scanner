@@ -3,6 +3,7 @@ dist
 .turbo
 pnpm-lock.yaml
 packages/catalog/src/generated
+packages/ui/src/generated
 docs/checks.md
 CHANGELOG.md
 fixtures/stores/*.json

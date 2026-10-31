@@ -82,7 +82,7 @@ describe('monitoring signup, confirmation and unsubscribe', () => {
     const id = await scanOnce(withMail.app);
     const html = await (await withMail.app.request(`/r/${id}`)).text();
     expect(html).toContain('id="monitor"');
-    expect(html).toContain('<dialog class="monitor-dialog"');
+    expect(html).toContain('id="monitor-dialog"');
     expect(html).toContain('data-host="ceramics.example"');
 
     const without = harness({ provider: null });

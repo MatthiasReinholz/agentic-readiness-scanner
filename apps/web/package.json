@@ -16,10 +16,12 @@
     "@agentic-readiness/catalog": "workspace:*",
     "@agentic-readiness/core": "workspace:*",
     "@agentic-readiness/mcp": "workspace:*",
+    "@agentic-readiness/ui": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.2",
     "hono": "4.13.14"
   },
   "devDependencies": {
+    "@fontsource/inter": "5.3.0",
     "@hono/node-server": "2.1.5",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",

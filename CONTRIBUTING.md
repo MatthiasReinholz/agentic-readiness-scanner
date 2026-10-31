@@ -33,6 +33,7 @@ Useful during work:
 - `pnpm scan https://example.com --format md` runs the CLI from source.
 - `pnpm scan https://ceramics.example --fixture fixtures/stores/good-woocommerce` runs offline.
 - `pnpm dev` serves the hosted app locally.
+- UI work: markup lives in `packages/core/src/reporters` (report) and `apps/web/src/pages` (hosted pages) and composes the recipes of `packages/ui`; `pnpm build` recompiles the stylesheet from them. Write class names as complete literals, see [packages/ui/README.md](packages/ui/README.md).
 
 ## Adding a check
 

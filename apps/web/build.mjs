@@ -4,6 +4,10 @@
 // builds those packages first; the published folder is then self-contained.
 import { build } from 'esbuild';
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+
+import { FONT_FILES } from '@agentic-readiness/ui';
 
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist', { recursive: true });
@@ -23,6 +27,11 @@ await build({
 });
 
 cpSync('public', 'dist', { recursive: true });
+// Self-hosted Inter (latin subset, the weights the design uses), served under /fonts.
+const require = createRequire(import.meta.url);
+const fontDir = join(dirname(require.resolve('@fontsource/inter/package.json')), 'files');
+mkdirSync('dist/fonts', { recursive: true });
+for (const { file } of FONT_FILES) cpSync(join(fontDir, file), join('dist/fonts', file));
 // Spacefast reads sf.jsonc from the root of the published directory.
 cpSync('sf.jsonc', 'dist/sf.jsonc');
 writeFileSync('dist/.gitkeep', '');

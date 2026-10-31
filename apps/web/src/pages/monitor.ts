@@ -1,54 +1,40 @@
 import { escapeHtml } from '@agentic-readiness/core';
+import { badge, button, card, icon, input } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
 import type { StoredScan } from '../store/types.js';
 import { page } from './layout.js';
 
-export const MONITOR_CSS = `
-.monitor{margin-top:24px;display:grid;gap:18px;grid-template-columns:1fr}
-@media (min-width:720px){.monitor{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center}}
-.monitor h2{display:flex;align-items:center;gap:10px}
-.monitor p{margin-top:6px;color:var(--fg-muted);font-size:.95rem}
-.monitor-form{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) auto}
-.monitor-form .consent{grid-column:1/-1;font-size:.82rem;color:var(--fg-faint);line-height:1.5}
-.monitor-form .consent a{color:var(--fg-muted)}
-dialog.monitor-dialog{border:1px solid var(--line-strong);border-radius:16px;background:var(--bg-raised);color:var(--fg);padding:0;max-width:min(520px,calc(100vw - 32px));box-shadow:0 24px 64px rgba(0,0,0,.45)}
-dialog.monitor-dialog::backdrop{background:rgba(5,10,20,.6);backdrop-filter:blur(2px)}
-dialog.monitor-dialog .inner{padding:24px}
-dialog.monitor-dialog .monitor{margin-top:0;grid-template-columns:1fr}
-dialog.monitor-dialog .close{position:absolute;top:12px;right:12px}
-.monitor-ok{display:inline-flex;align-items:center;gap:8px;color:var(--pass);font-weight:650}
-`;
-
 function form(scan: StoredScan, idPrefix: string, autofocus: boolean): string {
-  return `<form method="post" action="/monitor" class="monitor-form" data-monitor-form>
+  return `<form method="post" action="/monitor" class="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_auto]" data-monitor-form>
 <input type="hidden" name="scan_id" value="${escapeHtml(scan.id)}">
-<label class="sr-only" for="${idPrefix}-email" style="position:absolute;left:-9999px">Email address</label>
-<input class="field" id="${idPrefix}-email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" inputmode="email" ${autofocus ? 'autofocus' : ''}>
-<button type="submit" class="btn">Monitor this site</button>
-<p class="consent">Double opt-in: we send one confirmation email first. Afterwards we rescan about weekly and only write when something changed. One-click unsubscribe in every email. Nothing else is done with the address.</p>
+<label class="sr-only" for="${idPrefix}-email">Email address</label>
+<input class="${input}" id="${idPrefix}-email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" inputmode="email" ${autofocus ? 'autofocus' : ''}>
+<button type="submit" class="${button({ size: 'lg' })}">${icon('bell')}Monitor this site</button>
+<p class="text-xs leading-5 text-muted-foreground sm:col-span-2">Double opt-in: we send one confirmation email first. Afterwards we rescan about weekly and only write when something changed. One-click unsubscribe in every email. Nothing else is done with the address.</p>
 </form>`;
+}
+
+function offer(scan: StoredScan, config: AppConfig, titleId: string, title: string): string {
+  return `<div><h2 id="${titleId}" class="flex flex-wrap items-center gap-2.5 text-lg font-semibold tracking-tight">${title}</h2>
+<p class="mt-1.5 text-[0.95rem] text-muted-foreground">${escapeHtml(config.appName)} can rescan <strong class="font-semibold text-foreground">${escapeHtml(scan.host)}</strong> every ${config.monitoring.intervalDays} days and email you when the level, a score or any check result changes. Useful after a theme update, a plugin change or a platform release.</p></div>`;
 }
 
 /** The signup block shown between the scores and the sections of a report. */
 export function monitorPanel(config: AppConfig, scan: StoredScan): string {
-  return `<section class="card monitor" id="monitor" aria-labelledby="monitor-title">
-<div><h2 id="monitor-title"><span class="pill pill-accent">New</span>Get told when this changes</h2>
-<p>${escapeHtml(config.appName)} can rescan <strong>${escapeHtml(scan.host)}</strong> every ${config.monitoring.intervalDays} days and email you when the level, a score or any check result changes. Useful after a theme update, a plugin change or a platform release.</p></div>
+  return `<section class="${card} mt-6 grid gap-4 p-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-center" id="monitor" aria-labelledby="monitor-title">
+${offer(scan, config, 'monitor-title', `<span class="${badge()}">New</span>Get told when this changes`)}
 ${form(scan, 'monitor', false)}
 </section>`;
 }
 
 /** The same offer as a dialog, opened by script after a delay unless the visitor already acted. */
 export function monitorDialog(config: AppConfig, scan: StoredScan): string {
-  return `<dialog class="monitor-dialog" id="monitor-dialog" aria-labelledby="monitor-dialog-title" data-host="${escapeHtml(scan.host)}" data-delay="${MONITOR_DIALOG_DELAY_MS}">
-<div class="inner">
-<form method="dialog"><button class="btn btn-ghost btn-sm close" value="dismiss" aria-label="Close">✕</button></form>
-<section class="monitor">
-<div><h2 id="monitor-dialog-title">Want to know when ${escapeHtml(scan.host)} changes?</h2>
-<p>${escapeHtml(config.appName)} rescans every ${config.monitoring.intervalDays} days and emails you only when the level, a score or a check result moved.</p></div>
+  return `<dialog class="w-[min(520px,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-[2px] open:animate-content-in" id="monitor-dialog" aria-labelledby="monitor-dialog-title" data-host="${escapeHtml(scan.host)}" data-delay="${MONITOR_DIALOG_DELAY_MS}">
+<div class="relative space-y-4 p-6">
+<form method="dialog"><button class="${button({ variant: 'ghost', size: 'icon-sm' })} absolute right-3 top-3 text-muted-foreground" value="dismiss" aria-label="Close">${icon('x')}</button></form>
+${offer(scan, config, 'monitor-dialog-title', `Want to know when ${escapeHtml(scan.host)} changes?`)}
 ${form(scan, 'monitor-dialog', true)}
-</section>
 </div>
 </dialog>`;
 }
@@ -79,36 +65,38 @@ export function monitorPage(
   kind: MonitorPageKind,
   context: MonitorPageContext = {},
 ): string {
-  const host = context.host ? `<strong>${escapeHtml(context.host)}</strong>` : 'this site';
+  const host = context.host
+    ? `<strong class="font-semibold text-foreground">${escapeHtml(context.host)}</strong>`
+    : 'this site';
   const back = context.reportUrl
-    ? `<a class="btn btn-ghost" href="${escapeHtml(context.reportUrl)}">Back to the report</a>`
-    : `<a class="btn btn-ghost" href="/">Back to the scanner</a>`;
+    ? `<a class="${button({ variant: 'outline' })}" href="${escapeHtml(context.reportUrl)}">${icon('arrow-left')}Back to the report</a>`
+    : `<a class="${button({ variant: 'outline' })}" href="/">${icon('arrow-left')}Back to the scanner</a>`;
   let title: string;
   let body: string;
   let state: 'subscribed' | 'cleared' | null = null;
   switch (kind) {
     case 'check_inbox':
       title = 'Check your inbox';
-      body = `<p class="muted">If this address was not already monitoring ${host}, a confirmation email is on its way. Open the link in it to start monitoring. Nothing is sent until you do.</p>`;
+      body = `<p class="text-muted-foreground">If this address was not already monitoring ${host}, a confirmation email is on its way. Open the link in it to start monitoring. Nothing is sent until you do.</p>`;
       state = 'subscribed';
       break;
     case 'confirmed':
       title = 'Monitoring is on';
-      body = `<p class="monitor-ok">✓ Confirmed</p><p class="muted" style="margin-top:10px">${host} is rescanned about every ${config.monitoring.intervalDays} days. You get an email only when the level, a score or a check result changes, and every email has an unsubscribe link.</p>`;
+      body = `<p class="inline-flex items-center gap-2 font-semibold text-success">${icon('circle-check', 'size-4')}Confirmed</p><p class="text-muted-foreground">${host} is rescanned about every ${config.monitoring.intervalDays} days. You get an email only when the level, a score or a check result changes, and every email has an unsubscribe link.</p>`;
       state = 'subscribed';
       break;
     case 'unsubscribed':
       title = 'Monitoring stopped';
-      body = `<p class="muted">You will not hear from us about ${host} again. The address is kept only to honour this choice.</p>`;
+      body = `<p class="text-muted-foreground">You will not hear from us about ${host} again. The address is kept only to honour this choice.</p>`;
       state = 'cleared';
       break;
     case 'invalid':
       title = 'This link is not valid';
-      body = `<p class="muted">It may have been used already or has been replaced by a newer email. Run a scan and sign up again if you want monitoring.</p>`;
+      body = `<p class="text-muted-foreground">It may have been used already or has been replaced by a newer email. Run a scan and sign up again if you want monitoring.</p>`;
       break;
     case 'disabled':
       title = 'Monitoring is not available';
-      body = `<p class="muted">This deployment has no email provider configured.</p>`;
+      body = `<p class="text-muted-foreground">This deployment has no email provider configured.</p>`;
       break;
   }
   const stateAttributes =
@@ -121,6 +109,6 @@ export function monitorPage(
       title: `${title} · ${config.appName}`,
       ...(stateAttributes ? { scripts: [MONITOR_STATE_SCRIPT] } : {}),
     },
-    `<section class="card stack" style="max-width:560px"${stateAttributes}><h1 style="font-size:1.5rem">${title}</h1>${body}<p style="margin-top:8px">${back}</p></section>`,
+    `<section class="${card} max-w-[560px] space-y-3 p-6"${stateAttributes}><h1 class="text-2xl font-bold tracking-tight">${title}</h1>${body}<p class="pt-1">${back}</p></section>`,
   );
 }

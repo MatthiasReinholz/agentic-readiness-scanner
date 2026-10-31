@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens. The names and the HSL-triplet convention follow the app-base UI
+ * standard (shadcn token contract) so the Tailwind colour utilities resolve the same
+ * way there and here; the values are this project's: a bright blue primary in both
+ * themes and three semantic verdict colours on top of the baseline set.
+ *
+ * Dark is the default theme (`<html data-theme="dark">`); the light set lives on :root
+ * so a document without the attribute still renders correctly.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 216 50% 98%;
+    --foreground: 222 47% 11%;
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 16% 42%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --border: 214 32% 89%;
+    --input: 214 28% 82%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --accent: 221 83% 95%;
+    --accent-foreground: 221 83% 35%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 98%;
+    --warning: 28 90% 40%;
+    --warning-foreground: 0 0% 98%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+    --shadow-soft: 0 1px 2px 0 hsl(222 47% 11% / 0.05), 0 1px 3px 0 hsl(222 47% 11% / 0.1);
+  }
+
+  [data-theme='dark'] {
+    color-scheme: dark;
+    --background: 222 49% 8%;
+    --foreground: 214 40% 93%;
+    --muted: 220 38% 13%;
+    --muted-foreground: 215 22% 68%;
+    --card: 221 42% 12%;
+    --card-foreground: 214 40% 93%;
+    --popover: 221 42% 12%;
+    --popover-foreground: 214 40% 93%;
+    --border: 220 32% 20%;
+    --input: 220 30% 28%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 222 49% 8%;
+    --secondary: 220 38% 13%;
+    --secondary-foreground: 214 40% 93%;
+    --accent: 213 60% 18%;
+    --accent-foreground: 213 94% 80%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 222 49% 8%;
+    --success: 142 69% 58%;
+    --success-foreground: 222 49% 8%;
+    --warning: 38 92% 62%;
+    --warning-foreground: 222 49% 8%;
+    --ring: 213 94% 68%;
+    --shadow-soft: 0 1px 0 hsl(0 0% 100% / 0.03) inset, 0 8px 24px hsl(0 0% 0% / 0.35);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', 'Inter Fallback', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+  }
+
+  /* Disclosure widgets draw their own chevrons. */
+  summary {
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+}

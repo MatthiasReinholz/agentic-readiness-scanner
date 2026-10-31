@@ -28,7 +28,7 @@
     "check": "pnpm check:repo && pnpm format:check && pnpm lint:md && pnpm build && pnpm lint && pnpm type-check && pnpm test && pnpm check:catalog && pnpm check:docs",
     "docs:generate": "pnpm --filter @agentic-readiness/catalog docs",
     "dev": "pnpm --filter @agentic-readiness/web dev",
-    "scan": "pnpm --filter @agentic-readiness/cli exec agentic-readiness",
+    "scan": "node packages/cli/bin/agentic-readiness.js scan",
     "hooks:install": "git config core.hooksPath .githooks",
     "release:bump": "node scripts/release/bump-version.mjs"
   },

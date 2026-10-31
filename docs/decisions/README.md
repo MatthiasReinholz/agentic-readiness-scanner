@@ -9,3 +9,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0005 Deploy through Spacefast's GitHub integration](0005-deploy-through-git-integration.md)
 - [0006 Monitoring by weekly rescan with double opt-in](0006-monitoring-by-weekly-rescan.md)
 - [0007 No companion plugin](0007-no-companion-plugin.md)
+- [0008 UI standard: Tailwind and the token contract, without the app framework](0008-ui-standard.md)

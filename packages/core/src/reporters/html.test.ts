@@ -24,11 +24,11 @@ describe('HTML report', () => {
     expect(html).toContain('<html lang="en" data-theme="dark">');
     expect(html).toContain(THEME_STORAGE_KEY);
     expect(html).toContain('id="expand-all"');
-    expect(html.match(/<details class="group"/g)?.length).toBe(9);
-    expect(html).not.toContain('<details class="group" open');
-    expect(html).toContain('class="pill pill-fail"');
-    expect(html).toContain('class="pill pill-pass"');
-    expect(html).toContain('class="group-score"');
+    expect(html.match(/<details [^>]*data-group="/g)?.length).toBe(9);
+    expect(html).not.toMatch(/<details [^>]*data-group="[^"]*"[^>]*\sopen/);
+    expect(html).toContain('data-verdict="fail"');
+    expect(html).toContain('data-verdict="pass"');
+    expect(html).toContain('data-group-score');
     expect(html).toContain('## Why you are receiving this');
     expect(html).toContain('Full report: https://scanner.example/r/0123456789abcdef');
     expect(html).toContain('data-copy="all-prompts"');
@@ -49,10 +49,10 @@ describe('HTML report', () => {
   });
 
   it('maps scores to tones', () => {
-    expect(scoreTone(null)).toBe('tone-none');
-    expect(scoreTone(49)).toBe('tone-bad');
-    expect(scoreTone(50)).toBe('tone-mid');
-    expect(scoreTone(80)).toBe('tone-good');
+    expect(scoreTone(null)).toBe('text-muted-foreground');
+    expect(scoreTone(49)).toBe('text-destructive');
+    expect(scoreTone(50)).toBe('text-warning');
+    expect(scoreTone(80)).toBe('text-success');
   });
 });
 

@@ -7,9 +7,10 @@ One engine, three hosts. The hosted app, the CLI and the MCP server all call the
                     │  packages/catalog    │  checks, levels, profiles, fixes, result schema (data)
                     └──────────┬───────────┘
                                │
-                    ┌──────────▼───────────┐
-                    │  packages/core       │  Fetcher → Target → Checks → Runner → Scoring → Reporters
-                    └───┬──────────┬───────┘
+                    ┌──────────▼───────────┐   ┌──────────────────┐
+                    │  packages/core       │◄──│  packages/ui     │  tokens, compiled stylesheet, class recipes, icons
+                    └───┬──────────┬───────┘   └────────▲─────────┘
+                        │          │                    │ (also used by apps/web)
                         │          │
           ┌─────────────▼──┐   ┌───▼──────────────┐
           │ packages/mcp   │   │ packages/cli      │  scan | mcp (stdio) | catalog
@@ -28,7 +29,7 @@ One engine, three hosts. The hosted app, the CLI and the MCP server all call the
 4. **`checks/`** One `Check` per catalog id: `run(context)` returns a verdict, a message and evidence. The context carries the target, the fetcher, the catalog definition and the outcomes of earlier checks. `registry.ts` lists what is implemented. Each check is unit-tested per verdict branch with `mapFetcher`, `targetFor` and `runCheck` from `testing/check-harness.ts`, so a branch never needs a recorded store.
 5. **`runner.ts`** Orders checks by dependency, skips checks that do not apply to the profile or platform, skips dependents of failed checks, marks unimplemented checks honestly, and stops on budget exhaustion. Results come back in catalog order.
 6. **`scoring.ts`** Pure functions: dimension scores (weighted pass ratio, warn counts half, skips drop out of the denominator) and the gated level with its next gate.
-7. **`reporters/`** JSON, Markdown, HTML and SVG badge, all from the same result object. None touches the network. `html-theme.ts` holds the shared visual system (dark default and light theme tokens, base styles, the small component set and the theme toggle) used by both the HTML report and the hosted pages, so the CLI's report and the web app look the same and change together.
+7. **`reporters/`** JSON, Markdown, HTML and SVG badge, all from the same result object. None touches the network. `html-theme.ts` is the document shell shared with the hosted pages (the inlined stylesheet, theme boot and toggle, header and footer chrome); the visual system itself comes from `packages/ui`, so the CLI's report and the web app look the same and change together.
 8. **`scan.ts`** The composition root: fetcher, target, runner, scoring, result.
 
 ## The result object
@@ -43,7 +44,11 @@ Check definitions and fixes are consumed by the engine, the docs generator, the 
 
 ## The hosted app
 
-`apps/web/src` is a Hono application with no framework beyond that. `app.ts` wires the discovery pages and mounts the route modules onto dependencies that are all interfaces: a `ResultStore` for scans, a `TargetRegistry` for the durable list of hosts, a `MonitorStore` and a `Mailer` for monitoring. `scan-service.ts` runs or reuses a scan (per-host cooldown, shared in-flight scans, the concurrency cap) and is the one place that calls `scan`; `routes/report.ts` serves the form, `/api/scan`, `/r/:id` and the badge; `routes/internal.ts` the crons and the owner's exports; `routes/monitor.ts` signup, confirm and unsubscribe. `handler.ts` binds the SQL implementations (which share `store/sql-store.ts` for schema creation and row validation) to the Space's database and the mailer selected by `MAIL_PROVIDER` (Brevo in production) for the worker; `dev.ts` binds memory stores and a console mailer for Node. `monitoring/service.ts` holds the subscription lifecycle (signup, confirm, unsubscribe, the due-run) with no HTTP in it, and `pages/*.ts` render HTML on top of the shared theme. See [decisions/0006](decisions/0006-monitoring-by-weekly-rescan.md).
+`apps/web/src` is a Hono application with no framework beyond that. `app.ts` wires the discovery pages and mounts the route modules onto dependencies that are all interfaces: a `ResultStore` for scans, a `TargetRegistry` for the durable list of hosts, a `MonitorStore` and a `Mailer` for monitoring. `scan-service.ts` runs or reuses a scan (per-host cooldown, shared in-flight scans, the concurrency cap) and is the one place that calls `scan`; `routes/report.ts` serves the form, `/api/scan`, `/r/:id` and the badge; `routes/internal.ts` the crons and the owner's exports; `routes/monitor.ts` signup, confirm and unsubscribe. `handler.ts` binds the SQL implementations (which share `store/sql-store.ts` for schema creation and row validation) to the Space's database and the mailer selected by `MAIL_PROVIDER` (Brevo in production) for the worker; `dev.ts` binds memory stores and a console mailer for Node. `monitoring/service.ts` holds the subscription lifecycle (signup, confirm, unsubscribe, the due-run) with no HTTP in it, and `pages/*.ts` render HTML from the `packages/ui` recipes. See [decisions/0006](decisions/0006-monitoring-by-weekly-rescan.md).
+
+## The visual system
+
+`packages/ui` follows the app-base UI standard's framework layer and nothing above it ([decisions/0008](decisions/0008-ui-standard.md)): Tailwind CSS with the shadcn token contract (`src/theme.css`, `tailwind.config.ts`), class recipes transcribed from its primitives (`src/recipes.ts`: button, badge, card, input, select, alert, textarea), lucide icons and self-hosted Inter. Its build compiles the stylesheet from the recipes, the report renderer and the hosted pages, and exports it as a string that `htmlDocument` inlines, so a report written by the CLI is still one file. Class names are complete literals in those three places; variants go through cva. There is no React, no Next.js and no component runtime.
 
 The app's own TypeScript project (`tsconfig.app.json`) has no Node types, so a Node-only global in worker code fails the type-check; `dev.ts` and the tests live in `tsconfig.node.json`.
 
