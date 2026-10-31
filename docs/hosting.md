@@ -19,7 +19,7 @@ Verified against the Spacefast docs on 2026-10-30:
 - Per-target cooldown replaces per-IP rate limiting: a host is scanned at most once per `TARGET_COOLDOWN_SECONDS`; within that window the stored result is served.
 - Configuration comes from Space variables, set with `sf env set NAME value` (secrets with `--value-from-stdin`):
   - Scanning: `APP_BASE_URL`, `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `PLUGIN_URL`, `REPOSITORY_URL`.
-  - Monitoring ([decision 0006](decisions/0006-monitoring-by-weekly-rescan.md)): `MAIL_PROVIDER` (`resend`; unset disables monitoring entirely), `MAIL_API_KEY` (secret), `MAIL_FROM` (a sender on a domain verified with the provider, e.g. `Agentic Readiness Scanner <monitor@example.com>`), `MONITOR_INTERVAL_DAYS` (default 7), `MONITOR_BATCH_SIZE` (subscriptions per daily cron run, default 10).
+  - Monitoring ([decision 0006](decisions/0006-monitoring-by-weekly-rescan.md)): `MAIL_PROVIDER` (`brevo`, the configured provider; `resend` is also implemented; unset disables monitoring entirely), `MAIL_API_KEY` (secret; for Brevo an API key from SMTP & API → API keys), `MAIL_FROM` (a sender on a domain or address verified with the provider, e.g. `Agentic Readiness Scanner <monitor@example.com>`), `MONITOR_INTERVAL_DAYS` (default 7), `MONITOR_BATCH_SIZE` (subscriptions per daily cron run, default 10).
   - Owner access: `ADMIN_TOKEN` (secret; enables the export endpoints below).
 - Every scan also upserts a row in the `targets` table (host, first and last seen, scan count, last level, scores, platform, profile). Unlike `scans`, it is never purged, so the owner can always see which sites were checked.
 

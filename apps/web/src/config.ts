@@ -1,5 +1,5 @@
 /** Runtime configuration, read from environment variables on the host. */
-export type MailProvider = 'resend' | 'console';
+export type MailProvider = 'brevo' | 'resend' | 'console';
 
 export interface MonitoringConfig {
   /** Null disables monitoring entirely: no signup UI, no routes, no cron work. */
@@ -32,7 +32,9 @@ export interface AppConfig {
 }
 
 function mailProvider(env: Record<string, string | undefined>): MailProvider | null {
-  if (env.MAIL_PROVIDER === 'resend' && env.MAIL_API_KEY) return 'resend';
+  if ((env.MAIL_PROVIDER === 'brevo' || env.MAIL_PROVIDER === 'resend') && env.MAIL_API_KEY) {
+    return env.MAIL_PROVIDER;
+  }
   if (env.MAIL_PROVIDER === 'console') return 'console';
   return null;
 }
