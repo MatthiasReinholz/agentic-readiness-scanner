@@ -76,12 +76,12 @@
         "url": "https://support.google.com/merchants/answer/160161"
       },
       {
-        "title": "Meta catalog: required fields",
-        "url": "https://www.facebook.com/business/help/120325381656392"
+        "title": "Meta commerce catalog: supported fields",
+        "url": "https://developers.facebook.com/documentation/ads-commerce/commerce-platform/catalog/fields"
       },
       {
         "title": "OpenAI product feed specification",
-        "url": "https://developers.openai.com/commerce/specs/feed"
+        "url": "https://developers.openai.com/commerce/specs/file-upload/products"
       },
       { "title": "Universal Commerce Protocol", "url": "https://ucp.dev/" }
     ]

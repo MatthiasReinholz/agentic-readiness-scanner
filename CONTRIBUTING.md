@@ -41,16 +41,17 @@ A check is a catalog entry plus an implementation plus fixtures.
 1. **Define it** in `packages/catalog/data/checks/<group>.json`: id, title, the one question it answers, how it is tested, weight (1 nice to have, 2 expected, 3 blocking, or `info`), platform requirements, dependencies, and at least one public spec URL.
 2. **Write the fix** in `packages/catalog/fixes/<id>.md`: a Summary, an optional Snippet (one fenced block), and an Agent prompt. Set `auto_fix: true` only when the fix is mechanical (a file, setting or markup change a tool or agent can apply from existing store data).
 3. **Implement it** in `packages/core/src/checks/<group>/index.ts` with `defineCheck`, returning `pass`, `warn`, `fail` or `skip` with evidence, and register it in `packages/core/src/checks/registry.ts`.
-4. **Record fixtures** in `fixtures/stores`: make the good store pass it and, where meaningful, another fixture fail it.
-5. **Regenerate docs**: `pnpm docs:generate`.
-6. **Add a changelog line** under Unreleased in `CHANGELOG.md`.
+4. **Test every branch** in `packages/core/src/checks/<group>/index.test.ts` with the harness from `@agentic-readiness/core/testing`: `mapFetcher({ url: body })` answers from an in-memory map, `targetFor({ products, robots, policies })` builds the Target, and `runCheck(check, target, fetcher)` runs one check with its catalog definition. One `it` per verdict and skip reason, asserting the verdict, the `skipReason` and the evidence fields a fix would rely on.
+5. **Record fixtures** in `fixtures/stores`: make the good store pass it and, where meaningful, another fixture fail it.
+6. **Regenerate docs**: `pnpm docs:generate`.
+7. **Add a changelog line** under Unreleased in `CHANGELOG.md`.
 
 A change to any check's definition, weight or fix is a catalog change: bump `version` in `packages/catalog/data/meta.json`. A change to weights or levels also bumps `scoring_version`.
 
 ## Pull request expectations
 
 - Small, focused, with a description of what changed and why.
-- Tests for new behavior. Parsers are unit-tested against fixtures; checks are tested end to end through `scan` with a recorded store.
+- Tests for new behavior. Parsers are unit-tested against fixtures; checks are unit-tested per branch with `mapFetcher` and end to end through `scan` with a recorded store.
 - No new third-party GitHub Actions without a reason; every action is pinned to a full commit SHA.
 - No secrets, private hostnames, or references to unreleased partner work.
 

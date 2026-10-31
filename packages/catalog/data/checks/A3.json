@@ -63,8 +63,8 @@
     "weight": 1,
     "spec": [
       {
-        "title": "ARIA Authoring Practices: landmark regions",
-        "url": "https://www.w3.org/WAI/ARIA/apg/patterns/landmarks/"
+        "title": "WAI-ARIA 1.2: landmark roles",
+        "url": "https://www.w3.org/TR/wai-aria-1.2/#landmark_roles"
       }
     ]
   }

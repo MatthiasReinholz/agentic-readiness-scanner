@@ -12,10 +12,13 @@
         "title": "RFC 9309 Robots Exclusion Protocol",
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
-      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" },
+      {
+        "title": "OpenAI crawler documentation",
+        "url": "https://developers.openai.com/api/docs/bots"
+      },
       {
         "title": "Google common crawlers",
-        "url": "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+        "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
       }
     ]
   },
@@ -32,7 +35,10 @@
         "title": "RFC 9309 Robots Exclusion Protocol",
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
-      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" }
+      {
+        "title": "OpenAI crawler documentation",
+        "url": "https://developers.openai.com/api/docs/bots"
+      }
     ]
   },
   {

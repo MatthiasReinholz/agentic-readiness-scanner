@@ -12,7 +12,9 @@ The scanner fetches URLs that strangers type in. That makes it a server-side req
 - `localhost`, single-label hostnames, and `.local`, `.internal`, `.localhost`, `.home.arpa`, `.intranet`, `.lan`
 - private, loopback, link-local, carrier-grade NAT, multicast and reserved IPv4 ranges, and their IPv6 and IPv4-mapped equivalents
 
-Every redirect hop is checked again. DNS resolution happens on the platform, so resolution-time protection against private addresses depends on the host's outbound policy; see [hosting.md](hosting.md).
+Every redirect hop is checked again. DNS resolution happens on the platform, so resolution-time protection against private addresses depends on the host's outbound policy; see [hosting.md](hosting.md). That platform-level block was verified on 2026-10-31: scans of `http://127.0.0.1.nip.io/` and `http://10.0.0.1.nip.io/` on the live deployment both failed with HTTP 530 from the platform.
+
+Response bodies are decoded with the charset the `Content-Type` header declares, falling back to UTF-8 for unknown labels, so a page's declared encoding cannot make the scanner misread it.
 
 ## Budget and caps
 
