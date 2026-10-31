@@ -2,10 +2,10 @@
   {
     "id": "A2.1",
     "group": "A2",
-    "title": "AI crawler rules are explicit",
-    "question": "Does robots.txt state a decision for each major AI training crawler?",
-    "method": "For GPTBot, ClaudeBot, Google-Extended, PerplexityBot, CCBot, Bytespider and Applebot-Extended, record whether robots.txt names the agent. Pass when all are named (allowed or disallowed); warn when some are; fail when none are. The verdict is per bot in the evidence.",
-    "weight": 2,
+    "title": "Training-crawler policy is stated",
+    "question": "Has the site made a decision about AI training crawlers, whatever it is?",
+    "method": "Pass when robots.txt states a training decision in any form: a group for the shared token __usage_ai-training (the IETF draft Google, Microsoft and OpenAI have committed to), groups naming the documented training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, meta-externalagent, Amazonbot, CCBot, Bytespider, MistralAI-Training), or a Content-Signal or Content-Usage line that sets ai-train or train-ai. Allowing and disallowing count the same: blocking training is a licensing decision and never loses points. Warn when nothing is stated. The evidence lists the effective verdict per token.",
+    "weight": 1,
     "depends_on": ["A1.1"],
     "spec": [
       {
@@ -13,21 +13,29 @@
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
       {
+        "title": "draft-kelley-aipref-training-preference-signal: a shared robots.txt token for AI training preferences",
+        "url": "https://www.ietf.org/archive/id/draft-kelley-aipref-training-preference-signal-00.html"
+      },
+      {
+        "title": "Google Search Central: a robots.txt control for AI training",
+        "url": "https://developers.google.com/search/blog/2026/10/ai-training-control"
+      },
+      {
         "title": "OpenAI crawler documentation",
         "url": "https://developers.openai.com/api/docs/bots"
       },
       {
-        "title": "Google common crawlers",
-        "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+        "title": "Anthropic: crawler and fetcher documentation",
+        "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
       }
     ]
   },
   {
     "id": "A2.2",
     "group": "A2",
-    "title": "Shopping agents are not blocked",
-    "question": "May user-triggered shopping agents fetch product pages?",
-    "method": "Evaluate robots.txt for ChatGPT-User, Claude-User, OAI-SearchBot, Google-Agent and Perplexity-User against a sampled product path. Fail when any is disallowed; pass otherwise.",
+    "title": "Search and assistant crawlers may read product pages",
+    "question": "Do the crawlers that feed AI answers get in?",
+    "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the crawlers that build the indexes behind AI answers: Googlebot and Bingbot (Google AI Overviews and AI Mode, Microsoft Copilot and ChatGPT search, Claude search via Brave), Applebot, Storebot-Google, OAI-SearchBot, Claude-SearchBot, PerplexityBot, Amzn-SearchBot, DuckAssistBot, MistralAI-Index and meta-webindexer. Fail when Googlebot or Bingbot is disallowed or when two or more of the others are; warn when exactly one is; pass otherwise. The evidence shows the effective rule per crawler.",
     "weight": 3,
     "depends_on": ["A1.1"],
     "spec": [
@@ -36,35 +44,96 @@
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
       {
+        "title": "Google common crawlers",
+        "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
+      },
+      {
+        "title": "Which crawlers does Bing use",
+        "url": "https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0"
+      },
+      {
         "title": "OpenAI crawler documentation",
         "url": "https://developers.openai.com/api/docs/bots"
+      },
+      {
+        "title": "Anthropic: crawler and fetcher documentation",
+        "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+      },
+      {
+        "title": "Perplexity crawlers",
+        "url": "https://docs.perplexity.ai/guides/bots"
+      },
+      {
+        "title": "About Applebot",
+        "url": "https://support.apple.com/en-us/119829"
+      },
+      {
+        "title": "Amazonbot",
+        "url": "https://developer.amazon.com/amazonbot"
+      },
+      {
+        "title": "DuckAssistBot",
+        "url": "https://duckduckgo.com/duckduckgo-help-pages/results/duckassistbot/"
+      },
+      {
+        "title": "Mistral AI crawlers",
+        "url": "https://docs.mistral.ai/robots/"
+      },
+      {
+        "title": "Meta web crawlers",
+        "url": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers"
       }
     ]
   },
   {
     "id": "A2.3",
     "group": "A2",
-    "title": "Content Signals declared",
-    "question": "Does the site state how its content may be used by AI systems?",
-    "method": "Look for Content-Signal: lines in robots.txt or a Content-Signal response header with ai-train, search or ai-input values. Pass when present and parseable.",
-    "weight": 1,
+    "title": "Usage-preference signals parse",
+    "question": "Are the machine-readable usage preferences the site declares well-formed?",
+    "method": "Informational. Collect every usage-preference signal found: Content-Signal lines in robots.txt, Content-Usage rules in robots.txt and the Content-Usage response header, an RSL License line in robots.txt or a Link relation of type application/rsl+xml, and TDM reservations (/.well-known/tdmrep.json, tdm-reservation header or meta tag). Pass when every signal present is syntactically valid, or when none is declared; warn when one is malformed. The three vocabularies share no tokens and are never mapped onto each other, and no crawler operator documents honouring Content-Signal, so this is reported and never scored.",
+    "weight": "info",
+    "depends_on": ["A1.1"],
     "spec": [
       {
-        "title": "Content Signals",
+        "title": "Content Signals Policy",
         "url": "https://contentsignals.org/"
+      },
+      {
+        "title": "draft-ietf-aipref-attach: attaching AI usage preferences via robots.txt and HTTP",
+        "url": "https://www.ietf.org/archive/id/draft-ietf-aipref-attach-05.html"
+      },
+      {
+        "title": "draft-ietf-aipref-vocab: AI usage preference vocabulary",
+        "url": "https://www.ietf.org/archive/id/draft-ietf-aipref-vocab-08.html"
+      },
+      {
+        "title": "Really Simple Licensing 1.0",
+        "url": "https://rslstandard.org/rsl"
+      },
+      {
+        "title": "TDM Reservation Protocol (W3C Community Group Report)",
+        "url": "https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240510/"
       }
     ]
   },
   {
     "id": "A2.4",
     "group": "A2",
-    "title": "No WAF challenge for agent profiles",
-    "question": "Do agent user agents get the same product page a browser gets?",
-    "method": "Fetch one product page with a browser baseline and up to six agent user-agent strings. Compare status code and extracted main text. Fail on a challenge page, 403 or cloaked content for any agent profile; warn on minor differences.",
+    "title": "No block or challenge on an honest fetch",
+    "question": "Does an agent that identifies itself truthfully get the pages?",
+    "method": "Inspect the responses the scan already made with its own user agent (AgenticReadinessScanner, with a documentation URL): the home page, the sampled product pages, the policy pages and robots.txt. Fail when any answered 402, 403, 429 or 451, carried a bot-management challenge marker (the cf-mitigated: challenge header, or a challenge page served as 200), or was answered by an access-denied page. Warn when a page redirected to a consent or geographic interstitial instead of its content. The scanner never impersonates another agent, so what it meets is what any unverified agent meets; crawlers verified by published IP ranges or signatures may be treated differently, which the message says.",
     "weight": 3,
     "spec": [
       {
-        "title": "RFC 9110 HTTP Semantics (User-Agent)",
+        "title": "Cloudflare: detecting a challenge page response",
+        "url": "https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/"
+      },
+      {
+        "title": "Google: avoid intrusive interstitials",
+        "url": "https://developers.google.com/search/docs/appearance/avoid-intrusive-interstitials"
+      },
+      {
+        "title": "RFC 9110 HTTP Semantics",
         "url": "https://www.rfc-editor.org/rfc/rfc9110"
       }
     ]
@@ -72,30 +141,71 @@
   {
     "id": "A2.5",
     "group": "A2",
-    "title": "Web Bot Auth key directory",
-    "question": "Does the site publish a key directory so signed agent requests can be verified?",
-    "method": "GET /.well-known/http-message-signatures-directory. Informational: pass when a JWKS-shaped document is served, otherwise warn without penalty beyond weight 1.",
+    "title": "User-triggered fetchers are not disallowed",
+    "question": "When a person asks an assistant about this site, may the assistant fetch the page?",
+    "method": "Evaluate robots.txt against the sampled product path for the fetchers assistants use at the moment a person asks: ChatGPT-User, Claude-User, Perplexity-User, Google-Agent, meta-externalfetcher, Amzn-User and MistralAI-User. Fail when any is disallowed. Most operators document that these fetch regardless of robots.txt because a person requested the page (Anthropic honours it), so a Disallow mostly records intent; the weight is low for that reason.",
     "weight": 1,
+    "depends_on": ["A1.1"],
     "spec": [
       {
-        "title": "Web Bot Auth architecture (IETF draft)",
-        "url": "https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/"
+        "title": "OpenAI crawler documentation",
+        "url": "https://developers.openai.com/api/docs/bots"
+      },
+      {
+        "title": "Anthropic: crawler and fetcher documentation",
+        "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+      },
+      {
+        "title": "Perplexity crawlers",
+        "url": "https://docs.perplexity.ai/guides/bots"
+      },
+      {
+        "title": "Google user-triggered fetchers",
+        "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers"
+      },
+      {
+        "title": "Meta web crawlers",
+        "url": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers"
+      },
+      {
+        "title": "Amazonbot",
+        "url": "https://developer.amazon.com/amazonbot"
+      },
+      {
+        "title": "Mistral AI crawlers",
+        "url": "https://docs.mistral.ai/robots/"
       }
     ]
   },
   {
     "id": "A2.6",
     "group": "A2",
-    "title": "No noindex or nosnippet on product pages",
-    "question": "Do product pages allow indexing and snippets?",
-    "method": "Read X-Robots-Tag headers and meta robots tags on sampled product pages. Fail on noindex; warn on nosnippet, noai or max-snippet:0.",
+    "title": "No directives that keep product pages out of AI answers",
+    "question": "Do page-level directives withdraw the product from AI answers?",
+    "method": "Read meta robots, meta bingbot and X-Robots-Tag on sampled product pages and look for data-nosnippet around the main content. Fail on noindex. Warn on nosnippet or max-snippet:0 (Google says these also exclude the page from AI Overviews and AI Mode), on a data-nosnippet attribute wrapping the main content, on Bing noarchive, nocache or ai-grounding:disallow (Copilot answers), and on isAccessibleForFree:false in the page JSON-LD (Apple Intelligence). noai and noimageai are recorded as a declared preference that no major crawler documents honouring, not as a restriction.",
     "weight": 2,
+    "requires": ["products"],
     "spec": [
       {
         "title": "Robots meta tag and X-Robots-Tag",
         "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+      },
+      {
+        "title": "Google: AI features and your website",
+        "url": "https://developers.google.com/search/docs/appearance/ai-features"
+      },
+      {
+        "title": "Robots meta tags and attributes that Bing supports",
+        "url": "https://www.bing.com/webmasters/help/robots-meta-tags-and-attributes-that-bing-supports-5198d240"
+      },
+      {
+        "title": "Bing: clearer preferences for training and grounding",
+        "url": "https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/"
+      },
+      {
+        "title": "About Applebot",
+        "url": "https://support.apple.com/en-us/119829"
       }
-    ],
-    "requires": ["products"]
+    ]
   }
 ]

@@ -83,10 +83,10 @@ describe('scan of the good WooCommerce fixture', () => {
     expect(result.scanned_at).toBe('2026-10-30T12:00:00.000Z');
   });
 
-  it('reaches level 2 with the level-3 identity gate B3.6 still unimplemented', async () => {
+  it('reaches level 4 with the level-5 checkout gate still unimplemented', async () => {
     const result = await run();
-    expect(result.level.value).toBe(2);
-    expect(result.level.next_gate).toEqual(['B3.6']);
+    expect(result.level.value).toBe(4);
+    expect(result.level.next_gate).toEqual(['B5.1', 'B5.3']);
   });
 
   it('renders every format', async () => {

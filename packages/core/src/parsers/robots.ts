@@ -15,10 +15,25 @@ export interface RobotsGroup {
 
 export type ContentSignal = Record<string, 'yes' | 'no'>;
 
+/**
+ * A usage-preference line as written: Cloudflare's Content-Signal, the IETF aipref
+ * Content-Usage rule, or an RSL License line. Kept raw with the group it sits in so a
+ * check can validate each vocabulary on its own terms; they share no tokens.
+ */
+export interface UsageLine {
+  field: 'content-signal' | 'content-usage' | 'license';
+  value: string;
+  /** Agents of the enclosing group, or an empty list when the line stands outside a group. */
+  agents: string[];
+}
+
 export interface RobotsTxt {
   groups: RobotsGroup[];
   sitemaps: string[];
+  /** Merged Content-Signal values (last line wins per key), for the quick questions. */
   contentSignals: ContentSignal | null;
+  /** Every Content-Signal, Content-Usage and License line as written. */
+  usageLines: UsageLine[];
   /** Lines that could not be interpreted, kept for evidence. */
   unknownLines: string[];
 }
@@ -61,6 +76,7 @@ export function parseRobotsTxt(text: string): RobotsTxt {
   const groups: RobotsGroup[] = [];
   const sitemaps: string[] = [];
   const unknownLines: string[] = [];
+  const usageLines: UsageLine[] = [];
   let contentSignals: ContentSignal | null = null;
   let current: RobotsGroup | null = null;
   let lastWasAgent = false;
@@ -107,13 +123,21 @@ export function parseRobotsTxt(text: string): RobotsTxt {
         break;
       case 'content-signal': {
         lastWasAgent = false;
+        usageLines.push({ field: 'content-signal', value, agents: current?.agents ?? [] });
         contentSignals ??= {};
-        for (const part of value.split(',')) {
+        // An optional leading path scopes the line; the values follow it.
+        const values = value.startsWith('/') ? value.replace(/^\S+\s*/, '') : value;
+        for (const part of values.split(',')) {
           const [name, setting] = part.split('=').map((s) => s.trim().toLowerCase());
           if (name && (setting === 'yes' || setting === 'no')) contentSignals[name] = setting;
         }
         break;
       }
+      case 'content-usage':
+      case 'license':
+        lastWasAgent = false;
+        usageLines.push({ field, value, agents: current?.agents ?? [] });
+        break;
       case 'crawl-delay':
       case 'host':
         lastWasAgent = false;
@@ -124,7 +148,7 @@ export function parseRobotsTxt(text: string): RobotsTxt {
     }
   }
 
-  return { groups, sitemaps, contentSignals, unknownLines };
+  return { groups, sitemaps, contentSignals, usageLines, unknownLines };
 }
 
 /** The group that applies to a product token, per RFC 9309 section 2.2.1. */

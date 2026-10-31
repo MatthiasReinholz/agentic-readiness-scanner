@@ -119,7 +119,7 @@ describe('A3.3 page weight and response time', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toMatch(
-      /every sampled product page is under 500 KB and 1.5 s response time/,
+      /every sampled product page is under 1 MB and 3 s response time/,
     );
     expect(outcome.evidence).toMatchObject({
       sampled: 'products',
@@ -141,46 +141,46 @@ describe('A3.3 page weight and response time', () => {
     });
   });
 
-  it('warns on a page between 500 KB and 1 MB', async () => {
+  it('warns on a page between 1 MB and 2 MB', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug, bowl] }),
-      mapFetcher({ [mug]: productHtml(), [bowl]: pageOfBytes(600_000) }),
+      mapFetcher({ [mug]: productHtml(), [bowl]: pageOfBytes(1_200_000) }),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toMatch(/exceeds 500 KB or 1.5 s response time \(largest 600 KB/);
-    expect(outcome.evidence).toMatchObject({ largest_bytes: 600_085 });
+    expect(outcome.message).toMatch(/exceeds 1 MB or 3 s response time \(largest 1200 KB/);
+    expect(outcome.evidence).toMatchObject({ largest_bytes: 1_200_085 });
   });
 
-  it('warns on a response time between 1.5 s and 3 s', async () => {
+  it('warns on a response time between 3 s and 8 s', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug] }),
-      slowFetcher(mapFetcher({ [mug]: productHtml() }), 2_000),
+      slowFetcher(mapFetcher({ [mug]: productHtml() }), 4_000),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toMatch(/slowest response time 2000 ms/);
-    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { response_ms: 2_000 } } });
+    expect(outcome.message).toMatch(/slowest response time 4000 ms/);
+    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { response_ms: 4_000 } } });
   });
 
-  it('fails on a page above 1 MB', async () => {
+  it('fails on a page above 2 MB', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug] }),
-      mapFetcher({ [mug]: pageOfBytes(1_100_000) }),
+      mapFetcher({ [mug]: pageOfBytes(2_100_000) }),
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toMatch(/exceeds 1 MB or 3 s response time/);
+    expect(outcome.message).toMatch(/exceeds 2 MB or 8 s response time/);
   });
 
-  it('fails on a response time above 3 s', async () => {
+  it('fails on a response time above 8 s', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug] }),
-      slowFetcher(mapFetcher({ [mug]: productHtml() }), 3_500),
+      slowFetcher(mapFetcher({ [mug]: productHtml() }), 9_000),
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.evidence).toMatchObject({ slowest_response_ms: 3_500 });
+    expect(outcome.evidence).toMatchObject({ slowest_response_ms: 9_000 });
   });
 });
 

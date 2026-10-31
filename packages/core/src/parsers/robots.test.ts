@@ -86,3 +86,24 @@ describe('parseRobotsTxt', () => {
     expect(isAllowed(parseRobotsTxt(''), 'anything', '/')).toBe(true);
   });
 });
+
+describe('usage-preference lines', () => {
+  it('keeps Content-Signal, Content-Usage and License lines with their group', () => {
+    const robots = parseRobotsTxt(
+      [
+        'User-agent: *',
+        'Content-Signal: /blog/ ai-train=no, search=yes',
+        'Content-Usage: train-ai=n, search=y',
+        'License: https://shop.example/license.xml',
+        'Allow: /',
+      ].join('\n'),
+    );
+    expect(robots.usageLines).toEqual([
+      { field: 'content-signal', value: '/blog/ ai-train=no, search=yes', agents: ['*'] },
+      { field: 'content-usage', value: 'train-ai=n, search=y', agents: ['*'] },
+      { field: 'license', value: 'https://shop.example/license.xml', agents: ['*'] },
+    ]);
+    expect(robots.contentSignals).toEqual({ 'ai-train': 'no', search: 'yes' });
+    expect(robots.unknownLines).toEqual([]);
+  });
+});

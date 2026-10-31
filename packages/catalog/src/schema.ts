@@ -23,11 +23,11 @@ export type Verdict = z.infer<typeof VerdictSchema>;
 
 /** Platform tags a check may require. A check tagged `woocommerce` is skipped elsewhere. */
 /**
- * What a target must offer for a check to apply: `woocommerce` (the platform was
- * detected) or `products` (product pages were found to sample). A profile lists the
- * requirements it can never satisfy; the runner evaluates the rest per target.
+ * What a target must offer for a check to apply: `woocommerce` or `shopify` (the
+ * platform was detected) or `products` (product pages were found to sample). A profile
+ * lists the requirements it can never satisfy; the runner evaluates the rest per target.
  */
-export const RequirementSchema = z.enum(['woocommerce', 'products']);
+export const RequirementSchema = z.enum(['woocommerce', 'shopify', 'products']);
 export type Requirement = z.infer<typeof RequirementSchema>;
 /** @deprecated Use RequirementSchema; kept for one release for external readers. */
 export const PlatformRequirementSchema = RequirementSchema;

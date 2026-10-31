@@ -3,31 +3,31 @@
     "id": "A1",
     "title": "Discoverability",
     "dimension": "ingestion",
-    "description": "Can an agent find the site, its sitemap, its product URLs and its agent-facing index files?"
+    "description": "Can an agent find the site, its sitemap, its product URLs and its optional index files?"
   },
   {
     "id": "A2",
     "title": "Bot access control",
     "dimension": "ingestion",
-    "description": "Do robots.txt, response headers and the WAF let shopping agents in, and are AI-training rules explicit rather than accidental?"
+    "description": "Do robots.txt, page directives and bot management let the crawlers behind AI answers and the fetchers assistants use get in, and are training decisions stated rather than accidental? Training opt-outs never lose points."
   },
   {
     "id": "A3",
     "title": "Content accessibility",
     "dimension": "ingestion",
-    "description": "Can an agent read product content without executing JavaScript, and can it ask for Markdown instead of HTML?"
+    "description": "Can an agent read product content without executing JavaScript, fetch it whole, trust its status codes, and optionally get it as Markdown?"
   },
   {
     "id": "A4",
     "title": "Protocol discovery",
     "dimension": "ingestion",
-    "description": "Does the site publish machine-readable discovery documents (MCP, API catalog, OAuth, Agent Skills, A2A)? Low weight: expected to be absent on most stores today."
+    "description": "Does the site publish the agent-protocol discovery documents that exist today (MCP server cards and AI catalog, OAuth metadata, API catalog, A2A card, WebMCP)? Low weight: expected to be absent on most stores."
   },
   {
     "id": "B1",
     "title": "Catalog exposure",
     "dimension": "commerce",
-    "description": "Can an agent read the catalog as data: Store API, feeds, and a sitemap that agrees with them?"
+    "description": "Can an agent read the catalog as data: the platform API, a public feed, and a sitemap that agrees with them?"
   },
   {
     "id": "B2",
@@ -51,6 +51,6 @@
     "id": "B5",
     "title": "Checkout and payment protocols",
     "dimension": "commerce",
-    "description": "Can an agent start a transaction: UCP manifest, ACP checkout, payment handlers, guest checkout and cart API?"
+    "description": "Can an agent start a transaction: UCP profile, ACP discovery, Shopify agent surface, guest checkout and cart API?"
   }
 ]

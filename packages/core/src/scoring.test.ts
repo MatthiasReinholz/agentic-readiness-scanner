@@ -44,15 +44,28 @@ describe('scoreDimension', () => {
 
 describe('computeLevel', () => {
   it('gates levels instead of averaging', () => {
-    const crawlable = [result('A1.1', 'pass'), result('A2.2', 'pass'), result('A3.2', 'pass')];
+    const crawlable = [
+      result('A1.1', 'pass'),
+      result('A2.2', 'pass'),
+      result('A2.4', 'pass'),
+      result('A3.2', 'pass'),
+    ];
     expect(computeLevel(crawlable)).toMatchObject({ value: 1, name: 'Crawlable' });
-    expect(computeLevel(crawlable).next_gate).toEqual(['B1.2', 'B1.5', 'B2.1', 'B2.2']);
+    expect(computeLevel(crawlable).next_gate).toEqual([
+      'A1.3',
+      'B1.2',
+      'B1.8',
+      'B1.5',
+      'B2.1',
+      'B2.2',
+    ]);
   });
 
   it('accepts any alternative inside a gate', () => {
     const readable = [
       result('A1.1', 'pass'),
       result('A2.2', 'pass'),
+      result('A2.4', 'pass'),
       result('A3.2', 'pass'),
       result('B1.5', 'pass'),
       result('B2.1', 'pass'),
@@ -65,6 +78,7 @@ describe('computeLevel', () => {
     const results = [
       result('A1.1', 'pass'),
       result('A2.2', 'fail'),
+      result('A2.4', 'pass'),
       result('A3.2', 'pass'),
       result('B2.1', 'pass'),
     ];
@@ -76,6 +90,7 @@ describe('computeLevel', () => {
     const results = [
       result('A1.1', 'pass'),
       result('A2.2', 'pass'),
+      result('A2.4', 'pass'),
       { ...result('A3.2', 'skip'), skip_reason: 'not_applicable' as const },
       { ...result('B2.1', 'skip'), skip_reason: 'not_applicable' as const },
     ];
@@ -91,6 +106,7 @@ describe('computeLevel', () => {
     const noProducts = [
       result('A1.1', 'pass'),
       result('A2.2', 'pass'),
+      result('A2.4', 'pass'),
       { ...result('A3.2', 'skip'), skip_reason: 'not_applicable' as const },
     ];
     expect(computeLevel(noProducts, catalog, store)).toMatchObject({
@@ -98,7 +114,7 @@ describe('computeLevel', () => {
       next_gate: ['A3.2'],
     });
     const unimplemented = [
-      ...noProducts.slice(0, 2),
+      ...noProducts.slice(0, 3),
       { ...result('A3.2', 'skip'), skip_reason: 'not_implemented' as const },
     ];
     expect(computeLevel(unimplemented, catalog, store).value).toBe(0);

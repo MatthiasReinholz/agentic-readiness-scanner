@@ -49,6 +49,7 @@ export function orderByDependencies(definitions: readonly CheckDefinition[]): Ch
 function unmetRequirement(definition: CheckDefinition, target: Target): Requirement | null {
   for (const requirement of definition.requires) {
     if (requirement === 'woocommerce' && target.platform !== 'woocommerce') return requirement;
+    if (requirement === 'shopify' && target.platform !== 'shopify') return requirement;
     if (requirement === 'products' && target.sampled.products.length === 0) return requirement;
   }
   return null;
@@ -56,6 +57,7 @@ function unmetRequirement(definition: CheckDefinition, target: Target): Requirem
 
 const UNMET_MESSAGES: Record<Requirement, string> = {
   woocommerce: 'requires WooCommerce, which was not detected',
+  shopify: 'requires Shopify, which was not detected',
   products: 'no product pages were found to sample',
 };
 

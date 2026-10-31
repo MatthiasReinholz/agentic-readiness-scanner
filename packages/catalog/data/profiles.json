@@ -4,7 +4,7 @@
     "title": "WooCommerce store",
     "description": "All checks, including those that read the WooCommerce Store API.",
     "dimensions": ["ingestion", "commerce"],
-    "unsatisfied_requirements": [],
+    "unsatisfied_requirements": ["shopify"],
     "max_level": 5
   },
   {
@@ -20,7 +20,7 @@
     "title": "Content site",
     "description": "Ingestion checks only. Commerce groups and product-page checks do not apply.",
     "dimensions": ["ingestion"],
-    "unsatisfied_requirements": ["woocommerce", "products"],
+    "unsatisfied_requirements": ["woocommerce", "shopify", "products"],
     "max_level": 1
   }
 ]

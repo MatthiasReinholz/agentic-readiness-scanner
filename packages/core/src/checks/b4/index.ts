@@ -3,7 +3,7 @@ import { HtmlDocument } from '../../parsers/html.js';
 import { asString, extractJsonLd, hasValue, organizationNodes } from '../../parsers/jsonld.js';
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
-import { SHOPPING_AGENTS } from '../a2/index.js';
+import { SEARCH_CRAWLERS } from '../a2/index.js';
 import { pathOf } from '../shared.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
@@ -38,7 +38,7 @@ export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher })
   const evidence = { url, status: response.status, words };
   if (response.status !== 200)
     return fail(`return policy page returned HTTP ${response.status}`, evidence);
-  if (words < 300) return warn(`return policy page is short (${words} words)`, evidence);
+  if (words <= 100) return warn(`return policy page is short (${words} words)`, evidence);
   return pass(`return policy at ${url} (${words} words)`, evidence);
 });
 
@@ -304,7 +304,9 @@ export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fet
     const robots = new URL(url).origin === target.origin ? target.robots : null;
     const path = pathOf(url);
     const blocked = robots
-      ? SHOPPING_AGENTS.filter((agent) => !isAllowed(robots, agent, path))
+      ? SEARCH_CRAWLERS.map((crawler) => crawler.token).filter(
+          (agent) => !isAllowed(robots, agent, path),
+        )
       : [];
     const ok =
       response.status === 200 && words > MIN_POLICY_WORDS && !noindex && blocked.length === 0;
@@ -326,7 +328,7 @@ export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fet
   return outcomeForRatio(
     readable,
     total,
-    `${readable} of ${total} policy page(s) are readable by shopping agents${
+    `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
       problems.length > 0 ? ` (${problems.join('; ')})` : ''
     }`,
     { pages, readable, total, problems },

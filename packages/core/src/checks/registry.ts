@@ -6,9 +6,11 @@ import {
   sitemapReachable,
 } from './a1/index.js';
 import {
-  aiCrawlerRulesExplicit,
-  noIndexingRestrictionsOnProducts,
-  shoppingAgentsAllowed,
+  honestFetchNotBlocked,
+  noAnswerExclusionDirectives,
+  searchCrawlersAllowed,
+  trainingPolicyStated,
+  userFetchersAllowed,
 } from './a2/index.js';
 import {
   accessibleMainContent,
@@ -59,9 +61,11 @@ export const builtInChecks: readonly Check[] = [
   productUrlsInSitemap,
   llmsTxtPresent,
   llmsTxtLinksToCatalog,
-  aiCrawlerRulesExplicit,
-  shoppingAgentsAllowed,
-  noIndexingRestrictionsOnProducts,
+  trainingPolicyStated,
+  searchCrawlersAllowed,
+  honestFetchNotBlocked,
+  userFetchersAllowed,
+  noAnswerExclusionDirectives,
   serverRenderedProductContent,
   pageWeightAndResponseTime,
   canonicalAndHreflang,

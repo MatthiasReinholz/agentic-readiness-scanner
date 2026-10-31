@@ -348,7 +348,7 @@ describe('B4.6 policy pages are agent-readable', () => {
       }),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('4 of 4 policy page(s) are readable by shopping agents');
+    expect(outcome.message).toBe('4 of 4 policy page(s) are readable by the crawlers behind AI answers');
     expect(outcome.evidence).toMatchObject({
       readable: 4,
       total: 4,
@@ -373,7 +373,7 @@ describe('B4.6 policy pages are agent-readable', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 4 policy page(s) are readable by shopping agents (returns: HTTP 404; shipping: 51 words; privacy: noindex)',
+      '1 of 4 policy page(s) are readable by the crawlers behind AI answers (returns: HTTP 404; shipping: 51 words; privacy: noindex)',
     );
     expect(outcome.evidence).toMatchObject({
       readable: 1,
@@ -391,16 +391,16 @@ describe('B4.6 policy pages are agent-readable', () => {
       policyPagesAgentReadable,
       targetFor({
         policies: { returns },
-        robots: 'User-agent: *\nAllow: /\n\nUser-agent: Claude-User\nDisallow: /returns/\n',
+        robots: 'User-agent: *\nAllow: /\n\nUser-agent: Claude-SearchBot\nDisallow: /returns/\n',
       }),
       mapFetcher({ [returns]: pageOf(150) }),
     );
     expect(blocked.verdict).toBe('fail');
     expect(blocked.message).toBe(
-      '0 of 1 policy page(s) are readable by shopping agents (returns: blocks Claude-User)',
+      '0 of 1 policy page(s) are readable by the crawlers behind AI answers (returns: blocks Claude-SearchBot)',
     );
     expect(blocked.evidence).toMatchObject({
-      pages: { returns: { blocked_agents: ['Claude-User'], readable: false } },
+      pages: { returns: { blocked_agents: ['Claude-SearchBot'], readable: false } },
     });
     const header = await runCheck(
       policyPagesAgentReadable,

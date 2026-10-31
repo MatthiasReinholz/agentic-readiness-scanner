@@ -1,6 +1,6 @@
 import { contentType } from '../../http/types.js';
 import { isWellFormedLlmsTxt, parseLlmsTxt } from '../../parsers/llms-txt.js';
-import { defineCheck, fail, pass, warn } from '../types.js';
+import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
 export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
   const response = target.robotsResponse;
@@ -89,6 +89,10 @@ export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) =>
     status: response.status,
     content_type: contentType(response),
   };
+  // Optional file, no documented consumer among the major assistants: absence is not scored.
+  if (response.status === 404 || response.status === 410) {
+    return skip('not_applicable', 'no llms.txt (optional; its absence is not scored)', evidence);
+  }
   if (response.status !== 200) {
     return fail(`llms.txt returned HTTP ${response.status}`, evidence);
   }
@@ -99,10 +103,16 @@ export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) =>
   evidence.title = parsed.title;
   evidence.sections = parsed.sections;
   evidence.links = parsed.links.length;
-  if (!isWellFormedLlmsTxt(parsed)) {
-    return warn('llms.txt is present but lacks an H1 title or link sections', evidence);
+  if (parsed.title === null) {
+    return fail(
+      'llms.txt does not start with an H1, the one element the proposal requires',
+      evidence,
+    );
   }
-  return pass(`llms.txt "${parsed.title ?? ''}" with ${parsed.links.length} link(s)`, evidence);
+  if (!isWellFormedLlmsTxt(parsed)) {
+    return warn('llms.txt has an H1 but no links', evidence);
+  }
+  return pass(`llms.txt "${parsed.title}" with ${parsed.links.length} link(s)`, evidence);
 });
 
 const CATALOG_LINK_PATTERN =

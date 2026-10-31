@@ -10,6 +10,10 @@
       {
         "title": "RFC 9309 Robots Exclusion Protocol",
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      },
+      {
+        "title": "Google: How Google interprets the robots.txt specification",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/robots/robots_txt"
       }
     ]
   },
@@ -20,7 +24,12 @@
     "question": "Is there a sitemap an agent can fetch?",
     "method": "Collect Sitemap: lines from robots.txt, then try /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml. Pass when one returns parseable XML with at least one URL or child sitemap.",
     "weight": 2,
-    "spec": [{ "title": "Sitemaps XML format", "url": "https://www.sitemaps.org/protocol.html" }]
+    "spec": [
+      {
+        "title": "Sitemaps XML format",
+        "url": "https://www.sitemaps.org/protocol.html"
+      }
+    ]
   },
   {
     "id": "A1.3",
@@ -30,34 +39,89 @@
     "method": "Pass when the sitemap index contains a product sitemap (WooCommerce: product-sitemap.xml or wp-sitemap-posts-product-*.xml) or the URL set contains URLs matching product path patterns.",
     "weight": 2,
     "depends_on": ["A1.2"],
-    "spec": [{ "title": "Sitemaps XML format", "url": "https://www.sitemaps.org/protocol.html" }]
+    "spec": [
+      {
+        "title": "Sitemaps XML format",
+        "url": "https://www.sitemaps.org/protocol.html"
+      }
+    ]
   },
   {
     "id": "A1.4",
     "group": "A1",
     "title": "Link response headers",
-    "question": "Does the homepage advertise agent-facing resources in Link headers?",
-    "method": "Read the Link header on the homepage response. Pass when it carries rel=\"alternate\" type=\"text/markdown\", rel=\"api-catalog\", rel=\"llms-txt\" or an MCP relation; warn when only unrelated links exist; fail when absent.",
+    "question": "Does the site point agents at its machine-readable resources through Link headers?",
+    "method": "Read the Link response headers of the home page and one sampled product page. Pass when any relation an agent can use is present: llms-txt, alternate with type text/markdown, api-catalog, service-desc, describedby, license with type application/rsl+xml, or ucp (the relation Shopify sends on every response). Fail when none is. Low weight: a convention, not a requirement.",
     "weight": 1,
-    "spec": [{ "title": "RFC 8288 Web Linking", "url": "https://www.rfc-editor.org/rfc/rfc8288" }]
+    "spec": [
+      {
+        "title": "RFC 8288 Web Linking",
+        "url": "https://www.rfc-editor.org/rfc/rfc8288"
+      },
+      {
+        "title": "RFC 9727 api-catalog",
+        "url": "https://www.rfc-editor.org/rfc/rfc9727"
+      },
+      {
+        "title": "Shopify: agentic checkout for agents",
+        "url": "https://shopify.dev/docs/agents/checkout"
+      }
+    ]
   },
   {
     "id": "A1.5",
     "group": "A1",
-    "title": "llms.txt present and well-formed",
-    "question": "Is there an /llms.txt an agent can read?",
-    "method": "GET /llms.txt. Pass on a Markdown document with an H1, an optional blockquote summary and at least one link section, per llmstxt.org; warn when present but malformed.",
-    "weight": 2,
-    "spec": [{ "title": "llms.txt proposal", "url": "https://llmstxt.org/" }]
+    "title": "llms.txt is valid when present",
+    "question": "If the site publishes llms.txt, is it a usable file?",
+    "method": "GET /llms.txt. A 404 or 410 skips the check as not applicable: the file is optional and no major assistant documents reading it, so its absence is never scored. On a 200 the body must be text, not HTML (a soft 404 fails), and must start with an H1, the only element the proposal requires; warn when it has no links; pass otherwise. The same rule Lighthouse applies.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "llms.txt proposal",
+        "url": "https://llmstxt.org/"
+      },
+      {
+        "title": "Lighthouse: llms.txt audit",
+        "url": "https://developer.chrome.com/docs/lighthouse/agentic-browsing/llms-txt"
+      }
+    ]
   },
   {
     "id": "A1.6",
     "group": "A1",
-    "title": "llms.txt links to catalog",
-    "question": "Does llms.txt point an agent at the catalog as data?",
-    "method": "Pass when at least one link in llms.txt targets a product feed, the Store API, a sitemap of products or a product index page.",
-    "weight": 2,
+    "title": "llms.txt links to the catalog",
+    "question": "Does llms.txt lead an agent to the catalog as data?",
+    "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap or the shop index. Fail when it links only to prose pages. Skipped when there is no llms.txt.",
+    "weight": 1,
     "depends_on": ["A1.5"],
-    "spec": [{ "title": "llms.txt proposal", "url": "https://llmstxt.org/" }]
+    "spec": [
+      {
+        "title": "llms.txt proposal",
+        "url": "https://llmstxt.org/"
+      }
+    ]
+  },
+  {
+    "id": "A1.7",
+    "group": "A1",
+    "title": "Sitemap lastmod is present and plausible",
+    "question": "Can an agent tell from the sitemap what changed and when?",
+    "method": "Read <lastmod> in the sitemaps fetched. Pass when at least 80 percent of entries carry a valid W3C datetime and the values differ from one another; warn when fewer entries carry one, or when every value is identical (a timestamp generated at request time, which crawlers learn to ignore); fail when none carry one. Bing names lastmod a key signal for how fast changes reach its AI answers; Google uses it when it is consistently accurate.",
+    "weight": 1,
+    "depends_on": ["A1.2"],
+    "spec": [
+      {
+        "title": "Sitemaps protocol",
+        "url": "https://www.sitemaps.org/protocol.html"
+      },
+      {
+        "title": "Bing: keeping content discoverable with sitemaps in AI-powered search",
+        "url": "https://blogs.bing.com/webmaster/2025/7/Keeping-Content-Discoverable-with-Sitemaps-in-AI-Powered-Search/"
+      },
+      {
+        "title": "Google: build and submit a sitemap",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+      }
+    ]
   }
 ]

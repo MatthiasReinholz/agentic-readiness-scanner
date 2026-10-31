@@ -2,18 +2,26 @@
   {
     "id": "A4.1",
     "group": "A4",
-    "title": "MCP server card",
-    "question": "Does the site advertise an MCP server?",
-    "method": "GET /.well-known/mcp/server-card.json. Pass on valid JSON with a name and an endpoint. The path is a community convention this scanner adopts, not part of the MCP specification: the Server Card extension (SEP-2127) recommends publishing the card at <endpoint>/server-card and listing it in /.well-known/ai-catalog.json.",
+    "title": "MCP server discoverable",
+    "question": "Can an agent find an MCP server for this site through a documented route?",
+    "method": "Look for a server card through the routes the MCP Server Card extension and the AI Catalog proposal describe: entries of type application/mcp-server-card+json in /.well-known/ai-catalog.json, a card at <endpoint>/server-card for an endpoint linked from llms.txt or a Link header, and the community path /.well-known/mcp/server-card.json. Pass when a card parses with a name and an endpoint URL; warn when only the community path answers (it is not in the specification); fail when none does. No host probes these files yet (agents are given MCP URLs by hand or through registries), hence the low weight.",
     "weight": 1,
     "spec": [
       {
-        "title": "Model Context Protocol specification",
-        "url": "https://modelcontextprotocol.io/specification/latest"
+        "title": "Model Context Protocol specification 2026-07-28",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28"
       },
       {
         "title": "SEP-2127: MCP Server Cards",
         "url": "https://modelcontextprotocol.io/seps/2127-mcp-server-cards"
+      },
+      {
+        "title": "MCP Server Card extension: discovery",
+        "url": "https://github.com/modelcontextprotocol/experimental-ext-server-card/blob/main/docs/discovery.md"
+      },
+      {
+        "title": "AI Catalog (/.well-known/ai-catalog.json)",
+        "url": "https://github.com/Agent-Card/ai-catalog"
       }
     ]
   },
@@ -22,44 +30,87 @@
     "group": "A4",
     "title": "API catalog",
     "question": "Does the site publish an API catalog linkset?",
-    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json or linkset document.",
+    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json document (or a linkset parseable as JSON) with at least one item. Fail otherwise.",
     "weight": 1,
-    "spec": [{ "title": "RFC 9727 api-catalog", "url": "https://www.rfc-editor.org/rfc/rfc9727" }]
+    "spec": [
+      {
+        "title": "RFC 9727 api-catalog",
+        "url": "https://www.rfc-editor.org/rfc/rfc9727"
+      }
+    ]
   },
   {
     "id": "A4.3",
     "group": "A4",
-    "title": "OAuth discovery",
-    "question": "Can an agent discover how to authorize against the site's APIs?",
-    "method": "GET /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource. Pass when either returns valid JSON metadata.",
+    "title": "OAuth discovery for the MCP endpoint",
+    "question": "Can an agent discover how to authorize against the MCP server?",
+    "method": "For the MCP endpoint found by A4.1, GET /.well-known/oauth-protected-resource/<endpoint path> and /.well-known/oauth-protected-resource (RFC 9728, which the MCP specification requires of authorized servers), and /.well-known/oauth-authorization-server (RFC 8414). Pass when protected resource metadata with authorization_servers is found, or when the endpoint answers 401 with a WWW-Authenticate header naming resource_metadata; warn when only authorization server metadata exists; fail when none does.",
     "weight": 1,
+    "depends_on": ["A4.1"],
     "spec": [
       {
-        "title": "RFC 8414 OAuth 2.0 Authorization Server Metadata",
-        "url": "https://www.rfc-editor.org/rfc/rfc8414"
+        "title": "MCP authorization: authorization server discovery",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/authorization-server-discovery"
       },
       {
         "title": "RFC 9728 OAuth 2.0 Protected Resource Metadata",
         "url": "https://www.rfc-editor.org/rfc/rfc9728"
+      },
+      {
+        "title": "RFC 8414 OAuth 2.0 Authorization Server Metadata",
+        "url": "https://www.rfc-editor.org/rfc/rfc8414"
       }
     ]
   },
   {
     "id": "A4.4",
     "group": "A4",
-    "title": "Agent Skills index",
-    "question": "Does the site publish skills an agent can load?",
-    "method": "GET /.well-known/agent-skills/index.json. Pass on valid JSON listing at least one skill.",
+    "title": "MCP endpoint reachable",
+    "question": "Does the advertised MCP endpoint answer like an MCP server?",
+    "method": "GET the endpoint from the server card without a body. Pass on 405 (a 2026-07-28 server accepts POST only), on 401 with a WWW-Authenticate header (an authorized server), or on 200 with text/event-stream (a server on the 2025 revisions). Fail on 404, 5xx or an HTML page. The scanner sends no JSON-RPC request, so this proves reachability, not conformance.",
     "weight": 1,
-    "spec": [{ "title": "Agent Skills specification", "url": "https://agentskills.io/home" }]
+    "depends_on": ["A4.1"],
+    "spec": [
+      {
+        "title": "MCP Streamable HTTP transport",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http"
+      },
+      {
+        "title": "Model Context Protocol specification 2026-07-28",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28"
+      }
+    ]
   },
   {
     "id": "A4.5",
     "group": "A4",
     "title": "A2A agent card",
-    "question": "Does the site publish an A2A agent card?",
-    "method": "GET /.well-known/agent-card.json. Pass on valid JSON with name, url and skills fields.",
+    "question": "Does the site publish a valid A2A agent card?",
+    "method": "GET /.well-known/agent-card.json. Pass on JSON with the eight fields A2A 1.0 requires: name, description, supportedInterfaces, version, capabilities, defaultInputModes, defaultOutputModes and skills. Warn when a card is found only at the pre-0.3 path /.well-known/agent.json or lacks some fields. Fail when none is found.",
     "weight": 1,
-    "spec": [{ "title": "Agent2Agent protocol", "url": "https://a2a-protocol.org/" }]
+    "spec": [
+      {
+        "title": "Agent2Agent protocol specification",
+        "url": "https://a2a-protocol.org/latest/specification/"
+      }
+    ]
+  },
+  {
+    "id": "A4.6",
+    "group": "A4",
+    "title": "WebMCP tool declarations",
+    "question": "Does the site declare in-page tools for browser agents?",
+    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; a plain pass when not, because the API is a Chrome origin trial and a W3C community draft with no shipping consumer. Reported, never scored.",
+    "weight": "info",
+    "spec": [
+      {
+        "title": "WebMCP (W3C Web Machine Learning Community Group draft)",
+        "url": "https://webmachinelearning.github.io/webmcp/"
+      },
+      {
+        "title": "Chrome: WebMCP declarative API",
+        "url": "https://developer.chrome.com/docs/ai/webmcp/declarative-api"
+      }
+    ]
   }
 ]

@@ -80,7 +80,7 @@ export function renderChecksDoc(catalog: Catalog): string {
     lines.push('| --- | --- | --- | --- | --- | --- |');
     for (const check of checks) {
       const tags = check.requires.map((requirement) =>
-        requirement === 'woocommerce' ? 'WC' : requirement,
+        requirement === 'woocommerce' ? 'WC' : requirement === 'shopify' ? 'Shopify' : requirement,
       );
       const wc = tags.length > 0 ? ` (${tags.join(', ')})` : '';
       const spec = check.spec.map((ref) => `[${escapeCell(ref.title)}](${ref.url})`).join(', ');

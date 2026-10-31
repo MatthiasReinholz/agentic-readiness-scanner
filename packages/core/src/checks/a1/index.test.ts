@@ -56,8 +56,10 @@ describe('A1.5 and A1.6 llms.txt', () => {
   const target = targetFor();
   const url = 'https://shop.example/llms.txt';
 
-  it('fails when llms.txt is missing or HTML, warns when malformed, passes when well formed', async () => {
-    expect((await runCheck(llmsTxtPresent, target, mapFetcher({}))).verdict).toBe('fail');
+  it('skips when llms.txt is missing, fails on HTML or no H1, warns without links, passes when well formed', async () => {
+    const missing = await runCheck(llmsTxtPresent, target, mapFetcher({}));
+    expect(missing.verdict).toBe('skip');
+    expect(missing.skipReason).toBe('not_applicable');
     const html = await runCheck(
       llmsTxtPresent,
       target,
@@ -66,7 +68,14 @@ describe('A1.5 and A1.6 llms.txt', () => {
     expect(html.verdict).toBe('fail');
     expect(html.message).toMatch(/HTML/);
     const prose = await runCheck(llmsTxtPresent, target, mapFetcher({ [url]: 'Just prose.' }));
-    expect(prose.verdict).toBe('warn');
+    expect(prose.verdict).toBe('fail');
+    expect(prose.message).toMatch(/H1/);
+    const noLinks = await runCheck(
+      llmsTxtPresent,
+      target,
+      mapFetcher({ [url]: '# Shop\n\n> Ceramics.\n' }),
+    );
+    expect(noLinks.verdict).toBe('warn');
     const good = await runCheck(
       llmsTxtPresent,
       target,

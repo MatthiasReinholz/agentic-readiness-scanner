@@ -65,8 +65,8 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
  * decimal kilobytes; times cover the whole response as the fetcher measured it, so they
  * are an upper bound on time to first byte.
  */
-const PAGE_WEIGHT_PASS = { bytes: 500_000, ms: 1_500 };
-const PAGE_WEIGHT_WARN = { bytes: 1_000_000, ms: 3_000 };
+const PAGE_WEIGHT_PASS = { bytes: 1_000_000, ms: 3_000 };
+const PAGE_WEIGHT_WARN = { bytes: 2_000_000, ms: 8_000 };
 
 function kilobytes(bytes: number): string {
   return `${Math.round(bytes / 1000)} KB`;
@@ -113,13 +113,13 @@ export const pageWeightAndResponseTime = defineCheck('A3.3', async ({ target, fe
     sampled === 'home' ? 'the home page (no product pages sampled)' : 'a sampled product page';
   const measured = `largest ${kilobytes(largest)}, slowest response time ${slowest} ms`;
   if (largest >= PAGE_WEIGHT_WARN.bytes || slowest >= PAGE_WEIGHT_WARN.ms) {
-    return fail(`${subject} exceeds 1 MB or 3 s response time (${measured})`, evidence);
+    return fail(`${subject} exceeds 2 MB or 8 s response time (${measured})`, evidence);
   }
   if (largest >= PAGE_WEIGHT_PASS.bytes || slowest >= PAGE_WEIGHT_PASS.ms) {
-    return warn(`${subject} exceeds 500 KB or 1.5 s response time (${measured})`, evidence);
+    return warn(`${subject} exceeds 1 MB or 3 s response time (${measured})`, evidence);
   }
   return pass(
-    `${sampled === 'home' ? subject : 'every sampled product page'} is under 500 KB and 1.5 s response time (${measured})`,
+    `${sampled === 'home' ? subject : 'every sampled product page'} is under 1 MB and 3 s response time (${measured})`,
     evidence,
   );
 });
