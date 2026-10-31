@@ -6,6 +6,7 @@ import {
   type SampledPages,
 } from '@agentic-readiness/catalog';
 
+import { isRobotsAware } from '../http/robots-gate.js';
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument } from '../parsers/html.js';
@@ -89,8 +90,8 @@ function resolveHttpUrl(href: string, origin: string): URL | null {
   }
 }
 
-function resolveSameOrigin(href: string, origin: string): string | null {
-  const url = resolveHttpUrl(href, origin);
+function resolveSameOrigin(href: string, origin: string, base: string = origin): string | null {
+  const url = resolveHttpUrl(href, base);
   return url?.origin === origin ? url.href : null;
 }
 
@@ -102,11 +103,12 @@ function resolveSameOrigin(href: string, origin: string): string | null {
 export function findPolicyLinks(
   doc: HtmlDocument,
   origin: string,
+  base: string = origin,
 ): Partial<Record<PolicyKind, string>> {
   const sameOrigin: Partial<Record<PolicyKind, string>> = {};
   const crossOrigin: Partial<Record<PolicyKind, string>> = {};
   for (const anchor of doc.anchors()) {
-    const url = resolveHttpUrl(anchor.href, origin);
+    const url = resolveHttpUrl(anchor.href, base);
     if (!url || url.href === `${origin}/`) continue;
     const haystack = `${anchor.text} ${url.pathname}`;
     const bucket = url.origin === origin ? sameOrigin : crossOrigin;
@@ -142,13 +144,21 @@ async function discoverSitemap(
       warnings.push(`sitemap at ${url} did not parse: ${parsed.error ?? 'unknown error'}`);
       continue;
     }
+    // The sitemap protocol requires absolute URLs; anything else is noise, and anything
+    // on another origin is not this store.
+    const sameOrigin = (locs: string[]): string[] =>
+      locs
+        .filter((loc) => /^https?:\/\//i.test(loc.trim()))
+        .map((loc) => resolveSameOrigin(loc.trim(), origin))
+        .filter((resolved): resolved is string => resolved !== null);
+    const urls = sameOrigin(parsed.urls);
     const summary: SitemapSummary = {
       url,
       kind: parsed.kind,
       childSitemaps: parsed.sitemaps,
       fetchedSitemaps: [],
-      urls: parsed.urls,
-      productUrls: parsed.urls.filter(looksLikeProductUrl),
+      urls,
+      productUrls: urls.filter(looksLikeProductUrl),
     };
     if (parsed.kind === 'index') {
       const productFirst = [...parsed.sitemaps].sort(
@@ -164,11 +174,12 @@ async function discoverSitemap(
         const childParsed = parseSitemap(childResponse.body);
         if (childParsed.kind !== 'urlset') continue;
         summary.fetchedSitemaps.push(childUrl);
-        summary.urls.push(...childParsed.urls);
+        const childUrls = sameOrigin(childParsed.urls);
+        summary.urls.push(...childUrls);
         if (looksLikeProductSitemap(childUrl)) {
-          summary.productUrls.push(...childParsed.urls);
+          summary.productUrls.push(...childUrls);
         } else {
-          summary.productUrls.push(...childParsed.urls.filter(looksLikeProductUrl));
+          summary.productUrls.push(...childUrls.filter(looksLikeProductUrl));
         }
         if (summary.productUrls.length > 0 && !looksLikeProductSitemap(childUrl)) break;
         if (looksLikeProductSitemap(childUrl) && summary.productUrls.length > 0) break;
@@ -230,6 +241,7 @@ export async function resolveTarget(
   const robotsLooksLikeText =
     robotsResponse.status === 200 && !/<html|<!doctype/i.test(robotsResponse.body.slice(0, 500));
   const robots = robotsLooksLikeText ? parseRobotsTxt(robotsResponse.body) : null;
+  if (isRobotsAware(fetcher)) fetcher.setRobots(robots);
 
   const sitemap = await discoverSitemap(
     origin,
@@ -241,7 +253,7 @@ export async function resolveTarget(
 
   const anchorUrls = homeDoc
     .anchors()
-    .map((anchor) => resolveSameOrigin(anchor.href, origin))
+    .map((anchor) => resolveSameOrigin(anchor.href, origin, home.finalUrl))
     .filter((url): url is string => url !== null);
   const productCandidates =
     sitemap && sitemap.productUrls.length > 0
@@ -254,7 +266,7 @@ export async function resolveTarget(
     );
   }
   const listing = anchorUrls.find((url) => LISTING_PATTERN.test(new URL(url).pathname));
-  const policies = findPolicyLinks(homeDoc, origin);
+  const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
 
   const storeSignals =
     products.length > 0 ||

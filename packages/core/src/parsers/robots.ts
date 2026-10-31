@@ -23,14 +23,38 @@ export interface RobotsTxt {
   unknownLines: string[];
 }
 
-function patternToRegExp(pattern: string): RegExp {
-  let source = '';
-  for (const char of pattern) {
-    if (char === '*') source += '.*';
-    else if (char === '$') source += '$';
-    else source += char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * RFC 9309 path matching: the rule is a prefix of the path, `*` matches any run of
+ * characters and a trailing `$` anchors the end. Implemented as a two-pointer scan with
+ * backtracking to the last `*` only, so it is linear in the path length and immune to
+ * the catastrophic patterns a regex translation would allow.
+ */
+export function matchesRobotsPattern(pattern: string, path: string): boolean {
+  const anchored = pattern.endsWith('$');
+  const rule = anchored ? pattern.slice(0, -1) : pattern;
+  let p = 0;
+  let s = 0;
+  let starIndex = -1;
+  let starMatch = 0;
+  while (s < path.length) {
+    if (p < rule.length && rule[p] === '*') {
+      starIndex = p;
+      starMatch = s;
+      p += 1;
+    } else if (p < rule.length && rule[p] === path[s]) {
+      p += 1;
+      s += 1;
+    } else if (starIndex !== -1) {
+      p = starIndex + 1;
+      starMatch += 1;
+      s = starMatch;
+    } else {
+      return false;
+    }
+    if (p === rule.length && !anchored) return true;
   }
-  return new RegExp(`^${source}`);
+  while (p < rule.length && rule[p] === '*') p += 1;
+  return p === rule.length;
 }
 
 export function parseRobotsTxt(text: string): RobotsTxt {
@@ -111,7 +135,7 @@ export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup |
   for (const group of robots.groups) {
     for (const agent of group.agents) {
       if (agent === '*') continue;
-      if ((token.startsWith(agent) || token === agent) && agent.length > bestLength) {
+      if (token === agent && agent.length > bestLength) {
         best = group;
         bestLength = agent.length;
       }
@@ -125,7 +149,7 @@ export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup |
 export function isAgentNamed(robots: RobotsTxt, productToken: string): boolean {
   const token = productToken.toLowerCase();
   return robots.groups.some((group) =>
-    group.agents.some((agent) => agent !== '*' && (token.startsWith(agent) || token === agent)),
+    group.agents.some((agent) => agent !== '*' && token === agent),
   );
 }
 
@@ -136,7 +160,7 @@ export function isAllowed(robots: RobotsTxt, productToken: string, path: string)
   let winner: RobotsRule | null = null;
   let winnerLength = -1;
   for (const rule of group.rules) {
-    if (patternToRegExp(rule.pattern).test(path)) {
+    if (matchesRobotsPattern(rule.pattern, path)) {
       const length = rule.pattern.length;
       if (length > winnerLength || (length === winnerLength && rule.type === 'allow')) {
         winner = rule;

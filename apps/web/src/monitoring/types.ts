@@ -38,6 +38,10 @@ export interface MonitorStore {
   listDue(before: string, limit: number): Promise<Monitor[]>;
   /** Everything, newest first, for the owner's export. */
   list(limit: number): Promise<Monitor[]>;
+  /** Confirmation requests for an address since `sinceIso`, pending or not; caps signup floods. */
+  countCreatedSince(email: string, sinceIso: string): Promise<number>;
+  /** Drops unconfirmed requests older than `beforeIso`; returns how many. */
+  deletePendingOlderThan(beforeIso: string): Promise<number>;
 }
 
 export interface MailMessage {

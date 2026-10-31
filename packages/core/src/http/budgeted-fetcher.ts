@@ -150,10 +150,18 @@ export class BudgetedFetcher implements Fetcher {
         continue;
       }
 
-      const { body, bytes, truncated } =
-        method === 'HEAD'
-          ? { body: '', bytes: 0, truncated: false }
-          : await readLimited(response, this.maxBodyBytes);
+      let read: { body: string; bytes: number; truncated: boolean };
+      try {
+        read =
+          method === 'HEAD'
+            ? { body: '', bytes: 0, truncated: false }
+            : await readLimited(response, this.maxBodyBytes);
+      } catch (error) {
+        // The body stream failed or timed out after the headers arrived; same outcome as
+        // a failed request, and never an unhandled rejection cached for the whole scan.
+        return this.failure(url, current.href, started, error, hop);
+      }
+      const { body, bytes, truncated } = read;
       return {
         url,
         finalUrl: current.href,

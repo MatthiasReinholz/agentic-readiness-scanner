@@ -105,6 +105,36 @@ describe('hosted app', () => {
     expect(second.id).toBe(first.id);
   });
 
+  it('keeps the per-host cooldown even when a profile override is requested', async () => {
+    const { app } = testApp();
+    const first = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://ceramics.example/' }),
+      })
+    ).json()) as { id: string };
+    const second = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://ceramics.example/', profile: 'other-store' }),
+      })
+    ).json()) as { id: string; reused: boolean };
+    expect(second.reused).toBe(true);
+    expect(second.id).toBe(first.id);
+  });
+
+  it('sends Vary: Accept on negotiated report URLs', async () => {
+    const { app } = testApp();
+    const { id } = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://ceramics.example/' }),
+      })
+    ).json()) as { id: string };
+    expect((await app.request(`/r/${id}`)).headers.get('vary')).toBe('Accept');
+    expect((await app.request(`/r/${id}.json`)).headers.get('vary')).toBe('Accept');
+  });
+
   it('rejects bad input and unreachable targets with useful statuses', async () => {
     const { app } = testApp();
     expect((await app.request('/api/scan', { method: 'POST', body: '{}' })).status).toBe(400);

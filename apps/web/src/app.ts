@@ -17,6 +17,7 @@ import { Hono } from 'hono';
 
 import type { AppConfig } from './config.js';
 import { MonitoringService } from './monitoring/service.js';
+import { digestsEqual } from './monitoring/tokens.js';
 import type { Mailer, MonitorStore } from './monitoring/types.js';
 import { homePage } from './pages/home.js';
 import { page } from './pages/layout.js';
@@ -82,13 +83,44 @@ export async function scanOrReuse(
   }
   const now = deps.now ?? (() => new Date());
   const latest = await deps.store.latestForHost(host);
+  // One scan per host per cooldown window, whatever the caller asks for: the window is
+  // the only thing standing between this endpoint and a request amplifier, so a profile
+  // override does not reopen it. Inside the window the stored result is served.
   if (
     latest &&
-    !request.profile &&
     now().getTime() - Date.parse(latest.createdAt) < deps.config.targetCooldownSeconds * 1000
   ) {
     return { scan: latest, reused: true };
   }
+  const inFlight = inFlightScans.get(host);
+  if (inFlight) return inFlight.then((scan) => ({ scan, reused: true }));
+  if (inFlightScans.size >= MAX_CONCURRENT_SCANS) {
+    throw new ScanRequestError('The scanner is busy; try again in a minute.', 503);
+  }
+  const running = performScan(deps, request, host, now);
+  inFlightScans.set(host, running);
+  try {
+    return { scan: await running, reused: false };
+  } finally {
+    inFlightScans.delete(host);
+  }
+}
+
+/** Floor between monitoring runs on this isolate; see the cron route. */
+const MIN_MONITOR_RUN_INTERVAL_MS = 10 * 60 * 1000;
+let lastMonitorRun = 0;
+
+/** Scans in progress on this isolate, by host: parallel submissions share one scan. */
+const inFlightScans = new Map<string, Promise<StoredScan>>();
+/** Scans this isolate runs at once before answering 503. */
+const MAX_CONCURRENT_SCANS = 4;
+
+async function performScan(
+  deps: AppDependencies,
+  request: ScanRequest,
+  host: string,
+  now: () => Date,
+): Promise<StoredScan> {
   const options: ScanOptions = {
     budget: deps.config.scanBudget,
     now,
@@ -106,11 +138,16 @@ export async function scanOrReuse(
   const stored: StoredScan = { id: newScanId(), host, createdAt: now().toISOString(), result };
   await deps.store.put(stored);
   await deps.targets?.record(stored);
-  return { scan: stored, reused: false };
+  return stored;
 }
 
 function createMonitoring(deps: AppDependencies): MonitoringService | null {
   if (!deps.monitors || !deps.mailer || deps.config.monitoring.provider === null) return null;
+  if (!deps.config.baseUrlExplicit) {
+    // Email links must never be built from a request's Host header.
+    console.warn('[monitor] disabled: set APP_BASE_URL to enable monitoring');
+    return null;
+  }
   return new MonitoringService({
     config: deps.config,
     store: deps.monitors,
@@ -175,6 +212,21 @@ export function createApp(deps: AppDependencies): Hono {
   const { config, store } = deps;
   const app = new Hono();
   const monitoring = createMonitoring(deps);
+
+  app.onError((error, c) => {
+    console.error(`[app] ${c.req.method} ${c.req.path}: ${String(error)}`);
+    if (c.req.path.startsWith('/api/') || c.req.path.startsWith('/internal/')) {
+      return c.json({ error: 'Internal error.' }, 500);
+    }
+    return c.html(
+      page(
+        config,
+        { title: 'Something went wrong' },
+        '<h1>Something went wrong</h1><p class="muted" style="margin-top:12px">The scan could not be completed. <a href="/">Try again</a>.</p>',
+      ),
+      500,
+    );
+  });
 
   // Spacefast's sf.jsonc header rules apply to static files, not to worker responses,
   // so the app sets its own security headers on every response.
@@ -253,7 +305,7 @@ export function createApp(deps: AppDependencies): Hono {
       return c.redirect(`/r/${stored.id}`, 303);
     } catch (error) {
       if (error instanceof ScanRequestError)
-        return c.html(homePage(config, error.message), error.status as 400);
+        return c.html(homePage(config, error.message), error.status as 400 | 503);
       throw error;
     }
   });
@@ -278,7 +330,7 @@ export function createApp(deps: AppDependencies): Hono {
       });
     } catch (error) {
       if (error instanceof ScanRequestError)
-        return c.json({ error: error.message }, error.status as 400);
+        return c.json({ error: error.message }, error.status as 400 | 503);
       throw error;
     }
   });
@@ -291,6 +343,8 @@ export function createApp(deps: AppDependencies): Hono {
     if (!stored) return c.notFound();
     const format = match[2] ?? (c.req.header('accept')?.includes('text/markdown') ? 'md' : 'html');
     c.header('cache-control', 'public, max-age=300');
+    // The bare URL negotiates on Accept, so caches must key on it or Markdown clients get HTML.
+    c.header('vary', 'Accept');
     if (format === 'json')
       return c.body(renderJson(stored.result), 200, {
         'content-type': 'application/json; charset=utf-8',
@@ -324,6 +378,14 @@ export function createApp(deps: AppDependencies): Hono {
 
     app.get('/internal/cron/monitor', async (c) => {
       if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
+      // Scheduled fires carry only the header, which anyone can set. The run is cheap
+      // when nothing is due and rows are claimed before work, so the remaining defence
+      // is a floor between runs on this isolate.
+      const nowMs = (deps.now ?? (() => new Date()))().getTime();
+      if (nowMs - lastMonitorRun < MIN_MONITOR_RUN_INTERVAL_MS) {
+        return c.json({ skipped: 'ran recently' }, 429);
+      }
+      lastMonitorRun = nowMs;
       return c.json(await monitoring.runDue());
     });
   }
@@ -332,8 +394,12 @@ export function createApp(deps: AppDependencies): Hono {
   app.get('/internal/export/:file', async (c) => {
     if (!config.adminToken) return c.notFound();
     const token = bearerToken(c.req.header('authorization'));
-    if (!token || token !== config.adminToken) return c.json({ error: 'unauthorized' }, 401);
-    const limit = Math.min(5000, Math.max(1, Number(c.req.query('limit') ?? 1000)));
+    if (!token || !digestsEqual(token, config.adminToken))
+      return c.json({ error: 'unauthorized' }, 401);
+    const requested = Number(c.req.query('limit') ?? 1000);
+    const limit = Number.isFinite(requested)
+      ? Math.min(5000, Math.max(1, Math.trunc(requested)))
+      : 1000;
     switch (c.req.param('file')) {
       case 'targets.json':
         return c.json({ targets: deps.targets ? await deps.targets.list(limit) : [] });
@@ -375,7 +441,8 @@ export function createApp(deps: AppDependencies): Hono {
     if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
     const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
     const removed = await store.deleteOlderThan(cutoff);
-    return c.json({ removed, cutoff });
+    const pendingRemoved = monitoring ? await monitoring.purgePending() : 0;
+    return c.json({ removed, cutoff, pendingRemoved });
   });
 
   app.notFound((c) =>

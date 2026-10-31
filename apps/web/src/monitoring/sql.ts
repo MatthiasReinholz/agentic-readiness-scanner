@@ -148,6 +148,24 @@ export class SqlMonitorStore implements MonitorStore {
     return results.map((row) => rowToMonitor(row as unknown as MonitorRow));
   }
 
+  async countCreatedSince(email: string, sinceIso: string): Promise<number> {
+    await this.ensureSchema();
+    const row = await this.db
+      .prepare('SELECT COUNT(*) AS n FROM monitors WHERE email = ? AND created_at >= ?')
+      .bind(email, sinceIso)
+      .first();
+    return Number(row?.n ?? 0);
+  }
+
+  async deletePendingOlderThan(beforeIso: string): Promise<number> {
+    await this.ensureSchema();
+    const outcome = await this.db
+      .prepare("DELETE FROM monitors WHERE status = 'pending' AND created_at < ?")
+      .bind(beforeIso)
+      .run();
+    return outcome.meta?.changes ?? 0;
+  }
+
   async list(limit: number): Promise<Monitor[]> {
     await this.ensureSchema();
     const { results } = await this.db

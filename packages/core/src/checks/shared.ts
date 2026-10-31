@@ -46,10 +46,19 @@ export async function storeApiProducts(
   if (response.status !== 200) return null;
   try {
     const parsed: unknown = JSON.parse(response.body);
-    return Array.isArray(parsed) ? (parsed as StoreApiProduct[]) : null;
+    if (!Array.isArray(parsed)) return null;
+    // Keep only entries with the fields the checks dereference; a plugin-mangled payload
+    // must degrade to "fewer products", never to a thrown TypeError inside a check.
+    return parsed.filter(isStoreApiProduct);
   } catch {
     return null;
   }
+}
+
+function isStoreApiProduct(value: unknown): value is StoreApiProduct {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.permalink === 'string' && typeof record.name === 'string';
 }
 
 export function pathOf(url: string): string {

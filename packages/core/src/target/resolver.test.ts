@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HtmlDocument } from '../parsers/html.js';
 import type { FetchedResponse } from '../http/types.js';
-import { detectPlatform, findPolicyLinks } from './resolver.js';
+import { detectPlatform, findPolicyLinks, resolveTarget } from './resolver.js';
 
 function response(body: string): FetchedResponse {
   return {
@@ -18,6 +18,43 @@ function response(body: string): FetchedResponse {
     fromCache: false,
   };
 }
+
+describe('resolveTarget', () => {
+  it('ignores sitemap entries that are relative, malformed or on another origin', async () => {
+    const pages: Record<string, { body: string; type?: string }> = {
+      'https://shop.example/': {
+        body: '<html><body class="woocommerce"><a href="/product/a/">A</a></body></html>',
+      },
+      'https://shop.example/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+      'https://shop.example/sitemap.xml': {
+        body: '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://shop.example/product/a/</loc></url><url><loc>/product/relative/</loc></url><url><loc>not a url</loc></url><url><loc>https://evil.example/product/x/</loc></url></urlset>',
+        type: 'application/xml',
+      },
+    };
+    const fetcher = {
+      budget: 40,
+      requestCount: 0,
+      fetch: (url: string) => {
+        const page = pages[url];
+        return Promise.resolve({
+          url,
+          finalUrl: url,
+          status: page ? 200 : 404,
+          headers: { 'content-type': page?.type ?? 'text/html' },
+          body: page?.body ?? '',
+          bytes: 0,
+          truncated: false,
+          redirects: 0,
+          durationMs: 1,
+          fromCache: false,
+        });
+      },
+    };
+    const target = await resolveTarget('https://shop.example', fetcher);
+    expect(target.sitemap?.urls).toEqual(['https://shop.example/product/a/']);
+    expect(target.sampled.products).toEqual(['https://shop.example/product/a/']);
+  });
+});
 
 describe('detectPlatform', () => {
   it('recognizes Shopify by an asset served from its CDN host', () => {

@@ -12,6 +12,16 @@ All notable changes to this project are documented here. The format follows [Kee
 - Monitoring: a report offers to rescan the host weekly and email when the level, a score or a check result changes. Double opt-in, hashed tokens, one-click unsubscribe, a daily cron that processes due subscriptions, and a `Mailer` interface with Brevo (configured) and Resend adapters (`MAIL_PROVIDER`, `MAIL_API_KEY`, `MAIL_FROM`). Result diffing lives in core (`diffSnapshots`).
 - A durable `targets` registry of every host scanned (first and last seen, count, last level and scores) that is never purged, plus token-protected owner exports at `/internal/export/targets.json` and `/internal/export/monitors.json` (`ADMIN_TOKEN`).
 
+### Security
+
+- The scanner honours robots.txt for its own user agent (`RobotsGatedFetcher`); refused URLs are listed in the scan warnings.
+- Per-host cooldown applies regardless of profile overrides; parallel submissions share one scan; at most four scans run per isolate.
+- Two check regexes with polynomial backtracking (price text, shipping details) rewritten with bounded repetitions on capped text; robots.txt wildcard matching is a linear scan instead of a regex.
+- Fetcher: a failing body stream becomes a failed response instead of an unhandled rejection; sitemap entries are resolved and limited to the target origin; Store API payloads are validated before use.
+- Hosted app: `Vary: Accept` on negotiated report URLs (the live CDN was serving HTML to Markdown clients); an error handler that never leaks messages; numeric environment variables validated at startup; export `limit` guarded; constant-time admin token comparison.
+- Monitoring: a mail provider failure affects one subscriber only; rows are claimed before work; confirmation emails capped at five per address per day; pending requests purged after 48 hours; monitoring stays off unless `APP_BASE_URL` is explicit; a ten-minute floor between cron runs per isolate.
+- Markdown report fences survive backticks in target text; the observation line in agent briefs is sanitised.
+
 ### Changed
 
 - Catalog 0.1.1: fix texts reworded (placeholders use example.com; B1.4, B2.5 and B3.6 no longer refer to a plugin or a report table that does not exist).

@@ -3,8 +3,25 @@ import { HtmlDocument } from '../../parsers/html.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { defineCheck, fail, pass, warn } from '../types.js';
 
-const SHIPPING_DETAILS =
-  /(\d[\d.,]*\s?(€|eur|usd|\$|£|gbp|chf)|(€|\$|£)\s?\d|free shipping|kostenlos|versandkosten|versandkostenfrei|delivery time|lieferzeit|\d+\s?(-|to|bis)?\s?\d*\s?(days|tage|business days|werktage|jours)|worldwide|europe|international)/i;
+/**
+ * Signs that a shipping page states concrete terms: an amount with a currency, a
+ * delivery time in days, or a well-known keyword. Each alternative has bounded
+ * repetitions so matching stays linear on long numeric pages; the text is capped too.
+ */
+const SHIPPING_AMOUNT =
+  /(?:\d{1,3}(?:[.,]\d{3}){1,4}|\d{1,7})(?:[.,]\d{1,2})?\s?(?:[€$£]|(?:eur|usd|gbp|chf)\b)|[€$£]\s?\d/i;
+const SHIPPING_DAYS =
+  /\b\d{1,3}(?:\s?(?:-|–|to|bis)\s?\d{1,3})?\s?(?:business days|working days|days|tage|werktage|jours)\b/i;
+const SHIPPING_KEYWORDS =
+  /free shipping|kostenlos|versandkosten|versandkostenfrei|delivery time|lieferzeit|worldwide|europe|international/i;
+const SHIPPING_TEXT_LIMIT = 50_000;
+
+export function hasShippingDetails(text: string): boolean {
+  const sample = text.slice(0, SHIPPING_TEXT_LIMIT);
+  return (
+    SHIPPING_KEYWORDS.test(sample) || SHIPPING_AMOUNT.test(sample) || SHIPPING_DAYS.test(sample)
+  );
+}
 
 export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher }) => {
   const url = target.sampled.policies.returns;
@@ -30,7 +47,7 @@ export const shippingPolicyFound = defineCheck('B4.2', async ({ target, fetcher 
   const response = await fetcher.fetch(url);
   const doc = new HtmlDocument(response.body);
   const text = doc.text();
-  const mentionsDetails = SHIPPING_DETAILS.test(text);
+  const mentionsDetails = hasShippingDetails(text);
   const evidence = {
     url,
     status: response.status,

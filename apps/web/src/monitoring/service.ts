@@ -19,6 +19,11 @@ export interface MonitoringDependencies {
 
 export type SubscribeOutcome = 'confirmation_sent' | 'already_active' | 'throttled';
 
+/** Confirmation emails one address can be sent per day, across all hosts. */
+export const CONFIRMATIONS_PER_ADDRESS_PER_DAY = 5;
+/** Unconfirmed requests are forgotten after this long, as the confirmation email promises. */
+export const PENDING_TTL_MS = 48 * 60 * 60 * 1000;
+
 export interface RunReport {
   due: number;
   checked: number;
@@ -56,6 +61,12 @@ export class MonitoringService {
     if (
       existing?.status === 'pending' &&
       this.now().getTime() - Date.parse(existing.createdAt) < CONFIRM_RESEND_MS
+    ) {
+      return 'throttled';
+    }
+    const dayAgo = new Date(this.now().getTime() - 86_400_000).toISOString();
+    if (
+      (await this.deps.store.countCreatedSince(email, dayAgo)) >= CONFIRMATIONS_PER_ADDRESS_PER_DAY
     ) {
       return 'throttled';
     }
@@ -121,6 +132,12 @@ export class MonitoringService {
     return stopped;
   }
 
+  /** Forgets unconfirmed requests older than PENDING_TTL_MS. Called from the cleanup cron. */
+  purgePending(): Promise<number> {
+    const before = new Date(this.now().getTime() - PENDING_TTL_MS).toISOString();
+    return this.deps.store.deletePendingOlderThan(before);
+  }
+
   /** The unsubscribe link needs the raw manage token, which only exists at signup; mint a fresh one. */
   private async rotateManageToken(monitor: Monitor): Promise<{ monitor: Monitor; token: string }> {
     const token = newToken();
@@ -141,40 +158,43 @@ export class MonitoringService {
     const report: RunReport = { due: due.length, checked: 0, notified: 0, failed: 0 };
     for (const monitor of due) {
       const nowIso = this.now().toISOString();
-      let scan: StoredScan;
+      // Claim the row first: an overlapping run then sees it as not due, and a failure
+      // below still leaves it scheduled for the next interval rather than the next run.
+      let next: Monitor = { ...monitor, lastCheckedAt: nowIso };
+      await this.deps.store.update(next);
       try {
         let pending = scansByHost.get(monitor.host);
         if (!pending) {
           pending = this.deps.rescan(monitor.url);
           scansByHost.set(monitor.host, pending);
         }
-        scan = await pending;
+        const scan = await pending;
+        report.checked += 1;
+        const current = baselineOf(scan);
+        const diff = monitor.baseline ? diffSnapshots(monitor.baseline, current) : null;
+        next = { ...next, baseline: current };
+        if (diff?.changed) {
+          const rotated = await this.rotateManageToken(next);
+          await this.deps.mailer.send(
+            changeEmail(this.deps.config, {
+              to: monitor.email,
+              host: monitor.host,
+              diff,
+              reportUrl: this.link(`/r/${scan.id}`),
+              unsubscribeUrl: this.link(`/monitor/unsubscribe/${monitor.id}/${rotated.token}`),
+              level: scan.result.level,
+            }),
+          );
+          next = { ...rotated.monitor, lastNotifiedAt: nowIso };
+          report.notified += 1;
+        }
+        await this.deps.store.update(next);
       } catch (error) {
+        // A failed rescan or a mail provider error affects this subscriber only; the
+        // baseline is kept so the change is reported on the next successful run.
         report.failed += 1;
-        console.warn(`[monitor] rescan of ${monitor.host} failed: ${String(error)}`);
-        await this.deps.store.update({ ...monitor, lastCheckedAt: nowIso });
-        continue;
+        console.warn(`[monitor] ${monitor.host} for ${monitor.id}: ${String(error)}`);
       }
-      report.checked += 1;
-      const current = baselineOf(scan);
-      const diff = monitor.baseline ? diffSnapshots(monitor.baseline, current) : null;
-      let next: Monitor = { ...monitor, lastCheckedAt: nowIso, baseline: current };
-      if (diff?.changed) {
-        const rotated = await this.rotateManageToken(next);
-        next = { ...rotated.monitor, lastNotifiedAt: nowIso };
-        await this.deps.mailer.send(
-          changeEmail(this.deps.config, {
-            to: monitor.email,
-            host: monitor.host,
-            diff,
-            reportUrl: this.link(`/r/${scan.id}`),
-            unsubscribeUrl: this.link(`/monitor/unsubscribe/${monitor.id}/${rotated.token}`),
-            level: scan.result.level,
-          }),
-        );
-        report.notified += 1;
-      }
-      await this.deps.store.update(next);
     }
     return report;
   }
