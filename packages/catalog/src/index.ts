@@ -4,7 +4,7 @@ export * from './prompt.js';
 export { catalog } from './generated/catalog.js';
 
 import { catalog } from './generated/catalog.js';
-import type { CheckDefinition, Group, Level, Profile } from './schema.js';
+import type { Catalog, CheckDefinition, Group, Level, Profile } from './schema.js';
 
 export function getCheck(id: string): CheckDefinition | undefined {
   return catalog.checks.find((check) => check.id === id);
@@ -23,9 +23,9 @@ export function levelsAscending(): Level[] {
 }
 
 /** Checks that apply to a profile, in catalog order. */
-export function checksForProfile(profile: Profile): CheckDefinition[] {
-  return catalog.checks.filter((check) => {
-    const group = getGroup(check.group);
+export function checksForProfile(profile: Profile, source: Catalog = catalog): CheckDefinition[] {
+  return source.checks.filter((check) => {
+    const group = source.groups.find((candidate) => candidate.id === check.group);
     if (!group || !profile.dimensions.includes(group.dimension)) return false;
     return !check.requires.some((requirement) =>
       profile.unsatisfied_requirements.includes(requirement),

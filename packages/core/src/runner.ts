@@ -5,6 +5,7 @@ import {
   type CheckDefinition,
   type CheckResult,
   type Verdict,
+  type Requirement,
 } from '@agentic-readiness/catalog';
 
 import { BudgetExhaustedError, type Fetcher } from './http/types.js';
@@ -44,11 +45,19 @@ export function orderByDependencies(definitions: readonly CheckDefinition[]): Ch
   return ordered;
 }
 
-function requirementsMet(definition: CheckDefinition, target: Target): boolean {
-  return definition.requires.every(
-    (requirement) => requirement === 'woocommerce' && target.platform === 'woocommerce',
-  );
+/** The first requirement the target does not meet, or null when the check applies. */
+function unmetRequirement(definition: CheckDefinition, target: Target): Requirement | null {
+  for (const requirement of definition.requires) {
+    if (requirement === 'woocommerce' && target.platform !== 'woocommerce') return requirement;
+    if (requirement === 'products' && target.sampled.products.length === 0) return requirement;
+  }
+  return null;
 }
+
+const UNMET_MESSAGES: Record<Requirement, string> = {
+  woocommerce: 'requires WooCommerce, which was not detected',
+  products: 'no product pages were found to sample',
+};
 
 function toResult(
   definition: CheckDefinition,
@@ -83,12 +92,12 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   let budgetExhausted = false;
 
   for (const definition of orderByDependencies(catalog.checks)) {
-    const applies = applicable.has(definition.id) && requirementsMet(definition, target);
-    if (!applies) {
+    const unmet = applicable.has(definition.id) ? unmetRequirement(definition, target) : null;
+    if (!applicable.has(definition.id) || unmet) {
       outcomes.set(definition.id, {
         verdict: 'skip',
         skipReason: 'not_applicable',
-        message: 'does not apply to this profile or platform',
+        message: unmet ? UNMET_MESSAGES[unmet] : 'does not apply to this profile',
         evidence: {},
       });
       continue;

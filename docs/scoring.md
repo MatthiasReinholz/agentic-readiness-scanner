@@ -12,7 +12,9 @@ The same formula is applied per catalog group and carried as `scores.groups` (ke
 
 ## Levels
 
-Levels are gates. A level holds only when every gate of that level is satisfied, and a gate is satisfied when one of its alternatives passed. The one exception: a gate whose alternatives all do not apply to the profile is satisfied, so a content site is not held back by product-only gates. Checks skipped for any other reason block the gate.
+Levels are gates. A level holds only when every gate of that level is satisfied, and a gate is satisfied when one of its alternatives passed. The one exception: a gate whose alternatives are all outside the profile's catalog is satisfied, so a content site is not held back by product-page gates. A check the profile does include but that could not run on this target blocks the gate, whatever the reason: no product pages were found, a dependency failed, or the check is not implemented. A store whose product pages cannot be discovered therefore stays at Level 0 with A3.2 as its next gate, which is the honest reading of "an agent cannot read product content".
+
+Requirements make this explicit in the catalog: a check may require `woocommerce` (the platform was detected) or `products` (product pages were found). Profiles declare the requirements they can never meet; the runner evaluates the rest per target and reports unmet ones as `not_applicable` with the reason.
 
 | Level | Name                  | Gate                                   |
 | ----- | --------------------- | -------------------------------------- |

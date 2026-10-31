@@ -93,7 +93,20 @@ describe('runChecks', () => {
     // Platform requirement: Store API checks need WooCommerce even in a store profile.
     const shopify = await run([], { platform: 'shopify' });
     expect(shopify.result('B1.2')).toMatchObject({ skip_reason: 'not_applicable', applies: false });
-    expect(shopify.result('B2.1')).toMatchObject({ skip_reason: 'not_implemented', applies: true });
+    // Target-shape requirement: product-page checks need sampled product pages.
+    expect(shopify.result('B2.1')).toMatchObject({
+      skip_reason: 'not_applicable',
+      applies: false,
+      message: 'no product pages were found to sample',
+    });
+    const withProducts = await run([], {
+      platform: 'shopify',
+      products: ['https://shop.example/products/a'],
+    });
+    expect(withProducts.result('B2.1')).toMatchObject({
+      skip_reason: 'not_implemented',
+      applies: true,
+    });
   });
 
   it('attaches the fix only to warn and fail verdicts and exposes outcomes by id', async () => {

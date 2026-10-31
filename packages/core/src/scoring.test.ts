@@ -1,5 +1,5 @@
 import type { CheckResult } from '@agentic-readiness/catalog';
-import { catalog } from '@agentic-readiness/catalog';
+import { catalog, getProfile, type Profile } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
 import { computeLevel, computeScores, scoreDimension, scoreGroup } from './scoring.js';
@@ -16,6 +16,12 @@ function result(id: string, verdict: CheckResult['verdict']): CheckResult {
     applies: verdict !== 'skip',
     evidence: {},
   };
+}
+
+function profileOrThrow(id: string): Profile {
+  const profile = getProfile(id);
+  if (!profile) throw new Error(`unknown profile ${id}`);
+  return profile;
 }
 
 describe('scoreDimension', () => {
@@ -65,23 +71,37 @@ describe('computeLevel', () => {
     expect(computeLevel(results)).toMatchObject({ value: 0, next_gate: ['A2.2'] });
   });
 
-  it('caps the level for a profile and lets non-applicable gates through', () => {
+  it('lets gates outside the profile through and caps the level', () => {
+    const contentSite = profileOrThrow('content-site');
     const results = [
       result('A1.1', 'pass'),
       result('A2.2', 'pass'),
       { ...result('A3.2', 'skip'), skip_reason: 'not_applicable' as const },
       { ...result('B2.1', 'skip'), skip_reason: 'not_applicable' as const },
     ];
-    expect(computeLevel(results, catalog, 1)).toEqual({
+    expect(computeLevel(results, catalog, contentSite)).toEqual({
       value: 1,
       name: 'Crawlable',
       next_gate: [],
     });
-    const blocked = [
-      ...results.slice(0, 2),
+  });
+
+  it('blocks a gate the profile includes when the check could not run on this target', () => {
+    const store = profileOrThrow('other-store');
+    const noProducts = [
+      result('A1.1', 'pass'),
+      result('A2.2', 'pass'),
+      { ...result('A3.2', 'skip'), skip_reason: 'not_applicable' as const },
+    ];
+    expect(computeLevel(noProducts, catalog, store)).toMatchObject({
+      value: 0,
+      next_gate: ['A3.2'],
+    });
+    const unimplemented = [
+      ...noProducts.slice(0, 2),
       { ...result('A3.2', 'skip'), skip_reason: 'not_implemented' as const },
     ];
-    expect(computeLevel(blocked, catalog, 1).value).toBe(0);
+    expect(computeLevel(unimplemented, catalog, store).value).toBe(0);
   });
 
   it('reports no next gate at level 5', () => {

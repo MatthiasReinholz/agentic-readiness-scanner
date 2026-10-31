@@ -7,12 +7,16 @@
     "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do.",
     "weight": 3,
     "spec": [
-      { "title": "schema.org Product", "url": "https://schema.org/Product" },
+      {
+        "title": "schema.org Product",
+        "url": "https://schema.org/Product"
+      },
       {
         "title": "Google product structured data",
         "url": "https://developers.google.com/search/docs/appearance/structured-data/product"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B2.2",
@@ -23,9 +27,16 @@
     "weight": 3,
     "depends_on": ["B2.1"],
     "spec": [
-      { "title": "schema.org Offer", "url": "https://schema.org/Offer" },
-      { "title": "schema.org ItemAvailability", "url": "https://schema.org/ItemAvailability" }
-    ]
+      {
+        "title": "schema.org Offer",
+        "url": "https://schema.org/Offer"
+      },
+      {
+        "title": "schema.org ItemAvailability",
+        "url": "https://schema.org/ItemAvailability"
+      }
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B2.3",
@@ -36,12 +47,16 @@
     "weight": 2,
     "depends_on": ["B2.1"],
     "spec": [
-      { "title": "schema.org ProductGroup", "url": "https://schema.org/ProductGroup" },
+      {
+        "title": "schema.org ProductGroup",
+        "url": "https://schema.org/ProductGroup"
+      },
       {
         "title": "Google product variant structured data",
         "url": "https://developers.google.com/search/docs/appearance/structured-data/product-variants"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B2.4",
@@ -60,7 +75,8 @@
         "title": "schema.org MerchantReturnPolicy",
         "url": "https://schema.org/MerchantReturnPolicy"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B2.5",
@@ -75,7 +91,8 @@
         "title": "Google Merchant Center image requirements",
         "url": "https://support.google.com/merchants/answer/6324350"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B2.6",
@@ -90,6 +107,7 @@
         "title": "Google structured data general guidelines",
         "url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
       }
-    ]
+    ],
+    "requires": ["products"]
   }
 ]

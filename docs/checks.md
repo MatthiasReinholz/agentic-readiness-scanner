@@ -2,9 +2,9 @@
 
 <!-- Generated from packages/catalog by `pnpm docs:generate`. Edit the data files, not this file. -->
 
-Catalog version **0.1.2**, scoring version **0.1.0**.
+Catalog version **0.1.3**, scoring version **0.1.1**.
 
-55 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected.
+55 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected; checks marked products run only when product pages were found.
 
 ## Levels
 
@@ -23,7 +23,7 @@ Catalog version **0.1.2**, scoring version **0.1.0**.
 | --- | --- | --- | --- |
 | WooCommerce store | all 55 | nothing | 5 |
 | Other store | 50 | B1.2, B1.3, B1.4, B1.7, B5.7 | 5 |
-| Content site | 22 | 33 checks (all commerce groups) | 1 |
+| Content site | 20 | 35 checks (all commerce groups) | 1 |
 
 ## A1. Discoverability (ingestion)
 
@@ -49,7 +49,7 @@ Do robots.txt, response headers and the WAF let shopping agents in, and are AI-t
 | A2.3 | Content Signals declared | Look for Content-Signal: lines in robots.txt or a Content-Signal response header with ai-train, search or ai-input values. Pass when present and parseable. | 1 | – | [Content Signals](https://contentsignals.org/) |
 | A2.4 | No WAF challenge for agent profiles | Fetch one product page with a browser baseline and up to six agent user-agent strings. Compare status code and extracted main text. Fail on a challenge page, 403 or cloaked content for any agent profile; warn on minor differences. | 3 | – | [RFC 9110 HTTP Semantics (User-Agent)](https://www.rfc-editor.org/rfc/rfc9110) |
 | A2.5 | Web Bot Auth key directory | GET /.well-known/http-message-signatures-directory. Informational: pass when a JWKS-shaped document is served, otherwise warn without penalty beyond weight 1. | 1 | – | [Web Bot Auth architecture (IETF draft)](https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/) |
-| A2.6 | No noindex or nosnippet on product pages | Read X-Robots-Tag headers and meta robots tags on sampled product pages. Fail on noindex; warn on nosnippet, noai or max-snippet:0. | 2 | – | [Robots meta tag and X-Robots-Tag](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag) |
+| A2.6 | No noindex or nosnippet on product pages (products) | Read X-Robots-Tag headers and meta robots tags on sampled product pages. Fail on noindex; warn on nosnippet, noai or max-snippet:0. | 2 | – | [Robots meta tag and X-Robots-Tag](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag) |
 
 ## A3. Content accessibility (ingestion)
 
@@ -58,7 +58,7 @@ Can an agent read product content without executing JavaScript, and can it ask f
 | ID | Check | How it is tested | Weight | Depends on | Spec |
 | --- | --- | --- | --- | --- | --- |
 | A3.1 | Markdown content negotiation | GET a sampled product page with Accept: text/markdown. Pass when the response is text/markdown with the product title in the body; fail when HTML comes back. | 2 | – | [RFC 7763 text/markdown media type](https://www.rfc-editor.org/rfc/rfc7763) |
-| A3.2 | Server-rendered product content | Parse the raw HTML of sampled product pages. Pass when a title, a price-like value and a description are present as text or structured data; fail when the body is an empty app shell. | 3 | – | [Google: JavaScript SEO basics](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics) |
+| A3.2 | Server-rendered product content (products) | Parse the raw HTML of sampled product pages. Pass when a title, a price-like value and a description are present as text or structured data; fail when the body is an empty app shell. | 3 | – | [Google: JavaScript SEO basics](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics) |
 | A3.3 | Page weight and response time | Measure HTML size and time to first byte on sampled product pages. Pass under 500 KB and 1.5 s; warn under 1 MB and 3 s; fail above. | 1 | – | [web.dev: Time to First Byte](https://web.dev/articles/ttfb) |
 | A3.4 | Canonical and hreflang present | Pass when sampled product pages carry a rel=canonical that resolves to the same origin; warn when hreflang alternates exist for some but not all detected languages. | 1 | – | [Google: canonical URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls), [Google: localized versions](https://developers.google.com/search/docs/specialty/international/localized-versions) |
 | A3.5 | Accessible main content | Pass when a main or article landmark wraps the product content; warn when a consent overlay appears to wrap or precede it in the DOM. | 1 | – | [WAI-ARIA 1.2: landmark roles](https://www.w3.org/TR/wai-aria-1.2/#landmark_roles) |
@@ -95,12 +95,12 @@ Do product pages carry schema.org Product markup with live price, availability, 
 
 | ID | Check | How it is tested | Weight | Depends on | Spec |
 | --- | --- | --- | --- | --- | --- |
-| B2.1 | Product JSON-LD on product pages | Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do. | 3 | – | [schema.org Product](https://schema.org/Product), [Google product structured data](https://developers.google.com/search/docs/appearance/structured-data/product) |
-| B2.2 | Offer with price, currency and availability | Each Product must carry an Offer (or AggregateOffer) with price, priceCurrency and an availability value that is a schema.org ItemAvailability URL. Pass when all sampled products do. | 3 | B2.1 | [schema.org Offer](https://schema.org/Offer), [schema.org ItemAvailability](https://schema.org/ItemAvailability) |
-| B2.3 | Variants modeled | For products that appear variable (variation form or Store API type variable), expect a ProductGroup with hasVariant or Store API variations. Skip when no variable product was sampled. | 2 | B2.1 | [schema.org ProductGroup](https://schema.org/ProductGroup), [Google product variant structured data](https://developers.google.com/search/docs/appearance/structured-data/product-variants) |
-| B2.4 | Shipping and return details in markup | Pass when Offers carry shippingDetails (OfferShippingDetails) and hasMerchantReturnPolicy (MerchantReturnPolicy); warn when only one is present. | 2 | B2.2 | [schema.org OfferShippingDetails](https://schema.org/OfferShippingDetails), [schema.org MerchantReturnPolicy](https://schema.org/MerchantReturnPolicy) |
-| B2.5 | Images with alt text and resolution | The Product image must resolve, and the rendered img tag must carry alt text. Warn when the image is smaller than 800 px on its longest side (from HTML attributes or a HEAD request). | 1 | B2.1 | [Google Merchant Center image requirements](https://support.google.com/merchants/answer/6324350) |
-| B2.6 | Markup matches visible page | Compare the JSON-LD price with the rendered price and the availability with the add-to-cart state. Fail on a price mismatch; warn on an availability mismatch. | 2 | B2.2, A3.2 | [Google structured data general guidelines](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) |
+| B2.1 | Product JSON-LD on product pages (products) | Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do. | 3 | – | [schema.org Product](https://schema.org/Product), [Google product structured data](https://developers.google.com/search/docs/appearance/structured-data/product) |
+| B2.2 | Offer with price, currency and availability (products) | Each Product must carry an Offer (or AggregateOffer) with price, priceCurrency and an availability value that is a schema.org ItemAvailability URL. Pass when all sampled products do. | 3 | B2.1 | [schema.org Offer](https://schema.org/Offer), [schema.org ItemAvailability](https://schema.org/ItemAvailability) |
+| B2.3 | Variants modeled (products) | For products that appear variable (variation form or Store API type variable), expect a ProductGroup with hasVariant or Store API variations. Skip when no variable product was sampled. | 2 | B2.1 | [schema.org ProductGroup](https://schema.org/ProductGroup), [Google product variant structured data](https://developers.google.com/search/docs/appearance/structured-data/product-variants) |
+| B2.4 | Shipping and return details in markup (products) | Pass when Offers carry shippingDetails (OfferShippingDetails) and hasMerchantReturnPolicy (MerchantReturnPolicy); warn when only one is present. | 2 | B2.2 | [schema.org OfferShippingDetails](https://schema.org/OfferShippingDetails), [schema.org MerchantReturnPolicy](https://schema.org/MerchantReturnPolicy) |
+| B2.5 | Images with alt text and resolution (products) | The Product image must resolve, and the rendered img tag must carry alt text. Warn when the image is smaller than 800 px on its longest side (from HTML attributes or a HEAD request). | 1 | B2.1 | [Google Merchant Center image requirements](https://support.google.com/merchants/answer/6324350) |
+| B2.6 | Markup matches visible page (products) | Compare the JSON-LD price with the rendered price and the availability with the add-to-cart state. Fail on a price mismatch; warn on an availability mismatch. | 2 | B2.2, A3.2 | [Google structured data general guidelines](https://developers.google.com/search/docs/appearance/structured-data/sd-policies) |
 
 ## B3. Product identity (commerce)
 
@@ -108,12 +108,12 @@ Can an agent match products to real-world entities through GTIN, brand, MPN and 
 
 | ID | Check | How it is tested | Weight | Depends on | Spec |
 | --- | --- | --- | --- | --- | --- |
-| B3.1 | GTIN present | Read gtin, gtin8, gtin12, gtin13 or gtin14 from Product JSON-LD, or global_unique_id from the Store API. Pass when at least 80 percent of sampled products have one; warn above 50 percent; fail below. | 3 | – | [schema.org gtin](https://schema.org/gtin), [Google Merchant Center: gtin](https://support.google.com/merchants/answer/6324461) |
-| B3.2 | GTIN valid | Each GTIN must be 8, 12, 13 or 14 digits and pass the GS1 check digit. Pass when all found GTINs are valid; fail when any is not. | 3 | B3.1 | [GS1 check digit calculation](https://www.gs1.org/services/how-calculate-check-digit-manually) |
-| B3.3 | Brand present as entity | Pass when Product.brand is a Brand (or Organization) object with a name on all sampled products; warn when it is a bare string or its casing varies across the sample; fail when absent. | 2 | B2.1 | [schema.org Brand](https://schema.org/Brand) |
-| B3.4 | MPN present when GTIN absent | For sampled products without a GTIN, pass when mpn and brand are both present. Skip when every sampled product has a GTIN. | 2 | B2.1 | [Google Merchant Center: mpn](https://support.google.com/merchants/answer/6324482) |
-| B3.5 | SKU present and unique in sample | Read sku from JSON-LD or the Store API. Pass when all sampled products have one and no two share it; warn on a duplicate; fail when missing. | 2 | – | [schema.org sku](https://schema.org/sku) |
-| B3.6 | Identity resolvable per channel | For each sampled product, evaluate the identity rule of each channel: Google and Meta need GTIN or brand plus MPN; ACP feeds need id plus gtin or brand; UCP catalogs need identifiers. Pass when at least 80 percent of sampled products resolve on every channel. The evidence is the per-product, per-channel table. | 3 | – | [Google Merchant Center: unique product identifiers](https://support.google.com/merchants/answer/160161), [Meta commerce catalog: supported fields](https://developers.facebook.com/documentation/ads-commerce/commerce-platform/catalog/fields), [OpenAI product feed specification](https://developers.openai.com/commerce/specs/file-upload/products), [Universal Commerce Protocol](https://ucp.dev/) |
+| B3.1 | GTIN present (products) | Read gtin, gtin8, gtin12, gtin13 or gtin14 from Product JSON-LD, or global_unique_id from the Store API. Pass when at least 80 percent of sampled products have one; warn above 50 percent; fail below. | 3 | – | [schema.org gtin](https://schema.org/gtin), [Google Merchant Center: gtin](https://support.google.com/merchants/answer/6324461) |
+| B3.2 | GTIN valid (products) | Each GTIN must be 8, 12, 13 or 14 digits and pass the GS1 check digit. Pass when all found GTINs are valid; fail when any is not. | 3 | B3.1 | [GS1 check digit calculation](https://www.gs1.org/services/how-calculate-check-digit-manually) |
+| B3.3 | Brand present as entity (products) | Pass when Product.brand is a Brand (or Organization) object with a name on all sampled products; warn when it is a bare string or its casing varies across the sample; fail when absent. | 2 | B2.1 | [schema.org Brand](https://schema.org/Brand) |
+| B3.4 | MPN present when GTIN absent (products) | For sampled products without a GTIN, pass when mpn and brand are both present. Skip when every sampled product has a GTIN. | 2 | B2.1 | [Google Merchant Center: mpn](https://support.google.com/merchants/answer/6324482) |
+| B3.5 | SKU present and unique in sample (products) | Read sku from JSON-LD or the Store API. Pass when all sampled products have one and no two share it; warn on a duplicate; fail when missing. | 2 | – | [schema.org sku](https://schema.org/sku) |
+| B3.6 | Identity resolvable per channel (products) | For each sampled product, evaluate the identity rule of each channel: Google and Meta need GTIN or brand plus MPN; ACP feeds need id plus gtin or brand; UCP catalogs need identifiers. Pass when at least 80 percent of sampled products resolve on every channel. The evidence is the per-product, per-channel table. | 3 | – | [Google Merchant Center: unique product identifiers](https://support.google.com/merchants/answer/160161), [Meta commerce catalog: supported fields](https://developers.facebook.com/documentation/ads-commerce/commerce-platform/catalog/fields), [OpenAI product feed specification](https://developers.openai.com/commerce/specs/file-upload/products), [Universal Commerce Protocol](https://ucp.dev/) |
 
 ## B4. Merchant trust and policies (commerce)
 

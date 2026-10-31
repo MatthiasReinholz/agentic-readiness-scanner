@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - Monitoring: a report offers to rescan the host weekly and email when the level, a score or a check result changes. Double opt-in, hashed tokens, one-click unsubscribe, a daily cron that processes due subscriptions, and a `Mailer` interface with Brevo (configured) and Resend adapters (`MAIL_PROVIDER`, `MAIL_API_KEY`, `MAIL_FROM`). Result diffing lives in core (`diffSnapshots`).
 - A durable `targets` registry of every host scanned (first and last seen, count, last level and scores) that is never purged, plus token-protected owner exports at `/internal/export/targets.json` and `/internal/export/monitors.json` (`ADMIN_TOKEN`).
 
+### Changed (scoring 0.1.1, catalog 0.1.3)
+
+- Level gates are satisfied vacuously only for checks outside the profile's catalog. A check the profile includes but that could not run on the target (no product pages found, dependency failed, not implemented) now blocks the gate, so a store without discoverable product pages stays at Level 0 instead of being waved through Level 2. Product-page checks declare a `products` requirement; content sites declare it unmet.
+
 ### Security
 
 - The scanner honours robots.txt for its own user agent (`RobotsGatedFetcher`); refused URLs are listed in the scan warnings.

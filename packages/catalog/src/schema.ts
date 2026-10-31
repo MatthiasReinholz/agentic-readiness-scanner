@@ -22,8 +22,16 @@ export const VerdictSchema = z.enum(['pass', 'warn', 'fail', 'skip']);
 export type Verdict = z.infer<typeof VerdictSchema>;
 
 /** Platform tags a check may require. A check tagged `woocommerce` is skipped elsewhere. */
-export const PlatformRequirementSchema = z.enum(['woocommerce']);
-export type PlatformRequirement = z.infer<typeof PlatformRequirementSchema>;
+/**
+ * What a target must offer for a check to apply: `woocommerce` (the platform was
+ * detected) or `products` (product pages were found to sample). A profile lists the
+ * requirements it can never satisfy; the runner evaluates the rest per target.
+ */
+export const RequirementSchema = z.enum(['woocommerce', 'products']);
+export type Requirement = z.infer<typeof RequirementSchema>;
+/** @deprecated Use RequirementSchema; kept for one release for external readers. */
+export const PlatformRequirementSchema = RequirementSchema;
+export type PlatformRequirement = Requirement;
 
 export const SpecReferenceSchema = z.object({
   title: z.string().min(1),
@@ -64,8 +72,8 @@ export const CheckDefinitionSchema = z.object({
   /** How the verdict is reached, in one or two sentences. */
   method: z.string().min(1),
   weight: WeightSchema,
-  /** Platform tags that must be detected for the check to apply. */
-  requires: z.array(PlatformRequirementSchema).default([]),
+  /** Requirements the target must meet for the check to apply (see RequirementSchema). */
+  requires: z.array(RequirementSchema).default([]),
   /** Checks whose failure makes this check meaningless; the runner skips dependents. */
   depends_on: z.array(z.string().regex(CHECK_ID_PATTERN)).default([]),
   /** Public specifications the check is grounded in. A check without one does not ship. */
@@ -96,7 +104,7 @@ export const ProfileSchema = z.object({
   /** Dimensions whose checks apply. */
   dimensions: z.array(DimensionSchema).min(1),
   /** Platform requirements that are NOT satisfied in this profile; tagged checks drop out. */
-  unsatisfied_requirements: z.array(PlatformRequirementSchema).default([]),
+  unsatisfied_requirements: z.array(RequirementSchema).default([]),
   /** Highest level this profile can reach. Levels above need commerce checks. */
   max_level: z.number().int().min(0).max(5).default(5),
 });

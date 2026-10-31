@@ -48,7 +48,12 @@
     "question": "Does the site state how its content may be used by AI systems?",
     "method": "Look for Content-Signal: lines in robots.txt or a Content-Signal response header with ai-train, search or ai-input values. Pass when present and parseable.",
     "weight": 1,
-    "spec": [{ "title": "Content Signals", "url": "https://contentsignals.org/" }]
+    "spec": [
+      {
+        "title": "Content Signals",
+        "url": "https://contentsignals.org/"
+      }
+    ]
   },
   {
     "id": "A2.4",
@@ -90,6 +95,7 @@
         "title": "Robots meta tag and X-Robots-Tag",
         "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
       }
-    ]
+    ],
+    "requires": ["products"]
   }
 ]
