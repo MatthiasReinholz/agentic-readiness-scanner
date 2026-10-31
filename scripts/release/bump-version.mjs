@@ -79,7 +79,7 @@ function apply(version) {
   if (!changelog.includes(`## [${version}]`)) {
     const updated = changelog.replace(
       /^## \[Unreleased\]\s*\n/m,
-      `## [Unreleased]\n\n## [${version}] - ${date}\n`,
+      `## [Unreleased]\n\n## [${version}] - ${date}\n\n`,
     );
     if (updated === changelog) throw new Error('CHANGELOG.md has no "## [Unreleased]" heading');
     writeFileSync(join(root, CHANGELOG), updated);
