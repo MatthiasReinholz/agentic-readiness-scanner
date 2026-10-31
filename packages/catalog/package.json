@@ -3,6 +3,22 @@
   "version": "0.1.0",
   "description": "The check catalog: check definitions, scoring levels, profiles, fixes and the versioned result schema, as data.",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git",
+    "directory": "packages/catalog"
+  },
+  "homepage": "https://github.com/MatthiasReinholz/agentic-readiness-scanner#readme",
+  "bugs": {
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner/issues"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "exports": {
     ".": {

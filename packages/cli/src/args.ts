@@ -1,5 +1,7 @@
 import { parseArgs } from 'node:util';
 
+import { catalog } from '@agentic-readiness/catalog';
+
 export type OutputFormat = 'json' | 'md' | 'html' | 'badge';
 
 export interface ScanArguments {
@@ -20,6 +22,8 @@ export interface SimpleArguments {
 
 export type CliArguments = ScanArguments | SimpleArguments;
 
+const PROFILE_IDS = catalog.profiles.map((profile) => profile.id);
+
 export const USAGE = `agentic-readiness <command> [options]
 
 Commands
@@ -31,7 +35,7 @@ Commands
 
 Scan options
   --format <fmt>     json | md | html | badge (default: md)
-  --profile <id>     woocommerce-store | other-store | content-site (default: detected)
+  --profile <id>     ${PROFILE_IDS.join(' | ')} (default: detected)
   --budget <n>       Maximum requests per scan (default: 40)
   --sample <n>       Product pages to sample (default: 2)
   --timeout <ms>     Per-request timeout in milliseconds (default: 10000)
@@ -72,6 +76,9 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
       const format = values.format ?? 'md';
       if (!['json', 'md', 'html', 'badge'].includes(format))
         throw new Error(`unknown format ${format}`);
+      // Rejected here so a typo is a usage error with exit code 1, not a crash mid-scan.
+      if (values.profile !== undefined && !PROFILE_IDS.includes(values.profile))
+        throw new Error(`unknown profile ${values.profile} (expected ${PROFILE_IDS.join(', ')})`);
       const budget = positiveInteger('budget', values.budget);
       const sampleSize = positiveInteger('sample', values.sample);
       const timeoutMs = positiveInteger('timeout', values.timeout);
