@@ -34,6 +34,20 @@ function testApp() {
 }
 
 describe('hosted app', () => {
+  it('sets security headers on every response and discovery links on the home page', async () => {
+    const { app } = testApp();
+    const home = await app.request('/');
+    expect(home.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(home.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+    expect(home.headers.get('link')).toContain(
+      '</llms.txt>; rel="llms-txt"'.replace('</', '<https://scanner.example/'),
+    );
+    expect(home.headers.get('link')).toContain('rel="mcp-server"');
+    const health = await app.request('/health');
+    expect(health.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(health.headers.get('link')).toBeNull();
+  });
+
   it('serves the form, llms.txt and the MCP server card', async () => {
     const { app } = testApp();
     expect((await app.request('/')).status).toBe(200);

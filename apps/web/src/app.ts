@@ -126,11 +126,30 @@ function llmsTxt(config: AppConfig): string {
 `;
 }
 
+/** Discovery links advertised on the home page, per RFC 8288 and the llms.txt proposal. */
+function discoveryLinkHeader(config: AppConfig): string {
+  return [
+    `<${config.baseUrl}/llms.txt>; rel="llms-txt"; type="text/markdown"`,
+    `<${config.baseUrl}/.well-known/mcp/server-card.json>; rel="mcp-server"; type="application/json"`,
+  ].join(', ');
+}
+
 export function createApp(deps: AppDependencies): Hono {
   const { config, store } = deps;
   const app = new Hono();
 
-  app.get('/', (c) => c.html(homePage(config)));
+  // Spacefast's sf.jsonc header rules apply to static files, not to worker responses,
+  // so the app sets its own security headers on every response.
+  app.use('*', async (c, next) => {
+    await next();
+    c.res.headers.set('X-Content-Type-Options', 'nosniff');
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  });
+
+  app.get('/', (c) => {
+    c.header('Link', discoveryLinkHeader(config));
+    return c.html(homePage(config));
+  });
 
   app.get('/health', (c) =>
     c.json({ ok: true, version: SCANNER_VERSION, catalog: catalog.version }),
