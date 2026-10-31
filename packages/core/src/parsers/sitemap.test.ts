@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { looksLikeProductSitemap, looksLikeProductUrl, parseSitemap } from './sitemap.js';
+import {
+  isW3cDatetime,
+  looksLikeProductSitemap,
+  looksLikeProductUrl,
+  parseSitemap,
+} from './sitemap.js';
 
 describe('parseSitemap', () => {
   it('parses an index', () => {
@@ -38,5 +43,44 @@ describe('parseSitemap', () => {
     expect(
       looksLikeProductSitemap(`https://a.example/productsitemap.xml?${'.xml?'.repeat(50_000)}`),
     ).toBe(true);
+  });
+});
+
+describe('sitemap entries and lastmod', () => {
+  it('returns entries with their lastmod next to the plain URL list', () => {
+    const parsed = parseSitemap(
+      '<urlset><url><loc>https://a.example/product/x/</loc><lastmod>2026-10-01</lastmod></url><url><loc>https://a.example/about/</loc></url></urlset>',
+    );
+    expect(parsed.entries).toEqual([
+      { loc: 'https://a.example/product/x/', lastmod: '2026-10-01' },
+      { loc: 'https://a.example/about/' },
+    ]);
+    expect(parsed.urls).toEqual(['https://a.example/product/x/', 'https://a.example/about/']);
+    expect(parseSitemap('<sitemapindex></sitemapindex>').entries).toEqual([]);
+  });
+
+  it('accepts W3C datetimes with a day and a timezone, and rejects the rest', () => {
+    for (const value of [
+      '2026-10-01',
+      '2026-10-01T09:00Z',
+      '2026-10-01T09:00:00+00:00',
+      '2026-10-01T09:00:00.123-05:30',
+    ]) {
+      expect(isW3cDatetime(value), value).toBe(true);
+    }
+    for (const value of [
+      '',
+      '2026',
+      '2026-10',
+      '2026-13-01',
+      '2026-10-32',
+      '2026-10-01T09:00:00',
+      '2026-10-01T24:00:00Z',
+      '2026-10-01 09:00:00',
+      'Wed, 01 Oct 2026 09:00:00 GMT',
+      '1759309200',
+    ]) {
+      expect(isW3cDatetime(value), value).toBe(false);
+    }
   });
 });

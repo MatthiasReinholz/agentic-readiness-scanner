@@ -1,6 +1,6 @@
 import { contentType, type FetchedResponse, type Fetcher } from '../../http/types.js';
 import { attribute, type HtmlDocument } from '../../parsers/html.js';
-import { linksWithRel, parseLinkHeader } from '../../parsers/link-header.js';
+import { hasLinkRelation, parseLinkHeader } from '../../parsers/link-header.js';
 import { parseLlmsTxt } from '../../parsers/llms-txt.js';
 import type { Target } from '../../target/types.js';
 import { productPages } from '../shared.js';
@@ -111,14 +111,23 @@ export function serverCardUrl(endpoint: string): string {
  */
 async function endpointHints(target: Target, fetcher: Fetcher, tried: Probe[]): Promise<string[]> {
   const hints = new Set<string>();
-  for (const link of linksWithRel(parseLinkHeader(target.home.headers.link), 'mcp-server')) {
-    const url = httpUrl(link.url, target.home.finalUrl);
+  // Only this site's own endpoints (same host or a subdomain of its registrable domain):
+  // a documentation link to another host is not a hint.
+  const site = target.hostname.split('.').slice(-2).join('.');
+  const sameOrigin = (url: string | null): string | null => {
+    if (!url) return null;
+    const host = new URL(url).hostname;
+    return host === target.hostname || host.endsWith(`.${site}`) ? url : null;
+  };
+  for (const link of parseLinkHeader(target.home.headers.link)) {
+    if (!hasLinkRelation(link, 'mcp-server')) continue;
+    const url = sameOrigin(httpUrl(link.href, target.home.finalUrl));
     if (url) hints.add(url);
   }
   const llms = await probe(fetcher, `${target.origin}/llms.txt`, tried);
   if (llms.status === 200 && !looksLikeHtml(llms.body)) {
     for (const link of parseLlmsTxt(llms.body).links) {
-      const url = httpUrl(link.url, target.origin);
+      const url = sameOrigin(httpUrl(link.url, target.origin));
       if (url && /mcp/i.test(new URL(url).pathname)) hints.add(url);
     }
   }

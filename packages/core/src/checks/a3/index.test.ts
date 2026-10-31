@@ -9,8 +9,13 @@ import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/i
 import {
   accessibleMainContent,
   canonicalAndHreflang,
+  MARKDOWN_ACCEPT,
+  markdownCopyOfProductPages,
+  markdownNeighbour,
   pageWeightAndResponseTime,
+  probeUrlFor,
   serverRenderedProductContent,
+  unknownUrlsAnswer404,
 } from './index.js';
 
 const mug = 'https://shop.example/product/mug/';
@@ -443,5 +448,223 @@ describe('A3 checks on the good WooCommerce fixture', () => {
       const outcome = await runCheck(check, target, fetcher);
       expect(outcome.verdict, check.id).toBe('pass');
     }
+  });
+
+  it('passes A3.1 through content negotiation on the stoneware mug and A3.6 on the probe URL', async () => {
+    const fetcher = fixtureFetcher(fixture);
+    const target = await resolveTarget('ceramics.example', fetcher);
+    const markdown = await runCheck(markdownCopyOfProductPages, target, fetcher);
+    expect(markdown.verdict).toBe('pass');
+    expect(markdown.evidence).toMatchObject({
+      url: 'https://ceramics.example/product/stoneware-mug/',
+      outcome: 'negotiated',
+      negotiated: { content_type: 'text/markdown', vary: 'Accept', names_product: true },
+    });
+    const probe = await runCheck(unknownUrlsAnswer404, target, fetcher);
+    expect(probe.verdict).toBe('pass');
+    expect(probe.evidence).toMatchObject({ status: 404 });
+  });
+});
+
+describe('A3.1 machine-readable copy of product pages', () => {
+  const html = (links = '') =>
+    `<!doctype html><html><head><title>Stoneware Mug – Shop</title>${links}<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Stoneware Mug"}</script></head><body><h1>Stoneware Mug</h1></body></html>`;
+  const markdown = (body: string, headers: Record<string, string> = {}) => ({
+    status: 200,
+    headers: { 'content-type': 'text/markdown; charset=utf-8', ...headers },
+    body,
+  });
+  const negotiating = (body: string, headers: Record<string, string> = {}) => [
+    { status: 200, headers: { 'content-type': 'text/html' }, body: html() },
+    { ...markdown(body, headers), when: { headers: { accept: 'text/markdown' } } },
+  ];
+  const run = (fetcher: Fetcher) =>
+    runCheck(markdownCopyOfProductPages, targetFor({ products: [mug] }), fetcher);
+
+  it('does not apply without sampled product pages', async () => {
+    const outcome = await runCheck(markdownCopyOfProductPages, targetFor(), mapFetcher({}));
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('not_applicable');
+  });
+
+  it('passes when Accept: text/markdown is answered with Markdown naming the product and Vary: Accept', async () => {
+    const fetcher = mapFetcher({
+      [mug]: negotiating('# Stoneware Mug\n\nEUR 24', { Vary: 'Accept' }),
+    });
+    const outcome = await run(fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      url: mug,
+      names: ['Stoneware Mug', 'Stoneware Mug – Shop'],
+      negotiated: {
+        status: 200,
+        content_type: 'text/markdown',
+        vary: 'Accept',
+        names_product: true,
+      },
+      outcome: 'negotiated',
+    });
+    expect(fetcher.log[0]?.options.headers).toEqual({ Accept: MARKDOWN_ACCEPT });
+  });
+
+  it('warns when the negotiated Markdown comes without Vary: Accept', async () => {
+    const outcome = await run(mapFetcher({ [mug]: negotiating('# Stoneware Mug') }));
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/no Vary: Accept/);
+    expect(outcome.evidence).toMatchObject({ negotiated: { vary: null }, outcome: 'negotiated' });
+  });
+
+  it('passes through a rel=alternate link of type text/markdown', async () => {
+    const outcome = await run(
+      mapFetcher({
+        [mug]: html('<link rel="alternate" type="text/markdown" href="/md/mug">'),
+        'https://shop.example/md/mug': markdown('# Stoneware Mug'),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      negotiated: { content_type: '', names_product: null },
+      alternate: {
+        url: 'https://shop.example/md/mug',
+        status: 200,
+        content_type: 'text/markdown',
+        names_product: true,
+      },
+      md: null,
+      outcome: 'alternate',
+    });
+  });
+
+  it('passes when the page URL with .md appended answers Markdown', async () => {
+    const outcome = await run(
+      mapFetcher({
+        [mug]: html(),
+        'https://shop.example/product/mug.md': markdown('# Stoneware Mug'),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      alternate: null,
+      md: { url: 'https://shop.example/product/mug.md', status: 200, names_product: true },
+      outcome: 'md',
+    });
+    expect(markdownNeighbour('https://shop.example/p/mug?v=2#x')).toBe(
+      'https://shop.example/p/mug.md',
+    );
+  });
+
+  it('fails when no copy answers text/markdown naming the product, within three requests', async () => {
+    const fetcher = mapFetcher({
+      [mug]: [...negotiating('# Something else', { Vary: 'Accept' })].map((answer, index) =>
+        index === 0
+          ? { ...answer, body: html('<link rel="alternate" type="text/markdown" href="/md/mug">') }
+          : answer,
+      ),
+      'https://shop.example/md/mug': {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+        body: '<html>',
+      },
+    });
+    const outcome = await run(fetcher);
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.evidence).toMatchObject({
+      negotiated: { content_type: 'text/markdown', names_product: false },
+      alternate: {
+        url: 'https://shop.example/md/mug',
+        content_type: 'text/html',
+        names_product: null,
+      },
+      md: { url: 'https://shop.example/product/mug.md', skipped: 'request limit reached' },
+      outcome: 'none',
+    });
+    // negotiated, plain HTML, alternate: the .md neighbour would have been the fourth.
+    expect(fetcher.requestCount).toBe(3);
+  });
+});
+
+describe('A3.6 unknown URLs answer 404', () => {
+  const origin = 'https://shop.example';
+  const probe = probeUrlFor(origin, 'shop.example');
+  const run = (answer: Parameters<typeof mapFetcher>[0][string]) =>
+    runCheck(unknownUrlsAnswer404, targetFor(), mapFetcher({ [probe]: answer }));
+
+  it('derives the probe path from the hostname so a scan never fetches a real page', () => {
+    expect(probe).toBe('https://shop.example/agentic-readiness-probe-62966561');
+    expect(probeUrlFor(origin, 'other.example')).not.toBe(probe);
+  });
+
+  it('passes on 404 and 410 whatever the body', async () => {
+    const missing = await runCheck(unknownUrlsAnswer404, targetFor(), mapFetcher({}));
+    expect(missing.verdict).toBe('pass');
+    expect(missing.evidence).toEqual({
+      url: probe,
+      status: 404,
+      final_url: probe,
+      content_type: '',
+    });
+    const gone = await run({
+      status: 410,
+      headers: { 'content-type': 'text/html' },
+      body: '<html>gone</html>',
+    });
+    expect(gone.verdict).toBe('pass');
+  });
+
+  it('warns when the probe lands on the home page', async () => {
+    const target = targetFor();
+    const fetcher: Fetcher = {
+      budget: 1,
+      requestCount: 1,
+      fetch: (url: string) =>
+        Promise.resolve({
+          url,
+          finalUrl: `${origin}/`,
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+          body: '<html>home</html>',
+          bytes: 17,
+          truncated: false,
+          redirects: 1,
+          durationMs: 1,
+          fromCache: false,
+        }),
+    };
+    const outcome = await runCheck(unknownUrlsAnswer404, target, fetcher);
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/redirects to the home page/);
+    expect(outcome.evidence).toMatchObject({ final_url: `${origin}/` });
+  });
+
+  it('warns on a 3xx answer and on a 200 without HTML or any other status', async () => {
+    const redirect = await run({ status: 302, headers: { location: '/shop/' } });
+    expect(redirect.verdict).toBe('warn');
+    expect(redirect.message).toBe('an unknown URL answers HTTP 302 (a redirect) instead of 404');
+    const json = await run({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: '{"error":"not found"}',
+    });
+    expect(json.verdict).toBe('warn');
+    expect(json.message).toBe('an unknown URL answers HTTP 200 (application/json) instead of 404');
+    const forbidden = await run({ status: 403, body: 'no' });
+    expect(forbidden.verdict).toBe('warn');
+  });
+
+  it('fails on a 200 HTML page (soft 404)', async () => {
+    const outcome = await run({
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+      body: '<!doctype html><html><body>Page not found</body></html>',
+    });
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toMatch(/soft 404/);
+    expect(outcome.evidence).toMatchObject({ status: 200, content_type: 'text/html' });
+  });
+
+  it('skips with reason error when nothing answered', async () => {
+    const outcome = await run({ status: 0 });
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('error');
   });
 });

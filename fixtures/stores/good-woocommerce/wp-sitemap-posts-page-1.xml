@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://ceramics.example/shipping/</loc></url>
-  <url><loc>https://ceramics.example/returns/</loc></url>
-  <url><loc>https://ceramics.example/privacy-policy/</loc></url>
-  <url><loc>https://ceramics.example/terms/</loc></url>
+  <url><loc>https://ceramics.example/shipping/</loc><lastmod>2026-09-12T14:30:00+00:00</lastmod></url>
+  <url><loc>https://ceramics.example/returns/</loc><lastmod>2026-08-28T09:15:00+00:00</lastmod></url>
+  <url><loc>https://ceramics.example/privacy-policy/</loc><lastmod>2026-06-03T11:00:00+00:00</lastmod></url>
+  <url><loc>https://ceramics.example/terms/</loc><lastmod>2026-06-03T11:05:00+00:00</lastmod></url>
 </urlset>

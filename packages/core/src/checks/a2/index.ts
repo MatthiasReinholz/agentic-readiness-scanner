@@ -1,7 +1,17 @@
 import type { FetchedResponse } from '../../http/types.js';
 import { extractJsonLd } from '../../parsers/jsonld.js';
 import { elementText } from '../../parsers/html.js';
+import { mediaTypeOf, parseLinkHeader } from '../../parsers/link-header.js';
 import { isAgentNamed, isAllowed, type RobotsTxt } from '../../parsers/robots.js';
+import {
+  parseTdmrepJson,
+  validateAbsoluteUrl,
+  validateContentSignal,
+  validateContentUsage,
+  validateLicenseUrl,
+  validateTdmReservation,
+  type SignalValidation,
+} from '../../parsers/usage-preferences.js';
 import {
   SEARCH_CRAWLERS,
   SHARED_TRAINING_TOKEN,
@@ -316,4 +326,123 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     `${responses.length} pages fetched without a block, challenge or interstitial`,
     evidence,
   );
+});
+
+interface UsageSignal {
+  field: string;
+  value: string;
+  valid: boolean;
+  problem?: string;
+}
+
+function usageSignal(field: string, value: string, validation: SignalValidation): UsageSignal {
+  return {
+    field,
+    value: value.slice(0, 200),
+    valid: validation.valid,
+    ...(validation.problem !== undefined ? { problem: validation.problem } : {}),
+  };
+}
+
+const RSL_TYPE = 'application/rsl+xml';
+
+function resolvedHref(href: string, base: string): string {
+  try {
+    return new URL(href, base).href;
+  } catch {
+    return href;
+  }
+}
+
+export const usagePreferenceSignalsParse = defineCheck('A2.3', async ({ target, fetcher }) => {
+  const signals: UsageSignal[] = [];
+  for (const line of target.robots?.usageLines ?? []) {
+    if (line.field === 'content-signal') {
+      signals.push(
+        usageSignal('robots.txt Content-Signal', line.value, validateContentSignal(line.value)),
+      );
+    } else if (line.field === 'content-usage') {
+      signals.push(
+        usageSignal(
+          'robots.txt Content-Usage',
+          line.value,
+          validateContentUsage(line.value, { allowPath: true }),
+        ),
+      );
+    } else {
+      signals.push(usageSignal('robots.txt License', line.value, validateLicenseUrl(line.value)));
+    }
+  }
+  const home = target.home;
+  const declared: [string, string | undefined, (value: string) => SignalValidation][] = [
+    ['Content-Usage header', home.headers['content-usage'], (value) => validateContentUsage(value)],
+    ['tdm-reservation header', home.headers['tdm-reservation'], validateTdmReservation],
+    ['tdm-policy header', home.headers['tdm-policy'], (value) => validateAbsoluteUrl(value)],
+    [
+      'tdm-reservation meta tag',
+      target.homeDoc.meta('tdm-reservation') ?? undefined,
+      validateTdmReservation,
+    ],
+    [
+      'tdm-policy meta tag',
+      target.homeDoc.meta('tdm-policy') ?? undefined,
+      (value) => validateAbsoluteUrl(value),
+    ],
+  ];
+  for (const [field, value, validate] of declared) {
+    if (value !== undefined) signals.push(usageSignal(field, value, validate(value)));
+  }
+  for (const link of parseLinkHeader(home.headers.link)) {
+    if (link.rel.includes('license') && link.type === RSL_TYPE) {
+      const href = resolvedHref(link.href, home.finalUrl);
+      signals.push(usageSignal('Link header rel=license (RSL)', href, validateAbsoluteUrl(href)));
+    }
+  }
+  for (const link of target.homeDoc.links()) {
+    if (link.rel.split(/\s+/).includes('license') && mediaTypeOf(link.type) === RSL_TYPE) {
+      const href = resolvedHref(link.href, home.finalUrl);
+      signals.push(usageSignal('<link rel="license"> (RSL)', href, validateAbsoluteUrl(href)));
+    }
+  }
+  const tdmrepUrl = `${target.origin}/.well-known/tdmrep.json`;
+  const tdmrep = await fetcher.fetch(tdmrepUrl);
+  let tdmrepOutcome: 'absent' | 'soft_404' | 'declared' | 'not_fetched' = 'absent';
+  if (tdmrep.status === 0) {
+    tdmrepOutcome = 'not_fetched';
+  } else if (tdmrep.status === 200) {
+    const parsed = parseTdmrepJson(tdmrep.body);
+    // An HTML 200 is a soft 404: the file does not exist, nothing is declared.
+    if (parsed.kind === 'html') {
+      tdmrepOutcome = 'soft_404';
+    } else {
+      tdmrepOutcome = 'declared';
+      signals.push(
+        usageSignal('/.well-known/tdmrep.json', tdmrep.body.trim(), {
+          valid: parsed.kind === 'valid',
+          ...(parsed.problem !== undefined ? { problem: parsed.problem } : {}),
+        }),
+      );
+    }
+  }
+  const malformed = signals.filter((signal) => !signal.valid);
+  const evidence = {
+    signals,
+    declared: signals.length,
+    malformed: malformed.length,
+    tdmrep: { url: tdmrepUrl, status: tdmrep.status, outcome: tdmrepOutcome },
+  };
+  if (signals.length === 0) {
+    return pass(
+      'no usage-preference signal declared (Content-Signal, Content-Usage, RSL or TDMRep); nothing to parse',
+      evidence,
+    );
+  }
+  if (malformed.length > 0) {
+    const fields = [...new Set(malformed.map((signal) => signal.field))].join(', ');
+    return warn(
+      `${malformed.length} of ${signals.length} usage-preference signal(s) malformed: ${fields}`,
+      evidence,
+    );
+  }
+  return pass(`${signals.length} usage-preference signal(s) declared and well-formed`, evidence);
 });

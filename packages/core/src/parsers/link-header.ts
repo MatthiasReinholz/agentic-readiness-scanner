@@ -1,30 +1,45 @@
 /**
- * HTTP Link header fields (RFC 8288). One forward scan per header, so a hostile value
- * cannot trigger backtracking; malformed members are skipped rather than thrown on.
+ * RFC 8288 Link header values. One linear pass over the header: commas separate values
+ * only outside angle brackets and quoted strings, semicolons separate parameters only
+ * outside quoted strings. Checks read relations and media types from here and never
+ * split a Link header themselves.
  */
-export interface LinkHeaderEntry {
-  /** The URI reference between the angle brackets, as written (not resolved). */
-  url: string;
-  /** The rel parameter, lower-cased; empty when absent. */
-  rel: string;
-  /** Every parameter, lower-cased names, quotes removed. */
+export interface LinkValue {
+  /** The link target as written between the angle brackets, not resolved. */
+  href: string;
+  /** Relation types from the first rel parameter, lower-cased and split on whitespace. */
+  rel: string[];
+  /** Media type from the type parameter, lower-cased and without parameters. */
+  type?: string;
+  title?: string;
+  /** Every parameter as written, names lower-cased; the first occurrence of a name wins. */
   params: Record<string, string>;
 }
 
-const HEADER_LIMIT = 8192;
+/** Characters of a Link header examined; real headers are a few hundred bytes. */
+const HEADER_LIMIT = 16_384;
 
-/** Splits on `separator` outside double quotes and outside `<...>`. */
+/**
+ * Splits `text` on `separator` outside angle brackets and quoted strings. Inside a
+ * quoted string a backslash escapes the next character (RFC 8288 quoted-pair).
+ */
 function splitOutside(text: string, separator: string): string[] {
   const parts: string[] = [];
-  let quoted = false;
-  let bracketed = false;
   let start = 0;
+  let inAngle = false;
+  let inQuote = false;
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
-    if (char === '"' && !bracketed) quoted = !quoted;
-    else if (char === '<' && !quoted) bracketed = true;
-    else if (char === '>' && !quoted) bracketed = false;
-    else if (char === separator && !quoted && !bracketed) {
+    if (inAngle) {
+      if (char === '>') inAngle = false;
+    } else if (inQuote) {
+      if (char === '\\') index += 1;
+      else if (char === '"') inQuote = false;
+    } else if (char === '<') {
+      inAngle = true;
+    } else if (char === '"') {
+      inQuote = true;
+    } else if (char === separator) {
       parts.push(text.slice(start, index));
       start = index + 1;
     }
@@ -33,39 +48,60 @@ function splitOutside(text: string, separator: string): string[] {
   return parts;
 }
 
-function parseParams(parts: string[]): Record<string, string> {
-  const params: Record<string, string> = {};
-  for (const part of parts) {
-    const equals = part.indexOf('=');
-    const name = (equals === -1 ? part : part.slice(0, equals)).trim().toLowerCase();
-    if (!name) continue;
-    let value = equals === -1 ? '' : part.slice(equals + 1).trim();
-    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
-      value = value.slice(1, -1);
+/** A parameter value without its quotes and quoted-pair escapes. */
+function unquote(value: string): string {
+  if (value.length < 2 || !value.startsWith('"') || !value.endsWith('"')) return value;
+  let result = '';
+  const inner = value.slice(1, -1);
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index] ?? '';
+    if (char === '\\' && index + 1 < inner.length) {
+      result += inner[index + 1] ?? '';
+      index += 1;
+    } else {
+      result += char;
     }
-    params[name] = value;
   }
-  return params;
+  return result;
 }
 
-export function parseLinkHeader(header: string | undefined): LinkHeaderEntry[] {
+/** The media type of a `type` parameter or content-type value: lower-cased, parameters removed. */
+export function mediaTypeOf(value: string | undefined | null): string {
+  return (value ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+export function parseLinkHeader(header: string | null | undefined): LinkValue[] {
   if (!header) return [];
-  const entries: LinkHeaderEntry[] = [];
-  for (const member of splitOutside(header.slice(0, HEADER_LIMIT), ',')) {
-    const [target = '', ...rest] = splitOutside(member, ';');
-    const open = target.indexOf('<');
-    const close = target.indexOf('>', open + 1);
-    if (open === -1 || close === -1) continue;
-    const url = target.slice(open + 1, close).trim();
-    if (!url) continue;
-    const params = parseParams(rest);
-    entries.push({ url, rel: (params.rel ?? '').toLowerCase(), params });
+  const links: LinkValue[] = [];
+  for (const raw of splitOutside(header.slice(0, HEADER_LIMIT), ',')) {
+    const value = raw.trim();
+    if (!value.startsWith('<')) continue;
+    const close = value.indexOf('>');
+    if (close === -1) continue;
+    const href = value.slice(1, close).trim();
+    const params: Record<string, string> = {};
+    for (const part of splitOutside(value.slice(close + 1), ';')) {
+      const equals = part.indexOf('=');
+      const name = (equals === -1 ? part : part.slice(0, equals)).trim().toLowerCase();
+      if (!name) continue;
+      const rawValue = equals === -1 ? '' : part.slice(equals + 1).trim();
+      if (!Object.hasOwn(params, name)) params[name] = unquote(rawValue);
+    }
+    const rel = (params.rel ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+    const type = params.type === undefined ? '' : mediaTypeOf(params.type);
+    const title = params.title;
+    links.push({
+      href,
+      rel,
+      ...(type !== '' ? { type } : {}),
+      ...(title !== undefined ? { title } : {}),
+      params,
+    });
   }
-  return entries;
+  return links;
 }
 
-/** Entries whose rel list (space-separated per RFC 8288) contains `rel`. */
-export function linksWithRel(entries: LinkHeaderEntry[], rel: string): LinkHeaderEntry[] {
-  const wanted = rel.toLowerCase();
-  return entries.filter((entry) => entry.rel.split(/\s+/).includes(wanted));
+/** True when the link carries the relation type (case-insensitive, any position). */
+export function hasLinkRelation(link: LinkValue, relation: string): boolean {
+  return link.rel.includes(relation.toLowerCase());
 }

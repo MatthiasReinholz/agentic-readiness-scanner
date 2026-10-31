@@ -11,9 +11,14 @@ import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument } from '../parsers/html.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
-import { looksLikeProductSitemap, looksLikeProductUrl, parseSitemap } from '../parsers/sitemap.js';
+import {
+  looksLikeProductSitemap,
+  looksLikeProductUrl,
+  parseSitemap,
+  type SitemapEntry,
+} from '../parsers/sitemap.js';
 import { sample } from './sampling.js';
-import type { SitemapSummary, Target } from './types.js';
+import { LASTMOD_SAMPLE_LIMIT, type SitemapSummary, type Target } from './types.js';
 
 export interface ResolveOptions {
   /** Profile id override; detected otherwise. */
@@ -146,12 +151,35 @@ async function discoverSitemap(
     }
     // The sitemap protocol requires absolute URLs; anything else is noise, and anything
     // on another origin is not this store.
-    const sameOrigin = (locs: string[]): string[] =>
-      locs
-        .filter((loc) => /^https?:\/\//i.test(loc.trim()))
-        .map((loc) => resolveSameOrigin(loc.trim(), origin))
-        .filter((resolved): resolved is string => resolved !== null);
-    const urls = sameOrigin(parsed.urls);
+    const sameOrigin = (entries: SitemapEntry[]): SitemapEntry[] => {
+      const kept: SitemapEntry[] = [];
+      for (const entry of entries) {
+        const loc = entry.loc.trim();
+        if (!/^https?:\/\//i.test(loc)) continue;
+        const resolved = resolveSameOrigin(loc, origin);
+        if (resolved === null) continue;
+        kept.push(
+          entry.lastmod === undefined
+            ? { loc: resolved }
+            : { loc: resolved, lastmod: entry.lastmod },
+        );
+      }
+      return kept;
+    };
+    // lastmod of the entries in the order they were read, bounded, so the freshness
+    // check judges the same sample on every scan.
+    const lastmods: string[] = [];
+    let entriesSeen = 0;
+    const recordLastmods = (entries: SitemapEntry[]): void => {
+      for (const entry of entries) {
+        if (entriesSeen >= LASTMOD_SAMPLE_LIMIT) return;
+        entriesSeen += 1;
+        if (entry.lastmod !== undefined) lastmods.push(entry.lastmod);
+      }
+    };
+    const entries = sameOrigin(parsed.entries);
+    recordLastmods(entries);
+    const urls = entries.map((entry) => entry.loc);
     const summary: SitemapSummary = {
       url,
       kind: parsed.kind,
@@ -159,6 +187,7 @@ async function discoverSitemap(
       fetchedSitemaps: [],
       urls,
       productUrls: urls.filter(looksLikeProductUrl),
+      lastmods,
     };
     if (parsed.kind === 'index') {
       const productFirst = [...parsed.sitemaps].sort(
@@ -174,7 +203,9 @@ async function discoverSitemap(
         const childParsed = parseSitemap(childResponse.body);
         if (childParsed.kind !== 'urlset') continue;
         summary.fetchedSitemaps.push(childUrl);
-        const childUrls = sameOrigin(childParsed.urls);
+        const childEntries = sameOrigin(childParsed.entries);
+        recordLastmods(childEntries);
+        const childUrls = childEntries.map((entry) => entry.loc);
         summary.urls.push(...childUrls);
         if (looksLikeProductSitemap(childUrl)) {
           summary.productUrls.push(...childUrls);

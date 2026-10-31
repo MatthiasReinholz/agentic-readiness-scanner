@@ -46,6 +46,12 @@
       "body_file": "product-stoneware-mug.html"
     },
     {
+      "url": "https://ceramics.example/product/stoneware-mug/",
+      "request_headers": { "accept": "text/markdown" },
+      "headers": { "content-type": "text/markdown; charset=utf-8", "vary": "Accept" },
+      "body_file": "product-stoneware-mug.md"
+    },
+    {
       "url": "https://ceramics.example/product/serving-bowl/",
       "headers": {
         "content-type": "text/html; charset=utf-8"
