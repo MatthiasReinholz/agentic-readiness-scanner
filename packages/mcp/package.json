@@ -3,6 +3,22 @@
   "version": "0.1.0",
   "description": "MCP server definition shared by the CLI (stdio) and the hosted app (Streamable HTTP): scan_store, get_fix and list_checks tools.",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/MatthiasReinholz/agentic-readiness-scanner#readme",
+  "bugs": {
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner/issues"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "exports": {
     ".": {

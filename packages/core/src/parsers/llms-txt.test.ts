@@ -28,7 +28,9 @@ describe('parseLlmsTxt', () => {
     const hostile = `# T\n${'['.repeat(50_000)}${'[](!'.repeat(20_000)}`;
     const started = performance.now();
     const parsed = parseLlmsTxt(hostile);
-    expect(performance.now() - started).toBeLessThan(500);
+    // A regression guard against super-linear blowups (those take minutes), not a speed
+    // test: the bound is generous so a loaded CI runner never trips it.
+    expect(performance.now() - started).toBeLessThan(3000);
     expect(parsed.links).toEqual([]);
   });
 

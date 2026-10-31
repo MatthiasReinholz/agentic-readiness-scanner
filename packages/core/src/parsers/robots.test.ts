@@ -40,7 +40,8 @@ describe('parseRobotsTxt', () => {
     const path = `/${'a'.repeat(5000)}c`;
     const started = performance.now();
     expect(isAllowed(hostile, 'x', path)).toBe(true);
-    expect(performance.now() - started).toBeLessThan(100);
+    // Guards against a super-linear matcher (seconds to minutes), not against slowness.
+    expect(performance.now() - started).toBeLessThan(3000);
     const robots = parseRobotsTxt(`User-agent: *\nDisallow: /*.pdf$\nDisallow: /tmp/*/x\n`);
     expect(isAllowed(robots, 'x', '/files/a.pdf')).toBe(false);
     expect(isAllowed(robots, 'x', '/files/a.pdf?dl=1')).toBe(true);

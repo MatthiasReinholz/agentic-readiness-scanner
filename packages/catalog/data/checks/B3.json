@@ -7,12 +7,16 @@
     "method": "Read gtin, gtin8, gtin12, gtin13 or gtin14 from Product JSON-LD, or global_unique_id from the Store API. Pass when at least 80 percent of sampled products have one; warn above 50 percent; fail below.",
     "weight": 3,
     "spec": [
-      { "title": "schema.org gtin", "url": "https://schema.org/gtin" },
+      {
+        "title": "schema.org gtin",
+        "url": "https://schema.org/gtin"
+      },
       {
         "title": "Google Merchant Center: gtin",
         "url": "https://support.google.com/merchants/answer/6324461"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B3.2",
@@ -27,7 +31,8 @@
         "title": "GS1 check digit calculation",
         "url": "https://www.gs1.org/services/how-calculate-check-digit-manually"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B3.3",
@@ -37,7 +42,13 @@
     "method": "Pass when Product.brand is a Brand (or Organization) object with a name on all sampled products; warn when it is a bare string or its casing varies across the sample; fail when absent.",
     "weight": 2,
     "depends_on": ["B2.1"],
-    "spec": [{ "title": "schema.org Brand", "url": "https://schema.org/Brand" }]
+    "spec": [
+      {
+        "title": "schema.org Brand",
+        "url": "https://schema.org/Brand"
+      }
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B3.4",
@@ -52,7 +63,8 @@
         "title": "Google Merchant Center: mpn",
         "url": "https://support.google.com/merchants/answer/6324482"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B3.5",
@@ -61,7 +73,13 @@
     "question": "Does every sampled product have a SKU, and are they distinct?",
     "method": "Read sku from JSON-LD or the Store API. Pass when all sampled products have one and no two share it; warn on a duplicate; fail when missing.",
     "weight": 2,
-    "spec": [{ "title": "schema.org sku", "url": "https://schema.org/sku" }]
+    "spec": [
+      {
+        "title": "schema.org sku",
+        "url": "https://schema.org/sku"
+      }
+    ],
+    "requires": ["products"]
   },
   {
     "id": "B3.6",
@@ -76,14 +94,18 @@
         "url": "https://support.google.com/merchants/answer/160161"
       },
       {
-        "title": "Meta catalog: required fields",
-        "url": "https://www.facebook.com/business/help/120325381656392"
+        "title": "Meta commerce catalog: supported fields",
+        "url": "https://developers.facebook.com/documentation/ads-commerce/commerce-platform/catalog/fields"
       },
       {
         "title": "OpenAI product feed specification",
-        "url": "https://developers.openai.com/commerce/specs/feed"
+        "url": "https://developers.openai.com/commerce/specs/file-upload/products"
       },
-      { "title": "Universal Commerce Protocol", "url": "https://ucp.dev/" }
-    ]
+      {
+        "title": "Universal Commerce Protocol",
+        "url": "https://ucp.dev/"
+      }
+    ],
+    "requires": ["products"]
   }
 ]

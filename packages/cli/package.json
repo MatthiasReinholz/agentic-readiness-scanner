@@ -3,6 +3,22 @@
   "version": "0.1.0",
   "description": "Command-line scanner and stdio MCP server for agentic readiness.",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/MatthiasReinholz/agentic-readiness-scanner#readme",
+  "bugs": {
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner/issues"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "bin": {
     "agentic-readiness": "./bin/agentic-readiness.js"

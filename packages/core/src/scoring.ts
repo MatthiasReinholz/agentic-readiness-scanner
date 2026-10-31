@@ -4,10 +4,12 @@
  */
 import {
   catalog as defaultCatalog,
+  checksForProfile,
   type Catalog,
   type CheckResult,
   type Dimension,
   type LevelResult,
+  type Profile,
   type Scores,
 } from '@agentic-readiness/catalog';
 
@@ -56,6 +58,10 @@ export function computeScores(
   const groups: Record<string, number | null> = {};
   for (const group of catalog.groups) groups[group.id] = scoreGroup(results, group.id);
   return {
+    // Every profile carries ingestion checks, so null only happens when none of them could
+    // be scored (all skipped, or a custom catalog). The contract keeps ingestion non-null
+    // because every consumer ranks on it; "nothing could be scored" reads as 0, not as a
+    // missing number, while commerce stays null for profiles without that dimension.
     ingestion: scoreDimension(results, 'ingestion', catalog) ?? 0,
     commerce: scoreDimension(results, 'commerce', catalog),
     groups,
@@ -63,16 +69,21 @@ export function computeScores(
 }
 
 /**
- * A gate is satisfied when one alternative passed, or when every alternative does not
- * apply to the profile at all (a content site is not held back by product gates).
- * Checks skipped for any other reason (dependency failed, not implemented) block the gate.
+ * A gate is satisfied when one alternative passed, or when every alternative is outside
+ * the profile's catalog (a content site is not held back by product gates). A check the
+ * profile does include but that could not run on this target (no product pages found,
+ * dependency failed, not implemented) blocks the gate: the scanner never awards a level
+ * it could not verify. Without a profile the runtime `not_applicable` skip is the only
+ * signal available and is treated as outside the catalog.
  */
 function gateSatisfied(
   gate: readonly string[],
   results: ReadonlyMap<string, CheckResult>,
+  inProfile: ReadonlySet<string> | null,
 ): boolean {
   if (gate.some((id) => results.get(id)?.verdict === 'pass')) return true;
   return gate.every((id) => {
+    if (inProfile) return !inProfile.has(id);
     const result = results.get(id);
     return result?.verdict === 'skip' && result.skip_reason === 'not_applicable';
   });
@@ -86,15 +97,19 @@ function gateSatisfied(
 export function computeLevel(
   results: readonly CheckResult[],
   catalog: Catalog = defaultCatalog,
-  maxLevel = 5,
+  profile?: Profile,
 ): LevelResult {
   const byId = new Map(results.map((result) => [result.id, result]));
+  const maxLevel = profile?.max_level ?? 5;
+  const inProfile = profile
+    ? new Set(checksForProfile(profile, catalog).map((definition) => definition.id))
+    : null;
   const levels = [...catalog.levels]
     .sort((a, b) => a.value - b.value)
     .filter((level) => level.value <= maxLevel);
   let reached = levels[0];
   for (const level of levels) {
-    if (level.gates.every((gate) => gateSatisfied(gate, byId))) reached = level;
+    if (level.gates.every((gate) => gateSatisfied(gate, byId, inProfile))) reached = level;
     else break;
   }
   if (!reached) {
@@ -102,7 +117,9 @@ export function computeLevel(
   }
   const next = levels.find((level) => level.value === reached.value + 1);
   const nextGate = next
-    ? next.gates.filter((gate) => !gateSatisfied(gate, byId)).flatMap((gate) => [...gate])
+    ? next.gates
+        .filter((gate) => !gateSatisfied(gate, byId, inProfile))
+        .flatMap((gate) => [...gate])
     : [];
   return { value: reached.value, name: reached.name, next_gate: [...new Set(nextGate)] };
 }

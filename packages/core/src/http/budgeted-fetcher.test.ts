@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BudgetedFetcher, type FetchLike } from './budgeted-fetcher.js';
+import { BudgetedFetcher, decoderFor, type FetchLike } from './budgeted-fetcher.js';
 import { BudgetExhaustedError } from './types.js';
 
 interface Scripted {
@@ -123,5 +123,43 @@ describe('BudgetedFetcher', () => {
     expect(response.status).toBe(0);
     expect(calls).toHaveLength(0);
     expect(fetcher.requestCount).toBe(0);
+  });
+});
+
+describe('charset handling', () => {
+  function bytes(values: number[]): ReadableStream<Uint8Array> {
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(values));
+        controller.close();
+      },
+    });
+  }
+
+  it('decodes a declared ISO-8859-1 body instead of assuming UTF-8', async () => {
+    const { fetch } = scripted({
+      'https://shop.example/': {
+        headers: { 'content-type': 'text/html; charset=ISO-8859-1' },
+        body: bytes([0x43, 0x61, 0x66, 0xe9]),
+      },
+    });
+    const response = await new BudgetedFetcher({ fetch }).fetch('https://shop.example/');
+    expect(response.body).toBe('Café');
+  });
+
+  it('falls back to UTF-8 for an unknown or missing charset label', async () => {
+    const utf8 = [0x43, 0x61, 0x66, 0xc3, 0xa9];
+    const { fetch } = scripted({
+      'https://shop.example/bogus': {
+        headers: { 'content-type': 'text/html; charset=x-not-a-charset' },
+        body: bytes(utf8),
+      },
+      'https://shop.example/plain': { headers: { 'content-type': 'text/html' }, body: bytes(utf8) },
+    });
+    const fetcher = new BudgetedFetcher({ fetch });
+    expect((await fetcher.fetch('https://shop.example/bogus')).body).toBe('Café');
+    expect((await fetcher.fetch('https://shop.example/plain')).body).toBe('Café');
+    expect(decoderFor('text/html; charset="iso-8859-1"').encoding).toBe('windows-1252');
+    expect(decoderFor(null).encoding).toBe('utf-8');
   });
 });

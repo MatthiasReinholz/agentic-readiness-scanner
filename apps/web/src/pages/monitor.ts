@@ -72,7 +72,6 @@ export type MonitorPageKind = 'check_inbox' | 'confirmed' | 'unsubscribed' | 'in
 export interface MonitorPageContext {
   host?: string;
   reportUrl?: string;
-  unsubscribeUrl?: string;
 }
 
 export function monitorPage(

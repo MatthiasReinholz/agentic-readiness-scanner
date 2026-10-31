@@ -9,9 +9,9 @@ export const woocommerceDetected = defineCheck('B1.1', ({ target }) => {
     body_classes: target.homeDoc.bodyClasses().filter((c) => /woocommerce|shopify/i.test(c)),
   };
   if (target.platform === 'woocommerce') {
-    return Promise.resolve(pass('WooCommerce detected', evidence));
+    return pass('WooCommerce detected', evidence);
   }
-  return Promise.resolve(pass(`WooCommerce not detected (platform: ${target.platform})`, evidence));
+  return pass(`WooCommerce not detected (platform: ${target.platform})`, evidence);
 });
 
 export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher }) => {

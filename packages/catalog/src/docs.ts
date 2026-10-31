@@ -33,7 +33,7 @@ export function renderChecksDoc(catalog: Catalog): string {
   );
   lines.push('');
   lines.push(
-    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected.`,
+    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected; checks marked products run only when product pages were found.`,
   );
   lines.push('');
   lines.push('## Levels');
@@ -79,7 +79,10 @@ export function renderChecksDoc(catalog: Catalog): string {
     lines.push('| ID | Check | How it is tested | Weight | Depends on | Spec |');
     lines.push('| --- | --- | --- | --- | --- | --- |');
     for (const check of checks) {
-      const wc = check.requires.includes('woocommerce') ? ' (WC)' : '';
+      const tags = check.requires.map((requirement) =>
+        requirement === 'woocommerce' ? 'WC' : requirement,
+      );
+      const wc = tags.length > 0 ? ` (${tags.join(', ')})` : '';
       const spec = check.spec.map((ref) => `[${escapeCell(ref.title)}](${ref.url})`).join(', ');
       lines.push(
         `| ${check.id} | ${escapeCell(check.title)}${wc} | ${escapeCell(check.method)} | ${weightLabel(check)} | ${check.depends_on.join(', ') || '–'} | ${spec} |`,

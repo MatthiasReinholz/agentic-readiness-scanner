@@ -4,9 +4,18 @@
     "group": "A4",
     "title": "MCP server card",
     "question": "Does the site advertise an MCP server?",
-    "method": "GET /.well-known/mcp/server-card.json. Pass on valid JSON with a name and an endpoint.",
+    "method": "GET /.well-known/mcp/server-card.json. Pass on valid JSON with a name and an endpoint. The path is a community convention this scanner adopts, not part of the MCP specification: the Server Card extension (SEP-2127) recommends publishing the card at <endpoint>/server-card and listing it in /.well-known/ai-catalog.json.",
     "weight": 1,
-    "spec": [{ "title": "Model Context Protocol", "url": "https://modelcontextprotocol.io/" }]
+    "spec": [
+      {
+        "title": "Model Context Protocol specification",
+        "url": "https://modelcontextprotocol.io/specification/latest"
+      },
+      {
+        "title": "SEP-2127: MCP Server Cards",
+        "url": "https://modelcontextprotocol.io/seps/2127-mcp-server-cards"
+      }
+    ]
   },
   {
     "id": "A4.2",
@@ -42,7 +51,7 @@
     "question": "Does the site publish skills an agent can load?",
     "method": "GET /.well-known/agent-skills/index.json. Pass on valid JSON listing at least one skill.",
     "weight": 1,
-    "spec": [{ "title": "Agent Skills specification", "url": "https://agentskills.io/" }]
+    "spec": [{ "title": "Agent Skills specification", "url": "https://agentskills.io/home" }]
   },
   {
     "id": "A4.5",

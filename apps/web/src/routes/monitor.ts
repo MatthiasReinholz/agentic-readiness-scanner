@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
+import { SCAN_ID } from '../ids.js';
 import type { MonitoringService } from '../monitoring/service.js';
 import { normalizeEmail } from '../monitoring/tokens.js';
 import { monitorPage } from '../pages/monitor.js';
@@ -12,7 +13,8 @@ export interface MonitorRouteDependencies {
   scans: ResultStore;
 }
 
-const ID = /^[0-9a-f]{16}$/;
+/** Monitor ids are minted like scan ids, so one pattern validates both. */
+const ID = SCAN_ID;
 const TOKEN = /^[0-9a-f]{48}$/;
 
 /** /monitor: signup (POST), confirm and unsubscribe links (GET). */

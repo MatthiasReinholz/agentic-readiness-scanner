@@ -73,8 +73,8 @@ export class HtmlDocument {
   }
 
   /**
-   * Hostnames of external assets (script src, link href, img src), lower-cased, resolved
-   * against `base`. Relative and unparsable URLs are skipped.
+   * Hostnames of assets (script src, link href, img src), lower-cased, resolved against
+   * `base`, so relative and protocol-relative URLs count too. Unparsable URLs are skipped.
    */
   assetHosts(base: string): Set<string> {
     const hosts = new Set<string>();

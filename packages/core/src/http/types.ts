@@ -8,8 +8,6 @@ export type HttpMethod = 'GET' | 'HEAD' | 'OPTIONS';
 export interface FetchOptions {
   method?: HttpMethod;
   headers?: Record<string, string>;
-  /** Short label recorded in evidence, e.g. "agent-profile:ChatGPT-User". */
-  purpose?: string;
 }
 
 export interface FetchedResponse {

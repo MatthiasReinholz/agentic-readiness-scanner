@@ -12,10 +12,13 @@
         "title": "RFC 9309 Robots Exclusion Protocol",
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
-      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" },
+      {
+        "title": "OpenAI crawler documentation",
+        "url": "https://developers.openai.com/api/docs/bots"
+      },
       {
         "title": "Google common crawlers",
-        "url": "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+        "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers"
       }
     ]
   },
@@ -32,7 +35,10 @@
         "title": "RFC 9309 Robots Exclusion Protocol",
         "url": "https://www.rfc-editor.org/rfc/rfc9309"
       },
-      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" }
+      {
+        "title": "OpenAI crawler documentation",
+        "url": "https://developers.openai.com/api/docs/bots"
+      }
     ]
   },
   {
@@ -42,7 +48,12 @@
     "question": "Does the site state how its content may be used by AI systems?",
     "method": "Look for Content-Signal: lines in robots.txt or a Content-Signal response header with ai-train, search or ai-input values. Pass when present and parseable.",
     "weight": 1,
-    "spec": [{ "title": "Content Signals", "url": "https://contentsignals.org/" }]
+    "spec": [
+      {
+        "title": "Content Signals",
+        "url": "https://contentsignals.org/"
+      }
+    ]
   },
   {
     "id": "A2.4",
@@ -84,6 +95,7 @@
         "title": "Robots meta tag and X-Robots-Tag",
         "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
       }
-    ]
+    ],
+    "requires": ["products"]
   }
 ]

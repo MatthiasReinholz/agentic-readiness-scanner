@@ -25,7 +25,7 @@
     "question": "Does the store advertise an Agentic Commerce Protocol checkout?",
     "method": "Look for an OpenAPI document or discovery link pointing at checkout_sessions. Pass when HEAD or OPTIONS on the endpoint is reachable without creating a session.",
     "weight": 2,
-    "spec": [{ "title": "Agentic Commerce Protocol", "url": "https://agenticcommerce.dev/" }]
+    "spec": [{ "title": "Agentic Commerce Protocol", "url": "https://www.agenticcommerce.dev/" }]
   },
   {
     "id": "B5.4",
@@ -38,7 +38,7 @@
     "spec": [
       {
         "title": "OpenAI product feed specification",
-        "url": "https://developers.openai.com/commerce/specs/feed"
+        "url": "https://developers.openai.com/commerce/specs/file-upload/products"
       }
     ]
   },
@@ -62,7 +62,7 @@
     "method": "Informational. GET /.well-known/x402 and look for HTTP 402 payment-required headers on a probe. Pass when any signal is present.",
     "weight": 1,
     "spec": [
-      { "title": "x402 payment protocol", "url": "https://www.x402.org/" },
+      { "title": "x402 payment protocol", "url": "https://x402.org/" },
       { "title": "Agent Payments Protocol (AP2)", "url": "https://ap2-protocol.org/" }
     ]
   },

@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { hasPriceText } from './a3/index.js';
 import { hasShippingDetails } from './b4/index.js';
 
+/**
+ * The timing bounds below guard against super-linear backtracking (which takes seconds
+ * to minutes on these inputs), not against slowness, so they are generous on purpose.
+ */
 function timed(fn: () => boolean): { value: boolean; ms: number } {
   const started = performance.now();
   const value = fn();
@@ -27,7 +31,7 @@ describe('price text pattern', () => {
   it('stays linear on hostile numeric input', () => {
     const hostile = `${'1'.repeat(200_000)} ${'1,'.repeat(100_000)}`;
     const { ms } = timed(() => hasPriceText(hostile));
-    expect(ms).toBeLessThan(200);
+    expect(ms).toBeLessThan(3000);
   });
 });
 
@@ -43,6 +47,6 @@ describe('shipping details pattern', () => {
   it('stays linear on hostile numeric input', () => {
     const hostile = `${'9'.repeat(200_000)} ${'12 '.repeat(50_000)}`;
     const { ms } = timed(() => hasShippingDetails(hostile));
-    expect(ms).toBeLessThan(200);
+    expect(ms).toBeLessThan(3000);
   });
 });

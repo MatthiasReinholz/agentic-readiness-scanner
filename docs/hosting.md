@@ -48,7 +48,4 @@ After a deploy, check `/health` and `/.well-known/mcp/server-card.json` on the l
 - The D1-shaped broker accepted the MySQL DDL in `apps/web/src/store/sql.ts`, `targets/sql.ts` and `monitoring/sql.ts` as written, including inline indexes, a unique key and `INSERT … ON DUPLICATE KEY UPDATE`.
 - `sf.jsonc` is read from the root of the published directory, and its `headers` rules do not apply to worker responses.
 - Builds from the connected repository need the root `sf.jsonc` build block; auto-detection ran `pnpm build` in the wrong place.
-
-## Still to verify
-
-- The outbound policy for public hostnames that resolve to private addresses (DNS rebinding, `*.nip.io`-style names). The worker checks hostnames and literal IPs; DNS-level protection is the platform's. Test from a deployed version with a name that resolves to 127.0.0.1 and record the outcome here.
+- The outbound policy for public hostnames that resolve to private addresses (DNS rebinding, `*.nip.io`-style names): the worker checks hostnames and literal IPs, and the platform covers the DNS level. On version 19, scanning `http://127.0.0.1.nip.io/` and `http://10.0.0.1.nip.io/` both failed with "HTTP 530" from the platform, so Spacefast's egress refuses connections to private addresses after DNS resolution.

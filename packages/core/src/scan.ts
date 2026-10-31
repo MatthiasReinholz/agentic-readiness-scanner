@@ -75,7 +75,7 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
     scanned_at: now().toISOString(),
     requests: fetcher.requestCount,
     duration_ms: Date.now() - started,
-    level: computeLevel(results, catalog, target.profile.max_level),
+    level: computeLevel(results, catalog, target.profile),
     scores: computeScores(results, catalog),
     results,
     warnings: [

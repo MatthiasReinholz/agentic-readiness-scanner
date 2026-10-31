@@ -1,4 +1,4 @@
-import type { SqlDatabase } from '../store/sql.js';
+import { clampLimit, RowReader, SqlStore, type SqlDatabase } from '../store/sql-store.js';
 import type { StoredScan } from '../store/types.js';
 import { recordFromScan, type TargetRecord, type TargetRegistry } from './types.js';
 
@@ -17,47 +17,29 @@ export const TARGETS_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS targets (
   INDEX idx_targets_last_seen (last_seen_at)
 )`;
 
-interface TargetRow {
-  host: string;
-  url: string;
-  first_seen_at: string;
-  last_seen_at: string;
-  scan_count: number;
-  last_scan_id: string;
-  last_level: number;
-  last_ingestion: number;
-  last_commerce: number | null;
-  last_platform: string;
-  last_profile: string;
-}
+/** Rows the owner's export may ask for at most; the route caps its own limit the same way. */
+export const MAX_TARGET_ROWS = 5000;
 
-function rowToRecord(row: TargetRow): TargetRecord {
+function rowToRecord(row: Record<string, unknown>): TargetRecord {
+  const reader = new RowReader('targets', row);
   return {
-    host: row.host,
-    url: row.url,
-    firstSeenAt: row.first_seen_at,
-    lastSeenAt: row.last_seen_at,
-    scanCount: row.scan_count,
-    lastScanId: row.last_scan_id,
-    lastLevel: row.last_level,
-    lastIngestion: row.last_ingestion,
-    lastCommerce: row.last_commerce,
-    lastPlatform: row.last_platform,
-    lastProfile: row.last_profile,
+    host: reader.string('host'),
+    url: reader.string('url'),
+    firstSeenAt: reader.string('first_seen_at'),
+    lastSeenAt: reader.string('last_seen_at'),
+    scanCount: reader.number('scan_count'),
+    lastScanId: reader.string('last_scan_id'),
+    lastLevel: reader.number('last_level'),
+    lastIngestion: reader.number('last_ingestion'),
+    lastCommerce: reader.nullableNumber('last_commerce'),
+    lastPlatform: reader.string('last_platform'),
+    lastProfile: reader.string('last_profile'),
   };
 }
 
-export class SqlTargetRegistry implements TargetRegistry {
-  private schemaReady: Promise<void> | null = null;
-
-  constructor(private readonly db: SqlDatabase) {}
-
-  private ensureSchema(): Promise<void> {
-    this.schemaReady ??= this.db
-      .prepare(TARGETS_SCHEMA_SQL)
-      .run()
-      .then(() => undefined);
-    return this.schemaReady;
+export class SqlTargetRegistry extends SqlStore implements TargetRegistry {
+  constructor(db: SqlDatabase) {
+    super(db, TARGETS_SCHEMA_SQL);
   }
 
   async record(scan: StoredScan): Promise<void> {
@@ -86,10 +68,11 @@ export class SqlTargetRegistry implements TargetRegistry {
 
   async list(limit: number): Promise<TargetRecord[]> {
     await this.ensureSchema();
-    const safeLimit = Math.max(1, Math.min(5000, Math.trunc(limit)));
     const { results } = await this.db
-      .prepare(`SELECT * FROM targets ORDER BY last_seen_at DESC LIMIT ${safeLimit}`)
+      .prepare(
+        `SELECT * FROM targets ORDER BY last_seen_at DESC LIMIT ${clampLimit(limit, MAX_TARGET_ROWS)}`,
+      )
       .all();
-    return results.map((row) => rowToRecord(row as unknown as TargetRow));
+    return results.map(rowToRecord);
   }
 }

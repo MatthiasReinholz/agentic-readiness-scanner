@@ -25,7 +25,8 @@
         "title": "Google: JavaScript SEO basics",
         "url": "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "A3.3",
@@ -34,7 +35,12 @@
     "question": "Is a product page cheap enough for an agent to fetch?",
     "method": "Measure HTML size and time to first byte on sampled product pages. Pass under 500 KB and 1.5 s; warn under 1 MB and 3 s; fail above.",
     "weight": 1,
-    "spec": [{ "title": "web.dev: Time to First Byte", "url": "https://web.dev/articles/ttfb" }]
+    "spec": [
+      {
+        "title": "web.dev: Time to First Byte",
+        "url": "https://web.dev/articles/ttfb"
+      }
+    ]
   },
   {
     "id": "A3.4",
@@ -63,8 +69,8 @@
     "weight": 1,
     "spec": [
       {
-        "title": "ARIA Authoring Practices: landmark regions",
-        "url": "https://www.w3.org/WAI/ARIA/apg/patterns/landmarks/"
+        "title": "WAI-ARIA 1.2: landmark roles",
+        "url": "https://www.w3.org/TR/wai-aria-1.2/#landmark_roles"
       }
     ]
   }

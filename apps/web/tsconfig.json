@@ -1,11 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist-types",
-    "noEmit": true,
-    "types": ["node"],
-    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"]
-  },
-  "include": ["src/**/*.ts"]
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }

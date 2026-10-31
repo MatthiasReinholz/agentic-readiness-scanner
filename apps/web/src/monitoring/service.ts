@@ -99,7 +99,7 @@ export class MonitoringService {
     return 'confirmation_sent';
   }
 
-  /** Activates a pending subscription. Returns the manage token so the page can offer unsubscribe. */
+  /** Activates a pending subscription and returns it; null when the id or token is wrong or it was unsubscribed. */
   async confirm(id: string, token: string): Promise<Monitor | null> {
     const monitor = await this.deps.store.get(id);
     if (!monitor || monitor.status === 'unsubscribed') return null;

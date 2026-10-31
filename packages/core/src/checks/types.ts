@@ -52,11 +52,12 @@ export function skip(
   return { verdict: 'skip', message, evidence, skipReason };
 }
 
+/** Checks that need no fetch may return the outcome directly; the runner always awaits. */
 export function defineCheck(
   id: string,
-  run: (context: CheckContext) => Promise<CheckOutcome>,
+  run: (context: CheckContext) => CheckOutcome | Promise<CheckOutcome>,
 ): Check {
-  return { id, run };
+  return { id, run: async (context) => await run(context) };
 }
 
 /** Verdict from a pass ratio: all pass, most warn, otherwise fail. */
@@ -66,4 +67,15 @@ export function verdictForRatio(passed: number, total: number, warnAbove = 0.5):
   if (ratio >= 1) return 'pass';
   if (ratio > warnAbove) return 'warn';
   return 'fail';
+}
+
+/** The outcome for a pass ratio with one message, so ratio checks share the mapping. */
+export function outcomeForRatio(
+  passed: number,
+  total: number,
+  message: string,
+  evidence: Evidence = {},
+  warnAbove = 0.5,
+): CheckOutcome {
+  return { verdict: verdictForRatio(passed, total, warnAbove), message, evidence };
 }
