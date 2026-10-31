@@ -16,23 +16,7 @@
     "compatibilityDate": "2026-07-01",
   },
   "crons": [{ "path": "/internal/cron/cleanup", "schedule": "daily" }],
-  "headers": [
-    {
-      "source": "/*",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-      ],
-    },
-    {
-      "source": "/",
-      "headers": [
-        {
-          "key": "Link",
-          "value": "</llms.txt>; rel=\"llms-txt\"; type=\"text/markdown\", </.well-known/mcp/server-card.json>; rel=\"mcp-server\"; type=\"application/json\"",
-        },
-      ],
-    },
-  ],
+  // Response headers are set by the worker (apps/web/src/app.ts); sf.jsonc header rules
+  // apply to static files only.
   "access": "public",
 }
