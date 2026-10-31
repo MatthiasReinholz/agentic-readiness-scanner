@@ -1,0 +1,6 @@
+{
+  "resource": "https://ceramics.example/mcp",
+  "authorization_servers": ["https://auth.ceramics.example"],
+  "scopes_supported": ["catalog:read", "cart:write"],
+  "bearer_methods_supported": ["header"]
+}
