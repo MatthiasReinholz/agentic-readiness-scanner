@@ -182,3 +182,34 @@ describe('HtmlDocument', () => {
     expect(new HtmlDocument('<p>no scripts</p>').inlineScripts()).toEqual([]);
   });
 });
+
+describe('HtmlDocument controls and link titles', () => {
+  it('keeps a link title and lists buttons and inputs as controls', () => {
+    const page = new HtmlDocument(`<head>
+      <link rel="alternate" type="application/rss+xml" title="Shop » Feed" href="/feed/">
+    </head><body>
+      <form class="cart">
+        <input type="hidden" name="add-to-cart" value="12">
+        <button type="submit" class="single_add_to_cart_button button" id="buy">
+          Add <span>to cart</span>
+        </button>
+      </form>
+      <input type="submit" value="Buy now">
+    </body>`);
+    expect(page.links()).toEqual([
+      { rel: 'alternate', href: '/feed/', type: 'application/rss+xml', title: 'Shop » Feed' },
+    ]);
+    expect(page.controls()).toEqual([
+      {
+        tag: 'button',
+        type: 'submit',
+        id: 'buy',
+        className: 'single_add_to_cart_button button',
+        text: 'Add to cart',
+      },
+      { tag: 'input', type: 'hidden', name: 'add-to-cart', value: '12', text: '' },
+      { tag: 'input', type: 'submit', value: 'Buy now', text: '' },
+    ]);
+    expect(new HtmlDocument('<p>none</p>').controls()).toEqual([]);
+  });
+});

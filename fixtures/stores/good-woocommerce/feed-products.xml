@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>Example Ceramics</title>
+    <link>https://ceramics.example/</link>
+    <description>Hand-thrown stoneware tableware</description>
+    <lastBuildDate>Fri, 30 Oct 2026 09:00:00 GMT</lastBuildDate>
+    <item>
+      <g:id>MUG-350-BLU</g:id>
+      <g:title>Stoneware Mug, 350 ml</g:title>
+      <g:description>Hand-thrown stoneware mug, dishwasher safe.</g:description>
+      <g:link>https://ceramics.example/product/stoneware-mug/</g:link>
+      <g:image_link>https://ceramics.example/wp-content/uploads/mug.jpg</g:image_link>
+      <g:price>24.00 EUR</g:price>
+      <g:availability>in_stock</g:availability>
+      <g:condition>new</g:condition>
+      <g:gtin>4006381333931</g:gtin>
+      <g:brand>Example Ceramics</g:brand>
+    </item>
+    <item>
+      <g:id>BOWL-280-NAT</g:id>
+      <g:title>Serving Bowl, 28 cm</g:title>
+      <g:description>Large stoneware serving bowl, oven safe to 220 °C.</g:description>
+      <g:link>https://ceramics.example/product/serving-bowl/</g:link>
+      <g:image_link>https://ceramics.example/wp-content/uploads/bowl.jpg</g:image_link>
+      <g:price>48.00 EUR</g:price>
+      <g:availability>in_stock</g:availability>
+      <g:condition>new</g:condition>
+      <g:gtin>9780306406157</g:gtin>
+      <g:brand>Example Ceramics</g:brand>
+    </item>
+  </channel>
+</rss>

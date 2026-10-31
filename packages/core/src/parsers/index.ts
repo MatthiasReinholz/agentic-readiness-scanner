@@ -6,3 +6,5 @@ export * from './llms-txt.js';
 export * from './link-header.js';
 export * from './gtin.js';
 export * from './security-txt.js';
+export * from './price.js';
+export * from './feed.js';

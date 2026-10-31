@@ -348,7 +348,9 @@ describe('B4.6 policy pages are agent-readable', () => {
       }),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('4 of 4 policy page(s) are readable by the crawlers behind AI answers');
+    expect(outcome.message).toBe(
+      '4 of 4 policy page(s) are readable by the crawlers behind AI answers',
+    );
     expect(outcome.evidence).toMatchObject({
       readable: 4,
       total: 4,
