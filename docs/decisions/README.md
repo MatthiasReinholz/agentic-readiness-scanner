@@ -11,3 +11,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0007 No companion plugin](0007-no-companion-plugin.md)
 - [0008 UI standard: Tailwind and the token contract, without the app framework](0008-ui-standard.md)
 - [0009 Result storage in three tiers; history records states, not scans](0009-result-storage-tiers.md)
+- [0010 The scanner identifies itself and never impersonates an agent](0010-honest-fetch.md)

@@ -24,8 +24,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 
 ## Honest behavior toward targets
 
-- User agent `AgenticReadinessScanner/<version> (+repository URL)` on every request the scanner makes for itself.
-- The agent-profile comparison (A2.4, not yet implemented) will send other user-agent strings only for one product page and at most six extra requests, and `llms.txt` and this document will say so.
+- User agent `AgenticReadinessScanner/<version> (+repository URL)` on every request, without exception. The scanner never sends another agent's product token: the block-and-challenge check (A2.4) classifies the responses the scan made under its own identity, and robots.txt is evaluated for other crawlers from the file ([decision 0010](decisions/0010-honest-fetch.md)).
 - robots.txt is honoured for the scanner's own user agent (`AgenticReadinessScanner`) on everything except robots.txt, sitemaps and the well-known directory: `RobotsGatedFetcher` refuses disallowed URLs without spending budget, the affected checks see "page not readable", and the report lists the refused URLs under scan warnings.
 - One scan per target host per cooldown window on the hosted app, whatever the caller asks for: a profile override does not reopen the window, parallel submissions for one host share a single scan, and an isolate runs at most four scans at once (503 beyond that). This is the only control against using the scanner as a request amplifier, since the platform exposes no client address.
 
@@ -33,7 +32,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 
 - Scan ids are 16 hex characters from a cryptographic random source and are not listed anywhere.
 - Stored results contain only what the report shows: URLs, status codes, excerpts of evidence. No request bodies beyond what the checks quote, no visitor data.
-- Reports are kept for `RETENTION_DAYS` and deleted by the cleanup cron, which only runs when the platform's cron header is present. The `targets` registry keeps one row per host (no visitor data) indefinitely so the owner can see what was scanned.
+- Reports are kept for `RETENTION_DAYS` and deleted by the cleanup cron, which only runs when the platform's cron header is present. The `targets` registry keeps one row per host and the `scan_history` table one row per distinct state per host (level, scores, verdict per check; no evidence, no visitor data) indefinitely, so the owner can see what was scanned and anyone can see how a host developed ([decision 0009](decisions/0009-result-storage-tiers.md)).
 - Secrets live in Space variables. The repository holds none.
 
 ## Monitoring and personal data

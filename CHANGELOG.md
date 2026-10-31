@@ -4,7 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Catalog 0.2.0 and scoring 0.2.0** after a research audit of every check against the documented crawlers, the current standards and drafts, the published evidence on AI ingestion and every comparable scanner ([docs/audits/2026-10-31-check-audit.md](docs/audits/2026-10-31-check-audit.md)). New checks: A1.7 sitemap lastmod, A2.5 user-triggered fetchers (replacing the misread Web Bot Auth check), A3.6 honest 404s, A4.4 MCP endpoint reachable (replacing the invented Agent Skills index), A4.6 WebMCP declarations (informational), B1.8 Shopify `products.json`, B5.8 Shopify agentic storefront. Retired: B3.6 per-channel identity (folded into B3.1 to B3.4), B5.5 payment-handler signals, B5.6 x402 and AP2 signals. The `shopify` requirement joins `woocommerce` and `products`.
+- Implementations for A2.4 (block or challenge on the scanner's honest fetch), A3.3 to A3.5, B1.3, B1.4, B1.7, B2.3 to B2.5, B3.3 to B3.5, B4.4 to B4.6 and B5.7, with per-branch tests and fixture updates; the recorded WooCommerce store now reaches Level 4.
+- **History per host** ([decision 0009](docs/decisions/0009-result-storage-tiers.md)): a `scan_history` table with one row per distinct state (level, scores, score per group, verdict and skip reason per check, catalog and scoring version), never purged; `/h/<host>` with a trend chart and what changed between states, `/h/<host>.json`, a "since the previous state" block on every report, the MCP tool `get_history`, and the owner export `/internal/export/history.json?host=`.
+- CLI `diff <before.json> <after.json>` (`--format text|json`), exit code 3 when anything changed.
+- The hosted app serves its MCP server card at `/mcp/server-card` and lists it in `/.well-known/ai-catalog.json` (the community path keeps answering), and its robots.txt states a shared training decision (`__usage_ai-training`) and names the crawler classes.
+- The fixture fetcher answers per request method and headers and caches like the production fetcher.
+
 ### Changed
+
+- Crawler tokens are evaluated by class ([packages/core/src/checks/crawlers.ts](packages/core/src/checks/crawlers.ts)): A2.1 passes on any stated training decision and never fails; A2.2 evaluates the eleven search and assistant crawlers with Googlebot and Bingbot as core and is a Level 1 gate together with A2.4; A2.6 adds `data-nosnippet`, Bing's `noarchive`, `nocache` and `ai-grounding:disallow` and Apple's `isAccessibleForFree`, and records `noai` as a preference only; A1.5 skips when llms.txt is absent and requires only the H1 the proposal requires; A3.1 accepts a `.md` twin or a Markdown alternate; A3.3 thresholds follow Googlebot's 2 MB limit; A4.1, A4.3, A4.5, B5.1 to B5.4 follow the current MCP, A2A, UCP and ACP documents; B4.5 is a Level 4 gate; B4.7 is informational. Levels: see [docs/scoring.md](docs/scoring.md).
+- The scanner never impersonates another agent ([decision 0010](docs/decisions/0010-honest-fetch.md)); the security model says so.
+- The robots.txt parser keeps Content-Signal, Content-Usage and License lines with their group; `ResultSnapshot` carries group scores and skip reasons.
 
 - The visual system moves to a new `packages/ui` built on the app-base UI standard's framework layer: Tailwind CSS 3.4 with the shadcn token contract, class recipes transcribed from its primitives (button, badge, card, input, select, alert, textarea), lucide icons and self-hosted Inter, compiled at build time and inlined so the CLI's HTML report stays one file. The report and the hosted pages are re-rendered on it; dark stays the default theme, with a bright blue primary in both themes ([decision 0008](docs/decisions/0008-ui-standard.md)). No React or app framework.
 - The hosted app serves the latin subset of Inter under `/fonts` and the development server serves `public/` and the fonts like production.

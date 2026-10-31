@@ -46,6 +46,7 @@ describe('hosted app', () => {
       '</llms.txt>; rel="llms-txt"'.replace('</', '<https://scanner.example/'),
     );
     expect(home.headers.get('link')).toContain('rel="mcp-server"');
+    expect(home.headers.get('link')).toContain('rel="ai-catalog"');
     const health = await app.request('/health');
     expect(health.headers.get('x-content-type-options')).toBe('nosniff');
     expect(health.headers.get('link')).toBeNull();
@@ -57,11 +58,31 @@ describe('hosted app', () => {
     const llms = await app.request('/llms.txt');
     expect(llms.headers.get('content-type')).toContain('text/markdown');
     expect(await llms.text()).toContain('# Agentic Readiness Scanner');
-    const card = await app.request('/.well-known/mcp/server-card.json');
+    const card = await app.request('/mcp/server-card');
+    expect(card.headers.get('content-type')).toContain('application/mcp-server-card+json');
+    expect(card.headers.get('access-control-allow-origin')).toBe('*');
     expect(await card.json()).toMatchObject({
+      name: 'Agentic Readiness Scanner',
+      remotes: [{ type: 'streamable-http', url: 'https://scanner.example/mcp' }],
       endpoint: 'https://scanner.example/mcp',
       tools: ['scan_store', 'get_history', 'get_fix', 'list_checks'],
     });
+    const legacy = await app.request('/.well-known/mcp/server-card.json');
+    expect(legacy.status).toBe(200);
+    const aiCatalog = await app.request('/.well-known/ai-catalog.json');
+    expect(aiCatalog.headers.get('content-type')).toContain('application/ai-catalog+json');
+    expect(await aiCatalog.json()).toMatchObject({
+      entries: [
+        {
+          type: 'application/mcp-server-card+json',
+          url: 'https://scanner.example/mcp/server-card',
+        },
+      ],
+    });
+    const robots = await (await app.request('/robots.txt')).text();
+    expect(robots).toContain('User-agent: __usage_ai-training');
+    expect(robots).toContain('User-agent: OAI-SearchBot');
+    expect(robots).toContain('Disallow: /h/');
   });
 
   it('scans through the JSON API and serves the report in three formats plus a badge', async () => {
