@@ -448,6 +448,19 @@ describe('A4.3 OAuth discovery for the MCP endpoint', () => {
 });
 
 describe('A4.4 MCP endpoint reachable', () => {
+  it('passes on 406 from the reference transport', async () => {
+    const outcome = await runCheck(
+      mcpEndpointReachable,
+      targetFor(),
+      mapFetcher({ 'https://shop.example/mcp': { status: 406, body: 'Not Acceptable' } }),
+      new Map([
+        ['A4.1', { verdict: 'pass' as const, evidence: { endpoint: 'https://shop.example/mcp' } }],
+      ]),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/406/);
+  });
+
   const run = (response?: FixtureResponse, outcomes = discovered()) =>
     runCheck(
       mcpEndpointReachable,

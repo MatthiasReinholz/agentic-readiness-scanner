@@ -404,6 +404,13 @@ export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcom
       evidence,
     );
   }
+  // The reference SDK answers a GET without an SSE Accept header with 406: a live transport.
+  if (status === 406) {
+    return pass(
+      'the endpoint answers 406 to a GET without an SSE Accept header, as the reference transport does',
+      evidence,
+    );
+  }
   if (status === 401 && challenge) {
     return pass(
       'the endpoint requires authorization and names a scheme in WWW-Authenticate',

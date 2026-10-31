@@ -1,0 +1,21 @@
+# Example Boots
+User-agent: *
+Disallow: /admin
+Disallow: /cart
+Disallow: /orders
+Disallow: /checkouts/
+Disallow: /checkout
+Allow: /products/
+Allow: /collections/
+
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+Allow: /
+
+User-agent: ChatGPT-User
+User-agent: Claude-User
+User-agent: OAI-SearchBot
+Allow: /
+
+Sitemap: https://boots.example/sitemap.xml
