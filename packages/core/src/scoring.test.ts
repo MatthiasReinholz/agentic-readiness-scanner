@@ -2,7 +2,7 @@ import type { CheckResult } from '@agentic-readiness/catalog';
 import { catalog } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
-import { computeLevel, computeScores, scoreDimension } from './scoring.js';
+import { computeLevel, computeScores, scoreDimension, scoreGroup } from './scoring.js';
 
 function result(id: string, verdict: CheckResult['verdict']): CheckResult {
   const definition = catalog.checks.find((check) => check.id === id);
@@ -92,8 +92,27 @@ describe('computeLevel', () => {
   });
 });
 
+describe('scoreGroup', () => {
+  it('scores one group with the same weighting and returns null when nothing applied', () => {
+    const results = [result('A1.1', 'pass'), result('A1.4', 'fail'), result('A2.1', 'skip')];
+    expect(scoreGroup(results, 'A1')).toBe(75);
+    expect(scoreGroup(results, 'A2')).toBeNull();
+    expect(scoreGroup(results, 'B5')).toBeNull();
+  });
+
+  it('is carried in computeScores for every catalog group', () => {
+    const scores = computeScores([result('A1.1', 'pass')]);
+    expect(Object.keys(scores.groups)).toEqual(catalog.groups.map((group) => group.id));
+    expect(scores.groups.A1).toBe(100);
+    expect(scores.groups.B2).toBeNull();
+  });
+});
+
 describe('computeScores', () => {
   it('returns null commerce for ingestion-only results', () => {
-    expect(computeScores([result('A1.1', 'pass')])).toEqual({ ingestion: 100, commerce: null });
+    expect(computeScores([result('A1.1', 'pass')])).toMatchObject({
+      ingestion: 100,
+      commerce: null,
+    });
   });
 });

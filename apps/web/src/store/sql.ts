@@ -1,4 +1,5 @@
 import { getCheck, type ScanResult } from '@agentic-readiness/catalog';
+import { computeScores } from '@agentic-readiness/core';
 
 import type { ResultStore, StoredScan } from './types.js';
 
@@ -124,10 +125,15 @@ export class SqlResultStore implements ResultStore {
 }
 
 function rowToScan(row: ScanRow): StoredScan {
+  const parsed = JSON.parse(row.result) as ScanResult;
+  // Rows stored before scores.groups existed get it recomputed; it is a pure function of results.
+  const result = (parsed.scores as Partial<typeof parsed.scores>).groups
+    ? parsed
+    : { ...parsed, scores: computeScores(parsed.results) };
   return {
     id: row.id,
     host: row.host,
     createdAt: row.created_at,
-    result: attachFixes(JSON.parse(row.result) as ScanResult),
+    result: attachFixes(result),
   };
 }

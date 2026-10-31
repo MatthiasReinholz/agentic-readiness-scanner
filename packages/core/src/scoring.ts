@@ -17,8 +17,22 @@ function weightOf(result: CheckResult): number {
 
 /**
  * Sum of weights of passed checks (warn counts half) over the sum of weights of
- * applicable checks, as a 0 to 100 integer. Skipped checks drop out of the denominator.
+ * applicable checks, as a 0 to 100 integer. Skipped and info-only checks drop out of
+ * the denominator; null when nothing applied.
  */
+export function weightedScore(results: Iterable<CheckResult>): number | null {
+  let earned = 0;
+  let possible = 0;
+  for (const result of results) {
+    if (result.verdict === 'skip' || weightOf(result) === 0) continue;
+    possible += weightOf(result);
+    if (result.verdict === 'pass') earned += weightOf(result);
+    else if (result.verdict === 'warn') earned += weightOf(result) / 2;
+  }
+  if (possible === 0) return null;
+  return Math.round((earned / possible) * 100);
+}
+
 export function scoreDimension(
   results: readonly CheckResult[],
   dimension: Dimension,
@@ -27,28 +41,24 @@ export function scoreDimension(
   const groupIds = new Set(
     catalog.groups.filter((group) => group.dimension === dimension).map((group) => group.id),
   );
-  let earned = 0;
-  let possible = 0;
-  let applicable = 0;
-  for (const result of results) {
-    if (!groupIds.has(result.group) || result.verdict === 'skip' || weightOf(result) === 0)
-      continue;
-    applicable += 1;
-    possible += weightOf(result);
-    if (result.verdict === 'pass') earned += weightOf(result);
-    else if (result.verdict === 'warn') earned += weightOf(result) / 2;
-  }
-  if (applicable === 0) return null;
-  return Math.round((earned / possible) * 100);
+  return weightedScore(results.filter((result) => groupIds.has(result.group)));
+}
+
+/** The same weighted ratio for one catalog group, so a report can score each section. */
+export function scoreGroup(results: readonly CheckResult[], groupId: string): number | null {
+  return weightedScore(results.filter((result) => result.group === groupId));
 }
 
 export function computeScores(
   results: readonly CheckResult[],
   catalog: Catalog = defaultCatalog,
 ): Scores {
+  const groups: Record<string, number | null> = {};
+  for (const group of catalog.groups) groups[group.id] = scoreGroup(results, group.id);
   return {
     ingestion: scoreDimension(results, 'ingestion', catalog) ?? 0,
     commerce: scoreDimension(results, 'commerce', catalog),
+    groups,
   };
 }
 

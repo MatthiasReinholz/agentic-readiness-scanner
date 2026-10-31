@@ -69,10 +69,14 @@ export const LevelResultSchema = z.object({
 });
 export type LevelResult = z.infer<typeof LevelResultSchema>;
 
+export const GroupScoreSchema = z.number().int().min(0).max(100).nullable();
+
 export const ScoresSchema = z.object({
   ingestion: z.number().int().min(0).max(100),
   /** Null for profiles without the commerce dimension. */
   commerce: z.number().int().min(0).max(100).nullable(),
+  /** One score per catalog group, keyed by group id; null when no check in the group applied. */
+  groups: z.record(z.string(), GroupScoreSchema),
 });
 export type Scores = z.infer<typeof ScoresSchema>;
 

@@ -8,6 +8,8 @@ For each dimension: sum of weights of passed checks ÷ sum of weights of applica
 
 The commerce score is `null` for profiles without the commerce dimension.
 
+The same formula is applied per catalog group and carried as `scores.groups` (keyed by group id, `null` when no check in the group applied). Reports show it as a score per section so a merchant can see at a glance which area needs work; the dimension scores remain the headline numbers.
+
 ## Levels
 
 Levels are gates. A level holds only when every gate of that level is satisfied, and a gate is satisfied when one of its alternatives passed. The one exception: a gate whose alternatives all do not apply to the profile is satisfied, so a content site is not held back by product-only gates. Checks skipped for any other reason block the gate.
