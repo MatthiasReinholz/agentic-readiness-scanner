@@ -19,13 +19,25 @@ import {
   serverRenderedProductContent,
 } from './a3/index.js';
 import {
+  a2aAgentCard,
+  apiCatalogPublished,
+  mcpEndpointReachable,
+  mcpServerDiscoverable,
+  oauthDiscoveryForMcp,
+  webMcpToolDeclarations,
+} from './a4/index.js';
+import {
+  feedFreshness,
+  productFeedDiscoverable,
   sitemapMatchesStoreApi,
   storeApiNotRateLimited,
   storeApiProductComplete,
   storeApiReachable,
   woocommerceDetected,
 } from './b1/index.js';
+import { shopifyProductsJsonReadable } from './b1/shopify.js';
 import {
+  markupMatchesPage,
   offerComplete,
   productImageUsable,
   productJsonLd,
@@ -48,7 +60,14 @@ import {
   securityTxt,
   shippingPolicyFound,
 } from './b4/index.js';
-import { guestCheckoutAndCartApi } from './b5/index.js';
+import {
+  acpDiscoveryDocument,
+  acpFeedFields,
+  guestCheckoutAndCartApi,
+  shopifyAgenticStorefront,
+  ucpBusinessProfile,
+  ucpCheckoutDeclared,
+} from './b5/index.js';
 import type { Check } from './types.js';
 
 /**
@@ -70,16 +89,26 @@ export const builtInChecks: readonly Check[] = [
   pageWeightAndResponseTime,
   canonicalAndHreflang,
   accessibleMainContent,
+  mcpServerDiscoverable,
+  apiCatalogPublished,
+  oauthDiscoveryForMcp,
+  mcpEndpointReachable,
+  a2aAgentCard,
+  webMcpToolDeclarations,
   woocommerceDetected,
   storeApiReachable,
   storeApiNotRateLimited,
   storeApiProductComplete,
+  productFeedDiscoverable,
+  feedFreshness,
   sitemapMatchesStoreApi,
+  shopifyProductsJsonReadable,
   productJsonLd,
   offerComplete,
   variantsModeled,
   shippingAndReturnsInMarkup,
   productImageUsable,
+  markupMatchesPage,
   gtinPresent,
   gtinValid,
   brandEntity,
@@ -92,7 +121,12 @@ export const builtInChecks: readonly Check[] = [
   contactChannel,
   policyPagesAgentReadable,
   securityTxt,
+  ucpBusinessProfile,
+  ucpCheckoutDeclared,
+  acpDiscoveryDocument,
+  acpFeedFields,
   guestCheckoutAndCartApi,
+  shopifyAgenticStorefront,
 ];
 
 export function implementedCheckIds(checks: readonly Check[] = builtInChecks): string[] {
