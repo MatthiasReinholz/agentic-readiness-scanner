@@ -19,7 +19,7 @@ import { MonitoringService } from './monitoring/service.js';
 import type { Mailer, MonitorStore } from './monitoring/types.js';
 import { homePage } from './pages/home.js';
 import { page } from './pages/layout.js';
-import { MONITOR_CSS, monitorDialog, monitorPanel, monitorScript } from './pages/monitor.js';
+import { MONITOR_CSS, MONITOR_SCRIPT, monitorDialog, monitorPanel } from './pages/monitor.js';
 import { createMonitorRoutes } from './routes/monitor.js';
 import { newScanId, type ResultStore, type StoredScan } from './store/types.js';
 import type { TargetRegistry } from './targets/types.js';
@@ -277,7 +277,7 @@ export function createApp(deps: AppDependencies): Hono {
       ? {
           afterScoresHtml: monitorPanel(config, stored),
           endHtml: `<style>${MONITOR_CSS}</style>${monitorDialog(config, stored)}`,
-          scripts: [monitorScript(stored.host)],
+          scripts: [MONITOR_SCRIPT],
         }
       : {};
     return c.html(
