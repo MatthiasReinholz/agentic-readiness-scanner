@@ -12,12 +12,12 @@ The latest tagged release on `main` is supported. Older releases receive no fixe
 
 This repository is responsible for:
 
-- the scanning engine, catalog, CLI and MCP packages published to npm
+- the scanning engine, catalog, CLI and MCP packages (intended for npm; not published yet)
 - the hosted application and its deployment workflows
 - the GitHub Actions workflows and their supply-chain policy
 
-It does not store or need any credential to scan a store. The hosted deployment's own secrets (Spacefast token, npm token) live in GitHub environments, never in the repository.
+It does not store or need any credential to scan a store. The hosted deployment is built and served by Spacefast from `main`; its own secrets (mail provider key, admin token) live in Space variables, and the only GitHub secret is the npm token for releases. None live in the repository.
 
 ## Threat model of the scanner
 
-Any URL-in service is a server-side request forgery and scraping vector. The controls are described in [docs/security-model.md](docs/security-model.md): URL policy (public hosts, default ports, no private ranges), a fixed request budget per scan, body size caps, redirect limits, per-target cooldown, an honest user agent, and respect for robots.txt on everything except robots.txt, sitemaps and well-known paths. Changes to these controls are reviewed like privileged infrastructure changes.
+Any URL-in service is a server-side request forgery and scraping vector. The controls are described in [docs/security-model.md](docs/security-model.md): URL policy (public hosts, default ports, no private ranges), a fixed request budget per scan, body size caps, redirect limits, per-target cooldown and an honest user agent. The scanner parses robots.txt to evaluate it; honouring it for the scanner's own fetches is tracked in the security model. Changes to these controls are reviewed like privileged infrastructure changes.

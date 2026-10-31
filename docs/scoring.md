@@ -25,6 +25,8 @@ Levels are gates. A level holds only when every gate of that level is satisfied,
 
 Each profile declares a maximum level: content sites stop at 1. The report leads with the level and `next_gate`, the ids standing between the store and the next level.
 
+A gate whose check is not implemented yet blocks the level, by design: the scanner never awards a level it could not verify. While B3.6 and both B5 alternatives are unimplemented, the highest level any store can reach is 2; the README states the current ceiling.
+
 ## Profiles
 
 | Profile           | Applies                                                  | Max level |

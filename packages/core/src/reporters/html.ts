@@ -24,11 +24,11 @@ export interface HtmlReportOptions {
   badgeUrl?: string;
   /** Canonical URL of this report, included in agent prompts. */
   reportUrl?: string;
-  /** Link to the companion plugin when WooCommerce was detected. */
-  pluginUrl?: string;
   /** Hosted scanner name and home link for the header and footer. */
   appName?: string;
   homeUrl?: string;
+  /** Trusted HTML appended to the footer, e.g. source link and disclaimer. */
+  footerHtml?: string;
   /** Trusted HTML the host app wants between the scores and the sections (e.g. a signup). */
   afterScoresHtml?: string;
   /** Trusted HTML appended at the end of the body, and extra inline scripts. */
@@ -173,9 +173,6 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
     options.jsonUrl ? `<a href="${escapeHtml(options.jsonUrl)}">JSON</a>` : '',
     options.markdownUrl ? `<a href="${escapeHtml(options.markdownUrl)}">Markdown</a>` : '',
     options.badgeUrl ? `<a href="${escapeHtml(options.badgeUrl)}">Badge</a>` : '',
-    options.pluginUrl && result.target.platform === 'woocommerce'
-      ? `<a href="${escapeHtml(options.pluginUrl)}">Fix this with the WooCommerce plugin</a>`
-      : '',
   ].filter(Boolean);
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const brand = `<a class="brand" href="${escapeHtml(options.homeUrl ?? '/')}"><span class="brand-mark">AR</span><span>${escapeHtml(appName)}</span></a>`;
@@ -202,7 +199,7 @@ ${sections}
 ${prompts ? `<section class="card" style="margin-top:32px"><div class="fix-actions" style="justify-content:space-between"><div><h2>All fix briefs</h2><p class="muted small" style="margin-top:4px">One brief per finding, ready for a coding agent working on the store.</p></div><button type="button" class="btn btn-ghost btn-sm" data-copy="all-prompts">Copy all</button></div><textarea class="prompt" id="all-prompts" readonly aria-label="All fix briefs" style="margin-top:14px;min-height:260px">${escapeHtml(prompts)}</textarea></section>` : ''}
 ${result.warnings.length > 0 ? `<section style="margin-top:32px"><h2>Scan warnings</h2><ul class="warnings" style="margin-top:8px">${result.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></section>` : ''}
 ${options.endHtml ?? ''}
-<footer class="site">Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeHtml(result.scoring_version)} · scanner ${escapeHtml(result.scanner_version)} · ${result.requests} requests in ${result.duration_ms} ms${links.length > 0 ? ` · ${links.join(' · ')}` : ''}</footer>
+<footer class="site">Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeHtml(result.scoring_version)} · scanner ${escapeHtml(result.scanner_version)} · ${result.requests} requests in ${result.duration_ms} ms${links.length > 0 ? ` · ${links.join(' · ')}` : ''}${options.footerHtml ? `<br>${options.footerHtml}` : ''}</footer>
 </main>`;
   return htmlDocument(
     {

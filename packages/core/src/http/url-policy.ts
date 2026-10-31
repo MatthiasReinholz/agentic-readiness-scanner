@@ -83,7 +83,7 @@ export function assertPublicUrl(url: URL): void {
   }
 }
 
-/** Normalizes user input ("example.shop", "http://Example.shop/path") to an absolute URL. */
+/** Normalizes user input ("example.com", "http://Example.shop/path") to an absolute URL. */
 export function normalizeInputUrl(input: string): URL {
   const trimmed = input.trim();
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;

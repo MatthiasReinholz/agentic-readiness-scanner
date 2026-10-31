@@ -1,6 +1,6 @@
 # 0002 The WordPress plugin lives in its own repository
 
-Date: 2026-10-30. Status: accepted.
+Date: 2026-10-30. Status: superseded by [0007 No companion plugin](0007-no-companion-plugin.md).
 
 ## Context
 
@@ -8,7 +8,7 @@ wp-plugin-base, the foundation for the maintainer's WordPress plugins, manages r
 
 ## Decision
 
-The scanner (catalog, engine, CLI, MCP, hosted app) lives here. The plugin lives in a separate repository as a wp-plugin-base child. The contract between them is the catalog data file and the result schema attached to every release here; see [companion-plugin.md](../companion-plugin.md).
+The scanner (catalog, engine, CLI, MCP, hosted app) lives here. The plugin lives in a separate repository as a wp-plugin-base child. The contract between them is the catalog data file and the result schema attached to every release here.
 
 ## Consequences
 

@@ -30,7 +30,7 @@ pnpm check
 Useful during work:
 
 - `pnpm --filter @agentic-readiness/core test` runs one package's tests.
-- `pnpm scan https://example.shop --format md` runs the CLI from source.
+- `pnpm scan https://example.com --format md` runs the CLI from source.
 - `pnpm scan https://ceramics.example --fixture fixtures/stores/good-woocommerce` runs offline.
 - `pnpm dev` serves the hosted app locally.
 
@@ -39,7 +39,7 @@ Useful during work:
 A check is a catalog entry plus an implementation plus fixtures.
 
 1. **Define it** in `packages/catalog/data/checks/<group>.json`: id, title, the one question it answers, how it is tested, weight (1 nice to have, 2 expected, 3 blocking, or `info`), platform requirements, dependencies, and at least one public spec URL.
-2. **Write the fix** in `packages/catalog/fixes/<id>.md`: a Summary, an optional Snippet (one fenced block), and an Agent prompt. Set `auto_fix: true` only when the companion plugin can apply it.
+2. **Write the fix** in `packages/catalog/fixes/<id>.md`: a Summary, an optional Snippet (one fenced block), and an Agent prompt. Set `auto_fix: true` only when the fix is mechanical (a file, setting or markup change a tool or agent can apply from existing store data).
 3. **Implement it** in `packages/core/src/checks/<group>/index.ts` with `defineCheck`, returning `pass`, `warn`, `fail` or `skip` with evidence, and register it in `packages/core/src/checks/registry.ts`.
 4. **Record fixtures** in `fixtures/stores`: make the good store pass it and, where meaningful, another fixture fail it.
 5. **Regenerate docs**: `pnpm docs:generate`.

@@ -6,10 +6,10 @@ import { assertPublicUrl, normalizeInputUrl } from './url-policy.js';
 describe('assertPublicUrl', () => {
   it('allows public hosts on default ports', () => {
     expect(() => {
-      assertPublicUrl(new URL('https://example.shop/path'));
+      assertPublicUrl(new URL('https://example.com/path'));
     }).not.toThrow();
     expect(() => {
-      assertPublicUrl(new URL('http://example.shop:80/'));
+      assertPublicUrl(new URL('http://example.com:80/'));
     }).not.toThrow();
     expect(() => {
       assertPublicUrl(new URL('https://93.184.216.34/'));
@@ -28,9 +28,9 @@ describe('assertPublicUrl', () => {
     'http://[::ffff:127.0.0.1]/',
     'http://intranet/',
     'http://files.internal/',
-    'https://example.shop:8443/',
-    'ftp://example.shop/',
-    'https://user:pw@example.shop/',
+    'https://example.com:8443/',
+    'ftp://example.com/',
+    'https://user:pw@example.com/',
   ])('blocks %s', (url) => {
     expect(() => {
       assertPublicUrl(new URL(url));
@@ -40,7 +40,7 @@ describe('assertPublicUrl', () => {
 
 describe('normalizeInputUrl', () => {
   it('adds https and strips fragments', () => {
-    expect(normalizeInputUrl(' example.shop/path#x ').href).toBe('https://example.shop/path');
-    expect(normalizeInputUrl('http://Example.shop').href).toBe('http://example.shop/');
+    expect(normalizeInputUrl(' example.com/path#x ').href).toBe('https://example.com/path');
+    expect(normalizeInputUrl('http://Example.com').href).toBe('http://example.com/');
   });
 });

@@ -1,6 +1,6 @@
 # 0001 The engine is TypeScript, not PHP
 
-Date: 2026-10-30. Status: accepted.
+Date: 2026-10-30. Status: accepted. The statements about a WordPress plugin are superseded by [0007](0007-no-companion-plugin.md); the decision about the engine stands.
 
 ## Context
 

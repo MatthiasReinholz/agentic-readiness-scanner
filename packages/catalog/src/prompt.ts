@@ -4,8 +4,8 @@
  * The catalog's per-check `agent_prompt` states the task. This wrapper adds what the
  * agent needs around it: where the request comes from, what was observed, the specs the
  * check is grounded in, and how to work (investigate first, prefer a durable fix over a
- * patch, verify). Kept in one place so every surface (HTML, Markdown, MCP, plugin)
- * hands agents the same brief.
+ * patch, verify). Kept in one place so every surface (HTML, Markdown, MCP) hands agents
+ * the same brief.
  */
 import type { CheckDefinition, Verdict } from './schema.js';
 

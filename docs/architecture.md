@@ -39,11 +39,11 @@ One engine, three hosts. The hosted app, the CLI and the MCP server all call the
 
 ## Why the catalog is data
 
-Check definitions and fixes are consumed by the engine, the docs generator, the MCP tools and the WordPress companion plugin (PHP). Keeping them as JSON and Markdown with a schema means one source of truth across languages, a reviewable diff when a check changes, and a hard rule the validator can enforce: no check without a public spec URL, no check without a fix. See [decisions/0003](decisions/0003-catalog-as-data.md).
+Check definitions and fixes are consumed by the engine, the docs generator, the MCP tools, and by anyone reading the published `catalog.json` and JSON Schemas. Keeping them as JSON and Markdown with a schema means one source of truth that any language can read, a reviewable diff when a check changes, and a hard rule the validator can enforce: no check without a public spec URL, no check without a fix. See [decisions/0003](decisions/0003-catalog-as-data.md).
 
 ## The hosted app
 
-`apps/web/src` is a Hono application with no framework beyond that. `app.ts` wires routes to dependencies that are all interfaces: a `ResultStore` for scans, a `TargetRegistry` for the durable list of hosts, a `MonitorStore` and a `Mailer` for monitoring. `handler.ts` binds the SQL implementations to the Space's database and a Resend mailer for the worker; `dev.ts` binds memory stores and a console mailer for Node. `monitoring/service.ts` holds the subscription lifecycle (signup, confirm, unsubscribe, the due-run) with no HTTP in it; `routes/monitor.ts` is the thin HTTP layer and `pages/*.ts` render HTML on top of the shared theme. See [decisions/0006](decisions/0006-monitoring-by-weekly-rescan.md).
+`apps/web/src` is a Hono application with no framework beyond that. `app.ts` wires routes to dependencies that are all interfaces: a `ResultStore` for scans, a `TargetRegistry` for the durable list of hosts, a `MonitorStore` and a `Mailer` for monitoring. `handler.ts` binds the SQL implementations to the Space's database and the mailer selected by `MAIL_PROVIDER` (Brevo in production) for the worker; `dev.ts` binds memory stores and a console mailer for Node. `monitoring/service.ts` holds the subscription lifecycle (signup, confirm, unsubscribe, the due-run) with no HTTP in it; `routes/monitor.ts` is the thin HTTP layer and `pages/*.ts` render HTML on top of the shared theme. See [decisions/0006](decisions/0006-monitoring-by-weekly-rescan.md).
 
 ## Determinism
 

@@ -1,6 +1,7 @@
 import { catalog, type ScanResult } from '@agentic-readiness/catalog';
 import {
   BlockedUrlError,
+  escapeHtml,
   normalizeInputUrl,
   renderBadge,
   renderHtml,
@@ -131,10 +132,16 @@ function reportLinks(config: AppConfig, id: string, host: string) {
     jsonUrl: `${config.baseUrl}/r/${id}.json`,
     markdownUrl: `${config.baseUrl}/r/${id}.md`,
     badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
-    pluginUrl: config.pluginUrl,
     appName: config.appName,
     homeUrl: `${config.baseUrl}/`,
+    footerHtml: `<a href="${escapeHtml(config.repositoryUrl)}">Source on GitHub</a> · GPL-3.0-or-later · Not affiliated with Automattic, WordPress or WooCommerce.`,
   };
+}
+
+/** security.txt Expires: RFC 9116 wants it under a year away; the first of a month about six months out. */
+function securityTxtExpires(now: Date): string {
+  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 7, 1));
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 function llmsTxt(config: AppConfig): string {
@@ -145,7 +152,7 @@ function llmsTxt(config: AppConfig): string {
 ## Use it
 
 - [Scan form](${config.baseUrl}/): submit a URL, get a report
-- [JSON API](${config.baseUrl}/api/scan): POST {"url": "https://example.shop"} and receive the result object
+- [JSON API](${config.baseUrl}/): POST {"url": "https://example.com"} to ${config.baseUrl}/api/scan and receive the result object (GET is not served)
 - [MCP server card](${config.baseUrl}/.well-known/mcp/server-card.json): Streamable HTTP endpoint at ${config.baseUrl}/mcp with tools scan_store, get_fix and list_checks
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
@@ -192,13 +199,37 @@ export function createApp(deps: AppDependencies): Hono {
 
   app.get('/robots.txt', (c) =>
     c.text(
-      `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /api/\nDisallow: /internal/\n\nContent-Signal: ai-train=yes, search=yes, ai-input=yes\n`,
+      [
+        '# Shopping agents and AI crawlers are welcome on the public pages.',
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /r/',
+        'Disallow: /api/',
+        'Disallow: /internal/',
+        'Disallow: /monitor/',
+        'Content-Signal: ai-train=yes, search=yes, ai-input=yes',
+        '',
+        '# Explicit decisions for AI training crawlers (see check A2.1).',
+        'User-agent: GPTBot',
+        'User-agent: ClaudeBot',
+        'User-agent: Google-Extended',
+        'User-agent: PerplexityBot',
+        'User-agent: CCBot',
+        'User-agent: Bytespider',
+        'User-agent: Applebot-Extended',
+        'Allow: /',
+        'Disallow: /r/',
+        'Disallow: /api/',
+        'Disallow: /internal/',
+        'Disallow: /monitor/',
+        '',
+      ].join('\n'),
     ),
   );
 
   app.get('/.well-known/security.txt', (c) =>
     c.text(
-      `Contact: ${config.repositoryUrl}/security/advisories/new\nExpires: 2027-12-31T23:59:59Z\nPreferred-Languages: en, de\nCanonical: ${config.baseUrl}/.well-known/security.txt\n`,
+      `Contact: ${config.repositoryUrl}/security/advisories/new\nExpires: ${securityTxtExpires((deps.now ?? (() => new Date()))())}\nPreferred-Languages: en, de\nCanonical: ${config.baseUrl}/.well-known/security.txt\nPolicy: ${config.repositoryUrl}/blob/main/SECURITY.md\n`,
     ),
   );
 
