@@ -38,7 +38,10 @@ function normalizeKey(url: string): string {
 export class FixtureFetcher implements Fetcher {
   readonly budget: number;
   private readonly responses = new Map<string, FixtureResponse[]>();
+  /** Method, URL and headers of every request counted so far; a repeat is a cache hit, as in production. */
+  private readonly seen = new Set<string>();
   private sent = 0;
+  /** Every call, cache hits included, so a test can assert what a check asked for. */
   readonly log: { url: string; options: FetchOptions }[] = [];
 
   constructor(
@@ -86,16 +89,22 @@ export class FixtureFetcher implements Fetcher {
   }
 
   fetch(url: string, options: FetchOptions = {}): Promise<FetchedResponse> {
-    if (this.sent >= this.budget) {
-      throw new BudgetExhaustedError(this.budget);
-    }
-    this.sent += 1;
-    this.log.push({ url, options });
     const key = normalizeKey(url);
     const method = options.method ?? 'GET';
     const requestHeaders: Record<string, string> = {};
     for (const [name, value] of Object.entries(options.headers ?? {}))
       requestHeaders[name.toLowerCase()] = value;
+    // Same cache key as BudgetedFetcher: method, URL and the request headers.
+    const cacheKey = `${method} ${key} ${JSON.stringify(Object.entries(requestHeaders).sort())}`;
+    const fromCache = this.seen.has(cacheKey);
+    if (!fromCache) {
+      if (this.sent >= this.budget) {
+        throw new BudgetExhaustedError(this.budget);
+      }
+      this.sent += 1;
+      this.seen.add(cacheKey);
+    }
+    this.log.push({ url, options });
     const recorded = this.select(key, method, requestHeaders);
     const body = recorded?.body ?? '';
     const headers: Record<string, string> = {};
@@ -111,7 +120,7 @@ export class FixtureFetcher implements Fetcher {
       truncated: false,
       redirects: 0,
       durationMs: 1,
-      fromCache: false,
+      fromCache,
     });
   }
 }

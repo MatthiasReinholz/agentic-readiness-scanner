@@ -96,4 +96,49 @@ describe('HtmlDocument', () => {
       'static.example',
     ]);
   });
+
+  it('lists the WooCommerce variation form signals present', () => {
+    expect(doc.variationFormSignals()).toEqual([]);
+    expect(
+      new HtmlDocument(
+        '<form class="variations_form cart"><select name="attribute_pa_size"></select></form><div data-product_variations="[]"></div>',
+      ).variationFormSignals(),
+    ).toEqual(['form.variations_form', 'select[name^=attribute_]', 'data-product_variations']);
+    expect(
+      new HtmlDocument('<form class="my_variations_form"></form>').variationFormSignals(),
+    ).toEqual([]);
+  });
+
+  it('finds the rendered product image by src, gallery or featured class', () => {
+    const base = 'https://shop.example/product/mug/';
+    const page = new HtmlDocument(`
+      <img src="/logo.png" alt="Logo">
+      <div class="woocommerce-product-gallery">
+        <img width="600" height="600" data-large_image_width="1200" src="/wp-content/uploads/mug.jpg" alt=" Blue mug ">
+      </div>
+      <img class="attachment-thumb wp-post-image" data-src="https://cdn.example/lazy.jpg">
+    `);
+    expect(page.productImage(base, 'https://shop.example/wp-content/uploads/mug.jpg')).toEqual({
+      src: 'https://shop.example/wp-content/uploads/mug.jpg',
+      alt: 'Blue mug',
+      width: 600,
+      height: 600,
+      fullWidth: 1200,
+      fullHeight: null,
+    });
+    expect(page.productImage(base, 'https://cdn.example/elsewhere.jpg')?.alt).toBe('Blue mug');
+    expect(page.productImage(base)?.src).toBe('https://shop.example/wp-content/uploads/mug.jpg');
+    const featured = new HtmlDocument(
+      '<img class="wp-post-image" data-src="https://cdn.example/lazy.jpg" width="abc">',
+    ).productImage(base);
+    expect(featured).toEqual({
+      src: 'https://cdn.example/lazy.jpg',
+      alt: null,
+      width: null,
+      height: null,
+      fullWidth: null,
+      fullHeight: null,
+    });
+    expect(doc.productImage(base)).toBeNull();
+  });
 });

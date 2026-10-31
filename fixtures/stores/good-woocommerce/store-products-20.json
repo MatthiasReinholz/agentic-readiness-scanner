@@ -12,17 +12,23 @@
     "images": [
       { "src": "https://ceramics.example/wp-content/uploads/mug.jpg", "alt": "Blue stoneware mug" }
     ],
-    "categories": [{ "id": 5, "name": "Mugs" }]
+    "categories": [{ "id": 5, "name": "Mugs" }],
+    "variations": []
   },
   {
     "id": 102,
-    "name": "Serving Bowl, 28 cm",
+    "name": "Serving Bowl",
     "slug": "serving-bowl",
     "permalink": "https://ceramics.example/product/serving-bowl/",
-    "sku": "BOWL-280-NAT",
+    "sku": "BOWL-NAT",
     "global_unique_id": "9780306406157",
-    "type": "simple",
-    "prices": { "price": "4800", "currency_code": "EUR", "currency_minor_unit": 2 },
+    "type": "variable",
+    "prices": {
+      "price": "4800",
+      "currency_code": "EUR",
+      "currency_minor_unit": 2,
+      "price_range": { "min_amount": "4800", "max_amount": "6200" }
+    },
     "is_in_stock": true,
     "images": [
       {
@@ -30,6 +36,10 @@
         "alt": "Speckled serving bowl"
       }
     ],
-    "categories": [{ "id": 6, "name": "Bowls" }]
+    "categories": [{ "id": 6, "name": "Bowls" }],
+    "variations": [
+      { "id": 1021, "attributes": [{ "name": "Size", "value": "28-cm" }] },
+      { "id": 1022, "attributes": [{ "name": "Size", "value": "32-cm" }] }
+    ]
   }
 ]
