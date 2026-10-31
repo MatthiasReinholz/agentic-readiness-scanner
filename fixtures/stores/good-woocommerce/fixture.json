@@ -51,6 +51,40 @@
       "body_file": "security.txt"
     },
     {
+      "url": "https://ceramics.example/.well-known/ai-catalog.json",
+      "headers": { "content-type": "application/json", "access-control-allow-origin": "*" },
+      "body_file": "ai-catalog.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp/server-card",
+      "headers": {
+        "content-type": "application/mcp-server-card+json",
+        "access-control-allow-origin": "*"
+      },
+      "body_file": "mcp-server-card.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp",
+      "status": 405,
+      "headers": { "allow": "POST", "content-type": "text/plain" },
+      "body": "Method Not Allowed"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/oauth-protected-resource/mcp",
+      "headers": { "content-type": "application/json" },
+      "body_file": "oauth-protected-resource.json"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/api-catalog",
+      "headers": { "content-type": "application/linkset+json" },
+      "body_file": "api-catalog.json"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/agent-card.json",
+      "headers": { "content-type": "application/json" },
+      "body_file": "agent-card.json"
+    },
+    {
       "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=1",
       "headers": { "content-type": "application/json", "x-wp-total": "2", "x-wp-totalpages": "2" },
       "body_file": "store-products-1.json"

@@ -1,0 +1,11 @@
+{
+  "name": "Example Ceramics catalog",
+  "version": "1.0.0",
+  "description": "Search the catalog, read prices and stock, and prepare a cart for Example Ceramics.",
+  "remotes": [
+    {
+      "transport_type": "streamable-http",
+      "url": "https://ceramics.example/mcp"
+    }
+  ]
+}

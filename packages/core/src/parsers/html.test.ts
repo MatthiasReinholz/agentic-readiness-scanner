@@ -168,4 +168,17 @@ describe('HtmlDocument', () => {
     });
     expect(doc.productImage(base)).toBeNull();
   });
+
+  it('returns the text of inline scripts only', () => {
+    const page = new HtmlDocument(`
+      <script src="/app.js">ignored</script>
+      <script>navigator.modelContext.registerTool({ name: 'search' });</script>
+      <script type="application/ld+json">{"@type":"Thing"}</script>
+    `);
+    expect(page.inlineScripts()).toEqual([
+      "navigator.modelContext.registerTool({ name: 'search' });",
+      '{"@type":"Thing"}',
+    ]);
+    expect(new HtmlDocument('<p>no scripts</p>').inlineScripts()).toEqual([]);
+  });
 });

@@ -1,0 +1,32 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://ceramics.example/.well-known/api-catalog",
+      "item": [
+        {
+          "href": "https://ceramics.example/wp-json/wc/store/v1/",
+          "title": "WooCommerce Store API"
+        },
+        {
+          "href": "https://ceramics.example/mcp",
+          "title": "MCP server"
+        }
+      ]
+    },
+    {
+      "anchor": "https://ceramics.example/wp-json/wc/store/v1/",
+      "service-desc": [
+        {
+          "href": "https://ceramics.example/wp-json/wc/store/v1",
+          "type": "application/json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://developer.woocommerce.com/docs/apis/store-api/",
+          "type": "text/html"
+        }
+      ]
+    }
+  ]
+}

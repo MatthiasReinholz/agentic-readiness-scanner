@@ -108,6 +108,13 @@ export class HtmlDocument {
       .map((element) => textContent(element));
   }
 
+  /** Text of inline scripts (those without a src), in document order. */
+  inlineScripts(): string[] {
+    return this.elements('script')
+      .filter((element) => getAttributeValue(element, 'src') === undefined)
+      .map((element) => textContent(element));
+  }
+
   /** Visible text with scripts, styles and templates removed. */
   text(): string {
     const parts: string[] = [];
