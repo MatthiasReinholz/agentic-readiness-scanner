@@ -28,12 +28,14 @@ One engine, three hosts. The hosted app, the CLI and the MCP server all call the
 4. **`checks/`** One `Check` per catalog id: `run(context)` returns a verdict, a message and evidence. The context carries the target, the fetcher, the catalog definition and the outcomes of earlier checks. `registry.ts` lists what is implemented.
 5. **`runner.ts`** Orders checks by dependency, skips checks that do not apply to the profile or platform, skips dependents of failed checks, marks unimplemented checks honestly, and stops on budget exhaustion. Results come back in catalog order.
 6. **`scoring.ts`** Pure functions: dimension scores (weighted pass ratio, warn counts half, skips drop out of the denominator) and the gated level with its next gate.
-7. **`reporters/`** JSON, Markdown, HTML and SVG badge, all from the same result object. None touches the network.
+7. **`reporters/`** JSON, Markdown, HTML and SVG badge, all from the same result object. None touches the network. `html-theme.ts` holds the shared visual system (dark default and light theme tokens, base styles, the small component set and the theme toggle) used by both the HTML report and the hosted pages, so the CLI's report and the web app look the same and change together.
 8. **`scan.ts`** The composition root: fetcher, target, runner, scoring, result.
 
 ## The result object
 
-`packages/catalog/src/result.ts` defines the contract with Zod and exports it as JSON Schema (`dist/schema/scan-result.schema.json`). It carries the schema id, catalog and scoring versions, the target with its sampled pages, the level with its next gate, both scores, one entry per check with verdict, evidence and fix, and scan warnings. Every consumer reads this object and nothing else.
+`packages/catalog/src/result.ts` defines the contract with Zod and exports it as JSON Schema (`dist/schema/scan-result.schema.json`). It carries the schema id, catalog and scoring versions, the target with its sampled pages, the level with its next gate, both dimension scores plus one per group, one entry per check with verdict, evidence and fix, and scan warnings. Every consumer reads this object and nothing else.
+
+`packages/catalog/src/prompt.ts` composes the brief a merchant hands to a coding agent: the check's own `agent_prompt` (the task) wrapped in where the request comes from, what was observed, the specs behind the check, and fixed working rules (investigate first, fix the cause durably, verify, report). The HTML and Markdown reports and the MCP `get_fix` tool all use it, so every surface briefs agents the same way.
 
 ## Why the catalog is data
 

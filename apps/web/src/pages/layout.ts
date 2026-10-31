@@ -1,33 +1,44 @@
-import { escapeHtml } from '@agentic-readiness/core';
+import { escapeHtml, htmlDocument, themeToggleButton } from '@agentic-readiness/core';
 
-const STYLES = `
-:root{--bg:#fff;--fg:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#0f766e}
-@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--fg:#e2e8f0;--muted:#94a3b8;--line:#1e293b;--accent:#2dd4bf}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:760px;margin:0 auto;padding:40px 16px}h1{font-size:2rem;line-height:1.15;margin:0 0 .5rem}p{margin:.5rem 0 1rem}
-form{display:flex;gap:8px;flex-wrap:wrap;margin:1.5rem 0}input[type=url]{flex:1 1 320px;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
-select,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit}
-button{background:var(--accent);color:#fff;border-color:var(--accent);cursor:pointer}
-.muted{color:var(--muted);font-size:.95rem}ul{padding-left:1.2rem}footer{margin-top:3rem;color:var(--muted);font-size:.9rem}
-code{font-size:.9em}a{color:var(--accent)}
+import type { AppConfig } from '../config.js';
+
+export interface PageOptions {
+  title: string;
+  description?: string;
+  head?: string;
+  scripts?: string[];
+}
+
+const PAGE_CSS = `
+.hero h1{max-width:18ch}
+.scan-form{display:grid;gap:10px;grid-template-columns:1fr;margin-top:24px}
+@media (min-width:720px){.scan-form{grid-template-columns:minmax(0,1fr) 200px auto}}
+.notice{border:1px solid color-mix(in srgb,var(--fail) 40%,transparent);background:var(--fail-soft);color:var(--fg);border-radius:10px;padding:12px 14px;margin-top:16px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.tile{background:var(--bg-raised);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.tile h3{display:flex;align-items:center;gap:8px}
+.tile p{margin-top:6px;color:var(--fg-muted);font-size:.93rem}
+.section{margin-top:44px}.section>h2{margin-bottom:14px}
+.kv li{color:var(--fg-muted)}.kv li code{color:var(--fg)}
 `;
 
-export function page(title: string, body: string): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)}</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="alternate" type="text/markdown" href="/llms.txt" title="llms.txt">
-<style>${STYLES}</style>
-</head>
-<body>
-<main>
+/** Wraps page markup in the shared document shell: top bar with brand and theme toggle, footer. */
+export function page(config: AppConfig, options: PageOptions, body: string): string {
+  const main = `<main>
+<div class="topbar"><a class="brand" href="/"><span class="brand-mark">AR</span><span>${escapeHtml(config.appName)}</span></a>${themeToggleButton()}</div>
 ${body}
-</main>
-</body>
-</html>
-`;
+<footer class="site">Catalog and scoring are open data · <a href="${escapeHtml(config.repositoryUrl)}">Source on GitHub</a> · GPL-3.0-or-later · Not affiliated with Automattic or WooCommerce.</footer>
+</main>`;
+  return htmlDocument(
+    {
+      title: options.title,
+      ...(options.description ? { description: options.description } : {}),
+      head: `<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="/llms.txt" title="llms.txt">
+<style>${PAGE_CSS}</style>
+${options.head ?? ''}`,
+      ...(options.scripts ? { scripts: options.scripts } : {}),
+    },
+    main,
+  );
 }

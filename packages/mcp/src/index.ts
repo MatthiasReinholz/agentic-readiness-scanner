@@ -3,7 +3,7 @@
  * to stdio, the hosted app to Streamable HTTP. Tools return the same result object the
  * JSON report uses, so an agent gets the full contract, not a summary.
  */
-import { catalog, getCheck, type ScanResult } from '@agentic-readiness/catalog';
+import { catalog, composeAgentPrompt, getCheck, type ScanResult } from '@agentic-readiness/catalog';
 import { renderMarkdown, SCANNER_VERSION } from '@agentic-readiness/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -79,6 +79,8 @@ export function createMcpServer(options: McpServerOptions): McpServer {
               weight: check.weight,
               spec: check.spec,
               fix: check.fix,
+              /** The fix's agent prompt wrapped in context and working rules, ready to hand to an agent. */
+              agent_brief: composeAgentPrompt(check),
             }),
           },
         ],

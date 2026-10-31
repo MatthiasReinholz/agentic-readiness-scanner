@@ -1,5 +1,6 @@
 export * from './schema.js';
 export * from './result.js';
+export * from './prompt.js';
 export { catalog } from './generated/catalog.js';
 
 import { catalog } from './generated/catalog.js';

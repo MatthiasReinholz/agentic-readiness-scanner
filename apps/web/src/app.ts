@@ -99,11 +99,13 @@ export async function scanOrReuse(
 
 function reportLinks(config: AppConfig, id: string, host: string) {
   return {
+    reportUrl: `${config.baseUrl}/r/${id}`,
     jsonUrl: `${config.baseUrl}/r/${id}.json`,
     markdownUrl: `${config.baseUrl}/r/${id}.md`,
     badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
     pluginUrl: config.pluginUrl,
     appName: config.appName,
+    homeUrl: `${config.baseUrl}/`,
   };
 }
 
@@ -234,10 +236,14 @@ export function createApp(deps: AppDependencies): Hono {
         'content-type': 'application/json; charset=utf-8',
       });
     if (format === 'md')
-      return c.body(renderMarkdown(stored.result), 200, {
-        'content-type': 'text/markdown; charset=utf-8',
-        vary: 'Accept',
-      });
+      return c.body(
+        renderMarkdown(stored.result, { reportUrl: `${config.baseUrl}/r/${stored.id}` }),
+        200,
+        {
+          'content-type': 'text/markdown; charset=utf-8',
+          vary: 'Accept',
+        },
+      );
     return c.html(renderHtml(stored.result, reportLinks(config, stored.id, stored.host)));
   });
 
@@ -260,7 +266,14 @@ export function createApp(deps: AppDependencies): Hono {
   });
 
   app.notFound((c) =>
-    c.html(page('Not found', '<h1>Not found</h1><p><a href="/">Back to the scanner</a></p>'), 404),
+    c.html(
+      page(
+        config,
+        { title: 'Not found' },
+        '<h1>Not found</h1><p class="muted" style="margin-top:12px"><a href="/">Back to the scanner</a></p>',
+      ),
+      404,
+    ),
   );
 
   return app;
