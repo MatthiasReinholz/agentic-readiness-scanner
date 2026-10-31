@@ -4,7 +4,7 @@ Date: 2026-10-30. Status: accepted.
 
 ## Context
 
-Check definitions (title, question, method, weight, dependencies, spec URLs) and fixes (summary, snippet, agent prompt, auto-fix flag) are needed by the TypeScript engine, the docs generator, the MCP tools and the PHP plugin. Two of those are not TypeScript.
+Check definitions (title, question, method, weight, dependencies, spec URLs) and fixes (summary, snippet, agent prompt, auto-fix flag) are needed by the TypeScript engine, the docs generator, the MCP tools, and by consumers outside this workspace that read the published `catalog.json` in any language.
 
 ## Decision
 

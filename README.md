@@ -4,9 +4,9 @@ Can an AI agent find, read, trust and buy from your store today?
 
 The scanner answers that question for any public store URL. It reads public signals only, scores two dimensions (**agentic ingestion** and **agentic commerce**), gates them into a readiness level, and returns a shareable report in which every finding ships with a fix: a sentence, a snippet, and a prompt for a coding agent.
 
-It is built WordPress-first, so it knows what a WooCommerce store exposes by default and what the companion plugin can fix in one click. Every check also runs against any other platform, because every check runs against public HTTP surfaces.
+It is built WordPress-first, so it knows what a WooCommerce store exposes by default, and every check also runs against any other platform because every check reads public HTTP surfaces.
 
-> Status: **pre-release scaffold.** The architecture, catalog, result contract, CLI, MCP server and hosted app are in place. 19 of the 55 catalog checks are implemented; the rest are reported as _not implemented_ rather than guessed. See [Roadmap](#roadmap).
+> Status: **0.1.0 released** (2026-10-31), hosted at <https://agentic-readiness-scanner.space.fast/>. 19 of the 55 catalog checks are implemented; the rest are reported as _not implemented_ rather than guessed. Two level gates (B3.6 and B5.1/B5.3) are among the unimplemented checks, so the highest level a store can reach today is **2**. The npm packages are not published yet. See [Roadmap](#roadmap).
 
 ## What it checks
 
@@ -23,49 +23,55 @@ Scores are 0 to 100 per dimension. The level (0 Not reachable to 5 Transactable)
 
 ### Hosted
 
-The hosted scanner runs on [Spacefast](https://spacefast.com/). Submit a URL and get a report page, or use it as an agent:
+The hosted scanner runs at <https://agentic-readiness-scanner.space.fast/> on [Spacefast](https://spacefast.com/). Submit a URL and get a report page, or use it as an agent:
 
 ```bash
-curl -X POST https://<your-space>/api/scan -H 'content-type: application/json' -d '{"url":"https://example.shop"}'
+curl -X POST https://agentic-readiness-scanner.space.fast/api/scan -H 'content-type: application/json' -d '{"url":"https://example.com"}'
 ```
 
-Every report is also available as `.json` and `.md`, and `GET /badge/<host>.svg` renders a badge for a README or footer. The app advertises an MCP server at `/.well-known/mcp/server-card.json` with Streamable HTTP at `/mcp`.
+Every report is also available as `.json` and `.md`. After a host has been scanned, `GET /badge/<host>.svg` renders a badge for a README or footer. The app advertises an MCP server at `/.well-known/mcp/server-card.json` with Streamable HTTP at `/mcp`.
 
-A report can also be **monitored**: leave an email address, confirm it, and the scanner rescans the host weekly and writes only when the level, a score or a check result changed. Double opt-in, one-click unsubscribe, nothing else done with the address ([decision 0006](docs/decisions/0006-monitoring-by-weekly-rescan.md)).
+When the deployment has a mail provider configured, a report can also be **monitored**: leave an email address, confirm it, and the scanner rescans the host weekly and writes only when the level, a score or a check result changed. Double opt-in, one-click unsubscribe, nothing else done with the address ([decision 0006](docs/decisions/0006-monitoring-by-weekly-rescan.md)).
 
 ### Command line
 
+The packages are not on npm yet (the `@agentic-readiness/*` names are reserved for them), so run the CLI from a checkout:
+
 ```bash
-npx @agentic-readiness/cli scan https://example.shop
+git clone https://github.com/MatthiasReinholz/agentic-readiness-scanner.git && cd agentic-readiness-scanner && pnpm install && pnpm build
 ```
 
 ```bash
-npx @agentic-readiness/cli scan https://example.shop --format json --output report.json
+pnpm scan https://example.com
 ```
 
-Formats: `md` (default), `json`, `html`, `badge`. `--profile` overrides detection, `--budget` caps requests (default 40), `--fixture <dir>` answers from a recorded store for offline runs.
+```bash
+pnpm scan https://example.com --format json --output report.json
+```
+
+Formats: `md` (default), `json`, `html`, `badge`. Options: `--profile <id>` overrides detection, `--budget <n>` caps requests (default 40), `--sample <n>` sets how many product pages are sampled, `--timeout <ms>` per request, `--fixture <dir>` answers from a recorded store for offline runs, `--output <file>` writes instead of printing. `pnpm scan help` prints the full usage.
 
 ### MCP
 
-Over stdio for local agents:
+Over stdio for local agents, from the same checkout:
 
 ```bash
-npx @agentic-readiness/cli mcp
+pnpm --filter @agentic-readiness/cli exec agentic-readiness mcp
 ```
 
-Tools: `scan_store(url, profile?, format?)`, `get_fix(check_id)`, `list_checks()`. The hosted app exposes the same tools over Streamable HTTP.
+Tools: `scan_store(url, profile?, format?)`, `get_fix(check_id)`, `list_checks()`. The hosted app exposes the same tools over Streamable HTTP at `/mcp`.
 
 ### As a library
 
 ```ts
 import { scan, renderMarkdown } from '@agentic-readiness/core';
 
-const result = await scan('https://example.shop');
+const result = await scan('https://example.com');
 console.log(result.level, result.scores);
 console.log(renderMarkdown(result));
 ```
 
-The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests.
+The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. Until the packages are published, consume them through the workspace.
 
 ## How it works
 
@@ -78,7 +84,7 @@ packages/mcp       MCP server definition (tools), shared by CLI and hosted app
 packages/cli       agentic-readiness scan | mcp | catalog
 apps/web           Hono app: form, reports, badge, API, MCP endpoint, monitoring; runs on Spacefast Functions
 fixtures/stores    recorded stores for deterministic tests
-docs/              architecture, scoring, hosting, security model, release process, decisions
+docs/              architecture, scoring, checks (generated), hosting, security model, release process, decisions
 ```
 
 Design rules that every change must respect:
@@ -90,10 +96,6 @@ Design rules that every change must respect:
 - **Agent-first output.** JSON and Markdown before HTML, and the scanner itself is an MCP tool.
 
 More in [docs/architecture.md](docs/architecture.md).
-
-## Companion plugin
-
-A WordPress plugin, maintained in its own repository, turns findings into fixes: it reads the public report, runs the full-catalog product identity audit from inside WordPress, and applies the fixes marked **auto** in the catalog (llms.txt, robots rules, Content Signals, Markdown negotiation, Product JSON-LD, identifiers, policy pages, security.txt, UCP manifest). The contract between this repository and the plugin is described in [docs/companion-plugin.md](docs/companion-plugin.md).
 
 ## Develop
 
@@ -112,17 +114,17 @@ pnpm check
 Other commands:
 
 - `pnpm dev` starts the hosted app on <http://localhost:8787> with an in-memory result store.
-- `pnpm scan https://example.shop` runs the CLI from the workspace.
+- `pnpm scan https://example.com` runs the CLI from the workspace.
 - `pnpm docs:generate` regenerates `docs/checks.md` from the catalog.
 
 To add a check, read [CONTRIBUTING.md](CONTRIBUTING.md). To understand the hosting constraints that shaped the stack, read [docs/hosting.md](docs/hosting.md) and the decisions in [docs/decisions](docs/decisions).
 
 ## Roadmap
 
-- **0.1** (this scaffold): catalog, engine, 19 checks, CLI, MCP, hosted app, CI and release automation.
-- **0.2**: remaining ingestion checks (agent-profile comparison, Markdown negotiation, Link headers, protocol discovery), nightly reference-store diff.
-- **0.3**: remaining commerce checks (feeds, identity per channel, UCP and ACP), public hosted launch, badge.
-- **1.0**: companion plugin on WordPress.org with one-click fixes.
+- **0.1** (released): catalog, engine, 19 checks, CLI, MCP, hosted app with badge and monitoring, CI and release automation.
+- **0.2**: remaining ingestion checks (agent-profile comparison, Markdown negotiation, Link headers, protocol discovery) and B3.6 so Level 3 becomes reachable; npm publication.
+- **0.3**: remaining commerce checks (feeds, identity per channel, UCP and ACP) so Level 5 becomes reachable; nightly reference-store diff.
+- **1.0**: the full catalog implemented and the result contract declared stable.
 
 ## Related work
 

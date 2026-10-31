@@ -4,9 +4,9 @@ import { escapeHtml } from './shared.js';
 
 const LEVEL_COLORS = ['#9f1239', '#c2410c', '#b45309', '#4d7c0f', '#15803d', '#0f766e'];
 
-/** A flat SVG badge: "agent ready | Level 3 · 71/54". Cacheable, no external fonts. */
+/** A flat SVG badge: "agentic readiness | Level 3 · 71/54". Cacheable, no external fonts. */
 export function renderBadge(result: Pick<ScanResult, 'level' | 'scores'>): string {
-  const label = 'agent ready';
+  const label = 'agentic readiness';
   const value = `Level ${result.level.value} · ${result.scores.ingestion}${result.scores.commerce === null ? '' : `/${result.scores.commerce}`}`;
   const labelWidth = 6 * label.length + 20;
   const valueWidth = 6.5 * value.length + 20;

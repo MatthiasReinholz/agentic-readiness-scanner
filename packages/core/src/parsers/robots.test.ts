@@ -16,7 +16,7 @@ User-agent: ChatGPT-User
 Allow: /
 
 Content-Signal: ai-train=no, search=yes
-Sitemap: https://example.shop/sitemap.xml
+Sitemap: https://example.com/sitemap.xml
 `;
 
 describe('parseRobotsTxt', () => {
@@ -36,7 +36,7 @@ describe('parseRobotsTxt', () => {
   });
 
   it('collects sitemaps and content signals', () => {
-    expect(robots.sitemaps).toEqual(['https://example.shop/sitemap.xml']);
+    expect(robots.sitemaps).toEqual(['https://example.com/sitemap.xml']);
     expect(robots.contentSignals).toEqual({ 'ai-train': 'no', search: 'yes' });
   });
 

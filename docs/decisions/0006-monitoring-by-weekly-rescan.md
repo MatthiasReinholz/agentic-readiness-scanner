@@ -23,4 +23,4 @@ Constraints: the hosted app runs as a Spacefast Functions worker with a MySQL da
 - No new infrastructure: two tables, one cron, one outbound API.
 - A provider account and a verified sending domain are needed before monitoring goes live; until then the feature is simply off.
 - Throughput is bounded by the batch size times the daily cron: 10 per day covers 70 subscriptions on a weekly cadence. Raising the batch size or adding a second cron path is the scaling path; a queue is not needed yet.
-- The owner sees subscriptions and every host ever scanned through the token-protected export endpoints (ADR 0006 companion: the `targets` registry) or the Space's database console.
+- The owner sees subscriptions and every host ever scanned through the token-protected export endpoints (which also serve the `targets` registry introduced alongside this decision) or the Space's database console.

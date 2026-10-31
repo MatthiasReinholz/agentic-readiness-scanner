@@ -2,7 +2,7 @@
 
 <!-- Generated from packages/catalog by `pnpm docs:generate`. Edit the data files, not this file. -->
 
-Catalog version **0.1.0**, scoring version **0.1.0**.
+Catalog version **0.1.1**, scoring version **0.1.0**.
 
 55 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected.
 
@@ -145,23 +145,23 @@ Can an agent start a transaction: UCP manifest, ACP checkout, payment handlers, 
 
 ## Fixes
 
-Every check ships a fix in three forms: a sentence, a snippet or file when one applies, and a prompt for a coding agent. Fixes marked **auto** can be applied in one click by the WooCommerce companion plugin. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.
+Every check ships a fix in three forms: a sentence, a snippet or file when one applies, and a brief for a coding agent. Fixes marked **mechanical** are file, setting or markup changes that a tool or agent can apply from existing store data; the others need product knowledge or copy. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.
 
-| ID | Summary | Auto |
+| ID | Summary | Mechanical |
 | --- | --- | --- |
 | A1.1 | Serve a plain-text robots.txt at the site root that returns HTTP 200 and parses under RFC 9309. Even an empty file is better than a 5xx or a challenge page. | – |
 | A1.2 | Publish an XML sitemap and declare it in robots.txt. WordPress ships one at /wp-sitemap.xml; SEO plugins usually replace it with /sitemap_index.xml. | – |
 | A1.3 | Include product URLs in the sitemap. WooCommerce exposes them through the product post type; make sure that post type is not excluded by the SEO plugin. | – |
-| A1.4 | Emit Link response headers on the front page that point agents at llms.txt, the product feed and any MCP server card. | auto |
-| A1.5 | Serve /llms.txt: a Markdown file with an H1 (site name), a one-paragraph summary in a blockquote, and link sections for products, policies and APIs. | auto |
-| A1.6 | Add a Catalog section to llms.txt that links to the product feed, the Store API or the product sitemap, so an agent can reach the catalog as data in one hop. | auto |
-| A2.1 | State a decision for each major AI training crawler in robots.txt. Allowing or disallowing is the merchant's call; silence is what loses points. | auto |
-| A2.2 | Allow user-triggered shopping agents (ChatGPT-User, Claude-User, OAI-SearchBot, Google-Agent, Perplexity-User) on product paths. These fetch on behalf of a person at the moment of shopping; blocking them removes the store from agent-assisted purchases. | auto |
-| A2.3 | Declare Content Signals in robots.txt so AI systems can tell training, search and input use apart. | auto |
+| A1.4 | Emit Link response headers on the front page that point agents at llms.txt, the product feed and any MCP server card. | yes |
+| A1.5 | Serve /llms.txt: a Markdown file with an H1 (site name), a one-paragraph summary in a blockquote, and link sections for products, policies and APIs. | yes |
+| A1.6 | Add a Catalog section to llms.txt that links to the product feed, the Store API or the product sitemap, so an agent can reach the catalog as data in one hop. | yes |
+| A2.1 | State a decision for each major AI training crawler in robots.txt. Allowing or disallowing is the merchant's call; silence is what loses points. | yes |
+| A2.2 | Allow user-triggered shopping agents (ChatGPT-User, Claude-User, OAI-SearchBot, Google-Agent, Perplexity-User) on product paths. These fetch on behalf of a person at the moment of shopping; blocking them removes the store from agent-assisted purchases. | yes |
+| A2.3 | Declare Content Signals in robots.txt so AI systems can tell training, search and input use apart. | yes |
 | A2.4 | Exempt known shopping-agent user agents from WAF challenges and bot-management rules on product and policy pages, and never serve different content to them than to browsers. | – |
 | A2.5 | Publish an HTTP Message Signatures key directory so verified agent requests can be checked, and accept signed requests from known agents. | – |
 | A2.6 | Remove noindex, nosnippet and noai directives from product pages, both in meta robots tags and X-Robots-Tag headers. | – |
-| A3.1 | Answer requests with Accept: text/markdown on product and policy pages with a Markdown rendering of the product: title, price, stock, attributes, identifiers, description and policy links. | auto |
+| A3.1 | Answer requests with Accept: text/markdown on product and policy pages with a Markdown rendering of the product: title, price, stock, attributes, identifiers, description and policy links. | yes |
 | A3.2 | Render product title, price and description into the HTML on the server. An app shell that fills in content with JavaScript is empty to most agents. | – |
 | A3.3 | Keep product HTML under 500 KB and time to first byte under 1.5 seconds with page caching, deferred scripts and trimmed inline assets. | – |
 | A3.4 | Add a rel=canonical link on every product page and, when the store runs in several languages, hreflang alternates for each. | – |
@@ -178,26 +178,26 @@ Every check ships a fix in three forms: a sentence, a snippet or file when one a
 | B1.5 | Publish a product feed (Google or OpenAI format) at a stable URL and link it from llms.txt and a rel=alternate link tag. | – |
 | B1.6 | Regenerate the feed at least daily and send an accurate Last-Modified header. | – |
 | B1.7 | Make the sitemap and the Store API agree: include all published, visible products in the product sitemap and exclude hidden or draft products from both. | – |
-| B2.1 | Emit schema.org Product JSON-LD on every product page. WooCommerce core emits a basic block; an SEO plugin may replace it. Only one should be active. | auto |
-| B2.2 | Add an Offer to the Product markup with price, priceCurrency and an availability URL from schema.org/ItemAvailability. | auto |
-| B2.3 | Expose variable products as a ProductGroup whose hasVariant lists each variation with its own sku, identifiers and offer. | auto |
-| B2.4 | Add shippingDetails and hasMerchantReturnPolicy to each Offer, generated from the shipping zones and the return policy page. | auto |
+| B2.1 | Emit schema.org Product JSON-LD on every product page. WooCommerce core emits a basic block; an SEO plugin may replace it. Only one should be active. | yes |
+| B2.2 | Add an Offer to the Product markup with price, priceCurrency and an availability URL from schema.org/ItemAvailability. | yes |
+| B2.3 | Expose variable products as a ProductGroup whose hasVariant lists each variation with its own sku, identifiers and offer. | yes |
+| B2.4 | Add shippingDetails and hasMerchantReturnPolicy to each Offer, generated from the shipping zones and the return policy page. | yes |
 | B2.5 | Give every product a primary image of at least 800 px on its longest side with descriptive alt text. | – |
 | B2.6 | Generate the Product markup from the same product object that renders the page so price and availability can never diverge, and avoid caching markup separately from the page. | – |
-| B3.1 | Enter a GTIN for every product that has one. WooCommerce has a GTIN, UPC, EAN or ISBN field in the product inventory tab; it feeds both the Store API and the JSON-LD. | auto |
-| B3.2 | Fix GTINs that fail the GS1 check digit or have the wrong length. Leading zeros dropped by spreadsheets are the usual cause. | auto |
-| B3.3 | Model the brand as a Brand object with a canonical name, sourced from one brand taxonomy rather than free text. | auto |
-| B3.4 | For products without a GTIN (handmade, bespoke), set brand and MPN so channels can still identify them. | auto |
-| B3.5 | Give every product and variation a unique SKU and expose it in markup and the Store API. | auto |
-| B3.6 | Complete product identity per channel: GTIN (or brand plus MPN) for Google and Meta, id plus gtin or brand for ACP feeds, identifiers for UCP catalogs. The report's identity table shows which products fail on which channel. | – |
-| B4.1 | Publish a return policy page of at least 300 words and link it from the footer and from MerchantReturnPolicy.merchantReturnLink. | auto |
-| B4.2 | Publish a shipping policy page that names destinations, costs and delivery times, and link it from the footer. | auto |
-| B4.3 | Publish privacy policy and terms pages, set the WordPress privacy page, and link both from the footer. | auto |
+| B3.1 | Enter a GTIN for every product that has one. WooCommerce has a GTIN, UPC, EAN or ISBN field in the product inventory tab; it feeds both the Store API and the JSON-LD. | yes |
+| B3.2 | Fix GTINs that fail the GS1 check digit or have the wrong length. Leading zeros dropped by spreadsheets are the usual cause. | yes |
+| B3.3 | Model the brand as a Brand object with a canonical name, sourced from one brand taxonomy rather than free text. | yes |
+| B3.4 | For products without a GTIN (handmade, bespoke), set brand and MPN so channels can still identify them. | yes |
+| B3.5 | Give every product and variation a unique SKU and expose it in markup and the Store API. | yes |
+| B3.6 | Complete product identity per channel: GTIN (or brand plus MPN) for Google and Meta, id plus gtin or brand for ACP feeds, identifiers for UCP catalogs. The check's evidence lists the sampled products and the channel each one fails. | – |
+| B4.1 | Publish a return policy page of at least 300 words and link it from the footer and from MerchantReturnPolicy.merchantReturnLink. | yes |
+| B4.2 | Publish a shipping policy page that names destinations, costs and delivery times, and link it from the footer. | yes |
+| B4.3 | Publish privacy policy and terms pages, set the WordPress privacy page, and link both from the footer. | yes |
 | B4.4 | Emit Organization JSON-LD with legal name, address and contact point, and publish an imprint or about page with the same details. | – |
 | B4.5 | Link an email address or a contact form from the footer on every page. | – |
 | B4.6 | Make policy pages server-rendered plain content, and keep them out of robots.txt Disallow rules and noindex directives. | – |
-| B4.7 | Serve /.well-known/security.txt with a Contact and an Expires field. | auto |
-| B5.1 | Serve a UCP manifest at /.well-known/ucp that declares the capabilities the store actually has. Declare checkout only when a UCP checkout handler is installed. | auto |
+| B4.7 | Serve /.well-known/security.txt with a Contact and an Expires field. | yes |
+| B5.1 | Serve a UCP manifest at /.well-known/ucp that declares the capabilities the store actually has. Declare checkout only when a UCP checkout handler is installed. | yes |
 | B5.2 | Extend the UCP manifest with the capabilities the store supports: catalog, cart, checkout, order, identity linking and payment handlers. | – |
 | B5.3 | Install an Agentic Commerce Protocol integration that exposes checkout_sessions and advertise it through an OpenAPI document or discovery link. | – |
 | B5.4 | Add seller_name, seller_url, return_policy and return_window to every item in the ACP or OpenAI-style product feed. | – |

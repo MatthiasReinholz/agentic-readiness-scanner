@@ -18,8 +18,8 @@ Verified against the Spacefast docs on 2026-10-30:
 - Results are stored through `SqlResultStore` in a `scans` table (MySQL DDL). Fix text is stripped before storage and re-attached from the catalog on read, which keeps rows small.
 - Per-target cooldown replaces per-IP rate limiting: a host is scanned at most once per `TARGET_COOLDOWN_SECONDS`; within that window the stored result is served.
 - Configuration comes from Space variables, set with `sf env set NAME value` (secrets with `--value-from-stdin`):
-  - Scanning: `APP_BASE_URL`, `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `PLUGIN_URL`, `REPOSITORY_URL`.
-  - Monitoring ([decision 0006](decisions/0006-monitoring-by-weekly-rescan.md)): `MAIL_PROVIDER` (`brevo`, the configured provider; `resend` is also implemented; unset disables monitoring entirely), `MAIL_API_KEY` (secret; for Brevo an API key from SMTP & API → API keys), `MAIL_FROM` (a sender on a domain or address verified with the provider, e.g. `Agentic Readiness Scanner <monitor@example.com>`), `MONITOR_INTERVAL_DAYS` (default 7), `MONITOR_BATCH_SIZE` (subscriptions per daily cron run, default 10).
+  - Scanning: `APP_BASE_URL` (set it explicitly in production; it is the base of every link in reports and emails), `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `REPOSITORY_URL`.
+  - Monitoring ([decision 0006](decisions/0006-monitoring-by-weekly-rescan.md)): `MAIL_PROVIDER` (`brevo`, the configured provider; `resend` is also implemented; `console` prints mail to the runtime log and is what `pnpm dev` uses; unset disables monitoring entirely), `MAIL_API_KEY` (secret; for Brevo an API key from SMTP & API → API keys), `MAIL_FROM` (a sender on a domain or address verified with the provider, e.g. `Agentic Readiness Scanner <monitor@example.com>`), `MONITOR_INTERVAL_DAYS` (default 7), `MONITOR_BATCH_SIZE` (subscriptions per daily cron run, default 10).
   - Owner access: `ADMIN_TOKEN` (secret; enables the export endpoints below).
 - Every scan also upserts a row in the `targets` table (host, first and last seen, scan count, last level, scores, platform, profile). Unlike `scans`, it is never purged, so the owner can always see which sites were checked.
 
@@ -42,8 +42,13 @@ GitHub Actions does not publish to Spacefast and holds no Spacefast secrets ([de
 
 After a deploy, check `/health` and `/.well-known/mcp/server-card.json` on the live address and run one scan.
 
-## To verify on the first real publish
+## Verified on the live deployment (2026-10-31)
 
-- CPU and wall-clock limits of the Functions isolate for a scan of up to 40 sequential requests. The docs do not state them. If a full scan does not fit one request, split it: `POST /scan` creates the record, the worker continues with `waitUntil`, the report page polls.
-- Whether the D1-shaped broker accepts the MySQL DDL in `apps/web/src/store/sql.ts` as written, including the inline index.
-- The outbound policy for private address ranges after DNS resolution. The worker checks hostnames and literal IPs; DNS-level protection is the platform's.
+- A full scan (13 to 17 requests against real stores, budget 40) completes inside one request in about four seconds; no CPU or wall-clock limit was hit. The platform does not publish the isolate limits, so a scan that needs the whole budget against a slow host remains the case to watch. If it ever fails, split the work: `POST /scan` creates the record, the worker continues with `waitUntil`, the report page polls.
+- The D1-shaped broker accepted the MySQL DDL in `apps/web/src/store/sql.ts`, `targets/sql.ts` and `monitoring/sql.ts` as written, including inline indexes, a unique key and `INSERT … ON DUPLICATE KEY UPDATE`.
+- `sf.jsonc` is read from the root of the published directory, and its `headers` rules do not apply to worker responses.
+- Builds from the connected repository need the root `sf.jsonc` build block; auto-detection ran `pnpm build` in the wrong place.
+
+## Still to verify
+
+- The outbound policy for public hostnames that resolve to private addresses (DNS rebinding, `*.nip.io`-style names). The worker checks hostnames and literal IPs; DNS-level protection is the platform's. Test from a deployed version with a name that resolves to 127.0.0.1 and record the outcome here.

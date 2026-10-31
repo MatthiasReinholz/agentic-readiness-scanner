@@ -1,6 +1,6 @@
 /**
  * The scan result object: the only contract between the engine and every consumer
- * (reporters, the hosted app, the CLI, the MCP tools, the WordPress plugin).
+ * (reporters, the hosted app, the CLI, the MCP tools, external consumers).
  * It is versioned by `schema`; breaking changes bump the number.
  */
 import { z } from 'zod';
@@ -32,7 +32,7 @@ export type SampledPages = z.infer<typeof SampledPagesSchema>;
 
 export const ResultTargetSchema = z.object({
   input_url: z.string().min(1),
-  /** Canonical origin after redirects, e.g. https://example.shop */
+  /** Canonical origin after redirects, e.g. https://example.com */
   url: z.url(),
   platform: PlatformSchema,
   profile: z.string().min(1),

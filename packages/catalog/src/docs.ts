@@ -90,14 +90,14 @@ export function renderChecksDoc(catalog: Catalog): string {
   lines.push('## Fixes');
   lines.push('');
   lines.push(
-    'Every check ships a fix in three forms: a sentence, a snippet or file when one applies, and a prompt for a coding agent. Fixes marked **auto** can be applied in one click by the WooCommerce companion plugin. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.',
+    'Every check ships a fix in three forms: a sentence, a snippet or file when one applies, and a brief for a coding agent. Fixes marked **mechanical** are file, setting or markup changes that a tool or agent can apply from existing store data; the others need product knowledge or copy. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.',
   );
   lines.push('');
-  lines.push('| ID | Summary | Auto |');
+  lines.push('| ID | Summary | Mechanical |');
   lines.push('| --- | --- | --- |');
   for (const check of catalog.checks) {
     lines.push(
-      `| ${check.id} | ${escapeCell(check.fix.summary)} | ${check.fix.auto_fix ? 'auto' : '–'} |`,
+      `| ${check.id} | ${escapeCell(check.fix.summary)} | ${check.fix.auto_fix ? 'yes' : '–'} |`,
     );
   }
   lines.push('');

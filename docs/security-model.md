@@ -23,8 +23,8 @@ Every redirect hop is checked again. DNS resolution happens on the platform, so 
 ## Honest behavior toward targets
 
 - User agent `AgenticReadinessScanner/<version> (+repository URL)` on every request the scanner makes for itself.
-- The agent-profile comparison (A2.4, not yet implemented) will send other user-agent strings only for one product page and at most six extra requests, and the about page will say so.
-- robots.txt is respected for the scanner's own user agent on everything except robots.txt, sitemaps and well-known paths.
+- The agent-profile comparison (A2.4, not yet implemented) will send other user-agent strings only for one product page and at most six extra requests, and `llms.txt` and this document will say so.
+- robots.txt: the scanner parses and evaluates it for the checks. Honouring it for the scanner's own fetches (everything except robots.txt, sitemaps and well-known paths) is not implemented yet and is the next hardening step.
 - One scan per target host per cooldown window on the hosted app; the stored result is served in between.
 
 ## Hosted app
@@ -48,7 +48,7 @@ Monitoring is the only feature that stores personal data: an email address bound
 ## Supply chain
 
 - Every GitHub Action is pinned to a full commit SHA; `scripts/ci/check-action-pins.sh` fails otherwise.
-- Workflows request the least permissions they need; publishing jobs run in the `production` environment.
+- Workflows request the least permissions they need; the release workflow is the only one with write permissions and runs only on merged release pull requests.
 - Dependencies are exact-pinned and updated through Dependabot pull requests; dependency review and CodeQL run on every pull request.
 - Release assets carry build provenance attestations and npm packages are published with provenance.
 

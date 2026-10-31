@@ -21,7 +21,7 @@ describe('parseCliArguments', () => {
     expect(
       parseCliArguments([
         'scan',
-        'example.shop',
+        'example.com',
         '--format',
         'json',
         '--budget',
@@ -31,7 +31,7 @@ describe('parseCliArguments', () => {
       ]),
     ).toEqual({
       command: 'scan',
-      url: 'example.shop',
+      url: 'example.com',
       format: 'json',
       budget: 10,
       profile: 'other-store',

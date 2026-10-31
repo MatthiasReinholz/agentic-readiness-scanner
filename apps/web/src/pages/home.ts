@@ -23,7 +23,7 @@ export function homePage(config: AppConfig, error?: string): string {
 <p class="muted" style="margin-top:12px;max-width:62ch">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WordPress-first; works on any store.</p>
 ${error ? `<p class="notice" role="alert"><strong>${escapeHtml(error)}</strong></p>` : ''}
 <form method="post" action="/scan" class="scan-form">
-<input class="field" type="url" name="url" placeholder="https://example.shop" required autofocus aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
+<input class="field" type="url" name="url" placeholder="https://example.com" required autofocus aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
 <select class="field" name="profile" aria-label="Profile"><option value="">Detect profile</option>${profiles}</select>
 <button type="submit" class="btn">Scan</button>
 </form>
@@ -36,10 +36,10 @@ ${error ? `<p class="notice" role="alert"><strong>${escapeHtml(error)}</strong><
 <section class="section">
 <h2>For agents and pipelines</h2>
 <ul class="kv stack" style="--stack:6px">
-<li>JSON: <code>POST /api/scan</code> with <code>{"url": "https://example.shop"}</code>, or append <code>.json</code> to any report URL</li>
+<li>JSON: <code>POST /api/scan</code> with <code>{"url": "https://example.com"}</code>, or append <code>.json</code> to any report URL</li>
 <li>Markdown: append <code>.md</code> to any report URL, or read <a href="/llms.txt">/llms.txt</a></li>
 <li>MCP: Streamable HTTP at <code>/mcp</code>, advertised in <a href="/.well-known/mcp/server-card.json">the server card</a></li>
-<li>CLI: <code>npx @agentic-readiness/cli scan https://example.shop</code></li>
+<li>CLI: <code>npx @agentic-readiness/cli scan https://example.com</code></li>
 </ul>
 </section>
 `;

@@ -1,7 +1,7 @@
 {
   "name": "@agentic-readiness/mcp",
   "version": "0.1.0",
-  "description": "MCP server definition shared by the CLI (stdio) and the hosted app (Streamable HTTP): scan_store and get_fix tools.",
+  "description": "MCP server definition shared by the CLI (stdio) and the hosted app (Streamable HTTP): scan_store, get_fix and list_checks tools.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "exports": {

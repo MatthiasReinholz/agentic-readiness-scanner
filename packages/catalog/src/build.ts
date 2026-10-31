@@ -1,7 +1,7 @@
 /**
  * Builds the catalog package:
  *   - src/generated/catalog.ts   typed constant for TypeScript consumers (bundles into workers)
- *   - dist/catalog.json          for non-JavaScript consumers (the WordPress plugin)
+ *   - dist/catalog.json          for consumers outside this workspace (any language)
  *   - dist/schema/*.json         JSON Schema for the catalog and the scan result
  *
  * `--check` validates without writing anything.

@@ -23,8 +23,6 @@ export interface AppConfig {
   targetCooldownSeconds: number;
   /** Days a stored result is kept. */
   retentionDays: number;
-  /** Where the WooCommerce companion plugin lives, linked from WooCommerce reports. */
-  pluginUrl: string;
   repositoryUrl: string;
   monitoring: MonitoringConfig;
   /** Bearer token for the owner's export endpoints under /internal/export; null disables them. */
@@ -50,9 +48,6 @@ export function configFromEnv(
     scanBudget: Number(env.SCAN_BUDGET ?? 40),
     targetCooldownSeconds: Number(env.TARGET_COOLDOWN_SECONDS ?? 120),
     retentionDays: Number(env.RETENTION_DAYS ?? 30),
-    pluginUrl:
-      env.PLUGIN_URL ??
-      'https://github.com/MatthiasReinholz/agentic-readiness-scanner#companion-plugin',
     repositoryUrl:
       env.REPOSITORY_URL ?? 'https://github.com/MatthiasReinholz/agentic-readiness-scanner',
     monitoring: {

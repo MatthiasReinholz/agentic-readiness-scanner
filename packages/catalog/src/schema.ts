@@ -3,8 +3,8 @@
  *
  * The catalog is data, not code: check definitions, groups, levels, profiles and fixes
  * live in JSON and Markdown under `data/` and `fixes/`. This schema is the contract that
- * every consumer (the TypeScript engine, the WordPress companion plugin, the docs
- * generator) relies on. Changing it is a catalog release.
+ * every consumer (the engine, the docs generator, the MCP tools and anyone reading the
+ * published catalog.json) relies on. Changing it is a catalog release.
  */
 import { z } from 'zod';
 
@@ -39,7 +39,10 @@ export const FixSchema = z.object({
   snippet_language: z.string().min(1).optional(),
   /** A self-contained prompt for a coding agent. */
   agent_prompt: z.string().min(1),
-  /** True when the WooCommerce companion plugin can apply the fix in one click. */
+  /**
+   * True when the fix is mechanical: a file, setting or markup change a tool or agent
+   * can apply from the store's existing data without product knowledge or copywriting.
+   */
   auto_fix: z.boolean(),
 });
 export type Fix = z.infer<typeof FixSchema>;
