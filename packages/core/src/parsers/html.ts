@@ -145,6 +145,93 @@ export class HtmlDocument {
       return value !== undefined && pattern.test(value);
     });
   }
+
+  /**
+   * Signals of a WooCommerce variable product: the variations form, an attribute select,
+   * or the inlined variation data. Returns the signals found, empty for a simple product.
+   */
+  variationFormSignals(): string[] {
+    const signals: string[] = [];
+    if (this.find('form', 'class', /(?:^|\s)variations_form(?:\s|$)/).length > 0)
+      signals.push('form.variations_form');
+    if (this.find('select', 'name', /^attribute_/).length > 0)
+      signals.push('select[name^=attribute_]');
+    if (
+      findAll(
+        (element) => getAttributeValue(element, 'data-product_variations') !== undefined,
+        this.dom.children,
+      ).length > 0
+    )
+      signals.push('data-product_variations');
+    return signals;
+  }
+
+  /**
+   * The rendered product image: the img whose src resolves to `preferredUrl`, else the
+   * first img in the WooCommerce gallery or carrying the wp-post-image class. Lazy-loaded
+   * images are read from data-src when src is absent. Null when neither is found.
+   */
+  productImage(base: string, preferredUrl: string | null = null): ImageTag | null {
+    const images = this.elements('img');
+    const toTag = (element: Element): ImageTag => {
+      const src = getAttributeValue(element, 'src') ?? getAttributeValue(element, 'data-src') ?? '';
+      const alt = getAttributeValue(element, 'alt');
+      return {
+        src: resolveUrl(src, base) ?? src,
+        alt: alt === undefined ? null : alt.trim(),
+        width: pixels(getAttributeValue(element, 'width')),
+        height: pixels(getAttributeValue(element, 'height')),
+        fullWidth: pixels(getAttributeValue(element, 'data-large_image_width')),
+        fullHeight: pixels(getAttributeValue(element, 'data-large_image_height')),
+      };
+    };
+    const wanted = preferredUrl === null ? null : resolveUrl(preferredUrl, base);
+    if (wanted !== null) {
+      const match = images.map(toTag).find((tag) => tag.src === wanted);
+      if (match) return match;
+    }
+    const gallery = findAll(
+      (element) =>
+        /(?:^|\s)woocommerce-product-gallery(?:\s|$)/.test(
+          getAttributeValue(element, 'class') ?? '',
+        ),
+      this.dom.children,
+    );
+    for (const container of gallery) {
+      const first = getElementsByTagName('img', container, true)[0];
+      if (first) return toTag(first);
+    }
+    const featured = this.find('img', 'class', /(?:^|\s)wp-post-image(?:\s|$)/)[0];
+    return featured ? toTag(featured) : null;
+  }
+}
+
+export interface ImageTag {
+  /** Resolved against the page URL when relative. */
+  src: string;
+  /** Null when the attribute is absent; empty when present but blank. */
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+  /** WooCommerce's data-large_image_width, the full-size image behind the rendered one. */
+  fullWidth: number | null;
+  fullHeight: number | null;
+}
+
+function pixels(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const match = /^\s?(\d{1,6})(?:px)?\s?$/.exec(value);
+  const parsed = match ? Number(match[1]) : 0;
+  return parsed > 0 ? parsed : null;
+}
+
+function resolveUrl(value: string, base: string): string | null {
+  try {
+    const url = new URL(value, base);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 export function elementText(element: Element): string {

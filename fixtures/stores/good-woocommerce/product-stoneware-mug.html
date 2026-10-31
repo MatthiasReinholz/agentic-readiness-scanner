@@ -13,6 +13,7 @@
         "name": "Stoneware Mug, 350 ml",
         "sku": "MUG-350-BLU",
         "gtin13": "4006381333931",
+        "mpn": "MUG-350-BLU",
         "brand": { "@type": "Brand", "name": "Example Ceramics" },
         "image": "https://ceramics.example/wp-content/uploads/mug.jpg",
         "description": "Hand-thrown stoneware mug, dishwasher safe.",
@@ -21,13 +22,52 @@
           "price": "24.00",
           "priceCurrency": "EUR",
           "availability": "https://schema.org/InStock",
-          "url": "https://ceramics.example/product/stoneware-mug/"
+          "url": "https://ceramics.example/product/stoneware-mug/",
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": { "@type": "MonetaryAmount", "value": "4.90", "currency": "EUR" },
+            "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "DE" },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 0,
+                "maxValue": 2,
+                "unitCode": "DAY"
+              },
+              "transitTime": {
+                "@type": "QuantitativeValue",
+                "minValue": 1,
+                "maxValue": 3,
+                "unitCode": "DAY"
+              }
+            }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "DE",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 30,
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/FreeReturn"
+          }
         }
       }
     </script>
   </head>
   <body class="single-product woocommerce woocommerce-page">
     <main>
+      <div class="woocommerce-product-gallery">
+        <div class="woocommerce-product-gallery__image">
+          <img
+            width="1200"
+            height="1200"
+            src="https://ceramics.example/wp-content/uploads/mug.jpg"
+            class="wp-post-image"
+            alt="Blue stoneware mug on a wooden table"
+          />
+        </div>
+      </div>
       <h1 class="product_title">Stoneware Mug, 350 ml</h1>
       <p class="price"><span class="woocommerce-Price-amount">€24.00</span></p>
       <div class="woocommerce-product-details__short-description">

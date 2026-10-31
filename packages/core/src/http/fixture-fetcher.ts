@@ -29,7 +29,10 @@ function normalizeKey(url: string): string {
 export class FixtureFetcher implements Fetcher {
   readonly budget: number;
   private readonly responses = new Map<string, FixtureResponse>();
+  /** Method and URL of every request counted so far; a repeat is a cache hit, as in production. */
+  private readonly seen = new Set<string>();
   private sent = 0;
+  /** Every call, cache hits included, so a test can assert what a check asked for. */
   readonly log: { url: string; options: FetchOptions }[] = [];
 
   constructor(responses: Record<string, FixtureResponse>, options: FixtureFetcherOptions = {}) {
@@ -44,16 +47,20 @@ export class FixtureFetcher implements Fetcher {
   }
 
   fetch(url: string, options: FetchOptions = {}): Promise<FetchedResponse> {
-    if (this.sent >= this.budget) {
-      throw new BudgetExhaustedError(this.budget);
-    }
-    this.sent += 1;
-    this.log.push({ url, options });
     const key = normalizeKey(url);
+    const method = options.method ?? 'GET';
+    const fromCache = this.seen.has(`${method} ${key}`);
+    if (!fromCache) {
+      if (this.sent >= this.budget) {
+        throw new BudgetExhaustedError(this.budget);
+      }
+      this.sent += 1;
+      this.seen.add(`${method} ${key}`);
+    }
+    this.log.push({ url, options });
     const recorded =
       this.responses.get(key) ??
       this.responses.get(key.endsWith('/') ? key.slice(0, -1) : `${key}/`);
-    const method = options.method ?? 'GET';
     const body = recorded?.body ?? '';
     const headers: Record<string, string> = {};
     for (const [name, value] of Object.entries(recorded?.headers ?? {}))
@@ -68,7 +75,7 @@ export class FixtureFetcher implements Fetcher {
       truncated: false,
       redirects: 0,
       durationMs: 1,
-      fromCache: false,
+      fromCache,
     });
   }
 }
