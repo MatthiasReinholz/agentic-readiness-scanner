@@ -23,15 +23,15 @@ import { HtmlDocument } from '../parsers/html.js';
 import { parseRobotsTxt } from '../parsers/robots.js';
 import type { SitemapSummary, Target } from '../target/types.js';
 
-/** A bare string is a 200 response with that body. */
-export type MapResponse = string | FixtureResponse;
+/** A bare string is a 200 response with that body; a list holds conditional answers (see FixtureResponse.when). */
+export type MapResponse = string | FixtureResponse | FixtureResponse[];
 
 /** A Fetcher answering from URL to response. URLs not in the map answer 404. */
 export function mapFetcher(
   record: Record<string, MapResponse>,
   options: FixtureFetcherOptions = {},
 ): FixtureFetcher {
-  const responses: Record<string, FixtureResponse> = {};
+  const responses: Record<string, FixtureResponse | FixtureResponse[]> = {};
   for (const [url, response] of Object.entries(record)) {
     responses[url] = typeof response === 'string' ? { status: 200, body: response } : response;
   }
