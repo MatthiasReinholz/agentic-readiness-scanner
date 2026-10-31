@@ -53,6 +53,14 @@ const POLICY_PATTERNS: Record<PolicyKind, RegExp> = {
 const LISTING_PATTERN =
   /\/(shop|store|products|collections|product-category|kategorie|categorie)\/?/i;
 
+/**
+ * Paths that belong to a signed-in or transactional area. A link there may carry the word
+ * "contact" or "returns" (an account's support form, a returns portal), but it is not the
+ * public policy page an agent can read, and it usually answers with a login wall.
+ */
+const ACCOUNT_AREA_PATTERN =
+  /\/(my-account|account|accounts|customer|login|log-in|signin|sign-in|wp-login\.php|wp-admin|cart|checkout)(\/|$)/i;
+
 export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Platform {
   const generator = (doc.meta('generator') ?? '').toLowerCase();
   const classes = doc.bodyClasses().map((c) => c.toLowerCase());
@@ -115,6 +123,7 @@ export function findPolicyLinks(
   for (const anchor of doc.anchors()) {
     const url = resolveHttpUrl(anchor.href, base);
     if (!url || url.href === `${origin}/`) continue;
+    if (ACCOUNT_AREA_PATTERN.test(url.pathname)) continue;
     const haystack = `${anchor.text} ${url.pathname}`;
     const bucket = url.origin === origin ? sameOrigin : crossOrigin;
     for (const [kind, pattern] of Object.entries(POLICY_PATTERNS) as [PolicyKind, RegExp][]) {
