@@ -49,6 +49,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "re2js": ">=2.8.7"
+    }
   }
 }
