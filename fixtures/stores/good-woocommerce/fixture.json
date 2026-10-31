@@ -79,6 +79,22 @@
       "url": "https://ceramics.example/terms/",
       "headers": { "content-type": "text/html; charset=utf-8" },
       "body_file": "terms.html"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/ucp",
+      "headers": { "content-type": "application/json", "cache-control": "public, max-age=300" },
+      "body_file": "well-known-ucp.json"
+    },
+    {
+      "url": "https://ceramics.example/ucp/v1",
+      "status": 401,
+      "headers": { "content-type": "application/json", "www-authenticate": "Bearer" },
+      "body": "{\"error\":\"unauthorized\"}"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/acp.json",
+      "headers": { "content-type": "application/json", "cache-control": "public, max-age=300" },
+      "body_file": "acp.json"
     }
   ]
 }
