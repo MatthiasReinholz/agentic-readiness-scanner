@@ -7,7 +7,10 @@ import type { ExecutionContext } from 'hono';
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { createMcpRoute } from './mcp-route.js';
+import { createMailer } from './monitoring/mailer.js';
+import { SqlMonitorStore } from './monitoring/sql.js';
 import { SqlResultStore, type SqlDatabase } from './store/sql.js';
+import { SqlTargetRegistry } from './targets/sql.js';
 
 interface FunctionsEnv extends Record<string, unknown> {
   DB: SqlDatabase;
@@ -21,8 +24,16 @@ function appFor(env: FunctionsEnv, requestUrl: string) {
   for (const [key, value] of Object.entries(env))
     if (typeof value === 'string') stringEnv[key] = value;
   const config = configFromEnv(stringEnv, requestUrl);
-  const app = createApp({ config, store: new SqlResultStore(env.DB) });
-  app.route('/mcp', createMcpRoute({ config, store: new SqlResultStore(env.DB) }));
+  const store = new SqlResultStore(env.DB);
+  const mailer = createMailer(config.monitoring);
+  const app = createApp({
+    config,
+    store,
+    targets: new SqlTargetRegistry(env.DB),
+    monitors: new SqlMonitorStore(env.DB),
+    ...(mailer ? { mailer } : {}),
+  });
+  app.route('/mcp', createMcpRoute({ config, store }));
   cached = { app, db: env.DB };
   return app;
 }

@@ -15,13 +15,23 @@ import {
 import { Hono } from 'hono';
 
 import type { AppConfig } from './config.js';
+import { MonitoringService } from './monitoring/service.js';
+import type { Mailer, MonitorStore } from './monitoring/types.js';
 import { homePage } from './pages/home.js';
 import { page } from './pages/layout.js';
+import { MONITOR_CSS, monitorDialog, monitorPanel, monitorScript } from './pages/monitor.js';
+import { createMonitorRoutes } from './routes/monitor.js';
 import { newScanId, type ResultStore, type StoredScan } from './store/types.js';
+import type { TargetRegistry } from './targets/types.js';
 
 export interface AppDependencies {
   config: AppConfig;
   store: ResultStore;
+  /** Durable registry of every host scanned; optional so the app runs without it. */
+  targets?: TargetRegistry;
+  /** Monitoring needs both a store and a mailer, and a mail provider in the config. */
+  monitors?: MonitorStore;
+  mailer?: Mailer;
   /** Test seam: supply a Fetcher factory to answer from fixtures instead of the network. */
   fetcherFactory?: () => Fetcher;
   now?: () => Date;
@@ -94,7 +104,25 @@ export async function scanOrReuse(
   }
   const stored: StoredScan = { id: newScanId(), host, createdAt: now().toISOString(), result };
   await deps.store.put(stored);
+  await deps.targets?.record(stored);
   return { scan: stored, reused: false };
+}
+
+function createMonitoring(deps: AppDependencies): MonitoringService | null {
+  if (!deps.monitors || !deps.mailer || deps.config.monitoring.provider === null) return null;
+  return new MonitoringService({
+    config: deps.config,
+    store: deps.monitors,
+    mailer: deps.mailer,
+    latestScan: (host) => deps.store.latestForHost(host),
+    rescan: (url) => scanOrReuse(deps, { url }).then((outcome) => outcome.scan),
+    ...(deps.now ? { now: deps.now } : {}),
+  });
+}
+
+function bearerToken(header: string | undefined): string | null {
+  const match = /^Bearer\s+(\S+)$/i.exec(header ?? '');
+  return match?.[1] ?? null;
 }
 
 function reportLinks(config: AppConfig, id: string, host: string) {
@@ -139,6 +167,7 @@ function discoveryLinkHeader(config: AppConfig): string {
 export function createApp(deps: AppDependencies): Hono {
   const { config, store } = deps;
   const app = new Hono();
+  const monitoring = createMonitoring(deps);
 
   // Spacefast's sf.jsonc header rules apply to static files, not to worker responses,
   // so the app sets its own security headers on every response.
@@ -244,7 +273,60 @@ export function createApp(deps: AppDependencies): Hono {
           vary: 'Accept',
         },
       );
-    return c.html(renderHtml(stored.result, reportLinks(config, stored.id, stored.host)));
+    const monitorSlots = monitoring
+      ? {
+          afterScoresHtml: monitorPanel(config, stored),
+          endHtml: `<style>${MONITOR_CSS}</style>${monitorDialog(config, stored)}`,
+          scripts: [monitorScript(stored.host)],
+        }
+      : {};
+    return c.html(
+      renderHtml(stored.result, {
+        ...reportLinks(config, stored.id, stored.host),
+        ...monitorSlots,
+      }),
+    );
+  });
+
+  if (monitoring) {
+    app.route('/monitor', createMonitorRoutes({ config, service: monitoring, scans: store }));
+
+    app.get('/internal/cron/monitor', async (c) => {
+      if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
+      return c.json(await monitoring.runDue());
+    });
+  }
+
+  // Owner exports: the hosts ever scanned and the monitoring subscriptions. Bearer token only.
+  app.get('/internal/export/:file', async (c) => {
+    if (!config.adminToken) return c.notFound();
+    const token = bearerToken(c.req.header('authorization'));
+    if (!token || token !== config.adminToken) return c.json({ error: 'unauthorized' }, 401);
+    const limit = Math.min(5000, Math.max(1, Number(c.req.query('limit') ?? 1000)));
+    switch (c.req.param('file')) {
+      case 'targets.json':
+        return c.json({ targets: deps.targets ? await deps.targets.list(limit) : [] });
+      case 'monitors.json': {
+        const monitors = deps.monitors ? await deps.monitors.list(limit) : [];
+        return c.json({
+          monitors: monitors.map((monitor) => ({
+            id: monitor.id,
+            email: monitor.email,
+            host: monitor.host,
+            url: monitor.url,
+            status: monitor.status,
+            createdAt: monitor.createdAt,
+            confirmedAt: monitor.confirmedAt,
+            unsubscribedAt: monitor.unsubscribedAt,
+            lastCheckedAt: monitor.lastCheckedAt,
+            lastNotifiedAt: monitor.lastNotifiedAt,
+            baseline: monitor.baseline,
+          })),
+        });
+      }
+      default:
+        return c.notFound();
+    }
   });
 
   app.get('/badge/:file', async (c) => {

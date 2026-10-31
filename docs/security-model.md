@@ -31,8 +31,19 @@ Every redirect hop is checked again. DNS resolution happens on the platform, so 
 
 - Scan ids are 16 hex characters from a cryptographic random source and are not listed anywhere.
 - Stored results contain only what the report shows: URLs, status codes, excerpts of evidence. No request bodies beyond what the checks quote, no visitor data.
-- Reports are kept for `RETENTION_DAYS` and deleted by the cleanup cron, which only runs when the platform's cron header is present.
-- Secrets live in Space variables and GitHub environments. The repository holds none.
+- Reports are kept for `RETENTION_DAYS` and deleted by the cleanup cron, which only runs when the platform's cron header is present. The `targets` registry keeps one row per host (no visitor data) indefinitely so the owner can see what was scanned.
+- Secrets live in Space variables. The repository holds none.
+
+## Monitoring and personal data
+
+Monitoring is the only feature that stores personal data: an email address bound to one host.
+
+- Double opt-in: nothing but one confirmation email is sent before the address confirms; re-sending is throttled to once per hour.
+- Confirmation and unsubscribe tokens are 24 random bytes; only their SHA-256 is stored, comparison is constant-time, and the unsubscribe token is rotated with every change email.
+- Every email carries an unsubscribe link; unsubscribing is one click and keeps the row only to honour the choice.
+- Signup always shows the same page whatever the address's state, so addresses cannot be enumerated.
+- The weekly check runs under the platform's cron header, is idempotent, and processes at most `MONITOR_BATCH_SIZE` due subscriptions per run.
+- Owner exports require a bearer `ADMIN_TOKEN` and omit token hashes; without the variable the endpoints do not exist.
 
 ## Supply chain
 

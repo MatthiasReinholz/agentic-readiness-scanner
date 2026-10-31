@@ -12,12 +12,23 @@ Verified against the Spacefast docs on 2026-10-30:
 
 ## How the app uses it
 
-- `apps/web/sf.jsonc` declares the Functions runtime with `handler.js` as entry, a daily cleanup cron and public access. Spacefast reads `sf.jsonc` from the root of the directory it publishes, so the build copies this file into `dist/`. Its `headers` rules apply to static files only (verified on the first live deploy), so the worker sets `X-Content-Type-Options` and `Referrer-Policy` on every response and a `Link` header on `/` that advertises `llms.txt` and the MCP server card.
+- `apps/web/sf.jsonc` declares the Functions runtime with `handler.js` as entry, two daily crons (result cleanup and the monitoring check) and public access. Spacefast reads `sf.jsonc` from the root of the directory it publishes, so the build copies this file into `dist/`. Its `headers` rules apply to static files only (verified on the first live deploy), so the worker sets `X-Content-Type-Options` and `Referrer-Policy` on every response and a `Link` header on `/` that advertises `llms.txt` and the MCP server card.
 - `apps/web/build.mjs` bundles `src/handler.ts` and its workspace dependencies into `dist/handler.js` with esbuild and copies `public/` and `sf.jsonc` next to it. It needs the workspace packages built first, so always run it through turbo (`pnpm build` at the repository root). The folder is what Spacefast publishes; `sf publish apps/web/dist` from a linked machine publishes it by hand, which is only for emergencies.
 - The repository-root `sf.jsonc` holds only the `build` block for the connected GitHub repository: install with `corepack enable && pnpm install --frozen-lockfile`, build with `pnpm turbo run build --filter=@agentic-readiness/web...`, publish `apps/web/dist`. Build settings in the Spacefast dashboard override this file, so leave them on "Auto" there.
 - Results are stored through `SqlResultStore` in a `scans` table (MySQL DDL). Fix text is stripped before storage and re-attached from the catalog on read, which keeps rows small.
 - Per-target cooldown replaces per-IP rate limiting: a host is scanned at most once per `TARGET_COOLDOWN_SECONDS`; within that window the stored result is served.
-- Configuration comes from Space variables: `APP_BASE_URL`, `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `PLUGIN_URL`, `REPOSITORY_URL`. Set them with `sf env set NAME value`.
+- Configuration comes from Space variables, set with `sf env set NAME value` (secrets with `--value-from-stdin`):
+  - Scanning: `APP_BASE_URL`, `APP_NAME`, `SCAN_BUDGET`, `TARGET_COOLDOWN_SECONDS`, `RETENTION_DAYS`, `PLUGIN_URL`, `REPOSITORY_URL`.
+  - Monitoring ([decision 0006](decisions/0006-monitoring-by-weekly-rescan.md)): `MAIL_PROVIDER` (`resend`; unset disables monitoring entirely), `MAIL_API_KEY` (secret), `MAIL_FROM` (a sender on a domain verified with the provider, e.g. `Agentic Readiness Scanner <monitor@example.com>`), `MONITOR_INTERVAL_DAYS` (default 7), `MONITOR_BATCH_SIZE` (subscriptions per daily cron run, default 10).
+  - Owner access: `ADMIN_TOKEN` (secret; enables the export endpoints below).
+- Every scan also upserts a row in the `targets` table (host, first and last seen, scan count, last level, scores, platform, profile). Unlike `scans`, it is never purged, so the owner can always see which sites were checked.
+
+## Owner access to the data
+
+Not a public admin UI; two private paths:
+
+- **Database console.** In the Space's dashboard open **Database → Open db console** (or run `sf db console`), which signs you into phpMyAdmin for the Space's MySQL. Tables: `scans` (recent results), `targets` (every host ever scanned), `monitors` (subscriptions; tokens stored as SHA-256 only). A useful query: `SELECT host, scan_count, last_seen_at, last_level, last_ingestion, last_commerce FROM targets ORDER BY last_seen_at DESC`.
+- **Export endpoints.** With `ADMIN_TOKEN` set, `GET /internal/export/targets.json` and `GET /internal/export/monitors.json` (optional `?limit=`, max 5000) answer to `Authorization: Bearer <token>` and nothing else; token hashes are never included. Example: `curl -H "Authorization: Bearer $ADMIN_TOKEN" https://agentic-readiness-scanner.space.fast/internal/export/targets.json`.
 
 ## Local development
 
