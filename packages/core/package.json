@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@agentic-readiness/catalog": "workspace:*",
+    "@agentic-readiness/ui": "workspace:*",
     "domhandler": "6.0.1",
     "domutils": "4.0.2",
     "fast-xml-parser": "5.11.2",

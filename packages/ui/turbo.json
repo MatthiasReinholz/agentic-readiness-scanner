@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/core/src/reporters/**/*.ts",
+        "$TURBO_ROOT$/apps/web/src/**/*.ts"
+      ],
+      "outputs": ["dist/**", "src/generated/**"]
+    },
+    "type-check": {
+      "dependsOn": ["build"]
+    },
+    "lint": {
+      "dependsOn": ["build"]
+    }
+  }
+}

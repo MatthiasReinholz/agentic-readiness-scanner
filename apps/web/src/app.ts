@@ -6,7 +6,7 @@ import type { AppConfig } from './config.js';
 import { MonitoringService } from './monitoring/service.js';
 import type { Mailer, MonitorStore } from './monitoring/types.js';
 import { homePage } from './pages/home.js';
-import { page } from './pages/layout.js';
+import { messagePage } from './pages/layout.js';
 import { createInternalRoutes } from './routes/internal.js';
 import { createMonitorRoutes } from './routes/monitor.js';
 import { createReportRoutes } from './routes/report.js';
@@ -85,10 +85,11 @@ export function createApp(deps: AppDependencies): Hono {
       return c.json({ error: 'Internal error.' }, 500);
     }
     return c.html(
-      page(
+      messagePage(
         config,
-        { title: 'Something went wrong' },
-        '<h1>Something went wrong</h1><p class="muted" style="margin-top:12px">The scan could not be completed. <a href="/">Try again</a>.</p>',
+        'Something went wrong',
+        'The scan could not be completed. <a href="/">Try again</a>.',
+        { kind: 'error' },
       ),
       500,
     );
@@ -180,14 +181,7 @@ export function createApp(deps: AppDependencies): Hono {
   );
 
   app.notFound((c) =>
-    c.html(
-      page(
-        config,
-        { title: 'Not found' },
-        '<h1>Not found</h1><p class="muted" style="margin-top:12px"><a href="/">Back to the scanner</a></p>',
-      ),
-      404,
-    ),
+    c.html(messagePage(config, 'Not found', '<a href="/">Back to the scanner</a>'), 404),
   );
 
   return app;

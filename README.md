@@ -80,6 +80,7 @@ One engine, three hosts. Nothing in a check knows where it runs.
 ```text
 packages/catalog   the catalog as data: checks, levels, profiles, fixes, result schema
 packages/core      fetcher, target resolver, parsers, checks, runner, scoring, reporters
+packages/ui        visual system: Tailwind tokens, compiled stylesheet, class recipes, icons (after the app-base UI standard)
 packages/mcp       MCP server definition (tools), shared by CLI and hosted app
 packages/cli       agentic-readiness scan | mcp | catalog
 apps/web           Hono app: form, reports, badge, API, MCP endpoint, monitoring; runs on Spacefast Functions

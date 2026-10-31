@@ -1,17 +1,12 @@
-import {
-  escapeHtml,
-  renderBadge,
-  renderHtml,
-  renderJson,
-  renderMarkdown,
-} from '@agentic-readiness/core';
+import { renderBadge, renderHtml, renderJson, renderMarkdown } from '@agentic-readiness/core';
 import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
 import { SCAN_ID } from '../ids.js';
 import type { MonitoringService } from '../monitoring/service.js';
 import { homePage } from '../pages/home.js';
-import { MONITOR_CSS, MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
+import { hostedFooterHtml, hostedHead } from '../pages/layout.js';
+import { MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
 import {
   ScanRequestError,
   scanOrReuse,
@@ -33,7 +28,8 @@ function reportLinks(config: AppConfig, id: string, host: string) {
     badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
     appName: config.appName,
     homeUrl: `${config.baseUrl}/`,
-    footerHtml: `<a href="${escapeHtml(config.repositoryUrl)}">Source on GitHub</a> · GPL-3.0-or-later · Not affiliated with Automattic, WordPress or WooCommerce.`,
+    head: hostedHead(),
+    footerHtml: hostedFooterHtml(config),
   };
 }
 
@@ -106,7 +102,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     const monitorSlots = monitoring
       ? {
           afterScoresHtml: monitorPanel(config, stored),
-          endHtml: `<style>${MONITOR_CSS}</style>${monitorDialog(config, stored)}`,
+          endHtml: monitorDialog(config, stored),
           scripts: [MONITOR_SCRIPT],
         }
       : {};
