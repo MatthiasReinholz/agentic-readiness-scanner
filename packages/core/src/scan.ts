@@ -8,6 +8,7 @@ import {
 import { builtInChecks } from './checks/registry.js';
 import type { Check } from './checks/types.js';
 import { BudgetedFetcher, type FetchLike } from './http/budgeted-fetcher.js';
+import { RobotsGatedFetcher } from './http/robots-gate.js';
 import type { Fetcher } from './http/types.js';
 import { runChecks } from './runner.js';
 import { computeLevel, computeScores } from './scoring.js';
@@ -37,7 +38,7 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
   const now = options.now ?? (() => new Date());
   const started = Date.now();
   const catalog = options.catalog ?? defaultCatalog;
-  const fetcher =
+  const inner: Fetcher =
     options.fetcher ??
     new BudgetedFetcher({
       ...(options.fetch ? { fetch: options.fetch } : {}),
@@ -45,6 +46,8 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
       ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
       ...(options.userAgent !== undefined ? { userAgent: options.userAgent } : {}),
     });
+  // Every fetch after robots.txt is parsed honours the store's rules for the scanner.
+  const fetcher = new RobotsGatedFetcher(inner);
 
   const target = await resolveTarget(inputUrl, fetcher, {
     ...(options.profile !== undefined ? { profile: options.profile } : {}),
@@ -75,6 +78,13 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
     level: computeLevel(results, catalog, target.profile.max_level),
     scores: computeScores(results, catalog),
     results,
-    warnings: target.warnings,
+    warnings: [
+      ...target.warnings,
+      ...(fetcher.blocked.length > 0
+        ? [
+            `robots.txt disallows ${fetcher.blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${fetcher.blocked.slice(0, 5).join(', ')}${fetcher.blocked.length > 5 ? ', …' : ''}`,
+          ]
+        : []),
+    ],
   };
 }

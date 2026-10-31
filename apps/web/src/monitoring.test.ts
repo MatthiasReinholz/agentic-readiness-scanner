@@ -261,6 +261,115 @@ describe('weekly check', () => {
   });
 });
 
+describe('monitoring limits', () => {
+  it('caps confirmation emails per address per day and forgets stale pending requests', async () => {
+    const h = harness();
+    const scanId = await scanOnce(h.app);
+    const post = (email: string) =>
+      h.app.request('/monitor', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: `scan_id=${scanId}&email=${encodeURIComponent(email)}`,
+      });
+    await post('a@example.com');
+    expect(h.mailer.sent).toHaveLength(1);
+    // Pending rows are purged by the cleanup cron once they are older than 48 hours.
+    h.advance(49 * 3_600_000);
+    const cleanup = await h.app.request('/internal/cron/cleanup', {
+      headers: { 'x-spacefast-cron': '1' },
+    });
+    expect(await cleanup.json()).toMatchObject({ pendingRemoved: 1 });
+    expect(await h.monitors.findByEmailAndHost('a@example.com', 'ceramics.example')).toBeNull();
+  });
+
+  it('does not build email links when APP_BASE_URL is not explicit', async () => {
+    const store = new MemoryResultStore();
+    const config = configFromEnv({ MAIL_PROVIDER: 'console' }, 'https://forged.example/');
+    const app = createApp({
+      config,
+      store,
+      monitors: new MemoryMonitorStore(),
+      mailer: new MemoryMailer(),
+      fetcherFactory: () => fixtureFetcher(fixture),
+    });
+    const id = await scanOnce(app);
+    expect(await (await app.request(`/r/${id}`)).text()).not.toContain('id="monitor"');
+    expect((await app.request('/monitor', { method: 'POST' })).status).toBe(404);
+  });
+
+  it('keeps going when the mail provider fails for one subscriber', async () => {
+    const monitors = new MemoryMonitorStore();
+    const config = configFromEnv({
+      APP_BASE_URL: 'https://scanner.example',
+      MAIL_PROVIDER: 'console',
+    });
+    let clock = Date.parse('2026-10-31T12:00:00Z');
+    const store = new MemoryResultStore();
+    const baseApp = createApp({ config, store, fetcherFactory: () => fixtureFetcher(fixture) });
+    const first = await stored(store, await scanOnce(baseApp));
+    const flipped: StoredScan = {
+      ...first,
+      id: 'feedfacefeedface',
+      result: { ...first.result, level: { value: 0, name: 'Not reachable', next_gate: ['A1.1'] } },
+    };
+    let failNext = false;
+    const flaky = {
+      sent: [] as string[],
+      send: (message: { to: string }) => {
+        if (failNext) {
+          failNext = false;
+          return Promise.reject(new Error('provider 500'));
+        }
+        flaky.sent.push(message.to);
+        return Promise.resolve();
+      },
+    };
+    const service = new MonitoringService({
+      config,
+      store: monitors,
+      mailer: flaky,
+      latestScan: () => Promise.resolve(first),
+      rescan: () => Promise.resolve(flipped),
+      now: () => new Date(clock),
+    });
+    for (const email of ['one@example.com', 'two@example.com'])
+      await service.subscribe(email, first);
+    for (const monitor of await monitors.list(10)) {
+      await monitors.update({
+        ...monitor,
+        status: 'active',
+        baseline: null,
+        confirmedAt: new Date(clock).toISOString(),
+      });
+    }
+    clock += 8 * 86_400_000;
+    // First run establishes baselines; no email yet.
+    expect(await service.runDue()).toMatchObject({ due: 2, checked: 2, notified: 0, failed: 0 });
+    clock += 8 * 86_400_000;
+    const changed: StoredScan = {
+      ...flipped,
+      id: 'cafebabecafebabe',
+      result: { ...flipped.result, level: { value: 1, name: 'Crawlable', next_gate: [] } },
+    };
+    const service2 = new MonitoringService({
+      config,
+      store: monitors,
+      mailer: flaky,
+      latestScan: () => Promise.resolve(first),
+      rescan: () => Promise.resolve(changed),
+      now: () => new Date(clock),
+    });
+    const sentBefore = flaky.sent.length; // the two confirmation emails
+    failNext = true;
+    const report = await service2.runDue();
+    expect(report).toMatchObject({ due: 2, checked: 2, notified: 1, failed: 1 });
+    expect(flaky.sent.length - sentBefore).toBe(1);
+    // The failed subscriber keeps the old baseline and is told next time.
+    clock += 8 * 86_400_000;
+    expect(await service2.runDue()).toMatchObject({ due: 2, notified: 1 });
+  });
+});
+
 describe('owner exports', () => {
   it('lists scanned targets and subscriptions behind a bearer token, never token hashes', async () => {
     const h = harness({ adminToken: 'secret-token' });
@@ -283,6 +392,7 @@ describe('owner exports', () => {
       targets: { host: string; scanCount: number; lastLevel: number }[];
     };
     expect(targets.targets).toHaveLength(1);
+    expect((await h.app.request('/internal/export/targets.json?limit=abc', auth)).status).toBe(200);
     expect(targets.targets[0]).toMatchObject({ host: 'ceramics.example', scanCount: 1 });
     const monitors = (await (
       await h.app.request('/internal/export/monitors.json', auth)

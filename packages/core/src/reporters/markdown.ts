@@ -13,6 +13,12 @@ import {
  * The Markdown report is written for a coding agent or a ticket: level first, the next
  * gate in one sentence, one line per check, and the fix under every failed check.
  */
+/** A fence longer than any backtick run inside the content, so target text cannot close it. */
+export function fenceFor(content: string): string {
+  const longest = Math.max(0, ...(content.match(/`+/g) ?? []).map((run) => run.length));
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+
 export interface MarkdownReportOptions {
   /** Canonical URL of this report, included in agent prompts. */
   reportUrl?: string;
@@ -73,9 +79,10 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
         lines.push(item.fix.summary);
         lines.push('');
         if (item.fix.snippet) {
-          lines.push('```' + (item.fix.snippet_language ?? ''));
+          const fence = fenceFor(item.fix.snippet);
+          lines.push(fence + (item.fix.snippet_language ?? ''));
           lines.push(item.fix.snippet);
-          lines.push('```');
+          lines.push(fence);
           lines.push('');
         }
         const definition = getCheck(item.id);
@@ -99,9 +106,11 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
       }
       lines.push('<details><summary>Evidence</summary>');
       lines.push('');
-      lines.push('```json');
-      lines.push(JSON.stringify(item.evidence, null, 2));
-      lines.push('```');
+      const evidence = JSON.stringify(item.evidence, null, 2);
+      const evidenceFence = fenceFor(evidence);
+      lines.push(`${evidenceFence}json`);
+      lines.push(evidence);
+      lines.push(evidenceFence);
       lines.push('');
       lines.push('</details>');
       lines.push('');

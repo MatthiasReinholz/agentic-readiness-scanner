@@ -24,8 +24,8 @@ Every redirect hop is checked again. DNS resolution happens on the platform, so 
 
 - User agent `AgenticReadinessScanner/<version> (+repository URL)` on every request the scanner makes for itself.
 - The agent-profile comparison (A2.4, not yet implemented) will send other user-agent strings only for one product page and at most six extra requests, and `llms.txt` and this document will say so.
-- robots.txt: the scanner parses and evaluates it for the checks. Honouring it for the scanner's own fetches (everything except robots.txt, sitemaps and well-known paths) is not implemented yet and is the next hardening step.
-- One scan per target host per cooldown window on the hosted app; the stored result is served in between.
+- robots.txt is honoured for the scanner's own user agent (`AgenticReadinessScanner`) on everything except robots.txt, sitemaps and the well-known directory: `RobotsGatedFetcher` refuses disallowed URLs without spending budget, the affected checks see "page not readable", and the report lists the refused URLs under scan warnings.
+- One scan per target host per cooldown window on the hosted app, whatever the caller asks for: a profile override does not reopen the window, parallel submissions for one host share a single scan, and an isolate runs at most four scans at once (503 beyond that). This is the only control against using the scanner as a request amplifier, since the platform exposes no client address.
 
 ## Hosted app
 
@@ -42,7 +42,9 @@ Monitoring is the only feature that stores personal data: an email address bound
 - Confirmation and unsubscribe tokens are 24 random bytes; only their SHA-256 is stored, comparison is constant-time, and the unsubscribe token is rotated with every change email.
 - Every email carries an unsubscribe link; unsubscribing is one click and keeps the row only to honour the choice.
 - Signup always shows the same page whatever the address's state, so addresses cannot be enumerated.
-- The weekly check runs under the platform's cron header, is idempotent, and processes at most `MONITOR_BATCH_SIZE` due subscriptions per run.
+- The weekly check runs under the platform's cron header. Scheduled fires carry only that header, which any client can set, so the endpoint is built to be harmless when called by anyone: rows are claimed before work, nothing is due more than once per interval, at most `MONITOR_BATCH_SIZE` subscriptions are processed per run, and an isolate refuses to run again within ten minutes.
+- Confirmation emails are capped at five per address per day; unconfirmed requests are deleted after 48 hours by the cleanup cron.
+- Monitoring refuses to start unless `APP_BASE_URL` is set, so email links are never derived from a request's Host header.
 - Owner exports require a bearer `ADMIN_TOKEN` and omit token hashes; without the variable the endpoints do not exist.
 
 ## Supply chain

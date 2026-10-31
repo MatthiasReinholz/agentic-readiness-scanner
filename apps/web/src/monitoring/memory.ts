@@ -39,6 +39,25 @@ export class MemoryMonitorStore implements MonitorStore {
     return Promise.resolve(structuredClone(due));
   }
 
+  countCreatedSince(email: string, sinceIso: string): Promise<number> {
+    let count = 0;
+    for (const monitor of this.monitors.values()) {
+      if (monitor.email === email && monitor.createdAt >= sinceIso) count += 1;
+    }
+    return Promise.resolve(count);
+  }
+
+  deletePendingOlderThan(beforeIso: string): Promise<number> {
+    let removed = 0;
+    for (const [id, monitor] of this.monitors) {
+      if (monitor.status === 'pending' && monitor.createdAt < beforeIso) {
+        this.monitors.delete(id);
+        removed += 1;
+      }
+    }
+    return Promise.resolve(removed);
+  }
+
   list(limit: number): Promise<Monitor[]> {
     const all = [...this.monitors.values()]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))

@@ -13,9 +13,28 @@ export interface MonitoringConfig {
   batchSize: number;
 }
 
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigError';
+  }
+}
+
+/** A positive integer from the environment, or the fallback; anything else is a startup error. */
+function positiveInt(name: string, value: string | undefined, fallback: number): number {
+  if (value === undefined || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ConfigError(`${name} must be a positive integer, got "${value}"`);
+  }
+  return parsed;
+}
+
 export interface AppConfig {
   /** Public base URL of this deployment, used for absolute links in reports and badges. */
   baseUrl: string;
+  /** True when APP_BASE_URL was set, false when the base URL was derived from a request. */
+  baseUrlExplicit: boolean;
   appName: string;
   /** Requests per scan. */
   scanBudget: number;
@@ -44,10 +63,11 @@ export function configFromEnv(
   const fallbackBase = requestUrl ? new URL(requestUrl).origin : 'http://localhost:8787';
   return {
     baseUrl: (env.APP_BASE_URL ?? fallbackBase).replace(/\/$/, ''),
+    baseUrlExplicit: Boolean(env.APP_BASE_URL),
     appName: env.APP_NAME ?? 'Agentic Readiness Scanner',
-    scanBudget: Number(env.SCAN_BUDGET ?? 40),
-    targetCooldownSeconds: Number(env.TARGET_COOLDOWN_SECONDS ?? 120),
-    retentionDays: Number(env.RETENTION_DAYS ?? 30),
+    scanBudget: positiveInt('SCAN_BUDGET', env.SCAN_BUDGET, 40),
+    targetCooldownSeconds: positiveInt('TARGET_COOLDOWN_SECONDS', env.TARGET_COOLDOWN_SECONDS, 120),
+    retentionDays: positiveInt('RETENTION_DAYS', env.RETENTION_DAYS, 30),
     repositoryUrl:
       env.REPOSITORY_URL ?? 'https://github.com/MatthiasReinholz/agentic-readiness-scanner',
     monitoring: {
@@ -56,8 +76,8 @@ export function configFromEnv(
       from:
         env.MAIL_FROM ??
         `${env.APP_NAME ?? 'Agentic Readiness Scanner'} <monitor@${new URL(env.APP_BASE_URL ?? fallbackBase).hostname}>`,
-      intervalDays: Number(env.MONITOR_INTERVAL_DAYS ?? 7),
-      batchSize: Number(env.MONITOR_BATCH_SIZE ?? 10),
+      intervalDays: positiveInt('MONITOR_INTERVAL_DAYS', env.MONITOR_INTERVAL_DAYS, 7),
+      batchSize: positiveInt('MONITOR_BATCH_SIZE', env.MONITOR_BATCH_SIZE, 10),
     },
     adminToken: env.ADMIN_TOKEN?.trim() ? env.ADMIN_TOKEN.trim() : null,
   };

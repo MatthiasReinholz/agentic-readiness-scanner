@@ -35,6 +35,25 @@ describe('parseRobotsTxt', () => {
     expect(parsed.unknownLines).toEqual([]);
   });
 
+  it('matches wildcard rules linearly and anchors on $', () => {
+    const hostile = parseRobotsTxt(`User-agent: *\nDisallow: /*a*a*a*a*a*a*a*a*a*a*a*a*a*a*b\n`);
+    const path = `/${'a'.repeat(5000)}c`;
+    const started = performance.now();
+    expect(isAllowed(hostile, 'x', path)).toBe(true);
+    expect(performance.now() - started).toBeLessThan(100);
+    const robots = parseRobotsTxt(`User-agent: *\nDisallow: /*.pdf$\nDisallow: /tmp/*/x\n`);
+    expect(isAllowed(robots, 'x', '/files/a.pdf')).toBe(false);
+    expect(isAllowed(robots, 'x', '/files/a.pdf?dl=1')).toBe(true);
+    expect(isAllowed(robots, 'x', '/tmp/1/x')).toBe(false);
+    expect(isAllowed(robots, 'x', '/tmp/1/y')).toBe(true);
+  });
+
+  it('matches product tokens exactly, not by prefix', () => {
+    const robots = parseRobotsTxt(`User-agent: Google\nDisallow: /\n\nUser-agent: *\nAllow: /\n`);
+    expect(isAllowed(robots, 'Google-Extended', '/')).toBe(true);
+    expect(isAllowed(robots, 'google', '/')).toBe(false);
+  });
+
   it('collects sitemaps and content signals', () => {
     expect(robots.sitemaps).toEqual(['https://example.com/sitemap.xml']);
     expect(robots.contentSignals).toEqual({ 'ai-train': 'no', search: 'yes' });

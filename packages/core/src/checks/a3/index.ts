@@ -2,8 +2,20 @@ import { extractJsonLd, offersOf, productNodes, asString } from '../../parsers/j
 import { productPages } from '../shared.js';
 import { defineCheck, fail, pass, skip, verdictForRatio, warn } from '../types.js';
 
-const PRICE_TEXT =
-  /(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|AUD|CAD|SEK|NOK|DKK|PLN|CZK)\s?\d[\d.,]*|\d[\d.,]*\s?(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|AUD|CAD|SEK|NOK|DKK|PLN|CZK)/;
+/**
+ * A price in page text: a currency sign or code next to an amount. The amount pattern
+ * has bounded repetitions (groups of three digits, at most two decimals) so matching
+ * stays linear on pages full of numbers; the text is capped as well.
+ */
+const CURRENCY = '(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|AUD|CAD|SEK|NOK|DKK|PLN|CZK)';
+const AMOUNT = '(?:\\d{1,3}(?:[.,]\\d{3}){1,4}|\\d{1,7})(?:[.,]\\d{1,2})?';
+const PRICE_TEXT = new RegExp(`${CURRENCY}\\s?${AMOUNT}|\\b${AMOUNT}\\s?${CURRENCY}`);
+/** Characters of page text examined for a price; prices appear early on a product page. */
+const PRICE_TEXT_LIMIT = 50_000;
+
+export function hasPriceText(text: string): boolean {
+  return PRICE_TEXT.test(text.slice(0, PRICE_TEXT_LIMIT));
+}
 
 export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
   const pages = await productPages(target, fetcher);
@@ -25,7 +37,7 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
       products.some((product) =>
         offersOf(product).some((offer) => asString(offer.price) !== null),
       ) ||
-      PRICE_TEXT.test(text) ||
+      hasPriceText(text) ||
       page.doc.find('*', 'class', /\bprice\b/).length > 0;
     const words = page.doc.wordCount();
     const description =

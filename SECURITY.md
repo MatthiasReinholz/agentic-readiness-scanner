@@ -20,4 +20,4 @@ It does not store or need any credential to scan a store. The hosted deployment 
 
 ## Threat model of the scanner
 
-Any URL-in service is a server-side request forgery and scraping vector. The controls are described in [docs/security-model.md](docs/security-model.md): URL policy (public hosts, default ports, no private ranges), a fixed request budget per scan, body size caps, redirect limits, per-target cooldown and an honest user agent. The scanner parses robots.txt to evaluate it; honouring it for the scanner's own fetches is tracked in the security model. Changes to these controls are reviewed like privileged infrastructure changes.
+Any URL-in service is a server-side request forgery and scraping vector. The controls are described in [docs/security-model.md](docs/security-model.md): URL policy (public hosts, default ports, no private ranges), a fixed request budget per scan, body size caps, redirect limits, per-target cooldown, an honest user agent, and respect for robots.txt on everything except robots.txt, sitemaps and the well-known directory. Changes to these controls are reviewed like privileged infrastructure changes.
