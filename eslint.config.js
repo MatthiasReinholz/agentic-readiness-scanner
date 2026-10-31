@@ -32,6 +32,20 @@ export default tseslint.config(
     },
   },
   {
+    // The hosted app runs on a worker. Node-only globals are withdrawn there so a stray
+    // `process` or `Buffer` fails lint as well as the type-check (tsconfig.app.json has no
+    // Node types). dev.ts and the tests run on Node and keep them (tsconfig.node.json).
+    files: ['apps/web/src/**/*.ts'],
+    ignores: ['apps/web/src/dev.ts', 'apps/web/src/**/*.test.ts'],
+    languageOptions: {
+      globals: Object.fromEntries(
+        Object.keys(globals.node)
+          .filter((name) => !(name in globals.browser))
+          .map((name) => [name, 'off']),
+      ),
+    },
+  },
+  {
     files: ['**/*.js', '**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
   },

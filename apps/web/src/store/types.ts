@@ -18,9 +18,3 @@ export interface ResultStore {
   latestForHost(host: string): Promise<StoredScan | null>;
   deleteOlderThan(isoTimestamp: string): Promise<number>;
 }
-
-export function newScanId(): string {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}

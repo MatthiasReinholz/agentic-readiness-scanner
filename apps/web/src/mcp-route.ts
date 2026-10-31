@@ -2,14 +2,13 @@
  * Streamable HTTP MCP endpoint mounted at /mcp. Stateless: every request gets a fresh
  * transport, which suits a worker isolate and needs no session storage.
  */
-import { scan } from '@agentic-readiness/core';
 import { createMcpServer } from '@agentic-readiness/mcp';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { Hono } from 'hono';
 
-import { scanOrReuse, type AppDependencies } from './app.js';
+import { scanOrReuse, type ScanDependencies } from './scan-service.js';
 
-export function createMcpRoute(deps: AppDependencies): Hono {
+export function createMcpRoute(deps: ScanDependencies): Hono {
   const route = new Hono();
   route.all('/', async (c) => {
     const server = createMcpServer({
@@ -28,5 +27,3 @@ export function createMcpRoute(deps: AppDependencies): Hono {
   });
   return route;
 }
-
-export { scan };

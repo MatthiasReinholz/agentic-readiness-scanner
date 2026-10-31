@@ -1,4 +1,10 @@
-import type { SqlDatabase } from '../store/sql.js';
+import {
+  clampLimit,
+  MalformedRowError,
+  RowReader,
+  SqlStore,
+  type SqlDatabase,
+} from '../store/sql-store.js';
 import type { Baseline, Monitor, MonitorStatus, MonitorStore } from './types.js';
 
 /** MySQL-compatible DDL for the D1-shaped broker in front of the Space's database. */
@@ -20,58 +26,41 @@ export const MONITORS_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS monitors (
   INDEX idx_monitors_due (status, last_checked_at)
 )`;
 
-interface MonitorRow {
-  id: string;
-  email: string;
-  host: string;
-  url: string;
-  status: MonitorStatus;
-  confirm_token_hash: string;
-  manage_token_hash: string;
-  created_at: string;
-  confirmed_at: string | null;
-  unsubscribed_at: string | null;
-  last_checked_at: string | null;
-  last_notified_at: string | null;
-  baseline: string | null;
-}
+/** Rows one listing may return at most, for the due-run and the owner's export alike. */
+export const MAX_MONITOR_ROWS = 1000;
 
 const COLUMNS =
   'id, email, host, url, status, confirm_token_hash, manage_token_hash, created_at, confirmed_at, unsubscribed_at, last_checked_at, last_notified_at, baseline';
 
-function rowToMonitor(row: MonitorRow): Monitor {
+const STATUSES: readonly MonitorStatus[] = ['pending', 'active', 'unsubscribed'];
+
+function rowToMonitor(row: Record<string, unknown>): Monitor {
+  const reader = new RowReader('monitors', row);
+  const status = reader.string('status');
+  if (!STATUSES.some((known) => known === status)) {
+    throw new MalformedRowError('monitors', 'status');
+  }
+  const baseline = reader.nullableString('baseline');
   return {
-    id: row.id,
-    email: row.email,
-    host: row.host,
-    url: row.url,
-    status: row.status,
-    confirmTokenHash: row.confirm_token_hash,
-    manageTokenHash: row.manage_token_hash,
-    createdAt: row.created_at,
-    confirmedAt: row.confirmed_at,
-    unsubscribedAt: row.unsubscribed_at,
-    lastCheckedAt: row.last_checked_at,
-    lastNotifiedAt: row.last_notified_at,
-    baseline: row.baseline ? (JSON.parse(row.baseline) as Baseline) : null,
+    id: reader.string('id'),
+    email: reader.string('email'),
+    host: reader.string('host'),
+    url: reader.string('url'),
+    status: status as MonitorStatus,
+    confirmTokenHash: reader.string('confirm_token_hash'),
+    manageTokenHash: reader.string('manage_token_hash'),
+    createdAt: reader.string('created_at'),
+    confirmedAt: reader.nullableString('confirmed_at'),
+    unsubscribedAt: reader.nullableString('unsubscribed_at'),
+    lastCheckedAt: reader.nullableString('last_checked_at'),
+    lastNotifiedAt: reader.nullableString('last_notified_at'),
+    baseline: baseline ? (JSON.parse(baseline) as Baseline) : null,
   };
 }
 
-function clampLimit(limit: number): number {
-  return Math.max(1, Math.min(1000, Math.trunc(limit)));
-}
-
-export class SqlMonitorStore implements MonitorStore {
-  private schemaReady: Promise<void> | null = null;
-
-  constructor(private readonly db: SqlDatabase) {}
-
-  private ensureSchema(): Promise<void> {
-    this.schemaReady ??= this.db
-      .prepare(MONITORS_SCHEMA_SQL)
-      .run()
-      .then(() => undefined);
-    return this.schemaReady;
+export class SqlMonitorStore extends SqlStore implements MonitorStore {
+  constructor(db: SqlDatabase) {
+    super(db, MONITORS_SCHEMA_SQL);
   }
 
   async create(monitor: Monitor): Promise<void> {
@@ -125,7 +114,7 @@ export class SqlMonitorStore implements MonitorStore {
       .prepare(`SELECT ${COLUMNS} FROM monitors WHERE id = ?`)
       .bind(id)
       .first();
-    return row ? rowToMonitor(row as unknown as MonitorRow) : null;
+    return row ? rowToMonitor(row) : null;
   }
 
   async findByEmailAndHost(email: string, host: string): Promise<Monitor | null> {
@@ -134,18 +123,18 @@ export class SqlMonitorStore implements MonitorStore {
       .prepare(`SELECT ${COLUMNS} FROM monitors WHERE email = ? AND host = ?`)
       .bind(email, host)
       .first();
-    return row ? rowToMonitor(row as unknown as MonitorRow) : null;
+    return row ? rowToMonitor(row) : null;
   }
 
   async listDue(before: string, limit: number): Promise<Monitor[]> {
     await this.ensureSchema();
     const { results } = await this.db
       .prepare(
-        `SELECT ${COLUMNS} FROM monitors WHERE status = 'active' AND (last_checked_at IS NULL OR last_checked_at < ?) ORDER BY last_checked_at IS NULL DESC, last_checked_at ASC LIMIT ${clampLimit(limit)}`,
+        `SELECT ${COLUMNS} FROM monitors WHERE status = 'active' AND (last_checked_at IS NULL OR last_checked_at < ?) ORDER BY last_checked_at IS NULL DESC, last_checked_at ASC LIMIT ${clampLimit(limit, MAX_MONITOR_ROWS)}`,
       )
       .bind(before)
       .all();
-    return results.map((row) => rowToMonitor(row as unknown as MonitorRow));
+    return results.map(rowToMonitor);
   }
 
   async countCreatedSince(email: string, sinceIso: string): Promise<number> {
@@ -154,6 +143,7 @@ export class SqlMonitorStore implements MonitorStore {
       .prepare('SELECT COUNT(*) AS n FROM monitors WHERE email = ? AND created_at >= ?')
       .bind(email, sinceIso)
       .first();
+    // MySQL drivers hand COUNT(*) back as a number, a string or a bigint depending on the broker.
     return Number(row?.n ?? 0);
   }
 
@@ -170,9 +160,9 @@ export class SqlMonitorStore implements MonitorStore {
     await this.ensureSchema();
     const { results } = await this.db
       .prepare(
-        `SELECT ${COLUMNS} FROM monitors ORDER BY created_at DESC LIMIT ${clampLimit(limit)}`,
+        `SELECT ${COLUMNS} FROM monitors ORDER BY created_at DESC LIMIT ${clampLimit(limit, MAX_MONITOR_ROWS)}`,
       )
       .all();
-    return results.map((row) => rowToMonitor(row as unknown as MonitorRow));
+    return results.map(rowToMonitor);
   }
 }

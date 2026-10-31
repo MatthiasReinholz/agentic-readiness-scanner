@@ -10,7 +10,7 @@
     "build": "node build.mjs",
     "test": "vitest run",
     "lint": "eslint .",
-    "type-check": "tsc -p tsconfig.json --noEmit"
+    "type-check": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
     "@agentic-readiness/catalog": "workspace:*",

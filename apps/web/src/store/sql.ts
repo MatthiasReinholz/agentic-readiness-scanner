@@ -1,29 +1,10 @@
 import { getCheck, type ScanResult } from '@agentic-readiness/catalog';
 import { computeScores } from '@agentic-readiness/core';
 
+import { RowReader, SqlStore, type SqlDatabase } from './sql-store.js';
 import type { ResultStore, StoredScan } from './types.js';
 
-/**
- * The subset of the D1 binding shape that Spacefast Functions expose as env.DB.
- * Declared locally so the app does not depend on a platform type package.
- */
-export interface SqlStatement {
-  bind(...values: unknown[]): SqlStatement;
-  first(): Promise<Record<string, unknown> | null>;
-  all(): Promise<{ results: Record<string, unknown>[] }>;
-  run(): Promise<{ meta?: { changes?: number } }>;
-}
-
-export interface SqlDatabase {
-  prepare(sql: string): SqlStatement;
-}
-
-interface ScanRow {
-  id: string;
-  host: string;
-  created_at: string;
-  result: string;
-}
+export type { SqlDatabase, SqlStatement } from './sql-store.js';
 
 /**
  * Fix text is the bulk of a result and lives in the catalog, so it is stripped before
@@ -51,7 +32,11 @@ export function attachFixes(result: ScanResult): ScanResult {
   };
 }
 
-/** MySQL-compatible DDL; the Space's database is MySQL behind the D1-shaped broker. */
+/**
+ * MySQL-compatible DDL; the Space's database is MySQL behind the D1-shaped broker.
+ * The level, ingestion and commerce columns are never read by the app: they exist so the
+ * owner can query and chart results in the SQL console without parsing the JSON column.
+ */
 export const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS scans (
   id VARCHAR(32) NOT NULL PRIMARY KEY,
   host VARCHAR(255) NOT NULL,
@@ -63,17 +48,9 @@ export const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS scans (
   INDEX idx_scans_host_created (host, created_at)
 )`;
 
-export class SqlResultStore implements ResultStore {
-  private schemaReady: Promise<void> | null = null;
-
-  constructor(private readonly db: SqlDatabase) {}
-
-  private ensureSchema(): Promise<void> {
-    this.schemaReady ??= this.db
-      .prepare(SCHEMA_SQL)
-      .run()
-      .then(() => undefined);
-    return this.schemaReady;
+export class SqlResultStore extends SqlStore implements ResultStore {
+  constructor(db: SqlDatabase) {
+    super(db, SCHEMA_SQL);
   }
 
   async put(scan: StoredScan): Promise<void> {
@@ -100,7 +77,7 @@ export class SqlResultStore implements ResultStore {
       .prepare('SELECT id, host, created_at, result FROM scans WHERE id = ?')
       .bind(id)
       .first();
-    return row ? rowToScan(row as unknown as ScanRow) : null;
+    return row ? rowToScan(row) : null;
   }
 
   async latestForHost(host: string): Promise<StoredScan | null> {
@@ -111,7 +88,7 @@ export class SqlResultStore implements ResultStore {
       )
       .bind(host)
       .first();
-    return row ? rowToScan(row as unknown as ScanRow) : null;
+    return row ? rowToScan(row) : null;
   }
 
   async deleteOlderThan(isoTimestamp: string): Promise<number> {
@@ -124,16 +101,17 @@ export class SqlResultStore implements ResultStore {
   }
 }
 
-function rowToScan(row: ScanRow): StoredScan {
-  const parsed = JSON.parse(row.result) as ScanResult;
+function rowToScan(row: Record<string, unknown>): StoredScan {
+  const reader = new RowReader('scans', row);
+  const parsed = JSON.parse(reader.string('result')) as ScanResult;
   // Rows stored before scores.groups existed get it recomputed; it is a pure function of results.
   const result = (parsed.scores as Partial<typeof parsed.scores>).groups
     ? parsed
     : { ...parsed, scores: computeScores(parsed.results) };
   return {
-    id: row.id,
-    host: row.host,
-    createdAt: row.created_at,
+    id: reader.string('id'),
+    host: reader.string('host'),
+    createdAt: reader.string('created_at'),
     result: attachFixes(result),
   };
 }

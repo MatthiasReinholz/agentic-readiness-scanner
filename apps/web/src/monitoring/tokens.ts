@@ -1,10 +1,5 @@
-/** Random ids and tokens, and the one-way hash stored for tokens. Web Crypto only. */
-
-export function randomHex(bytes: number): string {
-  const buffer = new Uint8Array(bytes);
-  crypto.getRandomValues(buffer);
-  return Array.from(buffer, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
+/** Monitor ids and tokens, and the one-way hash stored for tokens. Web Crypto only. */
+import { randomHex } from '../ids.js';
 
 export function newMonitorId(): string {
   return randomHex(8);

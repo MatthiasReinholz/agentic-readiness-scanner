@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist-types",
+    "noEmit": true,
+    "types": [],
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/dev.ts", "src/**/*.test.ts"]
+}
