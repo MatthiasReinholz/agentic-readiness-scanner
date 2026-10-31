@@ -157,6 +157,8 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       skipReason: 'error' as const,
       evidence: {},
     };
+    // `applies` mirrors the contract in result.ts: false only for not_applicable, whether
+    // the runner decided that (profile, platform) or the check did (nothing to sample).
     const applies = outcome.skipReason !== 'not_applicable';
     return toResult(definition, outcome, applies);
   });

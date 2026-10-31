@@ -25,6 +25,23 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const DEFAULT_ACCEPT =
   'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7';
 
+/**
+ * The decoder for a response's declared charset. Pages that still declare ISO-8859-1 or
+ * Windows-1252 would otherwise lose every accented character; unknown labels fall back to
+ * UTF-8, which is also the default when no charset is declared.
+ */
+export function decoderFor(contentTypeHeader: string | null): TextDecoder {
+  const label = /;\s*charset\s*=\s*["']?([^"';\s]+)/i.exec(contentTypeHeader ?? '')?.[1];
+  if (label) {
+    try {
+      return new TextDecoder(label, { fatal: false });
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error;
+    }
+  }
+  return new TextDecoder('utf-8', { fatal: false });
+}
+
 async function readLimited(
   response: Response,
   maxBytes: number,
@@ -33,7 +50,7 @@ async function readLimited(
     return { body: '', bytes: 0, truncated: false };
   }
   const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const decoder = decoderFor(response.headers.get('content-type'));
   const chunks: string[] = [];
   let bytes = 0;
   let truncated = false;

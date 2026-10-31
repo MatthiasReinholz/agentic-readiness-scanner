@@ -1,6 +1,6 @@
 import { asString, extractJsonLd, offersOf, productNodes } from '../../parsers/jsonld.js';
 import { productPages } from '../shared.js';
-import { defineCheck, fail, pass, skip, verdictForRatio, warn } from '../types.js';
+import { defineCheck, outcomeForRatio, skip } from '../types.js';
 
 export const productJsonLd = defineCheck('B2.1', async ({ target, fetcher }) => {
   const pages = await productPages(target, fetcher);
@@ -22,12 +22,13 @@ export const productJsonLd = defineCheck('B2.1', async ({ target, fetcher }) => 
     };
     if (products.length > 0) withProduct += 1;
   }
-  const verdict = verdictForRatio(withProduct, pages.length, 0);
-  const evidence = { pages: perPage, with_product: withProduct, total: pages.length };
-  const message = `${withProduct} of ${pages.length} sampled product page(s) carry Product JSON-LD`;
-  if (verdict === 'pass') return pass(message, evidence);
-  if (verdict === 'warn') return warn(message, evidence);
-  return fail(message, evidence);
+  return outcomeForRatio(
+    withProduct,
+    pages.length,
+    `${withProduct} of ${pages.length} sampled product page(s) carry Product JSON-LD`,
+    { pages: perPage, with_product: withProduct, total: pages.length },
+    0,
+  );
 });
 
 const AVAILABILITY =
@@ -35,6 +36,9 @@ const AVAILABILITY =
 
 export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => {
   const pages = await productPages(target, fetcher);
+  if (pages.length === 0) {
+    return skip('not_applicable', 'no product pages sampled');
+  }
   const perPage: Record<
     string,
     { offers: number; price: boolean; currency: boolean; availability: boolean }
@@ -56,13 +60,15 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
     perPage[page.url] = { offers: offers.length, price, currency, availability };
     if (price && currency && availability) complete += 1;
   }
+  // Pages exist but none carries Product JSON-LD: that is B2.1's failure, not a missing target.
   if (considered === 0) {
     return skip('dependency_failed', 'no Product JSON-LD to inspect');
   }
-  const verdict = verdictForRatio(complete, considered, 0);
-  const evidence = { pages: perPage, complete, total: considered };
-  const message = `${complete} of ${considered} product(s) have an Offer with price, currency and schema.org availability`;
-  if (verdict === 'pass') return pass(message, evidence);
-  if (verdict === 'warn') return warn(message, evidence);
-  return fail(message, evidence);
+  return outcomeForRatio(
+    complete,
+    considered,
+    `${complete} of ${considered} product(s) have an Offer with price, currency and schema.org availability`,
+    { pages: perPage, complete, total: considered },
+    0,
+  );
 });

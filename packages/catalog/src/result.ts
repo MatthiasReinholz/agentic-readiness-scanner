@@ -46,7 +46,12 @@ export const CheckResultSchema = z.object({
   title: z.string(),
   weight: WeightSchema,
   verdict: VerdictSchema,
-  /** False when the check was skipped because it does not apply to the profile or platform. */
+  /**
+   * False exactly when `skip_reason` is `not_applicable`: the check had nothing to evaluate
+   * on this target, because of the profile, the platform, or the target's shape (for
+   * example no product pages were sampled). Every other skip (dependency failed, not
+   * implemented, budget, error) is a check that applied but could not be answered.
+   */
   applies: z.boolean(),
   /** Why a check was skipped, when it was. */
   skip_reason: z

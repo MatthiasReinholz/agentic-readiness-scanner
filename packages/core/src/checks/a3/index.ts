@@ -1,6 +1,6 @@
 import { extractJsonLd, offersOf, productNodes, asString } from '../../parsers/jsonld.js';
 import { productPages } from '../shared.js';
-import { defineCheck, fail, pass, skip, verdictForRatio, warn } from '../types.js';
+import { defineCheck, outcomeForRatio, skip } from '../types.js';
 
 /**
  * A price in page text: a currency sign or code next to an amount. The amount pattern
@@ -47,10 +47,11 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
     perPage[page.url] = { title, price, description, words };
     if (title && price && description) complete += 1;
   }
-  const verdict = verdictForRatio(complete, pages.length, 0);
-  const evidence = { pages: perPage, complete, total: pages.length };
-  const message = `${complete} of ${pages.length} sampled product page(s) carry title, price and description in raw HTML`;
-  if (verdict === 'pass') return pass(message, evidence);
-  if (verdict === 'warn') return warn(message, evidence);
-  return fail(message, evidence);
+  return outcomeForRatio(
+    complete,
+    pages.length,
+    `${complete} of ${pages.length} sampled product page(s) carry title, price and description in raw HTML`,
+    { pages: perPage, complete, total: pages.length },
+    0,
+  );
 });

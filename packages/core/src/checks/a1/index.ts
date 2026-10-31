@@ -12,41 +12,40 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
     sitemaps: target.robots?.sitemaps ?? [],
   };
   if (response.status === 200 && target.robots) {
-    return Promise.resolve(
-      pass(`robots.txt parsed with ${target.robots.groups.length} group(s)`, evidence),
-    );
+    return pass(`robots.txt parsed with ${target.robots.groups.length} group(s)`, evidence);
   }
   if (response.status === 404) {
-    return Promise.resolve(
-      warn(
-        'robots.txt is missing; everything is allowed by default but intent is unstated',
-        evidence,
-      ),
+    return warn(
+      'robots.txt is missing; everything is allowed by default but intent is unstated',
+      evidence,
+    );
+  }
+  // RFC 9309 section 2.3.1.3: any other 4xx means "unavailable", and crawlers may then
+  // access everything, so it is the same unstated-intent case as a missing file.
+  if (response.status >= 400 && response.status < 500) {
+    return warn(
+      `robots.txt returned HTTP ${response.status}; crawlers treat that as "allow all" but intent is unstated`,
+      evidence,
     );
   }
   if (response.status === 0) {
-    return Promise.resolve(
-      fail(`robots.txt could not be fetched: ${response.error ?? 'no response'}`, evidence),
-    );
+    return fail(`robots.txt could not be fetched: ${response.error ?? 'no response'}`, evidence);
   }
   if (response.status === 200) {
-    return Promise.resolve(
-      fail(
-        'robots.txt returned HTML instead of a robots file (challenge page or soft 404)',
-        evidence,
-      ),
+    return fail(
+      'robots.txt returned HTML instead of a robots file (challenge page or soft 404)',
+      evidence,
     );
   }
-  return Promise.resolve(fail(`robots.txt returned HTTP ${response.status}`, evidence));
+  return fail(`robots.txt returned HTTP ${response.status}`, evidence);
 });
 
 export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
   const sitemap = target.sitemap;
   if (!sitemap) {
-    return Promise.resolve(
-      fail('no sitemap found via robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml', {
-        declared_in_robots: target.robots?.sitemaps ?? [],
-      }),
+    return fail(
+      'no sitemap found via robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml',
+      { declared_in_robots: target.robots?.sitemaps ?? [] },
     );
   }
   const evidence = {
@@ -57,9 +56,9 @@ export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
     declared_in_robots: target.robots?.sitemaps.includes(sitemap.url) ?? false,
   };
   if (sitemap.urls.length === 0 && sitemap.childSitemaps.length === 0) {
-    return Promise.resolve(warn('sitemap is reachable but lists no URLs', evidence));
+    return warn('sitemap is reachable but lists no URLs', evidence);
   }
-  return Promise.resolve(pass(`sitemap ${sitemap.kind} at ${sitemap.url}`, evidence));
+  return pass(`sitemap ${sitemap.kind} at ${sitemap.url}`, evidence);
 });
 
 export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
@@ -71,16 +70,15 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
     sample: sitemap?.productUrls.slice(0, 5) ?? [],
   };
   if ((sitemap?.productUrls.length ?? 0) > 0) {
-    return Promise.resolve(
-      pass(`${sitemap?.productUrls.length ?? 0} product URL(s) in sitemap`, evidence),
-    );
+    return pass(`${sitemap?.productUrls.length ?? 0} product URL(s) in sitemap`, evidence);
   }
   if (productSitemaps.length > 0) {
-    return Promise.resolve(
-      warn('a product sitemap is declared but no product URLs were read within budget', evidence),
+    return warn(
+      'a product sitemap is declared but no product URLs were read within budget',
+      evidence,
     );
   }
-  return Promise.resolve(fail('no product URLs or product sitemap found', evidence));
+  return fail('no product URLs or product sitemap found', evidence);
 });
 
 export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) => {

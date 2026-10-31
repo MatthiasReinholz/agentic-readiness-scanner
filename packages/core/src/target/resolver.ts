@@ -181,8 +181,7 @@ async function discoverSitemap(
         } else {
           summary.productUrls.push(...childUrls.filter(looksLikeProductUrl));
         }
-        if (summary.productUrls.length > 0 && !looksLikeProductSitemap(childUrl)) break;
-        if (looksLikeProductSitemap(childUrl) && summary.productUrls.length > 0) break;
+        if (summary.productUrls.length > 0) break;
       }
     }
     return summary;

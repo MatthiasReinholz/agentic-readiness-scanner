@@ -56,6 +56,10 @@ export function computeScores(
   const groups: Record<string, number | null> = {};
   for (const group of catalog.groups) groups[group.id] = scoreGroup(results, group.id);
   return {
+    // Every profile carries ingestion checks, so null only happens when none of them could
+    // be scored (all skipped, or a custom catalog). The contract keeps ingestion non-null
+    // because every consumer ranks on it; "nothing could be scored" reads as 0, not as a
+    // missing number, while commerce stays null for profiles without that dimension.
     ingestion: scoreDimension(results, 'ingestion', catalog) ?? 0,
     commerce: scoreDimension(results, 'commerce', catalog),
     groups,

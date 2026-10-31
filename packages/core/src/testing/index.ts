@@ -11,6 +11,8 @@ import {
   type FixtureResponse,
 } from '../http/fixture-fetcher.js';
 
+export * from './check-harness.js';
+
 export interface FixtureManifestEntry {
   url: string;
   status?: number;

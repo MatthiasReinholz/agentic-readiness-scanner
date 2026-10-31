@@ -7,6 +7,7 @@
  * Verdict and score colours are the semantic layer: pass is green, warn amber, fail red,
  * skip neutral. The accent is a bright blue in both themes.
  */
+import { escapeHtml } from './shared.js';
 
 export const THEME_STORAGE_KEY = 'ars-theme';
 
@@ -118,8 +119,8 @@ export function htmlDocument(options: HtmlDocumentOptions, body: string): string
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<title>${escapeAttribute(options.title)}</title>
-${options.description ? `<meta name="description" content="${escapeAttribute(options.description)}">` : ''}
+<title>${escapeHtml(options.title)}</title>
+${options.description ? `<meta name="description" content="${escapeHtml(options.description)}">` : ''}
 ${options.head ?? ''}
 <script>${THEME_BOOT_SCRIPT}</script>
 <style>${THEME_CSS}</style>
@@ -130,12 +131,4 @@ ${scripts}
 </body>
 </html>
 `;
-}
-
-function escapeAttribute(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
