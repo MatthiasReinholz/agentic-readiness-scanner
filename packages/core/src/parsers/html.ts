@@ -138,6 +138,39 @@ export class HtmlDocument {
     );
   }
 
+  /** The first main element or role=main landmark in document order, or null. */
+  mainLandmark(): Element | null {
+    for (const element of preorder(this.dom.children)) {
+      if (element.name === 'main' || getAttributeValue(element, 'role') === 'main') return element;
+    }
+    return null;
+  }
+
+  /**
+   * The first element inside body (the whole document when there is no body) that
+   * matches, in document order. One pre-order walk, O(n).
+   */
+  firstElement(predicate: (element: Element) => boolean): Element | null {
+    const body = this.elements('body')[0];
+    for (const element of preorder(body ? body.children : this.dom.children)) {
+      if (predicate(element)) return element;
+    }
+    return null;
+  }
+
+  /**
+   * True when `first` comes before `second` in document order (pre-order, so an
+   * ancestor precedes its descendants). One walk that stops at whichever is met first.
+   */
+  precedes(first: Element, second: Element): boolean {
+    if (first === second) return false;
+    for (const element of preorder(this.dom.children)) {
+      if (element === first) return true;
+      if (element === second) return false;
+    }
+    return false;
+  }
+
   /** Elements whose attribute matches, e.g. find('div', 'class', /price/). */
   find(tagName: string, attributeName: string, pattern: RegExp): Element[] {
     return this.elements(tagName).filter((element) => {
@@ -231,6 +264,19 @@ function resolveUrl(value: string, base: string): string | null {
     return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
   } catch {
     return null;
+  }
+}
+
+/** Elements in document order (pre-order), without recursion so deep trees cannot overflow. */
+function* preorder(nodes: AnyNode[]): Generator<Element> {
+  const stack = [...nodes].reverse();
+  for (let node = stack.pop(); node !== undefined; node = stack.pop()) {
+    if (!isTag(node)) continue;
+    yield node;
+    for (let i = node.children.length - 1; i >= 0; i -= 1) {
+      const child = node.children[i];
+      if (child) stack.push(child);
+    }
   }
 }
 

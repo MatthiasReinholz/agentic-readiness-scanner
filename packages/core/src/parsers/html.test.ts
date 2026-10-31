@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { HtmlDocument } from './html.js';
+import { attribute, HtmlDocument } from './html.js';
+
+function must<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error('expected a value');
+  return value;
+}
 
 const PAGE = `<!doctype html>
 <html>
@@ -79,6 +84,28 @@ describe('HtmlDocument', () => {
     expect(doc.hasMainLandmark()).toBe(true);
     expect(new HtmlDocument('<body><main></main></body>').hasMainLandmark()).toBe(true);
     expect(new HtmlDocument('<body><div></div></body>').hasMainLandmark()).toBe(false);
+  });
+
+  it('finds the first main landmark, the first matching element and document order', () => {
+    const page = new HtmlDocument(
+      '<body><div id="consent"><p>cookies</p></div><main id="first"></main><div role="main" id="second"></div></body>',
+    );
+    const main = must(page.mainLandmark());
+    expect(attribute(main, 'id')).toBe('first');
+    const consent = must(page.firstElement((element) => attribute(element, 'id') === 'consent'));
+    expect(consent.name).toBe('div');
+    expect(page.firstElement((element) => element.name === 'nav')).toBeNull();
+    expect(page.precedes(consent, main)).toBe(true);
+    expect(page.precedes(main, consent)).toBe(false);
+    expect(page.precedes(main, main)).toBe(false);
+    // Pre-order: a wrapper precedes the landmark it contains.
+    const wrapped = new HtmlDocument('<body><div class="modal"><main></main></div></body>');
+    const wrapper = must(wrapped.firstElement((element) => element.name === 'div'));
+    expect(wrapped.precedes(wrapper, must(wrapped.mainLandmark()))).toBe(true);
+    // Without a body the whole document is searched.
+    expect(must(new HtmlDocument('<div role="main"></div>').mainLandmark()).name).toBe('div');
+    expect(new HtmlDocument('<p>no landmark</p>').mainLandmark()).toBeNull();
+    expect(new HtmlDocument('<p>no body</p>').firstElement((e) => e.name === 'p')?.name).toBe('p');
   });
 
   it('finds elements by attribute pattern', () => {

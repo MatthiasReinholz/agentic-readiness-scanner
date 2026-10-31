@@ -41,11 +41,47 @@ export function nodeTypes(node: JsonLdNode): string[] {
   return [];
 }
 
+/** A schema.org type name without the vocabulary prefix, lower-cased. */
+function normalizeType(type: string): string {
+  return type.replace(/^https?:\/\/schema\.org\//, '').toLowerCase();
+}
+
 export function hasType(node: JsonLdNode, ...types: string[]): boolean {
   const wanted = new Set(types.map((t) => t.toLowerCase()));
-  return nodeTypes(node).some((t) =>
-    wanted.has(t.replace(/^https?:\/\/schema\.org\//, '').toLowerCase()),
-  );
+  return nodeTypes(node).some((t) => wanted.has(normalizeType(t)));
+}
+
+const ORGANIZATION_TYPES = new Set([
+  'organization',
+  'onlinestore',
+  'onlinebusiness',
+  'localbusiness',
+  'store',
+  'corporation',
+]);
+
+/**
+ * Organization and its common subtypes. schema.org's Store and LocalBusiness subtypes
+ * (BookStore, ClothingStore, ...) all end in Store or Business, so the suffix covers
+ * them without listing each one.
+ */
+export function isOrganizationType(type: string): boolean {
+  const normalized = normalizeType(type);
+  return ORGANIZATION_TYPES.has(normalized) || /(?:store|business)$/.test(normalized);
+}
+
+/** Top-level Organization nodes (any subtype), e.g. from a publisher graph. */
+export function organizationNodes(nodes: JsonLdNode[]): JsonLdNode[] {
+  return nodes.filter((node) => nodeTypes(node).some(isOrganizationType));
+}
+
+/** True when the property carries a value: a non-blank string, a number, or a non-empty object or array. */
+export function hasValue(node: JsonLdNode, key: string): boolean {
+  const value = node[key];
+  if (typeof value === 'string') return value.trim() !== '';
+  if (typeof value === 'number') return true;
+  if (Array.isArray(value)) return value.length > 0;
+  return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
 }
 
 /** Product and ProductGroup nodes, including variants nested under hasVariant. */

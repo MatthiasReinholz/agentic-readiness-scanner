@@ -8,9 +8,12 @@ import {
   extractJsonLd,
   gtinOf,
   hasType,
+  hasValue,
   imageOf,
+  isOrganizationType,
   nodesOf,
   offersOf,
+  organizationNodes,
   productNodes,
   variantsOf,
 } from './jsonld.js';
@@ -192,5 +195,56 @@ describe('variantsOf', () => {
       }),
     ).toHaveLength(2);
     expect(variantsOf({ '@type': 'ProductGroup' })).toEqual([]);
+  });
+});
+
+describe('organizationNodes', () => {
+  it('matches Organization, its listed subtypes and schema.org Store or Business subtypes', () => {
+    for (const type of [
+      'Organization',
+      'https://schema.org/Organization',
+      'OnlineStore',
+      'LocalBusiness',
+      'ClothingStore',
+      'OnlineBusiness',
+      'Corporation',
+    ]) {
+      expect(isOrganizationType(type), type).toBe(true);
+    }
+    expect(isOrganizationType('Product')).toBe(false);
+    expect(isOrganizationType('WebSite')).toBe(false);
+    expect(isOrganizationType('Person')).toBe(false);
+    const nodes = [
+      { '@type': 'WebSite', name: 'Shop' },
+      { '@type': ['Organization', 'Brand'], name: 'Example Ceramics' },
+      { '@type': 'BookStore', name: 'Books' },
+      { '@type': 'Product', name: 'Mug' },
+    ];
+    expect(organizationNodes(nodes).map((node) => node.name)).toEqual([
+      'Example Ceramics',
+      'Books',
+    ]);
+  });
+});
+
+describe('hasValue', () => {
+  it('accepts non-blank strings, numbers and non-empty objects or arrays only', () => {
+    const node = {
+      name: 'Shop',
+      blank: '   ',
+      count: 0,
+      address: { streetAddress: 'Main St 1' },
+      empty: {},
+      contactPoint: [{ '@type': 'ContactPoint' }],
+      none: [],
+      missing: null,
+    };
+    expect(hasValue(node, 'name')).toBe(true);
+    expect(hasValue(node, 'count')).toBe(true);
+    expect(hasValue(node, 'address')).toBe(true);
+    expect(hasValue(node, 'contactPoint')).toBe(true);
+    for (const key of ['blank', 'empty', 'none', 'missing', 'absent']) {
+      expect(hasValue(node, key), key).toBe(false);
+    }
   });
 });
