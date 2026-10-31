@@ -10,16 +10,43 @@ import {
   noIndexingRestrictionsOnProducts,
   shoppingAgentsAllowed,
 } from './a2/index.js';
-import { serverRenderedProductContent } from './a3/index.js';
-import { storeApiReachable, woocommerceDetected } from './b1/index.js';
-import { offerComplete, productJsonLd } from './b2/index.js';
-import { gtinPresent, gtinValid } from './b3/index.js';
 import {
+  accessibleMainContent,
+  canonicalAndHreflang,
+  pageWeightAndResponseTime,
+  serverRenderedProductContent,
+} from './a3/index.js';
+import {
+  sitemapMatchesStoreApi,
+  storeApiNotRateLimited,
+  storeApiProductComplete,
+  storeApiReachable,
+  woocommerceDetected,
+} from './b1/index.js';
+import {
+  offerComplete,
+  productImageUsable,
+  productJsonLd,
+  shippingAndReturnsInMarkup,
+  variantsModeled,
+} from './b2/index.js';
+import {
+  brandEntity,
+  gtinPresent,
+  gtinValid,
+  mpnWhenGtinAbsent,
+  skuPresentAndUnique,
+} from './b3/index.js';
+import {
+  contactChannel,
+  merchantIdentity,
+  policyPagesAgentReadable,
   privacyAndTermsFound,
   returnPolicyFound,
   securityTxt,
   shippingPolicyFound,
 } from './b4/index.js';
+import { guestCheckoutAndCartApi } from './b5/index.js';
 import type { Check } from './types.js';
 
 /**
@@ -36,16 +63,32 @@ export const builtInChecks: readonly Check[] = [
   shoppingAgentsAllowed,
   noIndexingRestrictionsOnProducts,
   serverRenderedProductContent,
+  pageWeightAndResponseTime,
+  canonicalAndHreflang,
+  accessibleMainContent,
   woocommerceDetected,
   storeApiReachable,
+  storeApiNotRateLimited,
+  storeApiProductComplete,
+  sitemapMatchesStoreApi,
   productJsonLd,
   offerComplete,
+  variantsModeled,
+  shippingAndReturnsInMarkup,
+  productImageUsable,
   gtinPresent,
   gtinValid,
+  brandEntity,
+  mpnWhenGtinAbsent,
+  skuPresentAndUnique,
   returnPolicyFound,
   shippingPolicyFound,
   privacyAndTermsFound,
+  merchantIdentity,
+  contactChannel,
+  policyPagesAgentReadable,
   securityTxt,
+  guestCheckoutAndCartApi,
 ];
 
 export function implementedCheckIds(checks: readonly Check[] = builtInChecks): string[] {
