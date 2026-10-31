@@ -5,5 +5,6 @@ export * from './checks/index.js';
 export * from './reporters/index.js';
 export * from './runner.js';
 export * from './scoring.js';
+export * from './diff.js';
 export * from './scan.js';
 export * from './version.js';

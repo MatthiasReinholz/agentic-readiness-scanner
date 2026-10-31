@@ -31,6 +31,8 @@ curl -X POST https://<your-space>/api/scan -H 'content-type: application/json' -
 
 Every report is also available as `.json` and `.md`, and `GET /badge/<host>.svg` renders a badge for a README or footer. The app advertises an MCP server at `/.well-known/mcp/server-card.json` with Streamable HTTP at `/mcp`.
 
+A report can also be **monitored**: leave an email address, confirm it, and the scanner rescans the host weekly and writes only when the level, a score or a check result changed. Double opt-in, one-click unsubscribe, nothing else done with the address ([decision 0006](docs/decisions/0006-monitoring-by-weekly-rescan.md)).
+
 ### Command line
 
 ```bash
@@ -74,7 +76,7 @@ packages/catalog   the catalog as data: checks, levels, profiles, fixes, result 
 packages/core      fetcher, target resolver, parsers, checks, runner, scoring, reporters
 packages/mcp       MCP server definition (tools), shared by CLI and hosted app
 packages/cli       agentic-readiness scan | mcp | catalog
-apps/web           Hono app: form, reports, badge, API, MCP endpoint; runs on Spacefast Functions
+apps/web           Hono app: form, reports, badge, API, MCP endpoint, monitoring; runs on Spacefast Functions
 fixtures/stores    recorded stores for deterministic tests
 docs/              architecture, scoring, hosting, security model, release process, decisions
 ```

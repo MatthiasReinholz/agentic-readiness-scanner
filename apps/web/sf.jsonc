@@ -15,7 +15,10 @@
     "entry": "handler.js",
     "compatibilityDate": "2026-07-01",
   },
-  "crons": [{ "path": "/internal/cron/cleanup", "schedule": "daily" }],
+  "crons": [
+    { "path": "/internal/cron/cleanup", "schedule": "daily" },
+    { "path": "/internal/cron/monitor", "schedule": "daily" },
+  ],
   // Response headers are set by the worker (apps/web/src/app.ts); sf.jsonc header rules
   // apply to static files only.
   "access": "public",

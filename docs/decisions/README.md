@@ -7,3 +7,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0003 Catalog as data](0003-catalog-as-data.md)
 - [0004 Spacefast Functions runtime](0004-spacefast-functions-runtime.md)
 - [0005 Deploy through Spacefast's GitHub integration](0005-deploy-through-git-integration.md)
+- [0006 Monitoring by weekly rescan with double opt-in](0006-monitoring-by-weekly-rescan.md)
