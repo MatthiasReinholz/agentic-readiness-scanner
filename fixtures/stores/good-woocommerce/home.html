@@ -12,6 +12,27 @@
       href="https://ceramics.example/feed/products.xml"
       title="Product feed"
     />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "OnlineStore",
+        "name": "Example Ceramics GmbH",
+        "url": "https://ceramics.example/",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Töpferstraße 12",
+          "postalCode": "10115",
+          "addressLocality": "Berlin",
+          "addressCountry": "DE"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer service",
+          "email": "hello@ceramics.example",
+          "telephone": "+49 30 1234567"
+        }
+      }
+    </script>
   </head>
   <body class="home page-template-default woocommerce woocommerce-page">
     <header>

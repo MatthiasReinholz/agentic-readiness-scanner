@@ -1,7 +1,11 @@
 import { contentType } from '../../http/types.js';
 import { HtmlDocument } from '../../parsers/html.js';
+import { asString, extractJsonLd, hasValue, organizationNodes } from '../../parsers/jsonld.js';
+import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
-import { defineCheck, fail, pass, warn } from '../types.js';
+import { SHOPPING_AGENTS } from '../a2/index.js';
+import { pathOf } from '../shared.js';
+import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
 /**
  * Signs that a shipping page states concrete terms: an amount with a currency, a
@@ -81,6 +85,253 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
   if (found === 2) return pass('privacy policy and terms pages found', evidence);
   if (found === 1) return warn('only one of privacy policy and terms was found', evidence);
   return fail('neither privacy policy nor terms page found', evidence);
+});
+
+/** Organization properties that say where the merchant is or how to reach it. */
+const ORGANIZATION_DETAILS = ['address', 'contactPoint', 'telephone', 'email'] as const;
+
+interface OrganizationSummary {
+  name: string | null;
+  /** Present properties among name and the contact details. */
+  fields: string[];
+  complete: boolean;
+}
+
+/** The best Organization node in a document: the one with the most identity fields. */
+function organizationIn(doc: HtmlDocument): OrganizationSummary | null {
+  let best: OrganizationSummary | null = null;
+  for (const node of organizationNodes(extractJsonLd(doc).nodes)) {
+    const name = asString(node.name);
+    const details = ORGANIZATION_DETAILS.filter((key) => hasValue(node, key));
+    const summary: OrganizationSummary = {
+      name,
+      fields: [...(name ? ['name'] : []), ...details],
+      complete: name !== null && details.length > 0,
+    };
+    if (!best || summary.fields.length > best.fields.length) best = summary;
+  }
+  return best;
+}
+
+/**
+ * Postal address signs in page text: a 4–6 digit postal code followed by a word (10115
+ * Berlin) and a street-like token, a word of three letters or more followed by a 1–4
+ * digit house number (Töpferstraße 12, Main Street 5). Every repetition is bounded so
+ * the scan is linear.
+ */
+const POSTAL_CODE = /\b\d{4,6}\s{1,3}\p{L}{2}/u;
+const STREET_NUMBER = /\p{L}{3,40}\.?\s{1,3}\d{1,4}\b/u;
+const ADDRESS_TEXT_LIMIT = 50_000;
+
+export function hasPostalAddressText(text: string): { postal_code: boolean; street: boolean } {
+  const sample = text.slice(0, ADDRESS_TEXT_LIMIT);
+  return { postal_code: POSTAL_CODE.test(sample), street: STREET_NUMBER.test(sample) };
+}
+
+interface ImprintEvidence {
+  url: string;
+  status: number;
+  postal_code: boolean;
+  street: boolean;
+}
+
+export const merchantIdentity = defineCheck('B4.4', async ({ target, fetcher }) => {
+  const sources: string[] = [];
+  // The best Organization seen so far and the page that carried it.
+  const best: { organization: OrganizationSummary | null; url: string | null } = {
+    organization: null,
+    url: null,
+  };
+  let imprint: ImprintEvidence | null = null;
+
+  /** Records the document's best Organization; true when it already satisfies the check. */
+  const consider = (url: string, doc: HtmlDocument): boolean => {
+    sources.push(url);
+    const found = organizationIn(doc);
+    if (found && (!best.organization || found.fields.length > best.organization.fields.length)) {
+      best.organization = found;
+      best.url = url;
+    }
+    return found?.complete ?? false;
+  };
+  const evidence = (): Record<string, unknown> => ({
+    organization: best.organization?.name ?? null,
+    fields: best.organization?.fields ?? [],
+    source: best.url,
+    sources,
+    imprint,
+  });
+  const organizationPass = (): ReturnType<typeof pass> => {
+    const details = (best.organization?.fields ?? []).filter((field) => field !== 'name');
+    return pass(
+      `Organization JSON-LD "${best.organization?.name ?? ''}" with ${details.join(', ')} on ${best.url ?? ''}`,
+      evidence(),
+    );
+  };
+
+  // The home page first: it costs no request and most stores publish their graph there.
+  if (consider(target.home.finalUrl, target.homeDoc)) return organizationPass();
+
+  const imprintUrl = target.sampled.policies.imprint;
+  if (imprintUrl) {
+    const response = await fetcher.fetch(imprintUrl);
+    const doc = new HtmlDocument(response.body);
+    const address = response.status === 200 ? hasPostalAddressText(doc.text()) : null;
+    imprint = {
+      url: imprintUrl,
+      status: response.status,
+      postal_code: address?.postal_code ?? false,
+      street: address?.street ?? false,
+    };
+    if (response.status === 200 && consider(imprintUrl, doc)) return organizationPass();
+    if (imprint.postal_code && imprint.street) {
+      return pass(`imprint page ${imprintUrl} carries a postal address`, evidence());
+    }
+  }
+
+  const contactUrl = target.sampled.policies.contact;
+  if (contactUrl) {
+    const response = await fetcher.fetch(contactUrl);
+    if (response.status === 200 && consider(contactUrl, new HtmlDocument(response.body))) {
+      return organizationPass();
+    }
+  }
+
+  if (best.organization) {
+    return warn(
+      best.organization.name
+        ? `Organization JSON-LD "${best.organization.name}" lacks address and contact details`
+        : 'Organization JSON-LD carries no name',
+      evidence(),
+    );
+  }
+  if (imprint?.status === 200) {
+    return warn(`imprint page ${imprint.url} shows no complete postal address`, evidence());
+  }
+  return fail('no Organization JSON-LD and no imprint page with a postal address', evidence());
+});
+
+/** Link text or path that points at a contact form or help desk. Literal alternatives only. */
+const CONTACT_LINK = /contact|kontakt|contatt|contacto|support|help/i;
+
+export const contactChannel = defineCheck('B4.5', ({ target }) => {
+  const mailto = new Set<string>();
+  const tel = new Set<string>();
+  const sameOrigin = new Set<string>();
+  const crossOrigin = new Set<string>();
+  for (const anchor of target.homeDoc.anchors()) {
+    const href = anchor.href.trim();
+    if (/^mailto:/i.test(href)) {
+      const address = href.slice('mailto:'.length).split('?')[0]?.trim();
+      if (address) mailto.add(address);
+      continue;
+    }
+    if (/^tel:/i.test(href)) {
+      const number = href.slice('tel:'.length).trim();
+      if (number) tel.add(number);
+      continue;
+    }
+    let url: URL;
+    try {
+      url = new URL(href, target.origin);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
+    url.hash = '';
+    if (url.href === `${target.origin}/`) continue;
+    if (!CONTACT_LINK.test(`${anchor.text} ${url.pathname}`)) continue;
+    (url.origin === target.origin ? sameOrigin : crossOrigin).add(url.href);
+  }
+  // The resolver already picked a contact page from the same links; keep it in evidence.
+  const resolved = target.sampled.policies.contact;
+  if (resolved) {
+    (new URL(resolved).origin === target.origin ? sameOrigin : crossOrigin).add(resolved);
+  }
+
+  const evidence = {
+    mailto: [...mailto],
+    tel: [...tel],
+    contact_pages: [...sameOrigin],
+    cross_origin: [...crossOrigin],
+  };
+  const channels = [
+    ...(mailto.size > 0 ? [`${mailto.size} mailto: address(es)`] : []),
+    ...(tel.size > 0 ? [`${tel.size} tel: number(s)`] : []),
+    ...(sameOrigin.size > 0 ? [`${sameOrigin.size} contact page(s)`] : []),
+  ];
+  if (channels.length > 0) return pass(`home page links ${channels.join(', ')}`, evidence);
+  if (crossOrigin.size > 0) {
+    return warn(`only a contact link on another origin: ${[...crossOrigin][0] ?? ''}`, evidence);
+  }
+  return fail('no mailto:, tel: or contact page link on the home page', evidence);
+});
+
+/** Policy kinds an agent reads for terms; imprint and contact are identity (B4.4, B4.5). */
+const READABLE_POLICY_KINDS = ['returns', 'shipping', 'privacy', 'terms'] as const;
+const NOINDEX = /\bnoindex\b/i;
+/** More words than a stub or an app shell; the policy checks themselves set their own bars. */
+const MIN_POLICY_WORDS = 100;
+
+export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fetcher }) => {
+  const found = READABLE_POLICY_KINDS.flatMap((kind) => {
+    const url = target.sampled.policies[kind];
+    return url ? [{ kind, url }] : [];
+  });
+  if (found.length === 0) {
+    return skip('not_applicable', 'no policy page found on the home page');
+  }
+  const pages: Record<
+    string,
+    {
+      url: string;
+      status: number;
+      words: number;
+      noindex: boolean;
+      blocked_agents: string[];
+      readable: boolean;
+    }
+  > = {};
+  const problems: string[] = [];
+  let readable = 0;
+  for (const { kind, url } of found) {
+    const response = await fetcher.fetch(url);
+    const doc = new HtmlDocument(response.body);
+    const words = doc.wordCount();
+    const directives = `${response.headers['x-robots-tag'] ?? ''} ${doc.meta('robots') ?? ''}`;
+    const noindex = NOINDEX.test(directives);
+    // The target's robots.txt only speaks for its own origin.
+    const robots = new URL(url).origin === target.origin ? target.robots : null;
+    const path = pathOf(url);
+    const blocked = robots
+      ? SHOPPING_AGENTS.filter((agent) => !isAllowed(robots, agent, path))
+      : [];
+    const ok =
+      response.status === 200 && words > MIN_POLICY_WORDS && !noindex && blocked.length === 0;
+    pages[kind] = {
+      url,
+      status: response.status,
+      words,
+      noindex,
+      blocked_agents: blocked,
+      readable: ok,
+    };
+    if (ok) readable += 1;
+    else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
+    else if (words <= MIN_POLICY_WORDS) problems.push(`${kind}: ${words} words`);
+    else if (noindex) problems.push(`${kind}: noindex`);
+    else problems.push(`${kind}: blocks ${blocked.join(', ')}`);
+  }
+  const total = found.length;
+  return outcomeForRatio(
+    readable,
+    total,
+    `${readable} of ${total} policy page(s) are readable by shopping agents${
+      problems.length > 0 ? ` (${problems.join('; ')})` : ''
+    }`,
+    { pages, readable, total, problems },
+    0,
+  );
 });
 
 export const securityTxt = defineCheck('B4.7', async ({ target, fetcher }) => {

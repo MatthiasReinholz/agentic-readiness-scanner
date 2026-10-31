@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import { HtmlDocument } from './html.js';
-import { asString, extractJsonLd, gtinOf, hasType, offersOf, productNodes } from './jsonld.js';
+import {
+  asString,
+  extractJsonLd,
+  gtinOf,
+  hasType,
+  hasValue,
+  isOrganizationType,
+  offersOf,
+  organizationNodes,
+  productNodes,
+} from './jsonld.js';
 
 function docWith(...scripts: string[]): HtmlDocument {
   return new HtmlDocument(
@@ -94,5 +104,56 @@ describe('asString and gtinOf', () => {
     expect(gtinOf({ gtin: '', gtin12: 12345678905 })).toBe('12345678905');
     expect(gtinOf({ gtin8: '96385074', gtin14: '1' })).toBe('96385074');
     expect(gtinOf({ sku: 'MUG' })).toBeNull();
+  });
+});
+
+describe('organizationNodes', () => {
+  it('matches Organization, its listed subtypes and schema.org Store or Business subtypes', () => {
+    for (const type of [
+      'Organization',
+      'https://schema.org/Organization',
+      'OnlineStore',
+      'LocalBusiness',
+      'ClothingStore',
+      'OnlineBusiness',
+      'Corporation',
+    ]) {
+      expect(isOrganizationType(type), type).toBe(true);
+    }
+    expect(isOrganizationType('Product')).toBe(false);
+    expect(isOrganizationType('WebSite')).toBe(false);
+    expect(isOrganizationType('Person')).toBe(false);
+    const nodes = [
+      { '@type': 'WebSite', name: 'Shop' },
+      { '@type': ['Organization', 'Brand'], name: 'Example Ceramics' },
+      { '@type': 'BookStore', name: 'Books' },
+      { '@type': 'Product', name: 'Mug' },
+    ];
+    expect(organizationNodes(nodes).map((node) => node.name)).toEqual([
+      'Example Ceramics',
+      'Books',
+    ]);
+  });
+});
+
+describe('hasValue', () => {
+  it('accepts non-blank strings, numbers and non-empty objects or arrays only', () => {
+    const node = {
+      name: 'Shop',
+      blank: '   ',
+      count: 0,
+      address: { streetAddress: 'Main St 1' },
+      empty: {},
+      contactPoint: [{ '@type': 'ContactPoint' }],
+      none: [],
+      missing: null,
+    };
+    expect(hasValue(node, 'name')).toBe(true);
+    expect(hasValue(node, 'count')).toBe(true);
+    expect(hasValue(node, 'address')).toBe(true);
+    expect(hasValue(node, 'contactPoint')).toBe(true);
+    for (const key of ['blank', 'empty', 'none', 'missing', 'absent']) {
+      expect(hasValue(node, key), key).toBe(false);
+    }
   });
 });
