@@ -1,21 +1,10 @@
 import { extractJsonLd, offersOf, productNodes, asString } from '../../parsers/jsonld.js';
+import { hasPriceText } from '../../parsers/price.js';
 import { productPages } from '../shared.js';
 import { defineCheck, outcomeForRatio, skip } from '../types.js';
 
-/**
- * A price in page text: a currency sign or code next to an amount. The amount pattern
- * has bounded repetitions (groups of three digits, at most two decimals) so matching
- * stays linear on pages full of numbers; the text is capped as well.
- */
-const CURRENCY = '(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|AUD|CAD|SEK|NOK|DKK|PLN|CZK)';
-const AMOUNT = '(?:\\d{1,3}(?:[.,]\\d{3}){1,4}|\\d{1,7})(?:[.,]\\d{1,2})?';
-const PRICE_TEXT = new RegExp(`${CURRENCY}\\s?${AMOUNT}|\\b${AMOUNT}\\s?${CURRENCY}`);
-/** Characters of page text examined for a price; prices appear early on a product page. */
-const PRICE_TEXT_LIMIT = 50_000;
-
-export function hasPriceText(text: string): boolean {
-  return PRICE_TEXT.test(text.slice(0, PRICE_TEXT_LIMIT));
-}
+/** The price-text pattern lives in parsers/price.ts; re-exported for the pattern tests. */
+export { hasPriceText };
 
 export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
   const pages = await productPages(target, fetcher);

@@ -15,6 +15,18 @@ export interface LinkTag {
   href: string;
   type?: string;
   hreflang?: string;
+  title?: string;
+}
+
+/** A button or input: the attributes and text a check needs to tell what it does. */
+export interface Control {
+  tag: 'button' | 'input';
+  type?: string;
+  name?: string;
+  id?: string;
+  className?: string;
+  value?: string;
+  text: string;
 }
 
 const NON_CONTENT_TAGS = new Set(['script', 'style', 'template', 'noscript', 'svg']);
@@ -52,13 +64,39 @@ export class HtmlDocument {
       if (!rel || !href) continue;
       const type = getAttributeValue(element, 'type');
       const hreflang = getAttributeValue(element, 'hreflang');
+      const title = getAttributeValue(element, 'title');
       result.push({
         rel: rel.toLowerCase(),
         href,
         ...(type ? { type } : {}),
         ...(hreflang ? { hreflang } : {}),
+        ...(title ? { title } : {}),
       });
     }
+    return result;
+  }
+
+  /** Every button and input, with the attributes and text that say what it does. */
+  controls(): Control[] {
+    const result: Control[] = [];
+    const read = (element: Element, tag: 'button' | 'input'): Control => {
+      const type = getAttributeValue(element, 'type');
+      const name = getAttributeValue(element, 'name');
+      const id = getAttributeValue(element, 'id');
+      const className = getAttributeValue(element, 'class');
+      const value = getAttributeValue(element, 'value');
+      return {
+        tag,
+        ...(type ? { type } : {}),
+        ...(name ? { name } : {}),
+        ...(id ? { id } : {}),
+        ...(className ? { className } : {}),
+        ...(value ? { value } : {}),
+        text: elementText(element),
+      };
+    };
+    for (const element of this.elements('button')) result.push(read(element, 'button'));
+    for (const element of this.elements('input')) result.push(read(element, 'input'));
     return result;
   }
 

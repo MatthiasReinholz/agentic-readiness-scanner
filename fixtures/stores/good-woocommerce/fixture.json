@@ -61,6 +61,15 @@
       "body_file": "store-products-20.json"
     },
     {
+      "url": "https://ceramics.example/feed/products.xml",
+      "headers": {
+        "content-type": "application/xml; charset=utf-8",
+        "date": "Fri, 30 Oct 2026 12:00:00 GMT",
+        "last-modified": "Fri, 30 Oct 2026 09:00:00 GMT"
+      },
+      "body_file": "feed-products.xml"
+    },
+    {
       "url": "https://ceramics.example/returns/",
       "headers": { "content-type": "text/html; charset=utf-8" },
       "body_file": "returns.html"

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { HtmlDocument } from './html.js';
-import { asString, extractJsonLd, gtinOf, hasType, offersOf, productNodes } from './jsonld.js';
+import {
+  asString,
+  extractJsonLd,
+  gtinOf,
+  hasType,
+  offersOf,
+  productNodes,
+  variantNodes,
+} from './jsonld.js';
 
 function docWith(...scripts: string[]): HtmlDocument {
   return new HtmlDocument(
@@ -76,6 +84,26 @@ describe('offersOf', () => {
     ).toHaveLength(2);
     expect(offersOf({})).toEqual([]);
     expect(offersOf({ offers: 'string' })).toEqual([]);
+  });
+});
+
+describe('variantNodes', () => {
+  it('lists the Product nodes under hasVariant and nothing else', () => {
+    expect(
+      variantNodes({
+        '@type': 'ProductGroup',
+        hasVariant: [
+          { '@type': 'Product', name: 'Small' },
+          { '@type': 'Offer', price: '1' },
+          { '@type': 'https://schema.org/Product', name: 'Large' },
+        ],
+      }).map((node) => node.name),
+    ).toEqual(['Small', 'Large']);
+    expect(
+      variantNodes({ '@type': 'ProductGroup', hasVariant: { '@type': 'Product' } }),
+    ).toHaveLength(1);
+    expect(variantNodes({ '@type': 'Product' })).toEqual([]);
+    expect(variantNodes({ hasVariant: 'string' })).toEqual([]);
   });
 });
 

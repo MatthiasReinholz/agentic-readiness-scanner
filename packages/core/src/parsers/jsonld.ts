@@ -59,6 +59,13 @@ export function productNodes(nodes: JsonLdNode[]): JsonLdNode[] {
   return result;
 }
 
+/** The Product nodes listed under a ProductGroup's hasVariant (empty for a plain Product). */
+export function variantNodes(product: JsonLdNode): JsonLdNode[] {
+  const list: JsonLdNode[] = [];
+  flatten(product.hasVariant, list);
+  return list.filter((variant) => hasType(variant, 'Product'));
+}
+
 export function offersOf(product: JsonLdNode): JsonLdNode[] {
   const offers = product.offers;
   const list: JsonLdNode[] = [];
