@@ -56,8 +56,10 @@ const ICONS = [
 const lucideDir = dirname(require.resolve('lucide-static/package.json'));
 const lucideVersion = JSON.parse(readFileSync(join(lucideDir, 'package.json'), 'utf8')).version;
 const entries = ICONS.map((name) => {
-  const svg = readFileSync(join(lucideDir, 'icons', `${name}.svg`), 'utf8')
-    .replace(/<!--[\s\S]*?-->/, '')
+  const file = readFileSync(join(lucideDir, 'icons', `${name}.svg`), 'utf8');
+  // The file opens with a licence comment; the element itself starts at <svg.
+  const svg = file
+    .slice(file.indexOf('<svg'))
     .replace(/\s+width="24"\s+height="24"/, '')
     .replace(/\s+class="[^"]*"/, '')
     .replace(/\s+/g, ' ')
