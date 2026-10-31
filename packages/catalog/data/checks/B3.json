@@ -80,32 +80,5 @@
       }
     ],
     "requires": ["products"]
-  },
-  {
-    "id": "B3.6",
-    "group": "B3",
-    "title": "Identity resolvable per channel",
-    "question": "Would Google, Meta, an ACP feed and a UCP catalog each accept these products?",
-    "method": "For each sampled product, evaluate the identity rule of each channel: Google and Meta need GTIN or brand plus MPN; ACP feeds need id plus gtin or brand; UCP catalogs need identifiers. Pass when at least 80 percent of sampled products resolve on every channel. The evidence is the per-product, per-channel table.",
-    "weight": 3,
-    "spec": [
-      {
-        "title": "Google Merchant Center: unique product identifiers",
-        "url": "https://support.google.com/merchants/answer/160161"
-      },
-      {
-        "title": "Meta commerce catalog: supported fields",
-        "url": "https://developers.facebook.com/documentation/ads-commerce/commerce-platform/catalog/fields"
-      },
-      {
-        "title": "OpenAI product feed specification",
-        "url": "https://developers.openai.com/commerce/specs/file-upload/products"
-      },
-      {
-        "title": "Universal Commerce Protocol",
-        "url": "https://ucp.dev/"
-      }
-    ],
-    "requires": ["products"]
   }
 ]

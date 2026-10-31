@@ -12,6 +12,7 @@
     "images": [
       { "src": "https://ceramics.example/wp-content/uploads/mug.jpg", "alt": "Blue stoneware mug" }
     ],
-    "categories": [{ "id": 5, "name": "Mugs" }]
+    "categories": [{ "id": 5, "name": "Mugs" }],
+    "variations": []
   }
 ]

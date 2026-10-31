@@ -2,27 +2,77 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Serving Bowl, 28 cm – Example Ceramics</title>
-    <meta name="description" content="Large stoneware serving bowl, 28 cm, oven safe." />
+    <title>Serving Bowl – Example Ceramics</title>
+    <meta name="description" content="Large stoneware serving bowl in 28 cm or 32 cm, oven safe." />
     <link rel="canonical" href="https://ceramics.example/product/serving-bowl/" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
           {
-            "@type": "Product",
-            "name": "Serving Bowl, 28 cm",
-            "sku": "BOWL-280-NAT",
-            "gtin13": "9780306406157",
+            "@type": "ProductGroup",
+            "name": "Serving Bowl",
+            "productGroupID": "BOWL-NAT",
+            "variesBy": ["https://schema.org/size"],
             "brand": { "@type": "Brand", "name": "Example Ceramics" },
-            "image": "https://ceramics.example/wp-content/uploads/bowl.jpg",
+            "image": {
+              "@type": "ImageObject",
+              "url": "https://ceramics.example/wp-content/uploads/bowl.jpg",
+              "width": 1200,
+              "height": 1200
+            },
             "description": "Large stoneware serving bowl, oven safe to 220 °C.",
             "offers": {
-              "@type": "Offer",
-              "price": "48.00",
+              "@type": "AggregateOffer",
+              "lowPrice": "48.00",
+              "highPrice": "62.00",
               "priceCurrency": "EUR",
-              "availability": "https://schema.org/InStock"
-            }
+              "offerCount": 2,
+              "availability": "https://schema.org/InStock",
+              "shippingDetails": {
+                "@type": "OfferShippingDetails",
+                "shippingRate": { "@type": "MonetaryAmount", "value": "6.90", "currency": "EUR" },
+                "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "DE" }
+              },
+              "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "applicableCountry": "DE",
+                "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                "merchantReturnDays": 30,
+                "returnMethod": "https://schema.org/ReturnByMail",
+                "returnFees": "https://schema.org/FreeReturn"
+              }
+            },
+            "hasVariant": [
+              {
+                "@type": "Product",
+                "name": "Serving Bowl, 28 cm",
+                "sku": "BOWL-280-NAT",
+                "gtin13": "9780306406157",
+                "size": "28 cm",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "48.00",
+                  "priceCurrency": "EUR",
+                  "availability": "https://schema.org/InStock",
+                  "url": "https://ceramics.example/product/serving-bowl/?attribute_pa_size=28-cm"
+                }
+              },
+              {
+                "@type": "Product",
+                "name": "Serving Bowl, 32 cm",
+                "sku": "BOWL-320-NAT",
+                "gtin13": "4012345678901",
+                "size": "32 cm",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "62.00",
+                  "priceCurrency": "EUR",
+                  "availability": "https://schema.org/InStock",
+                  "url": "https://ceramics.example/product/serving-bowl/?attribute_pa_size=32-cm"
+                }
+              }
+            ]
           }
         ]
       }
@@ -30,16 +80,46 @@
   </head>
   <body class="single-product woocommerce woocommerce-page">
     <main>
-      <h1 class="product_title">Serving Bowl, 28 cm</h1>
-      <p class="price"><span class="woocommerce-Price-amount">€48.00</span></p>
+      <div class="woocommerce-product-gallery">
+        <div class="woocommerce-product-gallery__image">
+          <img
+            width="600"
+            height="600"
+            data-large_image_width="1200"
+            data-large_image_height="1200"
+            src="https://ceramics.example/wp-content/uploads/bowl.jpg"
+            class="wp-post-image"
+            alt="Speckled stoneware serving bowl"
+          />
+        </div>
+      </div>
+      <h1 class="product_title">Serving Bowl</h1>
+      <p class="price">
+        <span class="woocommerce-Price-amount">€48.00</span> –
+        <span class="woocommerce-Price-amount">€62.00</span>
+      </p>
       <div class="woocommerce-product-details__short-description">
         <p>
           Large stoneware serving bowl, oven safe to 220 °C. Generous enough for a salad for six.
-          Glazed inside and out in our natural speckled finish.
+          Glazed inside and out in our natural speckled finish. Available in 28 cm and 32 cm.
         </p>
       </div>
-      <form class="cart">
-        <button type="submit" class="single_add_to_cart_button">Add to cart</button>
+      <form class="variations_form cart" data-product_id="102">
+        <table class="variations">
+          <tr>
+            <th class="label"><label for="pa_size">Size</label></th>
+            <td class="value">
+              <select id="pa_size" name="attribute_pa_size" data-attribute_name="attribute_pa_size">
+                <option value="">Choose an option</option>
+                <option value="28-cm">28 cm</option>
+                <option value="32-cm">32 cm</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+        <div class="single_variation_wrap">
+          <button type="submit" class="single_add_to_cart_button">Add to cart</button>
+        </div>
       </form>
     </main>
   </body>

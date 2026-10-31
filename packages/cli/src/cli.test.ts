@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,6 +130,41 @@ describe('main', () => {
       const written = JSON.parse(readFileSync(file, 'utf8')) as { target: { url: string } };
       expect(written.target.url).toBe('https://ceramics.example');
     });
+  });
+
+  it('diffs two saved reports and exits 3 only when something changed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ars-diff-'));
+    try {
+      const before = join(dir, 'before.json');
+      const after = join(dir, 'after.json');
+      await run([
+        'scan',
+        'ceramics.example',
+        '--fixture',
+        fixture,
+        '--format',
+        'json',
+        '--output',
+        before,
+      ]);
+      const same = await run(['diff', before, before]);
+      expect(same.code).toBe(0);
+      expect(same.out).toContain('No change.');
+      const parsed = JSON.parse(readFileSync(before, 'utf8')) as {
+        results: { verdict: string }[];
+      };
+      const first = parsed.results.find((item) => item.verdict === 'pass');
+      if (first) first.verdict = 'fail';
+      writeFileSync(after, JSON.stringify(parsed));
+      const changed = await run(['diff', before, after]);
+      expect(changed.code).toBe(3);
+      expect(changed.out).toMatch(/pass → fail/);
+      const json = await run(['diff', before, after, '--format', 'json']);
+      expect((JSON.parse(json.out) as { changed: boolean }).changed).toBe(true);
+      expect((await run(['diff', before])).code).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('returns 2 for an unreachable target', async () => {

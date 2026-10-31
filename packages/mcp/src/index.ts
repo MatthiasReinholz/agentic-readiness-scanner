@@ -9,9 +9,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
 export type Scanner = (url: string, profile?: string) => Promise<ScanResult>;
+/** A host's recorded states over time, as the hosted app keeps them; JSON-safe. */
+export type HistoryReader = (host: string) => Promise<unknown>;
 
 export interface McpServerOptions {
   scanner: Scanner;
+  /** Registers get_history when the host keeps history (the hosted app does; a CLI does not). */
+  history?: HistoryReader;
   name?: string;
   version?: string;
 }
@@ -48,6 +52,27 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       return { content: [{ type: 'text', text }] };
     },
   );
+
+  if (options.history) {
+    const readHistory = options.history;
+    server.registerTool(
+      'get_history',
+      {
+        title: 'Get the scan history of a host',
+        description:
+          'Returns every distinct readiness state a host was observed in, newest first: period, number of scans, level, scores per dimension and section, verdict per check, and what changed from the state before. Hosts are recorded when they are scanned through this deployment.',
+        inputSchema: {
+          host: z
+            .string()
+            .regex(/^[a-z0-9.-]+$/i)
+            .describe('Hostname, e.g. example.com'),
+        },
+      },
+      async ({ host }) => ({
+        content: [{ type: 'text', text: JSON.stringify(await readHistory(host.toLowerCase())) }],
+      }),
+    );
+  }
 
   server.registerTool(
     'get_fix',

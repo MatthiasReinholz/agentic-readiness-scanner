@@ -2,14 +2,18 @@
   {
     "id": "B1.1",
     "group": "B1",
-    "title": "WooCommerce detected",
-    "question": "Is this a WooCommerce store?",
-    "method": "Informational. Detect wc/store in the REST index, a woocommerce body class or a WooCommerce generator meta tag. The result selects the profile; it is never scored.",
+    "title": "Platform detected",
+    "question": "Which platform serves the store?",
+    "method": "Informational. Detect WooCommerce (wc/store in the REST index, a woocommerce body class or generator), Shopify (cdn.shopify.com assets or the Shopify generator) or plain WordPress from the home page. The result selects the profile and the platform-specific checks; it is never scored.",
     "weight": "info",
     "spec": [
       {
         "title": "WooCommerce developer documentation",
         "url": "https://developer.woocommerce.com/docs/"
+      },
+      {
+        "title": "Shopify Ajax API: product resource",
+        "url": "https://shopify.dev/docs/api/ajax/reference/product"
       }
     ]
   },
@@ -65,9 +69,9 @@
     "id": "B1.5",
     "group": "B1",
     "title": "Public product feed discoverable",
-    "question": "Is there a product feed an agent can find without being told its URL?",
-    "method": "Look for links in llms.txt, robots.txt, the sitemap or a rel=alternate link tag pointing at a Google, Meta, ACP or OpenAI-style feed (XML, CSV, JSON). Pass when one is found and fetchable.",
-    "weight": 2,
+    "question": "Can an agent reach the catalog as a feed without an account?",
+    "method": "Look for a feed URL in link rel=alternate tags of the home page (RSS, Atom, XML or JSON types), in llms.txt, in robots.txt comments and Sitemap lines, and in the sitemap index; fetch the first candidate. Pass when it is a Google-format XML feed (g: namespace), a CSV or TSV with id, title, link and price columns, or JSON items with id, title, url and price. Fail when none is found. Every shopping surface ingests feeds pushed through its own channel, so a public copy is a convenience for agents, not a requirement: weight 1.",
+    "weight": 1,
     "spec": [
       {
         "title": "Google Merchant Center product data specification",
@@ -75,7 +79,7 @@
       },
       {
         "title": "OpenAI product feed specification",
-        "url": "https://developers.openai.com/commerce/specs/file-upload/products"
+        "url": "https://developers.openai.com/commerce/specs/feed"
       }
     ]
   },
@@ -107,6 +111,26 @@
       {
         "title": "WooCommerce Store API: products",
         "url": "https://developer.woocommerce.com/docs/apis/store-api/resources-endpoints/products/"
+      }
+    ]
+  },
+  {
+    "id": "B1.8",
+    "group": "B1",
+    "title": "Shopify products.json readable",
+    "question": "Can an agent read a Shopify catalog as JSON?",
+    "method": "GET /products.json?limit=5. Pass on 200 with a products array; fail on 404, 401, a password page or HTML (the endpoint is disabled, the store is password-protected or headless). The endpoint is a long-standing Shopify convention served by every Online Store theme; the documented per-product form is /products/<handle>.js.",
+    "weight": 3,
+    "requires": ["shopify"],
+    "depends_on": ["B1.1"],
+    "spec": [
+      {
+        "title": "Shopify Ajax API: product resource",
+        "url": "https://shopify.dev/docs/api/ajax/reference/product"
+      },
+      {
+        "title": "Shopify: Agentic storefronts",
+        "url": "https://help.shopify.com/en/manual/online-sales-channels/agentic-storefronts"
       }
     ]
   }

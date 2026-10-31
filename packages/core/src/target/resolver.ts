@@ -11,9 +11,14 @@ import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument } from '../parsers/html.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
-import { looksLikeProductSitemap, looksLikeProductUrl, parseSitemap } from '../parsers/sitemap.js';
+import {
+  looksLikeProductSitemap,
+  looksLikeProductUrl,
+  parseSitemap,
+  type SitemapEntry,
+} from '../parsers/sitemap.js';
 import { sample } from './sampling.js';
-import type { SitemapSummary, Target } from './types.js';
+import { LASTMOD_SAMPLE_LIMIT, type SitemapSummary, type Target } from './types.js';
 
 export interface ResolveOptions {
   /** Profile id override; detected otherwise. */
@@ -121,6 +126,32 @@ export function findPolicyLinks(
   return { ...crossOrigin, ...sameOrigin };
 }
 
+/**
+ * Shopify serves its policy pages at fixed paths whether or not the theme links them from
+ * the server-rendered footer (many themes build the footer in the browser). When a kind
+ * was not found by link, the conventional page is fetched and used if it exists.
+ */
+const SHOPIFY_POLICY_PATHS: Partial<Record<PolicyKind, string>> = {
+  returns: '/policies/refund-policy',
+  shipping: '/policies/shipping-policy',
+  privacy: '/policies/privacy-policy',
+  terms: '/policies/terms-of-service',
+};
+
+export async function addShopifyPolicyPages(
+  policies: Partial<Record<PolicyKind, string>>,
+  origin: string,
+  fetcher: Fetcher,
+): Promise<void> {
+  for (const [kind, path] of Object.entries(SHOPIFY_POLICY_PATHS) as [PolicyKind, string][]) {
+    if (policies[kind]) continue;
+    const response = await fetcher.fetch(origin + path);
+    if (response.status === 200 && !/<title>[^<]*password/i.test(response.body.slice(0, 2000))) {
+      policies[kind] = origin + path;
+    }
+  }
+}
+
 async function discoverSitemap(
   origin: string,
   robots: RobotsTxt | null,
@@ -146,12 +177,35 @@ async function discoverSitemap(
     }
     // The sitemap protocol requires absolute URLs; anything else is noise, and anything
     // on another origin is not this store.
-    const sameOrigin = (locs: string[]): string[] =>
-      locs
-        .filter((loc) => /^https?:\/\//i.test(loc.trim()))
-        .map((loc) => resolveSameOrigin(loc.trim(), origin))
-        .filter((resolved): resolved is string => resolved !== null);
-    const urls = sameOrigin(parsed.urls);
+    const sameOrigin = (entries: SitemapEntry[]): SitemapEntry[] => {
+      const kept: SitemapEntry[] = [];
+      for (const entry of entries) {
+        const loc = entry.loc.trim();
+        if (!/^https?:\/\//i.test(loc)) continue;
+        const resolved = resolveSameOrigin(loc, origin);
+        if (resolved === null) continue;
+        kept.push(
+          entry.lastmod === undefined
+            ? { loc: resolved }
+            : { loc: resolved, lastmod: entry.lastmod },
+        );
+      }
+      return kept;
+    };
+    // lastmod of the entries in the order they were read, bounded, so the freshness
+    // check judges the same sample on every scan.
+    const lastmods: string[] = [];
+    let entriesSeen = 0;
+    const recordLastmods = (entries: SitemapEntry[]): void => {
+      for (const entry of entries) {
+        if (entriesSeen >= LASTMOD_SAMPLE_LIMIT) return;
+        entriesSeen += 1;
+        if (entry.lastmod !== undefined) lastmods.push(entry.lastmod);
+      }
+    };
+    const entries = sameOrigin(parsed.entries);
+    recordLastmods(entries);
+    const urls = entries.map((entry) => entry.loc);
     const summary: SitemapSummary = {
       url,
       kind: parsed.kind,
@@ -159,6 +213,7 @@ async function discoverSitemap(
       fetchedSitemaps: [],
       urls,
       productUrls: urls.filter(looksLikeProductUrl),
+      lastmods,
     };
     if (parsed.kind === 'index') {
       const productFirst = [...parsed.sitemaps].sort(
@@ -174,7 +229,9 @@ async function discoverSitemap(
         const childParsed = parseSitemap(childResponse.body);
         if (childParsed.kind !== 'urlset') continue;
         summary.fetchedSitemaps.push(childUrl);
-        const childUrls = sameOrigin(childParsed.urls);
+        const childEntries = sameOrigin(childParsed.entries);
+        recordLastmods(childEntries);
+        const childUrls = childEntries.map((entry) => entry.loc);
         summary.urls.push(...childUrls);
         if (looksLikeProductSitemap(childUrl)) {
           summary.productUrls.push(...childUrls);
@@ -266,6 +323,7 @@ export async function resolveTarget(
   }
   const listing = anchorUrls.find((url) => LISTING_PATTERN.test(new URL(url).pathname));
   const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
+  if (platform === 'shopify') await addShopifyPolicyPages(policies, origin, fetcher);
 
   const storeSignals =
     products.length > 0 ||

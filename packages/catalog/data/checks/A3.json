@@ -2,14 +2,23 @@
   {
     "id": "A3.1",
     "group": "A3",
-    "title": "Markdown content negotiation",
-    "question": "Can an agent ask for a product page as Markdown?",
-    "method": "GET a sampled product page with Accept: text/markdown. Pass when the response is text/markdown with the product title in the body; fail when HTML comes back.",
-    "weight": 2,
+    "title": "Machine-readable copy of product pages",
+    "question": "Can an agent get a product page as Markdown instead of HTML?",
+    "method": "GET a sampled product page with Accept: text/markdown, text/html;q=0.9. Pass when the response is text/markdown and names the product (warn when Vary: Accept is missing, because shared caches then serve Markdown to browsers). Also pass when the HTML links a Markdown alternate (link rel=alternate type=text/markdown) or the page URL with .md appended answers text/markdown. Fail when none applies. Coding agents request Markdown today; search crawlers do not, hence the low weight.",
+    "weight": 1,
+    "requires": ["products"],
     "spec": [
       {
         "title": "RFC 7763 text/markdown media type",
         "url": "https://www.rfc-editor.org/rfc/rfc7763"
+      },
+      {
+        "title": "Cloudflare: Markdown for agents",
+        "url": "https://developers.cloudflare.com/fundamentals/reference/markdown-for-agents/"
+      },
+      {
+        "title": "Vercel: make your documentation readable by AI agents",
+        "url": "https://vercel.com/kb/guide/make-your-documentation-readable-by-ai-agents"
       }
     ]
   },
@@ -32,10 +41,14 @@
     "id": "A3.3",
     "group": "A3",
     "title": "Page weight and response time",
-    "question": "Is a product page cheap enough for an agent to fetch?",
-    "method": "Measure HTML size and time to first byte on sampled product pages. Pass under 500 KB and 1.5 s; warn under 1 MB and 3 s; fail above.",
+    "question": "Is a product page small and fast enough to be fetched whole?",
+    "method": "Measure the HTML bytes and the response time of sampled product pages (the home page when none). Pass under 1 MB and 3 seconds; warn under 2 MB and 8 seconds; fail above. Googlebot reads only the first 2 MB of a file; other crawlers publish no limits, so the thresholds are conservative hygiene, not a documented cut-off, and the weight is low.",
     "weight": 1,
     "spec": [
+      {
+        "title": "Googlebot and the first 2 MB of a file",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/googlebot"
+      },
       {
         "title": "web.dev: Time to First Byte",
         "url": "https://web.dev/articles/ttfb"
@@ -58,7 +71,8 @@
         "title": "Google: localized versions",
         "url": "https://developers.google.com/search/docs/specialty/international/localized-versions"
       }
-    ]
+    ],
+    "requires": ["products"]
   },
   {
     "id": "A3.5",
@@ -71,6 +85,24 @@
       {
         "title": "WAI-ARIA 1.2: landmark roles",
         "url": "https://www.w3.org/TR/wai-aria-1.2/#landmark_roles"
+      }
+    ]
+  },
+  {
+    "id": "A3.6",
+    "group": "A3",
+    "title": "Unknown URLs answer 404",
+    "question": "Does the site tell an agent honestly when a page does not exist?",
+    "method": "GET a random path under the origin that cannot exist. Pass on 404 or 410, whatever the body. Warn on a redirect to the home page. Fail when the server answers 200 with an HTML page (a soft 404): an agent then reads a page that does not exist as if it did, and every stale link it follows looks like content.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: HTTP status codes, network and DNS errors (soft 404)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/http-network-errors"
+      },
+      {
+        "title": "RFC 9110 HTTP Semantics",
+        "url": "https://www.rfc-editor.org/rfc/rfc9110"
       }
     ]
   }

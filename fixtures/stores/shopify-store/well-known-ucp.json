@@ -1,0 +1,53 @@
+{
+  "ucp": {
+    "version": "2026-08-25",
+    "services": {
+      "dev.ucp.shopping": [
+        {
+          "version": "2026-08-25",
+          "spec": "https://ucp.dev/2026-08-25/specification/overview",
+          "transport": "mcp",
+          "endpoint": "https://boots.example/api/ucp/mcp",
+          "schema": "https://ucp.dev/2026-08-25/services/shopping/mcp.json"
+        }
+      ]
+    },
+    "capabilities": {
+      "dev.ucp.shopping.checkout": [
+        {
+          "version": "2026-08-25",
+          "spec": "https://ucp.dev/2026-08-25/specification/checkout",
+          "schema": "https://ucp.dev/2026-08-25/schemas/shopping/checkout.json"
+        }
+      ],
+      "dev.ucp.shopping.order": [
+        {
+          "version": "2026-08-25",
+          "spec": "https://ucp.dev/2026-08-25/specification/order",
+          "schema": "https://ucp.dev/2026-08-25/schemas/shopping/order.json"
+        }
+      ]
+    },
+    "payment_handlers": {
+      "com.shopify.payments": [
+        {
+          "id": "shopify_payments_boots",
+          "version": "2026-08-25",
+          "spec": "https://shopify.dev/docs/api/ucp/payments",
+          "schema": "https://shopify.dev/docs/api/ucp/payments/schemas/config.json"
+        }
+      ]
+    }
+  },
+  "signing_keys": [
+    {
+      "kid": "boots_2026",
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "WbbXwVYGdJoP4Xm3qCkGvBRcRvKtEfXDbWvPzpPS8LA",
+      "y": "sP4jHHxYqC89HBo8TjrtVOAGHfJDflYxw7MFMxuFMPY",
+      "use": "sig",
+      "alg": "ES256"
+    }
+  ]
+}

@@ -1,6 +1,16 @@
-import { contentType } from '../../http/types.js';
-import { storeApiUrl } from '../shared.js';
-import { defineCheck, fail, pass } from '../types.js';
+import { contentType, type FetchedResponse, type Fetcher } from '../../http/types.js';
+import { looksLikeProductSitemap } from '../../parsers/sitemap.js';
+import { type StoreApiProduct, storeApiProducts, storeApiUrl } from '../shared.js';
+import { type CheckOutcome, defineCheck, fail, pass, skip, warn } from '../types.js';
+import {
+  feedRejection,
+  isProductFeed,
+  type ParsedFeed,
+  parseFeed,
+  robotsFeedHints,
+} from '../../parsers/feed.js';
+import { parseLlmsTxt } from '../../parsers/llms-txt.js';
+import type { Target } from '../../target/types.js';
 
 export const woocommerceDetected = defineCheck('B1.1', ({ target }) => {
   const evidence = {
@@ -8,10 +18,13 @@ export const woocommerceDetected = defineCheck('B1.1', ({ target }) => {
     generator: target.homeDoc.meta('generator'),
     body_classes: target.homeDoc.bodyClasses().filter((c) => /woocommerce|shopify/i.test(c)),
   };
-  if (target.platform === 'woocommerce') {
-    return pass('WooCommerce detected', evidence);
-  }
-  return pass(`WooCommerce not detected (platform: ${target.platform})`, evidence);
+  const names: Record<string, string> = {
+    woocommerce: 'WooCommerce detected',
+    shopify: 'Shopify detected',
+    wordpress: 'WordPress detected without WooCommerce',
+    unknown: 'no known platform detected',
+  };
+  return pass(names[target.platform] ?? `platform: ${target.platform}`, evidence);
 });
 
 export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher }) => {
@@ -44,3 +57,449 @@ export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher })
     return fail('Store API returned a non-JSON body', evidence);
   }
 });
+
+/**
+ * Rate-limit headers worth recording: the IETF draft names WooCommerce emits (RateLimit-*
+ * plus its own RateLimit-Retry-After), the HTTP Retry-After, and the X-RateLimit-* family
+ * that proxies and WAFs add.
+ */
+const RATE_LIMIT_HEADERS = [
+  'retry-after',
+  'ratelimit-limit',
+  'ratelimit-remaining',
+  'ratelimit-reset',
+  'ratelimit-retry-after',
+  'x-ratelimit-limit',
+  'x-ratelimit-remaining',
+  'x-ratelimit-reset',
+] as const;
+
+function rateLimitHeaders(response: FetchedResponse): Record<string, string> {
+  const found: Record<string, string> = {};
+  for (const name of RATE_LIMIT_HEADERS) {
+    const value = response.headers[name];
+    if (value !== undefined) found[name] = value;
+  }
+  return found;
+}
+
+/**
+ * The fetcher caches by URL, so three reads of one URL would be one request. Distinct page
+ * sizes are always valid (unlike page numbers past the last page, which WordPress answers
+ * with HTTP 400) and none of them collides with the URLs B1.2 and B1.4 read.
+ */
+const SEQUENTIAL_READ_PAGE_SIZES = [2, 3, 4] as const;
+
+interface SequentialRead {
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+}
+
+function signalsRateLimit(read: SequentialRead): boolean {
+  return (
+    'retry-after' in read.headers ||
+    'ratelimit-retry-after' in read.headers ||
+    read.headers['ratelimit-remaining'] === '0' ||
+    read.headers['x-ratelimit-remaining'] === '0'
+  );
+}
+
+export const storeApiNotRateLimited = defineCheck('B1.3', async ({ target, fetcher }) => {
+  const requests: SequentialRead[] = [];
+  for (const perPage of SEQUENTIAL_READ_PAGE_SIZES) {
+    const url = storeApiUrl(target, `/products?per_page=${perPage}`);
+    const response = await fetcher.fetch(url);
+    requests.push({ url, status: response.status, headers: rateLimitHeaders(response) });
+  }
+  const evidence = { requests };
+  const limited = requests.find((read) => read.status === 429);
+  if (limited) {
+    return fail(`Store API rate-limited a sequential read (HTTP 429 on ${limited.url})`, evidence);
+  }
+  const failed = requests.find((read) => read.status >= 500 || read.status === 0);
+  if (failed) {
+    return fail(
+      failed.status === 0
+        ? `Store API read got no response (${failed.url})`
+        : `Store API read returned HTTP ${failed.status} (${failed.url})`,
+      evidence,
+    );
+  }
+  const throttled = requests.find(signalsRateLimit);
+  if (throttled) {
+    return warn(
+      `Store API reads succeed but signal a rate limit (${Object.keys(throttled.headers).join(', ')})`,
+      evidence,
+    );
+  }
+  return pass(
+    `${requests.length} sequential Store API reads succeeded without throttling`,
+    evidence,
+  );
+});
+
+/** Fields whose absence fails B1.4: an agent cannot quote or reserve without them. */
+const BLOCKING_PRODUCT_FIELDS = new Set([
+  'name',
+  'permalink',
+  'prices.price',
+  'prices.currency_code',
+  'is_in_stock',
+]);
+
+function missingProductFields(product: StoreApiProduct): string[] {
+  const missing: string[] = [];
+  if (!product.name) missing.push('name');
+  if (!product.permalink) missing.push('permalink');
+  if (typeof product.prices?.price !== 'string' || product.prices.price === '') {
+    missing.push('prices.price');
+  }
+  if (typeof product.prices?.currency_code !== 'string' || product.prices.currency_code === '') {
+    missing.push('prices.currency_code');
+  }
+  if (typeof product.is_in_stock !== 'boolean') missing.push('is_in_stock');
+  if (!Array.isArray(product.images) || product.images.length === 0) missing.push('images');
+  if (!Array.isArray(product.categories) || product.categories.length === 0) {
+    missing.push('categories');
+  }
+  return missing;
+}
+
+export const storeApiProductComplete = defineCheck('B1.4', async ({ target, fetcher }) => {
+  const url = storeApiUrl(target, '/products?per_page=20');
+  const response = await fetcher.fetch(url);
+  const products = await storeApiProducts(target, fetcher, 20);
+  if (!products) {
+    return fail(
+      response.status === 200
+        ? 'Store API product list is not a JSON product array'
+        : `Store API product list returned HTTP ${response.status}`,
+      { url, status: response.status },
+    );
+  }
+  if (products.length === 0) {
+    return fail('Store API product list is empty, nothing to check', {
+      url,
+      status: response.status,
+      products_checked: 0,
+    });
+  }
+  const incomplete = products
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      missing: missingProductFields(product),
+    }))
+    .filter((entry) => entry.missing.length > 0);
+  const evidence = {
+    url,
+    products_checked: products.length,
+    incomplete: incomplete.length,
+    products: incomplete,
+  };
+  const blocking = incomplete.filter((entry) =>
+    entry.missing.some((field) => BLOCKING_PRODUCT_FIELDS.has(field)),
+  );
+  if (blocking.length > 0) {
+    return fail(
+      `${blocking.length} of ${products.length} Store API product(s) lack a price, currency or stock status`,
+      evidence,
+    );
+  }
+  if (incomplete.length > 0) {
+    return warn(
+      `${incomplete.length} of ${products.length} Store API product(s) lack images or categories`,
+      evidence,
+    );
+  }
+  return pass(
+    `all ${products.length} Store API product(s) carry the fields an agent needs`,
+    evidence,
+  );
+});
+
+function sameUrl(a: string, b: string, origin: string): boolean {
+  try {
+    return new URL(a, origin).href === new URL(b, origin).href;
+  } catch {
+    return a === b;
+  }
+}
+
+/**
+ * Whether the resolver read every sitemap the product count depends on. A urlset is
+ * complete by definition; an index is complete when every product-named child was fetched,
+ * or, when no child is product-named, when every child was fetched.
+ */
+export function sitemapProductCountComplete(
+  sitemap: { kind: 'index' | 'urlset'; childSitemaps: string[]; fetchedSitemaps: string[] },
+  origin: string,
+): boolean {
+  if (sitemap.kind === 'urlset') return true;
+  const productChildren = sitemap.childSitemaps.filter(looksLikeProductSitemap);
+  const relevant = productChildren.length > 0 ? productChildren : sitemap.childSitemaps;
+  return relevant.every((child) =>
+    sitemap.fetchedSitemaps.some((fetched) => sameUrl(child, fetched, origin)),
+  );
+}
+
+export const sitemapMatchesStoreApi = defineCheck('B1.7', async ({ target, fetcher }) => {
+  const sitemap = target.sitemap;
+  if (!sitemap) {
+    return skip('not_applicable', 'no sitemap to compare the Store API against', {});
+  }
+  const url = storeApiUrl(target, '/products?per_page=1');
+  const response = await fetcher.fetch(url);
+  const totalHeader = response.headers['x-wp-total'] ?? null;
+  const storeApiTotal =
+    totalHeader !== null && /^\d{1,12}$/.test(totalHeader) ? Number(totalHeader) : null;
+  const sitemapCount = sitemap.productUrls.length;
+  const evidence: Record<string, unknown> = {
+    sitemap_url: sitemap.url,
+    sitemap_product_urls: sitemapCount,
+    product_sitemaps: sitemap.childSitemaps.filter(looksLikeProductSitemap),
+    fetched_sitemaps: sitemap.fetchedSitemaps,
+    store_api_url: url,
+    store_api_status: response.status,
+    store_api_total: storeApiTotal,
+  };
+  if (!sitemapProductCountComplete(sitemap, target.origin)) {
+    return skip(
+      'budget_exhausted',
+      'not every product sitemap was read within budget, so a count comparison would be unfair',
+      evidence,
+    );
+  }
+  if (storeApiTotal === null) {
+    return fail(
+      response.status === 200
+        ? 'Store API product list carries no numeric X-WP-Total header'
+        : `Store API product list returned HTTP ${response.status}`,
+      evidence,
+    );
+  }
+  if (sitemapCount === 0 || storeApiTotal === 0) {
+    return fail(
+      `sitemap lists ${sitemapCount} product URL(s) while the Store API reports ${storeApiTotal}`,
+      evidence,
+    );
+  }
+  const deviation = Math.abs(sitemapCount - storeApiTotal) / Math.max(sitemapCount, storeApiTotal);
+  evidence.ratio = Number((sitemapCount / storeApiTotal).toFixed(3));
+  evidence.deviation = Number(deviation.toFixed(3));
+  const message = `sitemap lists ${sitemapCount} product URL(s), Store API reports ${storeApiTotal} (${Math.round(deviation * 100)} percent apart)`;
+  if (deviation <= 0.1) return pass(message, evidence);
+  if (deviation <= 0.25) return warn(message, evidence);
+  return fail(message, evidence);
+});
+type FeedSource = 'link' | 'llms.txt' | 'robots.txt' | 'sitemap';
+
+interface FeedCandidate {
+  url: string;
+  source: FeedSource;
+}
+
+interface TriedCandidate extends FeedCandidate {
+  status: number;
+  format?: string;
+  reason: string;
+}
+
+const FEED_LINK_TYPES = new Set([
+  'application/rss+xml',
+  'application/atom+xml',
+  'text/xml',
+  'application/xml',
+  'application/json',
+]);
+const SYNDICATION_TYPES = new Set(['application/rss+xml', 'application/atom+xml']);
+const FEED_LINK_HINT = /product|feed|merchant|google|shopping/i;
+const LLMS_FEED_HINT = /feed|products\.(?:xml|csv|json)|merchant|google-shopping/i;
+const FEED_URL_HINT = /feed/i;
+/** Candidates fetched before giving up; the first qualifying one wins. */
+const MAX_FEED_FETCHES = 2;
+const SAMPLE_ITEMS = 3;
+const SAMPLE_KEYS = 8;
+const SAMPLE_VALUE_LENGTH = 80;
+
+function resolveHttpUrl(href: string, base: string): string | null {
+  try {
+    const url = new URL(href, base);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function mediaType(type: string | undefined): string {
+  return (type ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+/**
+ * Where a feed may be announced, in the order an agent would look: rel=alternate link
+ * tags on the home page, llms.txt links, robots.txt Sitemap and comment lines, then the
+ * sitemap itself. De-duplicated by URL.
+ */
+async function feedCandidates(target: Target, fetcher: Fetcher): Promise<FeedCandidate[]> {
+  const candidates: FeedCandidate[] = [];
+  const seen = new Set<string>();
+  const add = (href: string, source: FeedSource): void => {
+    const url = resolveHttpUrl(href, target.origin);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      candidates.push({ url, source });
+    }
+  };
+
+  const alternates = target.homeDoc
+    .links()
+    .filter(
+      (link) =>
+        link.rel.split(/\s+/).includes('alternate') && FEED_LINK_TYPES.has(mediaType(link.type)),
+    );
+  const hinted = alternates.filter((link) =>
+    FEED_LINK_HINT.test(`${link.href} ${link.title ?? ''}`),
+  );
+  if (hinted.length > 0) {
+    for (const link of hinted) add(link.href, 'link');
+  } else {
+    const syndication = alternates.filter((link) => SYNDICATION_TYPES.has(mediaType(link.type)));
+    const only = syndication[0];
+    if (syndication.length === 1 && only) add(only.href, 'link');
+  }
+
+  const llms = await fetcher.fetch(`${target.origin}/llms.txt`);
+  if (llms.status === 200 && !/<html|<!doctype/i.test(llms.body.slice(0, 500))) {
+    for (const link of parseLlmsTxt(llms.body).links) {
+      if (LLMS_FEED_HINT.test(`${link.text} ${link.url}`)) add(link.url, 'llms.txt');
+    }
+  }
+
+  if (target.robotsResponse.status === 200 && target.robots) {
+    for (const hint of robotsFeedHints(target.robotsResponse.body)) add(hint, 'robots.txt');
+  }
+
+  for (const url of [...(target.sitemap?.childSitemaps ?? []), ...(target.sitemap?.urls ?? [])]) {
+    if (FEED_URL_HINT.test(url)) add(url, 'sitemap');
+  }
+  return candidates;
+}
+
+function sampleItem(item: Record<string, string>): Record<string, string> {
+  const sample: Record<string, string> = {};
+  for (const [key, value] of Object.entries(item).slice(0, SAMPLE_KEYS)) {
+    sample[key] =
+      value.length > SAMPLE_VALUE_LENGTH ? `${value.slice(0, SAMPLE_VALUE_LENGTH)}…` : value;
+  }
+  return sample;
+}
+
+export const productFeedDiscoverable = defineCheck('B1.5', async ({ target, fetcher }) => {
+  const candidates = await feedCandidates(target, fetcher);
+  const tried: TriedCandidate[] = [];
+  for (const candidate of candidates.slice(0, MAX_FEED_FETCHES)) {
+    const response = await fetcher.fetch(candidate.url);
+    if (response.status !== 200) {
+      tried.push({ ...candidate, status: response.status, reason: `HTTP ${response.status}` });
+      continue;
+    }
+    const feed: ParsedFeed = parseFeed(response.body, contentType(response));
+    if (isProductFeed(feed)) {
+      return pass(
+        `product feed at ${candidate.url} (${feed.format}, ${feed.items.length} item(s) read)`,
+        {
+          feed_url: candidate.url,
+          source: candidate.source,
+          format: feed.format,
+          content_type: contentType(response),
+          namespace_google: feed.namespaceGoogle,
+          items_read: feed.items.length,
+          fields: feed.fields.slice(0, 30),
+          sample: feed.items.slice(0, SAMPLE_ITEMS).map(sampleItem),
+          candidates: candidates.map((entry) => entry.url),
+          tried,
+        },
+      );
+    }
+    tried.push({ ...candidate, status: 200, format: feed.format, reason: feedRejection(feed) });
+  }
+  const evidence = { candidates: candidates.map((entry) => entry.url), tried };
+  if (candidates.length === 0) {
+    return fail(
+      'no feed link found in llms.txt, robots.txt, the sitemap or rel=alternate link tags',
+      evidence,
+    );
+  }
+  return fail(
+    `none of the ${tried.length} candidate(s) tried is a product feed: ${tried
+      .map((entry) => `${entry.url} (${entry.reason})`)
+      .join('; ')}`,
+    evidence,
+  );
+});
+
+const HOUR_MS = 3_600_000;
+const FRESH_HOURS = 24;
+const STALE_HOURS = 7 * 24;
+
+function parseDate(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export const feedFreshness = defineCheck(
+  'B1.6',
+  async ({ fetcher, outcomes }): Promise<CheckOutcome> => {
+    const parent = outcomes.get('B1.5');
+    const feedUrl =
+      parent?.verdict === 'pass' && typeof parent.evidence.feed_url === 'string'
+        ? parent.evidence.feed_url
+        : null;
+    if (!feedUrl) {
+      return skip('dependency_failed', 'no product feed found (B1.5)');
+    }
+    const response = await fetcher.fetch(feedUrl);
+    // The server's own clock when it answered, so a recorded response ages the same way
+    // every time it is replayed; the scanner's clock otherwise.
+    const now = parseDate(response.headers.date) ?? Date.now();
+    const lastModified = response.headers['last-modified'] ?? null;
+    const feed = parseFeed(response.body, contentType(response));
+    const inFeed = feed.lastModifiedInFeed ?? null;
+    const evidence: Record<string, unknown> = {
+      feed_url: feedUrl,
+      status: response.status,
+      last_modified: lastModified,
+      in_feed: inFeed,
+      age_hours: null,
+      basis: null,
+      scan_time: new Date(now).toISOString(),
+    };
+    if (response.status !== 200) {
+      return fail(`feed returned HTTP ${response.status}`, evidence);
+    }
+    const stamps = [
+      { basis: 'last-modified', at: parseDate(lastModified) },
+      { basis: 'in-feed', at: parseDate(inFeed) },
+    ].filter((stamp): stamp is { basis: string; at: number } => stamp.at !== null);
+    const freshest = stamps.sort((a, b) => b.at - a.at)[0];
+    if (!freshest) {
+      const unparsed = [lastModified, inFeed].filter((value) => value !== null);
+      return fail(
+        unparsed.length > 0
+          ? `feed timestamp could not be parsed: ${unparsed.join(', ')}`
+          : 'feed has no Last-Modified header and no timestamp inside the feed',
+        evidence,
+      );
+    }
+    const ageHours = Math.max(0, now - freshest.at) / HOUR_MS;
+    const rounded = Math.round(ageHours * 10) / 10;
+    evidence.age_hours = rounded;
+    evidence.basis = freshest.basis;
+    const age = `${rounded} h old (${freshest.basis})`;
+    if (ageHours <= FRESH_HOURS) return pass(`feed is ${age}`, evidence);
+    if (ageHours <= STALE_HOURS) return warn(`feed is ${age}, older than a day`, evidence);
+    return fail(`feed is ${age}, older than a week`, evidence);
+  },
+);

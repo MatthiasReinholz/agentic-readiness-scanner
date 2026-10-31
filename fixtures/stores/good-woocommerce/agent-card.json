@@ -1,0 +1,26 @@
+{
+  "name": "Example Ceramics shopping agent",
+  "description": "Answers questions about Example Ceramics products, prices, stock and policies.",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    {
+      "url": "https://ceramics.example/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "product-search",
+      "name": "Product search",
+      "description": "Finds stoneware products by name, material or price range.",
+      "tags": ["catalog", "search"]
+    }
+  ]
+}

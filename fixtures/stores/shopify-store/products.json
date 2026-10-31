@@ -1,0 +1,44 @@
+{
+  "products": [
+    {
+      "id": 8001,
+      "title": "Trail Boot",
+      "handle": "trail-boot",
+      "vendor": "Example Boots",
+      "product_type": "Boots",
+      "published_at": "2026-09-01T10:00:00-07:00",
+      "variants": [
+        {
+          "id": 90001,
+          "title": "EU 42",
+          "sku": "BOOT-TRAIL-42",
+          "price": "149.00",
+          "available": true
+        }
+      ],
+      "images": [
+        { "src": "https://cdn.shopify.com/s/files/1/0123/4567/8901/products/trail-boot.jpg" }
+      ]
+    },
+    {
+      "id": 8002,
+      "title": "Canvas Sneaker",
+      "handle": "canvas-sneaker",
+      "vendor": "Example Boots",
+      "product_type": "Sneakers",
+      "published_at": "2026-09-02T10:00:00-07:00",
+      "variants": [
+        {
+          "id": 90002,
+          "title": "EU 42",
+          "sku": "SNEAK-CANVAS-42",
+          "price": "69.00",
+          "available": true
+        }
+      ],
+      "images": [
+        { "src": "https://cdn.shopify.com/s/files/1/0123/4567/8901/products/canvas-sneaker.jpg" }
+      ]
+    }
+  ]
+}

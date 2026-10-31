@@ -75,18 +75,27 @@ describe('scan of the good WooCommerce fixture', () => {
     }
   });
 
-  it('skips unimplemented checks honestly and stays within budget', async () => {
+  it('implements every catalog check and stays within budget', async () => {
     const result = await run();
     const notImplemented = result.results.filter((item) => item.skip_reason === 'not_implemented');
-    expect(notImplemented.length).toBeGreaterThan(0);
+    expect(notImplemented.map((item) => item.id)).toEqual([]);
     expect(result.requests).toBeLessThanOrEqual(40);
     expect(result.scanned_at).toBe('2026-10-30T12:00:00.000Z');
   });
 
-  it('reaches level 2 with the level-3 identity gate B3.6 still unimplemented', async () => {
+  it('reaches level 5 with every applicable check passing', async () => {
     const result = await run();
-    expect(result.level.value).toBe(2);
-    expect(result.level.next_gate).toEqual(['B3.6']);
+    expect(result.level.value).toBe(5);
+    expect(result.level.next_gate).toEqual([]);
+    expect(result.scores).toMatchObject({ ingestion: 100, commerce: 100 });
+    const notPassing = result.results.filter(
+      (item) => item.verdict !== 'pass' && item.skip_reason !== 'not_applicable',
+    );
+    expect(notPassing.map((item) => `${item.id}:${item.skip_reason ?? item.verdict}`)).toEqual(
+      notPassing
+        .filter((item) => item.skip_reason === 'not_implemented')
+        .map((item) => `${item.id}:not_implemented`),
+    );
   });
 
   it('renders every format', async () => {
@@ -96,6 +105,24 @@ describe('scan of the good WooCommerce fixture', () => {
     );
     expect(renderHtml(result)).toContain('<!doctype html>');
     expect(renderBadge(result)).toContain('<svg');
+  });
+});
+
+describe('scan of the recorded Shopify store', () => {
+  it('detects Shopify, runs the Shopify-only checks and skips the WooCommerce ones', async () => {
+    const result = await scan('https://boots.example/', {
+      fetcher: fixtureFetcher(join(fixtures, 'shopify-store')),
+      now: fixedNow,
+    });
+    expect(result.target.platform).toBe('shopify');
+    expect(result.target.profile).toBe('other-store');
+    const byId = new Map(result.results.map((item) => [item.id, item]));
+    expect(byId.get('B1.8')?.verdict).toBe('pass');
+    expect(byId.get('B5.8')?.verdict).toBe('pass');
+    expect(byId.get('B5.1')?.verdict).toBe('pass');
+    expect(byId.get('B1.2')?.skip_reason).toBe('not_applicable');
+    expect(byId.get('B5.7')?.skip_reason).toBe('not_applicable');
+    expect(result.level.value).toBeGreaterThanOrEqual(2);
   });
 });
 

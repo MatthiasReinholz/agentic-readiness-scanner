@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "identifier": "urn:air:ceramics.example:shop",
+      "type": "application/mcp-server-card+json",
+      "url": "https://ceramics.example/mcp/server-card"
+    }
+  ]
+}

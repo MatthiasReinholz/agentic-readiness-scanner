@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { HtmlDocument } from './html.js';
+import { attribute, HtmlDocument } from './html.js';
+
+function must<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error('expected a value');
+  return value;
+}
 
 const PAGE = `<!doctype html>
 <html>
@@ -81,6 +86,28 @@ describe('HtmlDocument', () => {
     expect(new HtmlDocument('<body><div></div></body>').hasMainLandmark()).toBe(false);
   });
 
+  it('finds the first main landmark, the first matching element and document order', () => {
+    const page = new HtmlDocument(
+      '<body><div id="consent"><p>cookies</p></div><main id="first"></main><div role="main" id="second"></div></body>',
+    );
+    const main = must(page.mainLandmark());
+    expect(attribute(main, 'id')).toBe('first');
+    const consent = must(page.firstElement((element) => attribute(element, 'id') === 'consent'));
+    expect(consent.name).toBe('div');
+    expect(page.firstElement((element) => element.name === 'nav')).toBeNull();
+    expect(page.precedes(consent, main)).toBe(true);
+    expect(page.precedes(main, consent)).toBe(false);
+    expect(page.precedes(main, main)).toBe(false);
+    // Pre-order: a wrapper precedes the landmark it contains.
+    const wrapped = new HtmlDocument('<body><div class="modal"><main></main></div></body>');
+    const wrapper = must(wrapped.firstElement((element) => element.name === 'div'));
+    expect(wrapped.precedes(wrapper, must(wrapped.mainLandmark()))).toBe(true);
+    // Without a body the whole document is searched.
+    expect(must(new HtmlDocument('<div role="main"></div>').mainLandmark()).name).toBe('div');
+    expect(new HtmlDocument('<p>no landmark</p>').mainLandmark()).toBeNull();
+    expect(new HtmlDocument('<p>no body</p>').firstElement((e) => e.name === 'p')?.name).toBe('p');
+  });
+
   it('finds elements by attribute pattern', () => {
     expect(doc.find('span', 'class', /\bprice/)).toHaveLength(1);
     expect(doc.find('span', 'class', /\bprice$/)).toHaveLength(0);
@@ -95,5 +122,94 @@ describe('HtmlDocument', () => {
       'shop.example',
       'static.example',
     ]);
+  });
+
+  it('lists the WooCommerce variation form signals present', () => {
+    expect(doc.variationFormSignals()).toEqual([]);
+    expect(
+      new HtmlDocument(
+        '<form class="variations_form cart"><select name="attribute_pa_size"></select></form><div data-product_variations="[]"></div>',
+      ).variationFormSignals(),
+    ).toEqual(['form.variations_form', 'select[name^=attribute_]', 'data-product_variations']);
+    expect(
+      new HtmlDocument('<form class="my_variations_form"></form>').variationFormSignals(),
+    ).toEqual([]);
+  });
+
+  it('finds the rendered product image by src, gallery or featured class', () => {
+    const base = 'https://shop.example/product/mug/';
+    const page = new HtmlDocument(`
+      <img src="/logo.png" alt="Logo">
+      <div class="woocommerce-product-gallery">
+        <img width="600" height="600" data-large_image_width="1200" src="/wp-content/uploads/mug.jpg" alt=" Blue mug ">
+      </div>
+      <img class="attachment-thumb wp-post-image" data-src="https://cdn.example/lazy.jpg">
+    `);
+    expect(page.productImage(base, 'https://shop.example/wp-content/uploads/mug.jpg')).toEqual({
+      src: 'https://shop.example/wp-content/uploads/mug.jpg',
+      alt: 'Blue mug',
+      width: 600,
+      height: 600,
+      fullWidth: 1200,
+      fullHeight: null,
+    });
+    expect(page.productImage(base, 'https://cdn.example/elsewhere.jpg')?.alt).toBe('Blue mug');
+    expect(page.productImage(base)?.src).toBe('https://shop.example/wp-content/uploads/mug.jpg');
+    const featured = new HtmlDocument(
+      '<img class="wp-post-image" data-src="https://cdn.example/lazy.jpg" width="abc">',
+    ).productImage(base);
+    expect(featured).toEqual({
+      src: 'https://cdn.example/lazy.jpg',
+      alt: null,
+      width: null,
+      height: null,
+      fullWidth: null,
+      fullHeight: null,
+    });
+    expect(doc.productImage(base)).toBeNull();
+  });
+
+  it('returns the text of inline scripts only', () => {
+    const page = new HtmlDocument(`
+      <script src="/app.js">ignored</script>
+      <script>navigator.modelContext.registerTool({ name: 'search' });</script>
+      <script type="application/ld+json">{"@type":"Thing"}</script>
+    `);
+    expect(page.inlineScripts()).toEqual([
+      "navigator.modelContext.registerTool({ name: 'search' });",
+      '{"@type":"Thing"}',
+    ]);
+    expect(new HtmlDocument('<p>no scripts</p>').inlineScripts()).toEqual([]);
+  });
+});
+
+describe('HtmlDocument controls and link titles', () => {
+  it('keeps a link title and lists buttons and inputs as controls', () => {
+    const page = new HtmlDocument(`<head>
+      <link rel="alternate" type="application/rss+xml" title="Shop » Feed" href="/feed/">
+    </head><body>
+      <form class="cart">
+        <input type="hidden" name="add-to-cart" value="12">
+        <button type="submit" class="single_add_to_cart_button button" id="buy">
+          Add <span>to cart</span>
+        </button>
+      </form>
+      <input type="submit" value="Buy now">
+    </body>`);
+    expect(page.links()).toEqual([
+      { rel: 'alternate', href: '/feed/', type: 'application/rss+xml', title: 'Shop » Feed' },
+    ]);
+    expect(page.controls()).toEqual([
+      {
+        tag: 'button',
+        type: 'submit',
+        id: 'buy',
+        className: 'single_add_to_cart_button button',
+        text: 'Add to cart',
+      },
+      { tag: 'input', type: 'hidden', name: 'add-to-cart', value: '12', text: '' },
+      { tag: 'input', type: 'submit', value: 'Buy now', text: '' },
+    ]);
+    expect(new HtmlDocument('<p>none</p>').controls()).toEqual([]);
   });
 });

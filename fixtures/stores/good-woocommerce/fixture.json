@@ -12,73 +12,247 @@
     },
     {
       "url": "https://ceramics.example/robots.txt",
-      "headers": { "content-type": "text/plain" },
+      "headers": {
+        "content-type": "text/plain"
+      },
       "body_file": "robots.txt"
     },
     {
       "url": "https://ceramics.example/wp-sitemap.xml",
-      "headers": { "content-type": "application/xml" },
+      "headers": {
+        "content-type": "application/xml"
+      },
       "body_file": "wp-sitemap.xml"
     },
     {
       "url": "https://ceramics.example/wp-sitemap-posts-product-1.xml",
-      "headers": { "content-type": "application/xml" },
+      "headers": {
+        "content-type": "application/xml"
+      },
       "body_file": "wp-sitemap-posts-product-1.xml"
     },
     {
       "url": "https://ceramics.example/wp-sitemap-posts-page-1.xml",
-      "headers": { "content-type": "application/xml" },
+      "headers": {
+        "content-type": "application/xml"
+      },
       "body_file": "wp-sitemap-posts-page-1.xml"
     },
     {
       "url": "https://ceramics.example/product/stoneware-mug/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "product-stoneware-mug.html"
     },
     {
+      "url": "https://ceramics.example/product/stoneware-mug/",
+      "request_headers": {
+        "accept": "text/markdown"
+      },
+      "headers": {
+        "content-type": "text/markdown; charset=utf-8",
+        "vary": "Accept"
+      },
+      "body_file": "product-stoneware-mug.md"
+    },
+    {
       "url": "https://ceramics.example/product/serving-bowl/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "product-serving-bowl.html"
     },
     {
       "url": "https://ceramics.example/llms.txt",
-      "headers": { "content-type": "text/markdown" },
+      "headers": {
+        "content-type": "text/markdown"
+      },
       "body_file": "llms.txt"
     },
     {
       "url": "https://ceramics.example/.well-known/security.txt",
-      "headers": { "content-type": "text/plain" },
+      "headers": {
+        "content-type": "text/plain"
+      },
       "body_file": "security.txt"
     },
     {
+      "url": "https://ceramics.example/.well-known/ai-catalog.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*"
+      },
+      "body_file": "ai-catalog.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp/server-card",
+      "headers": {
+        "content-type": "application/mcp-server-card+json",
+        "access-control-allow-origin": "*"
+      },
+      "body_file": "mcp-server-card.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp",
+      "status": 405,
+      "headers": {
+        "allow": "POST",
+        "content-type": "text/plain"
+      },
+      "body": "Method Not Allowed"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/oauth-protected-resource/mcp",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body_file": "oauth-protected-resource.json"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/api-catalog",
+      "headers": {
+        "content-type": "application/linkset+json"
+      },
+      "body_file": "api-catalog.json"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/agent-card.json",
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body_file": "agent-card.json"
+    },
+    {
       "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=1",
-      "headers": { "content-type": "application/json", "x-wp-total": "2", "x-wp-totalpages": "2" },
+      "headers": {
+        "content-type": "application/json",
+        "x-wp-total": "2",
+        "x-wp-totalpages": "2"
+      },
       "body_file": "store-products-1.json"
     },
     {
       "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=20",
-      "headers": { "content-type": "application/json", "x-wp-total": "2", "x-wp-totalpages": "1" },
+      "headers": {
+        "content-type": "application/json",
+        "x-wp-total": "2",
+        "x-wp-totalpages": "1"
+      },
       "body_file": "store-products-20.json"
     },
     {
+      "url": "https://ceramics.example/feed/products.xml",
+      "headers": {
+        "content-type": "application/xml; charset=utf-8",
+        "date": "Fri, 30 Oct 2026 12:00:00 GMT",
+        "last-modified": "Fri, 30 Oct 2026 09:00:00 GMT"
+      },
+      "body_file": "feed-products.xml"
+    },
+    {
       "url": "https://ceramics.example/returns/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "returns.html"
     },
     {
       "url": "https://ceramics.example/shipping/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "shipping.html"
     },
     {
       "url": "https://ceramics.example/privacy-policy/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "privacy.html"
     },
     {
       "url": "https://ceramics.example/terms/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "terms.html"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=2",
+      "headers": {
+        "content-type": "application/json",
+        "x-wp-total": "2",
+        "x-wp-totalpages": "1"
+      },
+      "body_file": "store-products-20.json"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=3",
+      "headers": {
+        "content-type": "application/json",
+        "x-wp-total": "2",
+        "x-wp-totalpages": "1"
+      },
+      "body_file": "store-products-20.json"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wc/store/v1/products?per_page=4",
+      "headers": {
+        "content-type": "application/json",
+        "x-wp-total": "2",
+        "x-wp-totalpages": "1"
+      },
+      "body_file": "store-products-20.json"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wc/store/v1/cart",
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "no-cache, must-revalidate, max-age=0, no-store, private"
+      },
+      "body_file": "store-cart.json"
+    },
+    {
+      "url": "https://ceramics.example/checkout/",
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
+      "body_file": "checkout.html"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/ucp",
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "public, max-age=300"
+      },
+      "body_file": "well-known-ucp.json"
+    },
+    {
+      "url": "https://ceramics.example/ucp/v1",
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "www-authenticate": "Bearer"
+      },
+      "body": "{\"error\":\"unauthorized\"}"
+    },
+    {
+      "url": "https://ceramics.example/.well-known/acp.json",
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "public, max-age=300"
+      },
+      "body_file": "acp.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp",
+      "method": "POST",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"supportedVersions\":[\"2026-07-28\"],\"capabilities\":{\"tools\":{}},\"_meta\":{\"io.modelcontextprotocol/serverInfo\":{\"name\":\"Example Ceramics\",\"version\":\"1.0.0\"}}}}"
     }
   ]
 }

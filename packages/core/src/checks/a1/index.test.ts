@@ -1,7 +1,24 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
-import { mapFetcher, runCheck, targetFor, type TargetOptions } from '../../testing/index.js';
-import { llmsTxtLinksToCatalog, llmsTxtPresent, robotsTxtExists } from './index.js';
+import { resolveTarget } from '../../target/resolver.js';
+import type { SitemapSummary } from '../../target/types.js';
+import {
+  fixtureFetcher,
+  mapFetcher,
+  runCheck,
+  targetFor,
+  type TargetOptions,
+} from '../../testing/index.js';
+import {
+  linkResponseHeaders,
+  llmsTxtLinksToCatalog,
+  llmsTxtPresent,
+  robotsTxtExists,
+  sitemapLastmodPlausible,
+} from './index.js';
 
 describe('A1.1 robots.txt exists and parses', () => {
   const run = (robots: NonNullable<TargetOptions['robots']> | null) =>
@@ -56,8 +73,10 @@ describe('A1.5 and A1.6 llms.txt', () => {
   const target = targetFor();
   const url = 'https://shop.example/llms.txt';
 
-  it('fails when llms.txt is missing or HTML, warns when malformed, passes when well formed', async () => {
-    expect((await runCheck(llmsTxtPresent, target, mapFetcher({}))).verdict).toBe('fail');
+  it('skips when llms.txt is missing, fails on HTML or no H1, warns without links, passes when well formed', async () => {
+    const missing = await runCheck(llmsTxtPresent, target, mapFetcher({}));
+    expect(missing.verdict).toBe('skip');
+    expect(missing.skipReason).toBe('not_applicable');
     const html = await runCheck(
       llmsTxtPresent,
       target,
@@ -66,7 +85,14 @@ describe('A1.5 and A1.6 llms.txt', () => {
     expect(html.verdict).toBe('fail');
     expect(html.message).toMatch(/HTML/);
     const prose = await runCheck(llmsTxtPresent, target, mapFetcher({ [url]: 'Just prose.' }));
-    expect(prose.verdict).toBe('warn');
+    expect(prose.verdict).toBe('fail');
+    expect(prose.message).toMatch(/H1/);
+    const noLinks = await runCheck(
+      llmsTxtPresent,
+      target,
+      mapFetcher({ [url]: '# Shop\n\n> Ceramics.\n' }),
+    );
+    expect(noLinks.verdict).toBe('warn');
     const good = await runCheck(
       llmsTxtPresent,
       target,
@@ -97,5 +123,192 @@ describe('A1.5 and A1.6 llms.txt', () => {
     expect(some.evidence).toEqual({
       catalog_links: ['https://shop.example/wp-json/wc/store/v1/products'],
     });
+  });
+});
+
+describe('A1.4 Link response headers', () => {
+  const mug = 'https://shop.example/product/mug/';
+
+  it('passes when the home page sends a relation an agent can use and lists every link', async () => {
+    const target = targetFor();
+    target.home.headers.link = '</llms.txt>; rel="llms-txt", </style.css>; rel=preload; as=style';
+    const outcome = await runCheck(linkResponseHeaders, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('Link header relation(s) an agent can use: llms-txt');
+    expect(outcome.evidence).toMatchObject({
+      pages: ['https://shop.example/'],
+      usable: 1,
+      links: [
+        { href: 'https://shop.example/llms.txt', rel: ['llms-txt'], type: null, usable: true },
+        { href: 'https://shop.example/style.css', rel: ['preload'], usable: false },
+      ],
+    });
+  });
+
+  it('passes on a typed relation sent by the first sampled product page', async () => {
+    const outcome = await runCheck(
+      linkResponseHeaders,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          headers: {
+            'content-type': 'text/html',
+            Link: '</product/mug.md>; rel=alternate; type="text/markdown"',
+          },
+          body: '<html></html>',
+        },
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: ['https://shop.example/', mug],
+      links: [
+        {
+          page: mug,
+          href: 'https://shop.example/product/mug.md',
+          rel: ['alternate'],
+          type: 'text/markdown',
+          usable: true,
+        },
+      ],
+    });
+  });
+
+  it('fails when the links present carry no usable relation (license without the RSL type)', async () => {
+    const target = targetFor();
+    target.home.headers.link =
+      '</license>; rel=license; type="text/html", </feed>; rel=alternate; type="application/rss+xml"';
+    const outcome = await runCheck(linkResponseHeaders, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe(
+      '2 Link header value(s) but none with a relation an agent can use',
+    );
+    expect(outcome.evidence).toMatchObject({ usable: 0 });
+  });
+
+  it('fails when neither page sends a Link header', async () => {
+    const outcome = await runCheck(
+      linkResponseHeaders,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: '<html></html>' }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toMatch(/no Link response header/);
+    expect(outcome.evidence).toEqual({
+      pages: ['https://shop.example/', mug],
+      links: [],
+      usable: 0,
+    });
+  });
+});
+
+describe('A1.7 sitemap lastmod present and plausible', () => {
+  const summary = (lastmods: string[], entries = lastmods.length): SitemapSummary => ({
+    url: 'https://shop.example/sitemap.xml',
+    kind: 'urlset',
+    childSitemaps: [],
+    fetchedSitemaps: [],
+    urls: Array.from({ length: entries }, (_, index) => `https://shop.example/product/p${index}/`),
+    productUrls: [],
+    lastmods,
+  });
+  const run = (sitemap: SitemapSummary | null) =>
+    runCheck(sitemapLastmodPlausible, targetFor({ sitemap }), mapFetcher({}));
+
+  it('skips when no sitemap was found', async () => {
+    const outcome = await run(null);
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('dependency_failed');
+  });
+
+  it('does not apply when the sitemaps read list no URL entries', async () => {
+    const outcome = await run(summary([], 0));
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('not_applicable');
+    expect(outcome.evidence).toMatchObject({ entries_read: 0 });
+  });
+
+  it('passes when at least 80 percent carry a valid lastmod and the values differ', async () => {
+    const outcome = await run(
+      summary(['2026-10-01', '2026-09-15T08:00:00Z', '2026-08-01', '2026-07-01'], 5),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      '4 of 5 sitemap entries read carry a valid lastmod with 4 distinct value(s)',
+    );
+    expect(outcome.evidence).toMatchObject({
+      sitemaps_read: ['https://shop.example/sitemap.xml'],
+      entries_read: 5,
+      with_lastmod: 4,
+      valid_lastmod: 4,
+      distinct_values: 4,
+      share: 0.8,
+      sample: ['2026-10-01', '2026-09-15T08:00:00Z', '2026-08-01', '2026-07-01'],
+    });
+  });
+
+  it('passes a one-entry sitemap whose single lastmod is valid', async () => {
+    const outcome = await run(summary(['2026-10-01']));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({ entries_read: 1, distinct_values: 1 });
+  });
+
+  it('warns when fewer than 80 percent carry a valid lastmod, counting malformed values as missing', async () => {
+    const outcome = await run(summary(['2026-10-01', '2026-09-15', 'yesterday'], 5));
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/2 of 5 .*under 80 percent/);
+    expect(outcome.evidence).toMatchObject({
+      with_lastmod: 3,
+      valid_lastmod: 2,
+      invalid_lastmod: 1,
+      invalid_sample: ['yesterday'],
+      share: 0.4,
+    });
+  });
+
+  it('warns when every lastmod is the same value', async () => {
+    const stamp = '2026-10-31T12:00:00Z';
+    const outcome = await run(summary([stamp, stamp, stamp]));
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/stamped at request time/);
+    expect(outcome.evidence).toMatchObject({ valid_lastmod: 3, distinct_values: 1 });
+  });
+
+  it('fails when no entry carries a lastmod, or none of them is a W3C datetime', async () => {
+    const none = await run(summary([], 3));
+    expect(none.verdict).toBe('fail');
+    expect(none.message).toBe('none of the 3 sitemap entries read carries <lastmod>');
+    const invalid = await run(summary(['1759309200', 'n/a']));
+    expect(invalid.verdict).toBe('fail');
+    expect(invalid.message).toBe('2 lastmod value(s) found but none is a valid W3C datetime');
+    expect(invalid.evidence).toMatchObject({ invalid_sample: ['1759309200', 'n/a'] });
+  });
+});
+
+describe('A1 checks on the good WooCommerce fixture', () => {
+  const fixture = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'fixtures',
+    'stores',
+    'good-woocommerce',
+  );
+
+  it('passes A1.4 and A1.7', async () => {
+    const fetcher = fixtureFetcher(fixture);
+    const target = await resolveTarget('ceramics.example', fetcher);
+    expect(target.sitemap?.lastmods).toEqual([
+      '2026-10-01T09:00:00+00:00',
+      '2026-10-02T09:00:00+00:00',
+    ]);
+    for (const check of [linkResponseHeaders, sitemapLastmodPlausible]) {
+      const outcome = await runCheck(check, target, fetcher);
+      expect(outcome.verdict, check.id).toBe('pass');
+    }
   });
 });

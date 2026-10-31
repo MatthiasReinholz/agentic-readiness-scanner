@@ -2,6 +2,7 @@ import { SCANNER_VERSION } from '@agentic-readiness/core';
 
 import { parseCliArguments, USAGE } from './args.js';
 import { renderCatalog } from './commands/catalog.js';
+import { runDiff } from './commands/diff.js';
 import { runMcp } from './commands/mcp.js';
 import { runScan } from './commands/scan.js';
 
@@ -25,6 +26,8 @@ export async function main(
   switch (args.command) {
     case 'scan':
       return runScan(args, io.stdout, io.stderr);
+    case 'diff':
+      return runDiff(args, io.stdout, io.stderr);
     case 'mcp':
       return runMcp();
     case 'catalog':

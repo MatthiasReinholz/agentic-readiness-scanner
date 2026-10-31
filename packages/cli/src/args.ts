@@ -16,11 +16,18 @@ export interface ScanArguments {
   output?: string;
 }
 
+export interface DiffArguments {
+  command: 'diff';
+  before: string;
+  after: string;
+  format: 'text' | 'json';
+}
+
 export interface SimpleArguments {
   command: 'mcp' | 'catalog' | 'help' | 'version';
 }
 
-export type CliArguments = ScanArguments | SimpleArguments;
+export type CliArguments = ScanArguments | DiffArguments | SimpleArguments;
 
 const PROFILE_IDS = catalog.profiles.map((profile) => profile.id);
 
@@ -28,6 +35,7 @@ export const USAGE = `agentic-readiness <command> [options]
 
 Commands
   scan <url>         Scan a store and print the report
+  diff <a> <b>       Compare two saved JSON reports (exit 3 when something changed)
   mcp                Run the MCP server over stdio
   catalog            Print the check catalog
   version            Print the scanner version
@@ -41,6 +49,9 @@ Scan options
   --timeout <ms>     Per-request timeout in milliseconds (default: 10000)
   --fixture <dir>    Answer from a recorded fixture directory instead of the network
   --output <file>    Write the report to a file instead of stdout
+
+Diff options
+  --format <fmt>     text | json (default: text)
 `;
 
 function positiveInteger(name: string, value: string | undefined): number | undefined {
@@ -93,6 +104,13 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
         ...(values.fixture !== undefined ? { fixture: values.fixture } : {}),
         ...(values.output !== undefined ? { output: values.output } : {}),
       };
+    }
+    case 'diff': {
+      const [, before, after] = positionals;
+      if (!before || !after) throw new Error('diff needs two JSON report files\n\n' + USAGE);
+      const format = values.format ?? 'text';
+      if (format !== 'text' && format !== 'json') throw new Error(`unknown format ${format}`);
+      return { command: 'diff', before, after, format };
     }
     case 'mcp':
     case 'catalog':

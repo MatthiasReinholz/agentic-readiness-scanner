@@ -6,10 +6,12 @@ import { createMcpServer } from '@agentic-readiness/mcp';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { Hono } from 'hono';
 
+import { historyJson } from './pages/history.js';
 import { scanOrReuse, type ScanDependencies } from './scan-service.js';
 
 export function createMcpRoute(deps: ScanDependencies): Hono {
   const route = new Hono();
+  const { history } = deps;
   route.all('/', async (c) => {
     const server = createMcpServer({
       scanner: async (url, profile) => {
@@ -19,6 +21,9 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
         });
         return stored.result;
       },
+      ...(history
+        ? { history: async (host: string) => historyJson(host, await history.forHost(host, 50)) }
+        : {}),
     });
     // No sessionIdGenerator: stateless mode, one transport per request.
     const transport = new WebStandardStreamableHTTPServerTransport({});

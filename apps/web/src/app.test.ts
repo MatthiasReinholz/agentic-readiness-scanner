@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
+import { MemoryHistoryStore } from './history/memory.js';
 import { MemoryResultStore } from './store/memory.js';
 import { attachFixes, stripFixes } from './store/sql.js';
 
@@ -23,14 +24,16 @@ const fixture = join(
 
 function testApp() {
   const store = new MemoryResultStore();
+  const history = new MemoryHistoryStore();
   const config = configFromEnv({ APP_BASE_URL: 'https://scanner.example' });
   const app = createApp({
     config,
     store,
+    history,
     fetcherFactory: () => fixtureFetcher(fixture),
     now: () => new Date('2026-10-30T12:00:00Z'),
   });
-  return { app, store };
+  return { app, store, history };
 }
 
 describe('hosted app', () => {
@@ -43,6 +46,7 @@ describe('hosted app', () => {
       '</llms.txt>; rel="llms-txt"'.replace('</', '<https://scanner.example/'),
     );
     expect(home.headers.get('link')).toContain('rel="mcp-server"');
+    expect(home.headers.get('link')).toContain('rel="ai-catalog"');
     const health = await app.request('/health');
     expect(health.headers.get('x-content-type-options')).toBe('nosniff');
     expect(health.headers.get('link')).toBeNull();
@@ -54,11 +58,31 @@ describe('hosted app', () => {
     const llms = await app.request('/llms.txt');
     expect(llms.headers.get('content-type')).toContain('text/markdown');
     expect(await llms.text()).toContain('# Agentic Readiness Scanner');
-    const card = await app.request('/.well-known/mcp/server-card.json');
+    const card = await app.request('/mcp/server-card');
+    expect(card.headers.get('content-type')).toContain('application/mcp-server-card+json');
+    expect(card.headers.get('access-control-allow-origin')).toBe('*');
     expect(await card.json()).toMatchObject({
+      name: 'Agentic Readiness Scanner',
+      remotes: [{ type: 'streamable-http', url: 'https://scanner.example/mcp' }],
       endpoint: 'https://scanner.example/mcp',
-      tools: ['scan_store', 'get_fix', 'list_checks'],
+      tools: ['scan_store', 'get_history', 'get_fix', 'list_checks'],
     });
+    const legacy = await app.request('/.well-known/mcp/server-card.json');
+    expect(legacy.status).toBe(200);
+    const aiCatalog = await app.request('/.well-known/ai-catalog.json');
+    expect(aiCatalog.headers.get('content-type')).toContain('application/ai-catalog+json');
+    expect(await aiCatalog.json()).toMatchObject({
+      entries: [
+        {
+          type: 'application/mcp-server-card+json',
+          url: 'https://scanner.example/mcp/server-card',
+        },
+      ],
+    });
+    const robots = await (await app.request('/robots.txt')).text();
+    expect(robots).toContain('User-agent: __usage_ai-training');
+    expect(robots).toContain('User-agent: OAI-SearchBot');
+    expect(robots).toContain('Disallow: /h/');
   });
 
   it('scans through the JSON API and serves the report in three formats plus a badge', async () => {
@@ -85,6 +109,44 @@ describe('hosted app', () => {
     const badge = await app.request('/badge/ceramics.example.svg');
     expect(badge.headers.get('content-type')).toBe('image/svg+xml');
     expect(await badge.text()).toContain('Level');
+  });
+
+  it('records history per host and serves it as a page and as JSON', async () => {
+    const { app } = testApp();
+    const { id } = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://ceramics.example/' }),
+      })
+    ).json()) as { id: string };
+    const report = await (await app.request(`/r/${id}`)).text();
+    expect(report).toContain('First scan of ceramics.example');
+    expect(report).toContain('href="/h/ceramics.example"');
+
+    const html = await app.request('/h/ceramics.example');
+    expect(html.status).toBe(200);
+    const text = await html.text();
+    expect(text).toContain('1 distinct state across 1 scan');
+    expect(text).toContain(`href="/r/${id}"`);
+
+    const json = await app.request('/h/ceramics.example.json');
+    expect(json.headers.get('content-type')).toContain('application/json');
+    const body = (await json.json()) as {
+      host: string;
+      states: {
+        first_scan_id: string;
+        scans: number;
+        verdicts: Record<string, string>;
+        changes: unknown;
+      }[];
+    };
+    expect(body.host).toBe('ceramics.example');
+    expect(body.states[0]).toMatchObject({ first_scan_id: id, scans: 1, changes: null });
+    expect(body.states[0]?.verdicts['A1.1']).toBe('pass');
+
+    expect((await app.request('/h/never-scanned.example')).status).toBe(404);
+    expect((await app.request('/h/never-scanned.example.json')).status).toBe(404);
+    expect((await app.request('/h/not a host')).status).toBe(404);
   });
 
   it('reuses a recent result for the same host', async () => {

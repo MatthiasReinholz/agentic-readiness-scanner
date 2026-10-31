@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
-
 import { HtmlDocument } from './html.js';
-import { asString, extractJsonLd, gtinOf, hasType, offersOf, productNodes } from './jsonld.js';
+import {
+  asDimension,
+  asString,
+  brandOf,
+  extractJsonLd,
+  gtinOf,
+  hasType,
+  hasValue,
+  imageOf,
+  isOrganizationType,
+  nodesOf,
+  offersOf,
+  organizationNodes,
+  productNodes,
+  variantNodes,
+  variantsOf,
+} from './jsonld.js';
 
 function docWith(...scripts: string[]): HtmlDocument {
   return new HtmlDocument(
@@ -79,6 +94,26 @@ describe('offersOf', () => {
   });
 });
 
+describe('variantNodes', () => {
+  it('lists the Product nodes under hasVariant and nothing else', () => {
+    expect(
+      variantNodes({
+        '@type': 'ProductGroup',
+        hasVariant: [
+          { '@type': 'Product', name: 'Small' },
+          { '@type': 'Offer', price: '1' },
+          { '@type': 'https://schema.org/Product', name: 'Large' },
+        ],
+      }).map((node) => node.name),
+    ).toEqual(['Small', 'Large']);
+    expect(
+      variantNodes({ '@type': 'ProductGroup', hasVariant: { '@type': 'Product' } }),
+    ).toHaveLength(1);
+    expect(variantNodes({ '@type': 'Product' })).toEqual([]);
+    expect(variantNodes({ hasVariant: 'string' })).toEqual([]);
+  });
+});
+
 describe('asString and gtinOf', () => {
   it('normalises strings and numbers and rejects everything else', () => {
     expect(asString('  24.00 ')).toBe('24.00');
@@ -94,5 +129,142 @@ describe('asString and gtinOf', () => {
     expect(gtinOf({ gtin: '', gtin12: 12345678905 })).toBe('12345678905');
     expect(gtinOf({ gtin8: '96385074', gtin14: '1' })).toBe('96385074');
     expect(gtinOf({ sku: 'MUG' })).toBeNull();
+  });
+});
+
+describe('nodesOf and asDimension', () => {
+  it('flattens one node, an array or a nested @graph under a property', () => {
+    expect(nodesOf({ a: { x: 1 } }, 'a')).toEqual([{ x: 1 }]);
+    expect(nodesOf({ a: [{ x: 1 }, 'text', { '@graph': [{ y: 2 }] }] }, 'a')).toEqual([
+      { x: 1 },
+      { y: 2 },
+    ]);
+    expect(nodesOf({}, 'a')).toEqual([]);
+  });
+
+  it('accepts positive pixel counts as numbers or strings and rejects the rest', () => {
+    expect(asDimension(800)).toBe(800);
+    expect(asDimension('1200')).toBe(1200);
+    expect(asDimension('1200.0')).toBe(1200);
+    expect(asDimension('640px')).toBe(640);
+    expect(asDimension('0')).toBeNull();
+    expect(asDimension('100%')).toBeNull();
+    expect(asDimension({ '@type': 'QuantitativeValue', value: 800 })).toBeNull();
+    expect(asDimension(undefined)).toBeNull();
+  });
+});
+
+describe('brandOf', () => {
+  it('distinguishes a typed object, a bare string and an absent brand', () => {
+    expect(brandOf({ brand: { '@type': 'Brand', name: ' Acme ' } })).toEqual({
+      kind: 'entity',
+      type: 'Brand',
+      name: 'Acme',
+    });
+    expect(brandOf({ brand: [{ '@type': 'https://schema.org/Organization' }] })).toEqual({
+      kind: 'entity',
+      type: 'Organization',
+      name: null,
+    });
+    expect(brandOf({ brand: { name: 'Untyped' } })).toEqual({
+      kind: 'entity',
+      type: null,
+      name: 'Untyped',
+    });
+    expect(brandOf({ brand: 'Acme' })).toEqual({ kind: 'string', type: null, name: 'Acme' });
+    expect(brandOf({ brand: '' })).toBeNull();
+    expect(brandOf({ brand: 42 })).toBeNull();
+    expect(brandOf({})).toBeNull();
+  });
+});
+
+describe('imageOf', () => {
+  it('takes the first image as a URL string or an ImageObject with optional size', () => {
+    expect(imageOf({ image: 'https://x.example/a.jpg' })).toEqual({
+      url: 'https://x.example/a.jpg',
+      width: null,
+      height: null,
+    });
+    expect(imageOf({ image: ['https://x.example/a.jpg', 'https://x.example/b.jpg'] })).toEqual({
+      url: 'https://x.example/a.jpg',
+      width: null,
+      height: null,
+    });
+    expect(
+      imageOf({
+        image: { '@type': 'ImageObject', contentUrl: 'https://x.example/c.jpg', width: '800' },
+      }),
+    ).toEqual({ url: 'https://x.example/c.jpg', width: 800, height: null });
+    expect(imageOf({ image: { '@type': 'ImageObject' } })).toEqual({
+      url: null,
+      width: null,
+      height: null,
+    });
+    expect(imageOf({ image: '' })).toBeNull();
+    expect(imageOf({ image: [] })).toBeNull();
+    expect(imageOf({})).toBeNull();
+  });
+});
+
+describe('variantsOf', () => {
+  it('returns only Product nodes under hasVariant, single or array', () => {
+    expect(variantsOf({ hasVariant: { '@type': 'Product', sku: 'A' } })).toHaveLength(1);
+    expect(
+      variantsOf({
+        hasVariant: [{ '@type': 'Product' }, { '@type': 'Offer' }, 'A', { '@type': 'Product' }],
+      }),
+    ).toHaveLength(2);
+    expect(variantsOf({ '@type': 'ProductGroup' })).toEqual([]);
+  });
+});
+
+describe('organizationNodes', () => {
+  it('matches Organization, its listed subtypes and schema.org Store or Business subtypes', () => {
+    for (const type of [
+      'Organization',
+      'https://schema.org/Organization',
+      'OnlineStore',
+      'LocalBusiness',
+      'ClothingStore',
+      'OnlineBusiness',
+      'Corporation',
+    ]) {
+      expect(isOrganizationType(type), type).toBe(true);
+    }
+    expect(isOrganizationType('Product')).toBe(false);
+    expect(isOrganizationType('WebSite')).toBe(false);
+    expect(isOrganizationType('Person')).toBe(false);
+    const nodes = [
+      { '@type': 'WebSite', name: 'Shop' },
+      { '@type': ['Organization', 'Brand'], name: 'Example Ceramics' },
+      { '@type': 'BookStore', name: 'Books' },
+      { '@type': 'Product', name: 'Mug' },
+    ];
+    expect(organizationNodes(nodes).map((node) => node.name)).toEqual([
+      'Example Ceramics',
+      'Books',
+    ]);
+  });
+});
+
+describe('hasValue', () => {
+  it('accepts non-blank strings, numbers and non-empty objects or arrays only', () => {
+    const node = {
+      name: 'Shop',
+      blank: '   ',
+      count: 0,
+      address: { streetAddress: 'Main St 1' },
+      empty: {},
+      contactPoint: [{ '@type': 'ContactPoint' }],
+      none: [],
+      missing: null,
+    };
+    expect(hasValue(node, 'name')).toBe(true);
+    expect(hasValue(node, 'count')).toBe(true);
+    expect(hasValue(node, 'address')).toBe(true);
+    expect(hasValue(node, 'contactPoint')).toBe(true);
+    for (const key of ['blank', 'empty', 'none', 'missing', 'absent']) {
+      expect(hasValue(node, key), key).toBe(false);
+    }
   });
 });

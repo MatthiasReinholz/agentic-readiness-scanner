@@ -15,6 +15,18 @@ export interface LinkTag {
   href: string;
   type?: string;
   hreflang?: string;
+  title?: string;
+}
+
+/** A button or input: the attributes and text a check needs to tell what it does. */
+export interface Control {
+  tag: 'button' | 'input';
+  type?: string;
+  name?: string;
+  id?: string;
+  className?: string;
+  value?: string;
+  text: string;
 }
 
 const NON_CONTENT_TAGS = new Set(['script', 'style', 'template', 'noscript', 'svg']);
@@ -52,13 +64,39 @@ export class HtmlDocument {
       if (!rel || !href) continue;
       const type = getAttributeValue(element, 'type');
       const hreflang = getAttributeValue(element, 'hreflang');
+      const title = getAttributeValue(element, 'title');
       result.push({
         rel: rel.toLowerCase(),
         href,
         ...(type ? { type } : {}),
         ...(hreflang ? { hreflang } : {}),
+        ...(title ? { title } : {}),
       });
     }
+    return result;
+  }
+
+  /** Every button and input, with the attributes and text that say what it does. */
+  controls(): Control[] {
+    const result: Control[] = [];
+    const read = (element: Element, tag: 'button' | 'input'): Control => {
+      const type = getAttributeValue(element, 'type');
+      const name = getAttributeValue(element, 'name');
+      const id = getAttributeValue(element, 'id');
+      const className = getAttributeValue(element, 'class');
+      const value = getAttributeValue(element, 'value');
+      return {
+        tag,
+        ...(type ? { type } : {}),
+        ...(name ? { name } : {}),
+        ...(id ? { id } : {}),
+        ...(className ? { className } : {}),
+        ...(value ? { value } : {}),
+        text: elementText(element),
+      };
+    };
+    for (const element of this.elements('button')) result.push(read(element, 'button'));
+    for (const element of this.elements('input')) result.push(read(element, 'input'));
     return result;
   }
 
@@ -108,6 +146,13 @@ export class HtmlDocument {
       .map((element) => textContent(element));
   }
 
+  /** Text of inline scripts (those without a src), in document order. */
+  inlineScripts(): string[] {
+    return this.elements('script')
+      .filter((element) => getAttributeValue(element, 'src') === undefined)
+      .map((element) => textContent(element));
+  }
+
   /** Visible text with scripts, styles and templates removed. */
   text(): string {
     const parts: string[] = [];
@@ -138,12 +183,145 @@ export class HtmlDocument {
     );
   }
 
+  /** The first main element or role=main landmark in document order, or null. */
+  mainLandmark(): Element | null {
+    for (const element of preorder(this.dom.children)) {
+      if (element.name === 'main' || getAttributeValue(element, 'role') === 'main') return element;
+    }
+    return null;
+  }
+
+  /**
+   * The first element inside body (the whole document when there is no body) that
+   * matches, in document order. One pre-order walk, O(n).
+   */
+  firstElement(predicate: (element: Element) => boolean): Element | null {
+    const body = this.elements('body')[0];
+    for (const element of preorder(body ? body.children : this.dom.children)) {
+      if (predicate(element)) return element;
+    }
+    return null;
+  }
+
+  /**
+   * True when `first` comes before `second` in document order (pre-order, so an
+   * ancestor precedes its descendants). One walk that stops at whichever is met first.
+   */
+  precedes(first: Element, second: Element): boolean {
+    if (first === second) return false;
+    for (const element of preorder(this.dom.children)) {
+      if (element === first) return true;
+      if (element === second) return false;
+    }
+    return false;
+  }
+
   /** Elements whose attribute matches, e.g. find('div', 'class', /price/). */
   find(tagName: string, attributeName: string, pattern: RegExp): Element[] {
     return this.elements(tagName).filter((element) => {
       const value = getAttributeValue(element, attributeName);
       return value !== undefined && pattern.test(value);
     });
+  }
+
+  /**
+   * Signals of a WooCommerce variable product: the variations form, an attribute select,
+   * or the inlined variation data. Returns the signals found, empty for a simple product.
+   */
+  variationFormSignals(): string[] {
+    const signals: string[] = [];
+    if (this.find('form', 'class', /(?:^|\s)variations_form(?:\s|$)/).length > 0)
+      signals.push('form.variations_form');
+    if (this.find('select', 'name', /^attribute_/).length > 0)
+      signals.push('select[name^=attribute_]');
+    if (
+      findAll(
+        (element) => getAttributeValue(element, 'data-product_variations') !== undefined,
+        this.dom.children,
+      ).length > 0
+    )
+      signals.push('data-product_variations');
+    return signals;
+  }
+
+  /**
+   * The rendered product image: the img whose src resolves to `preferredUrl`, else the
+   * first img in the WooCommerce gallery or carrying the wp-post-image class. Lazy-loaded
+   * images are read from data-src when src is absent. Null when neither is found.
+   */
+  productImage(base: string, preferredUrl: string | null = null): ImageTag | null {
+    const images = this.elements('img');
+    const toTag = (element: Element): ImageTag => {
+      const src = getAttributeValue(element, 'src') ?? getAttributeValue(element, 'data-src') ?? '';
+      const alt = getAttributeValue(element, 'alt');
+      return {
+        src: resolveUrl(src, base) ?? src,
+        alt: alt === undefined ? null : alt.trim(),
+        width: pixels(getAttributeValue(element, 'width')),
+        height: pixels(getAttributeValue(element, 'height')),
+        fullWidth: pixels(getAttributeValue(element, 'data-large_image_width')),
+        fullHeight: pixels(getAttributeValue(element, 'data-large_image_height')),
+      };
+    };
+    const wanted = preferredUrl === null ? null : resolveUrl(preferredUrl, base);
+    if (wanted !== null) {
+      const match = images.map(toTag).find((tag) => tag.src === wanted);
+      if (match) return match;
+    }
+    const gallery = findAll(
+      (element) =>
+        /(?:^|\s)woocommerce-product-gallery(?:\s|$)/.test(
+          getAttributeValue(element, 'class') ?? '',
+        ),
+      this.dom.children,
+    );
+    for (const container of gallery) {
+      const first = getElementsByTagName('img', container, true)[0];
+      if (first) return toTag(first);
+    }
+    const featured = this.find('img', 'class', /(?:^|\s)wp-post-image(?:\s|$)/)[0];
+    return featured ? toTag(featured) : null;
+  }
+}
+
+export interface ImageTag {
+  /** Resolved against the page URL when relative. */
+  src: string;
+  /** Null when the attribute is absent; empty when present but blank. */
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+  /** WooCommerce's data-large_image_width, the full-size image behind the rendered one. */
+  fullWidth: number | null;
+  fullHeight: number | null;
+}
+
+function pixels(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const match = /^\s?(\d{1,6})(?:px)?\s?$/.exec(value);
+  const parsed = match ? Number(match[1]) : 0;
+  return parsed > 0 ? parsed : null;
+}
+
+function resolveUrl(value: string, base: string): string | null {
+  try {
+    const url = new URL(value, base);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Elements in document order (pre-order), without recursion so deep trees cannot overflow. */
+function* preorder(nodes: AnyNode[]): Generator<Element> {
+  const stack = [...nodes].reverse();
+  for (let node = stack.pop(); node !== undefined; node = stack.pop()) {
+    if (!isTag(node)) continue;
+    yield node;
+    for (let i = node.children.length - 1; i >= 0; i -= 1) {
+      const child = node.children[i];
+      if (child) stack.push(child);
+    }
   }
 }
 

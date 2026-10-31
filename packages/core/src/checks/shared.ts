@@ -29,10 +29,29 @@ export interface StoreApiProduct {
   is_in_stock?: boolean;
   images?: unknown[];
   categories?: unknown[];
+  /** Variation summaries of a variable product; empty for a simple one. */
+  variations?: unknown[];
 }
 
 export function storeApiUrl(target: Target, path: string): string {
   return `${target.origin}/wp-json/wc/store/v1${path}`;
+}
+
+/** A product URL as a lookup key: without the trailing slash, so permalinks and sampled URLs meet. */
+export function permalinkKey(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+/** Store API products keyed by permalink, empty when the Store API is unavailable. */
+export async function storeApiProductsByPermalink(
+  target: Target,
+  fetcher: Fetcher,
+): Promise<Map<string, StoreApiProduct>> {
+  const byPermalink = new Map<string, StoreApiProduct>();
+  for (const product of (await storeApiProducts(target, fetcher)) ?? []) {
+    byPermalink.set(permalinkKey(product.permalink), product);
+  }
+  return byPermalink;
 }
 
 /** Store API product list (first page), or null when unavailable. Cached by the fetcher. */

@@ -3,11 +3,14 @@
  * enforces the request budget, timeouts, size caps, redirect limits and URL policy, and
  * caches every response for the lifetime of a scan so two checks never fetch twice.
  */
-export type HttpMethod = 'GET' | 'HEAD' | 'OPTIONS';
+/** POST exists for one purpose: a read-only JSON-RPC probe of an MCP endpoint the site advertises. */
+export type HttpMethod = 'GET' | 'HEAD' | 'OPTIONS' | 'POST';
 
 export interface FetchOptions {
   method?: HttpMethod;
   headers?: Record<string, string>;
+  /** Request body, POST only. */
+  body?: string;
 }
 
 export interface FetchedResponse {

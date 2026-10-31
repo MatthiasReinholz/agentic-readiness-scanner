@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { mapFetcher, runCheck, targetFor } from '../../testing/index.js';
-import { offerComplete, productJsonLd } from './index.js';
+import {
+  markupMatchesPage,
+  offerComplete,
+  productImageUsable,
+  productJsonLd,
+  shippingAndReturnsInMarkup,
+  variantsModeled,
+} from './index.js';
 
 const mug = 'https://shop.example/product/mug/';
 const bowl = 'https://shop.example/product/bowl/';
+const STORE_API = 'https://shop.example/wp-json/wc/store/v1/products?per_page=20';
 
-function withJsonLd(node: unknown): string {
-  return `<!doctype html><html><head><title>P</title><script type="application/ld+json">${JSON.stringify(node)}</script></head><body></body></html>`;
+function withJsonLd(node: unknown, body = ''): string {
+  return `<!doctype html><html><head><title>P</title><script type="application/ld+json">${JSON.stringify(node)}</script></head><body>${body}</body></html>`;
 }
 
 const PLAIN = '<!doctype html><html><head><title>P</title></head><body>No markup</body></html>';
@@ -143,5 +151,544 @@ describe('B2.2 offers carry price, currency and availability', () => {
       mapFetcher({ [mug]: withJsonLd(node) }),
     );
     expect(outcome.verdict).toBe('pass');
+  });
+});
+
+const VARIATIONS_FORM =
+  '<form class="variations_form cart"><select name="attribute_pa_size"><option value="s">S</option></select></form>';
+
+function productGroup(variants: number): unknown {
+  return {
+    '@type': 'ProductGroup',
+    name: 'Mugs',
+    hasVariant: Array.from({ length: variants }, (_, i) => ({
+      '@type': 'Product',
+      name: `Mug ${i}`,
+      sku: `MUG-${i}`,
+    })),
+  };
+}
+
+function storeApi(products: Record<string, unknown>[]): string {
+  return JSON.stringify(
+    products.map((product, i) => ({ id: i + 1, name: `P${i}`, sku: `P-${i}`, ...product })),
+  );
+}
+
+describe('B2.3 variants modeled', () => {
+  it('does not apply without sampled product pages', async () => {
+    const outcome = await runCheck(variantsModeled, targetFor(), mapFetcher({}));
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+  });
+
+  it('does not apply when no sampled product appears variable', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product(COMPLETE), '<form class="cart"></form>') }),
+    );
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { appears_variable: false, signals: [] } },
+    });
+  });
+
+  it('passes when the variations form is backed by a ProductGroup with hasVariant', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(productGroup(2), VARIATIONS_FORM) }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      modeled: 1,
+      variable: 1,
+      pages: {
+        [mug]: {
+          appears_variable: true,
+          signals: ['form.variations_form', 'select[name^=attribute_]'],
+          product_group: true,
+          jsonld_variants: 2,
+          store_api_variations: 0,
+        },
+      },
+    });
+  });
+
+  it('passes when the Store API marks the product variable and lists its variations', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(product(COMPLETE)),
+        [STORE_API]: storeApi([
+          { permalink: mug, type: 'variable', variations: [{ id: 11 }, { id: 12 }] },
+        ]),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: {
+        [mug]: {
+          signals: ['store-api:type=variable'],
+          product_group: false,
+          store_api_variations: 2,
+        },
+      },
+    });
+  });
+
+  it('warns when only some variable products are modeled', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: withJsonLd(productGroup(1), VARIATIONS_FORM),
+        [bowl]: withJsonLd(product(COMPLETE), '<div data-product_variations="[]"></div>'),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.evidence).toMatchObject({
+      modeled: 1,
+      variable: 2,
+      pages: { [bowl]: { signals: ['data-product_variations'], jsonld_variants: 0 } },
+    });
+  });
+
+  it('fails when a variable product is a plain Product with no variants anywhere', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(product(COMPLETE), VARIATIONS_FORM),
+        [STORE_API]: storeApi([{ permalink: mug, type: 'variable', variations: [] }]),
+      }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.evidence).toMatchObject({ modeled: 0, variable: 1 });
+    // A ProductGroup without Product variants does not count as modeled either.
+    const emptyGroup = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(productGroup(0), VARIATIONS_FORM) }),
+    );
+    expect(emptyGroup.verdict).toBe('fail');
+    expect(emptyGroup.evidence).toMatchObject({
+      pages: { [mug]: { product_group: true, jsonld_variants: 0 } },
+    });
+  });
+});
+
+const SHIPPING = {
+  '@type': 'OfferShippingDetails',
+  shippingRate: { '@type': 'MonetaryAmount', value: '4.90', currency: 'EUR' },
+};
+const RETURNS = { '@type': 'MerchantReturnPolicy', merchantReturnDays: 30 };
+
+describe('B2.4 shipping and return details in markup', () => {
+  it('does not apply without sampled product pages', async () => {
+    const outcome = await runCheck(shippingAndReturnsInMarkup, targetFor(), mapFetcher({}));
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+  });
+
+  it('defers to B2.1 without Product JSON-LD and to B2.2 without an Offer', async () => {
+    const noProduct = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: PLAIN }),
+    );
+    expect(noProduct).toMatchObject({ verdict: 'skip', skipReason: 'dependency_failed' });
+    const noOffer = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product(undefined)) }),
+    );
+    expect(noOffer).toMatchObject({ verdict: 'skip', skipReason: 'dependency_failed' });
+    expect(noOffer.evidence).toMatchObject({ pages: { [mug]: { offers: 0 } } });
+  });
+
+  it('passes when every offer carries typed shipping details and a return policy', async () => {
+    const outcome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          product({ ...COMPLETE, shippingDetails: SHIPPING, hasMerchantReturnPolicy: RETURNS }),
+        ),
+        // Both properties are also accepted on the Product itself.
+        [bowl]: withJsonLd({
+          ...(product({ ...COMPLETE, shippingDetails: [SHIPPING] }) as object),
+          hasMerchantReturnPolicy: RETURNS,
+        }),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      complete: 2,
+      total: 2,
+      pages: { [mug]: { offers: 1, shipping: true, returns: true } },
+    });
+  });
+
+  it('warns when only one of the two is present', async () => {
+    const outcome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product({ ...COMPLETE, shippingDetails: SHIPPING })) }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.evidence).toMatchObject({
+      complete: 0,
+      partial: 1,
+      pages: { [mug]: { shipping: true, returns: false } },
+    });
+  });
+
+  it('fails when neither is present or the values are not of the expected type', async () => {
+    const outcome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          product({
+            ...COMPLETE,
+            shippingDetails: { shippingRate: '4.90' },
+            hasMerchantReturnPolicy: 'https://shop.example/returns/',
+          }),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { shipping: false, returns: false } },
+    });
+  });
+});
+
+const IMAGE = 'https://shop.example/wp-content/uploads/mug.jpg';
+
+function imgTag(attributes: string): string {
+  return `<div class="woocommerce-product-gallery"><img src="${IMAGE}" ${attributes}></div>`;
+}
+
+function headRequests(fetcher: ReturnType<typeof mapFetcher>): string[] {
+  return fetcher.log.filter((entry) => entry.options.method === 'HEAD').map((entry) => entry.url);
+}
+
+describe('B2.5 images with alt text and resolution', () => {
+  it('does not apply without sampled product pages', async () => {
+    const outcome = await runCheck(productImageUsable, targetFor(), mapFetcher({}));
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+  });
+
+  it('defers to B2.1 when no page carries Product JSON-LD', async () => {
+    const outcome = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: PLAIN }),
+    );
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'dependency_failed' });
+  });
+
+  it('passes on alt text plus width and height attributes without a HEAD request', async () => {
+    const fetcher = mapFetcher({
+      [mug]: withJsonLd(
+        { ...(product(COMPLETE) as object), image: IMAGE },
+        imgTag('alt="Blue mug" width="1200" height="900"'),
+      ),
+    });
+    const outcome = await runCheck(productImageUsable, targetFor({ products: [mug] }), fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pass: 1,
+      total: 1,
+      pages: {
+        [mug]: {
+          image_url: IMAGE,
+          alt: 'Blue mug',
+          width: 1200,
+          height: 900,
+          longest_side: 1200,
+          size_source: 'html',
+          head_status: null,
+          issues: [],
+        },
+      },
+    });
+    expect(headRequests(fetcher)).toEqual([]);
+  });
+
+  it('passes on an unknown size when one HEAD request confirms the image resolves', async () => {
+    const fetcher = mapFetcher({
+      [mug]: withJsonLd(
+        { ...(product(COMPLETE) as object), image: [IMAGE, 'https://shop.example/other.jpg'] },
+        imgTag('alt="Blue mug"'),
+      ),
+      [IMAGE]: { status: 200, headers: { 'content-type': 'image/jpeg' } },
+    });
+    const outcome = await runCheck(productImageUsable, targetFor({ products: [mug] }), fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { longest_side: null, size_source: null, head_status: 200, issues: [] } },
+    });
+    expect(headRequests(fetcher)).toEqual([IMAGE]);
+  });
+
+  it('reads the size from an ImageObject and matches a relative img src', async () => {
+    const fetcher = mapFetcher({
+      [mug]: withJsonLd(
+        {
+          ...(product(COMPLETE) as object),
+          image: { '@type': 'ImageObject', contentUrl: IMAGE, width: '1600', height: '1600' },
+        },
+        `<img class="attachment-shop_single wp-post-image" src="/wp-content/uploads/mug.jpg" alt="Mug">`,
+      ),
+    });
+    const outcome = await runCheck(productImageUsable, targetFor({ products: [mug] }), fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { alt: 'Mug', longest_side: 1600, size_source: 'jsonld' } },
+    });
+    expect(headRequests(fetcher)).toEqual([]);
+  });
+
+  it('warns when the rendered img has no alt text', async () => {
+    const outcome = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          imgTag('alt="" width="1000" height="1000"'),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.evidence).toMatchObject({
+      warn: 1,
+      pages: { [mug]: { alt: '', issues: ['rendered img has no alt text'] } },
+    });
+    const noTag = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd({ ...(product(COMPLETE) as object), image: IMAGE }),
+        [IMAGE]: { status: 200 },
+      }),
+    );
+    expect(noTag.verdict).toBe('warn');
+    expect(noTag.evidence).toMatchObject({
+      pages: { [mug]: { alt: null, issues: ['no rendered img matches the Product image'] } },
+    });
+  });
+
+  it('warns when the known size is below 800 px on the longest side', async () => {
+    const outcome = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          imgTag('alt="Blue mug" width="600" height="400"'),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.evidence).toMatchObject({
+      pages: {
+        [mug]: { longest_side: 600, issues: ['longest side is 600 px, below 800 px'] },
+      },
+    });
+    // WooCommerce's data-large_image_width describes the full-size image behind the thumbnail.
+    const large = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          imgTag(
+            'alt="Blue mug" width="600" height="600" data-large_image_width="1200" data-large_image_height="1200"',
+          ),
+        ),
+      }),
+    );
+    expect(large.verdict).toBe('pass');
+    expect(large.evidence).toMatchObject({ pages: { [mug]: { longest_side: 1200 } } });
+  });
+
+  it('fails when the Product has no image, a non-http image, or one that does not resolve', async () => {
+    const none = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product(COMPLETE), imgTag('alt="Mug"')) }),
+    );
+    expect(none.verdict).toBe('fail');
+    expect(none.evidence).toMatchObject({
+      fail: 1,
+      pages: { [mug]: { image_url: null, issues: ['Product has no image'] } },
+    });
+    const relative = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd({ ...(product(COMPLETE) as object), image: '/uploads/mug.jpg' }),
+      }),
+    );
+    expect(relative.verdict).toBe('fail');
+    expect(relative.evidence).toMatchObject({
+      pages: {
+        [mug]: {
+          image_url: '/uploads/mug.jpg',
+          issues: ['Product image is not an absolute http(s) URL'],
+        },
+      },
+    });
+    const fetcher = mapFetcher({
+      [mug]: withJsonLd({ ...(product(COMPLETE) as object), image: IMAGE }, imgTag('alt="Mug"')),
+    });
+    const broken = await runCheck(productImageUsable, targetFor({ products: [mug] }), fetcher);
+    expect(broken.verdict).toBe('fail');
+    expect(broken.evidence).toMatchObject({
+      pages: { [mug]: { head_status: 404, issues: ['image does not resolve (HEAD 404)'] } },
+    });
+    expect(headRequests(fetcher)).toEqual([IMAGE]);
+  });
+});
+
+describe('B2.6 markup matches the visible page', () => {
+  const ADD_TO_CART =
+    '<form class="cart"><button type="submit" class="single_add_to_cart_button">Add to cart</button></form>';
+  const OUT_OF_STOCK = '<p class="stock out-of-stock">Out of stock</p>';
+  function pageWith(node: unknown, body: string): string {
+    return `<!doctype html><html><head><title>P</title><script type="application/ld+json">${JSON.stringify(node)}</script></head><body><main><h1>Mug</h1>${body}</main></body></html>`;
+  }
+  const run = (pages: Record<string, string>) =>
+    runCheck(markupMatchesPage, targetFor({ products: Object.keys(pages) }), mapFetcher(pages));
+
+  it('does not apply without sampled product pages', async () => {
+    const outcome = await runCheck(markupMatchesPage, targetFor(), mapFetcher({}));
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+  });
+
+  it('defers to B2.2 when no page has an Offer with a price', async () => {
+    const outcome = await run({
+      [mug]: pageWith(product(undefined), '€24.00'),
+      [bowl]: PLAIN,
+    });
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'dependency_failed' });
+  });
+
+  it('passes when the JSON-LD price is visible and the add-to-cart state agrees', async () => {
+    const outcome = await run({
+      [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      compared: 1,
+      price_mismatches: [],
+      availability_mismatches: [],
+      pages: {
+        [mug]: {
+          markup_prices: [24],
+          visible_prices: [24],
+          price_visible: true,
+          availability: ['InStock'],
+          add_to_cart: true,
+          out_of_stock_text: false,
+          availability_match: true,
+        },
+      },
+    });
+  });
+
+  it('fails when the JSON-LD price is not visible on a page', async () => {
+    const outcome = await run({
+      [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
+      [bowl]: pageWith(
+        product({ ...COMPLETE, price: '48.00' }),
+        `<p class="price">€39.00</p>${ADD_TO_CART}`,
+      ),
+    });
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe('JSON-LD price is not visible on 1 of 2 product page(s)');
+    expect(outcome.evidence).toMatchObject({
+      price_mismatches: [bowl],
+      pages: { [bowl]: { markup_prices: [48], visible_prices: [39], price_visible: false } },
+    });
+  });
+
+  it('warns when availability contradicts the add-to-cart state', async () => {
+    const claimedInStock = await run({
+      [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${OUT_OF_STOCK}`),
+    });
+    expect(claimedInStock.verdict).toBe('warn');
+    expect(claimedInStock.evidence).toMatchObject({
+      availability_mismatches: [mug],
+      pages: { [mug]: { add_to_cart: false, out_of_stock_text: true, availability_match: false } },
+    });
+    const claimedOut = await run({
+      [mug]: pageWith(
+        product({ ...COMPLETE, availability: 'https://schema.org/OutOfStock' }),
+        `<p class="price">€24.00</p>${ADD_TO_CART}`,
+      ),
+    });
+    expect(claimedOut.verdict).toBe('warn');
+    expect(claimedOut.evidence).toMatchObject({
+      pages: {
+        [mug]: { availability: ['OutOfStock'], add_to_cart: true, availability_match: false },
+      },
+    });
+  });
+
+  it('leaves availability unjudged when the page shows neither a control nor wording', async () => {
+    const outcome = await run({
+      [mug]: pageWith(product(COMPLETE), '<p class="price">€24.00</p>'),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { availability_match: null } } });
+  });
+
+  it('compares every variant offer of a ProductGroup and passes when one price is visible', async () => {
+    const group = {
+      '@context': 'https://schema.org',
+      '@type': 'ProductGroup',
+      name: 'Mugs',
+      hasVariant: [
+        {
+          '@type': 'Product',
+          name: 'Small',
+          offers: { '@type': 'Offer', ...COMPLETE, price: '19.00' },
+        },
+        {
+          '@type': 'Product',
+          name: 'Large',
+          offers: { '@type': 'Offer', ...COMPLETE, price: '29.00' },
+        },
+      ],
+    };
+    const outcome = await run({
+      [mug]: pageWith(group, `<p class="price">€29.00</p>${ADD_TO_CART}`),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { markup_prices: [19, 29], visible_prices: [29], price_visible: true } },
+    });
+  });
+
+  it('matches an AggregateOffer range and European number formatting', async () => {
+    const node = product({
+      '@type': 'AggregateOffer',
+      lowPrice: '1234.50',
+      highPrice: '2000',
+      priceCurrency: 'EUR',
+      availability: 'https://schema.org/InStock',
+    });
+    const outcome = await run({
+      [mug]: pageWith(node, `<p class="price">ab 1.234,50 €</p>${ADD_TO_CART}`),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { markup_prices: [1234.5, 2000], visible_prices: [1234.5] } },
+    });
   });
 });

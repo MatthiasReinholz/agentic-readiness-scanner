@@ -49,6 +49,7 @@ export function orderByDependencies(definitions: readonly CheckDefinition[]): Ch
 function unmetRequirement(definition: CheckDefinition, target: Target): Requirement | null {
   for (const requirement of definition.requires) {
     if (requirement === 'woocommerce' && target.platform !== 'woocommerce') return requirement;
+    if (requirement === 'shopify' && target.platform !== 'shopify') return requirement;
     if (requirement === 'products' && target.sampled.products.length === 0) return requirement;
   }
   return null;
@@ -56,6 +57,7 @@ function unmetRequirement(definition: CheckDefinition, target: Target): Requirem
 
 const UNMET_MESSAGES: Record<Requirement, string> = {
   woocommerce: 'requires WooCommerce, which was not detected',
+  shopify: 'requires Shopify, which was not detected',
   products: 'no product pages were found to sample',
 };
 
@@ -108,12 +110,25 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       return verdict === 'fail' || verdict === 'skip';
     });
     if (failedParent) {
-      outcomes.set(definition.id, {
-        verdict: 'skip',
-        skipReason: 'dependency_failed',
-        message: `skipped because ${failedParent} did not pass`,
-        evidence: { dependency: failedParent },
-      });
+      // A parent that had nothing to evaluate (an optional file that is absent, say)
+      // leaves its dependents with nothing to evaluate either; that is not a failure.
+      const parentSkip = outcomes.get(failedParent)?.skipReason;
+      outcomes.set(
+        definition.id,
+        parentSkip === 'not_applicable'
+          ? {
+              verdict: 'skip',
+              skipReason: 'not_applicable',
+              message: `does not apply because ${failedParent} did not apply`,
+              evidence: { dependency: failedParent },
+            }
+          : {
+              verdict: 'skip',
+              skipReason: 'dependency_failed',
+              message: `skipped because ${failedParent} did not pass`,
+              evidence: { dependency: failedParent },
+            },
+      );
       continue;
     }
     const implementation = implementations.get(definition.id);

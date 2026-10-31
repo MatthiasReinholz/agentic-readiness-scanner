@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
+import type { HistoryStore } from '../history/types.js';
 import type { MonitoringService } from '../monitoring/service.js';
 import { digestsEqual } from '../monitoring/tokens.js';
 import type { MonitorStore } from '../monitoring/types.js';
@@ -11,6 +12,7 @@ export interface InternalRouteDependencies {
   config: AppConfig;
   store: ResultStore;
   targets?: TargetRegistry;
+  history?: HistoryStore;
   monitors?: MonitorStore;
   /** Null when monitoring is off: no monitor cron, nothing to purge. */
   monitoring: MonitoringService | null;
@@ -46,7 +48,8 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     });
   }
 
-  // Owner exports: the hosts ever scanned and the monitoring subscriptions. Bearer token only.
+  // Owner exports: the hosts ever scanned, one host's history and the monitoring
+  // subscriptions. Bearer token only.
   app.get('/export/:file', async (c) => {
     if (!config.adminToken) return c.notFound();
     const token = bearerToken(c.req.header('authorization'));
@@ -59,6 +62,14 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     switch (c.req.param('file')) {
       case 'targets.json':
         return c.json({ targets: deps.targets ? await deps.targets.list(limit) : [] });
+      case 'history.json': {
+        const host = (c.req.query('host') ?? '').toLowerCase();
+        if (!/^[a-z0-9.-]+$/.test(host)) return c.json({ error: 'host is required' }, 400);
+        return c.json({
+          host,
+          entries: deps.history ? await deps.history.forHost(host, limit) : [],
+        });
+      }
       case 'monitors.json': {
         const monitors = deps.monitors ? await deps.monitors.list(limit) : [];
         return c.json({
