@@ -1,0 +1,71 @@
+[
+  {
+    "id": "A3.1",
+    "group": "A3",
+    "title": "Markdown content negotiation",
+    "question": "Can an agent ask for a product page as Markdown?",
+    "method": "GET a sampled product page with Accept: text/markdown. Pass when the response is text/markdown with the product title in the body; fail when HTML comes back.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "RFC 7763 text/markdown media type",
+        "url": "https://www.rfc-editor.org/rfc/rfc7763"
+      }
+    ]
+  },
+  {
+    "id": "A3.2",
+    "group": "A3",
+    "title": "Server-rendered product content",
+    "question": "Are title, price and description present in the raw HTML without JavaScript?",
+    "method": "Parse the raw HTML of sampled product pages. Pass when a title, a price-like value and a description are present as text or structured data; fail when the body is an empty app shell.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "Google: JavaScript SEO basics",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+      }
+    ]
+  },
+  {
+    "id": "A3.3",
+    "group": "A3",
+    "title": "Page weight and response time",
+    "question": "Is a product page cheap enough for an agent to fetch?",
+    "method": "Measure HTML size and time to first byte on sampled product pages. Pass under 500 KB and 1.5 s; warn under 1 MB and 3 s; fail above.",
+    "weight": 1,
+    "spec": [{ "title": "web.dev: Time to First Byte", "url": "https://web.dev/articles/ttfb" }]
+  },
+  {
+    "id": "A3.4",
+    "group": "A3",
+    "title": "Canonical and hreflang present",
+    "question": "Can an agent tell which URL is the product's canonical one?",
+    "method": "Pass when sampled product pages carry a rel=canonical that resolves to the same origin; warn when hreflang alternates exist for some but not all detected languages.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: canonical URLs",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+      },
+      {
+        "title": "Google: localized versions",
+        "url": "https://developers.google.com/search/docs/specialty/international/localized-versions"
+      }
+    ]
+  },
+  {
+    "id": "A3.5",
+    "group": "A3",
+    "title": "Accessible main content",
+    "question": "Is the product content inside a main landmark and not hidden behind an overlay in the HTML?",
+    "method": "Pass when a main or article landmark wraps the product content; warn when a consent overlay appears to wrap or precede it in the DOM.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "ARIA Authoring Practices: landmark regions",
+        "url": "https://www.w3.org/WAI/ARIA/apg/patterns/landmarks/"
+      }
+    ]
+  }
+]

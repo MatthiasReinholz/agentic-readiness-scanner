@@ -1,0 +1,16 @@
+{
+  "origin": "https://blog.example",
+  "description": "A plain WordPress blog with no commerce surface and no agent-facing files.",
+  "responses": [
+    {
+      "url": "https://blog.example/",
+      "headers": { "content-type": "text/html; charset=utf-8" },
+      "body_file": "home.html"
+    },
+    {
+      "url": "https://blog.example/robots.txt",
+      "headers": { "content-type": "text/plain" },
+      "body": "User-agent: *\nDisallow: /wp-admin/\n"
+    }
+  ]
+}

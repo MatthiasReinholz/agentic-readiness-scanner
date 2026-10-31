@@ -1,0 +1,85 @@
+[
+  {
+    "id": "B4.1",
+    "group": "B4",
+    "title": "Return policy page found",
+    "question": "Can an agent find the return policy?",
+    "method": "Follow homepage links whose text or URL matches return, refund, Widerruf, retour or similar, or MerchantReturnPolicy.merchantReturnLink. Pass when the page is fetchable and longer than 300 words.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "schema.org MerchantReturnPolicy",
+        "url": "https://schema.org/MerchantReturnPolicy"
+      }
+    ]
+  },
+  {
+    "id": "B4.2",
+    "group": "B4",
+    "title": "Shipping policy page found",
+    "question": "Can an agent find shipping costs, regions and delivery times?",
+    "method": "Same link heuristics for shipping, delivery, Versand, livraison. Pass when the page is fetchable and mentions regions, costs or delivery times.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "schema.org OfferShippingDetails",
+        "url": "https://schema.org/OfferShippingDetails"
+      }
+    ]
+  },
+  {
+    "id": "B4.3",
+    "group": "B4",
+    "title": "Privacy policy and terms found",
+    "question": "Are the privacy policy and terms of service linked and fetchable?",
+    "method": "Look for the WordPress privacy page link, link text matching privacy, Datenschutz, terms, AGB, conditions. Pass when both pages are fetchable.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "WordPress privacy policy page",
+        "url": "https://wordpress.org/documentation/article/settings-privacy-screen/"
+      }
+    ]
+  },
+  {
+    "id": "B4.4",
+    "group": "B4",
+    "title": "Merchant identity",
+    "question": "Who is selling, where are they, and how can they be reached?",
+    "method": "Pass when Organization JSON-LD (name, address or contactPoint) exists, or an imprint or about page carries a legal name and address.",
+    "weight": 2,
+    "spec": [{ "title": "schema.org Organization", "url": "https://schema.org/Organization" }]
+  },
+  {
+    "id": "B4.5",
+    "group": "B4",
+    "title": "Contact channel",
+    "question": "Is there an email address or contact form reachable from the footer?",
+    "method": "Pass when the homepage footer links to a mailto: address or a page whose URL or link text indicates a contact form.",
+    "weight": 1,
+    "spec": [{ "title": "schema.org ContactPoint", "url": "https://schema.org/ContactPoint" }]
+  },
+  {
+    "id": "B4.6",
+    "group": "B4",
+    "title": "Policy pages are agent-readable",
+    "question": "Can an agent actually read the policy pages it found?",
+    "method": "For each policy page found, require server-rendered text (as in A3.2) and no robots.txt or meta robots rule that blocks shopping agents. Skip when no policy page was found.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "RFC 9309 Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      }
+    ]
+  },
+  {
+    "id": "B4.7",
+    "group": "B4",
+    "title": "security.txt",
+    "question": "Does the site publish a security contact?",
+    "method": "GET /.well-known/security.txt. Pass on a text document with Contact: and Expires: fields whose Expires date is in the future.",
+    "weight": 1,
+    "spec": [{ "title": "RFC 9116 security.txt", "url": "https://www.rfc-editor.org/rfc/rfc9116" }]
+  }
+]

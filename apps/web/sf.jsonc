@@ -1,0 +1,38 @@
+{
+  "$schema": "https://spacefast.com/schema/sf.json",
+  // Runtime configuration, copied to dist/ by build.mjs. Build settings for the connected
+  // repository live in the repository-root sf.jsonc.
+  // The Space is bound through the GitHub integration; set "space" only for a manual
+  // `sf publish` from a machine that is not linked yet.
+  // "space": "agentic-readiness",
+  "name": "Agentic Readiness Scanner",
+  "meta": {
+    "title": "Agentic Readiness Scanner",
+    "description": "Can an AI agent find, read, trust and buy from your store? Scan any URL.",
+  },
+  "runtime": {
+    "kind": "functions",
+    "entry": "handler.js",
+    "compatibilityDate": "2026-07-01",
+  },
+  "crons": [{ "path": "/internal/cron/cleanup", "schedule": "daily" }],
+  "headers": [
+    {
+      "source": "/*",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+      ],
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</llms.txt>; rel=\"llms-txt\"; type=\"text/markdown\", </.well-known/mcp/server-card.json>; rel=\"mcp-server\"; type=\"application/json\"",
+        },
+      ],
+    },
+  ],
+  "access": "public",
+}

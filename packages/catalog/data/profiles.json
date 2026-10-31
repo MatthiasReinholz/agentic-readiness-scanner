@@ -1,0 +1,26 @@
+[
+  {
+    "id": "woocommerce-store",
+    "title": "WooCommerce store",
+    "description": "All checks, including those that read the WooCommerce Store API.",
+    "dimensions": ["ingestion", "commerce"],
+    "unsatisfied_requirements": [],
+    "max_level": 5
+  },
+  {
+    "id": "other-store",
+    "title": "Other store",
+    "description": "Any e-commerce site. Checks that depend on the WooCommerce Store API drop out.",
+    "dimensions": ["ingestion", "commerce"],
+    "unsatisfied_requirements": ["woocommerce"],
+    "max_level": 5
+  },
+  {
+    "id": "content-site",
+    "title": "Content site",
+    "description": "Ingestion checks only. Commerce groups do not apply.",
+    "dimensions": ["ingestion"],
+    "unsatisfied_requirements": ["woocommerce"],
+    "max_level": 1
+  }
+]

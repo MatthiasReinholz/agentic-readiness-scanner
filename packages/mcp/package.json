@@ -1,0 +1,32 @@
+{
+  "name": "@agentic-readiness/mcp",
+  "version": "0.1.0",
+  "description": "MCP server definition shared by the CLI (stdio) and the hosted app (Streamable HTTP): scan_store and get_fix tools.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agentic-readiness/catalog": "workspace:*",
+    "@agentic-readiness/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

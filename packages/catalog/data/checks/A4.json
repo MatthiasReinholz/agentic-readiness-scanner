@@ -1,0 +1,56 @@
+[
+  {
+    "id": "A4.1",
+    "group": "A4",
+    "title": "MCP server card",
+    "question": "Does the site advertise an MCP server?",
+    "method": "GET /.well-known/mcp/server-card.json. Pass on valid JSON with a name and an endpoint.",
+    "weight": 1,
+    "spec": [{ "title": "Model Context Protocol", "url": "https://modelcontextprotocol.io/" }]
+  },
+  {
+    "id": "A4.2",
+    "group": "A4",
+    "title": "API catalog",
+    "question": "Does the site publish an API catalog linkset?",
+    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json or linkset document.",
+    "weight": 1,
+    "spec": [{ "title": "RFC 9727 api-catalog", "url": "https://www.rfc-editor.org/rfc/rfc9727" }]
+  },
+  {
+    "id": "A4.3",
+    "group": "A4",
+    "title": "OAuth discovery",
+    "question": "Can an agent discover how to authorize against the site's APIs?",
+    "method": "GET /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource. Pass when either returns valid JSON metadata.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "RFC 8414 OAuth 2.0 Authorization Server Metadata",
+        "url": "https://www.rfc-editor.org/rfc/rfc8414"
+      },
+      {
+        "title": "RFC 9728 OAuth 2.0 Protected Resource Metadata",
+        "url": "https://www.rfc-editor.org/rfc/rfc9728"
+      }
+    ]
+  },
+  {
+    "id": "A4.4",
+    "group": "A4",
+    "title": "Agent Skills index",
+    "question": "Does the site publish skills an agent can load?",
+    "method": "GET /.well-known/agent-skills/index.json. Pass on valid JSON listing at least one skill.",
+    "weight": 1,
+    "spec": [{ "title": "Agent Skills specification", "url": "https://agentskills.io/" }]
+  },
+  {
+    "id": "A4.5",
+    "group": "A4",
+    "title": "A2A agent card",
+    "question": "Does the site publish an A2A agent card?",
+    "method": "GET /.well-known/agent-card.json. Pass on valid JSON with name, url and skills fields.",
+    "weight": 1,
+    "spec": [{ "title": "Agent2Agent protocol", "url": "https://a2a-protocol.org/" }]
+  }
+]

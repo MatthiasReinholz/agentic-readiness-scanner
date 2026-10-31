@@ -1,0 +1,29 @@
+{
+  "name": "@agentic-readiness/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The hosted scanner: a Hono app that runs on Spacefast Functions and on a local Node server.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/dev.ts",
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agentic-readiness/catalog": "workspace:*",
+    "@agentic-readiness/core": "workspace:*",
+    "@agentic-readiness/mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "hono": "4.13.14"
+  },
+  "devDependencies": {
+    "@hono/node-server": "2.1.5",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

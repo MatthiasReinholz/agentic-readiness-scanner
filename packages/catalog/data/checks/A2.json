@@ -1,0 +1,89 @@
+[
+  {
+    "id": "A2.1",
+    "group": "A2",
+    "title": "AI crawler rules are explicit",
+    "question": "Does robots.txt state a decision for each major AI training crawler?",
+    "method": "For GPTBot, ClaudeBot, Google-Extended, PerplexityBot, CCBot, Bytespider and Applebot-Extended, record whether robots.txt names the agent. Pass when all are named (allowed or disallowed); warn when some are; fail when none are. The verdict is per bot in the evidence.",
+    "weight": 2,
+    "depends_on": ["A1.1"],
+    "spec": [
+      {
+        "title": "RFC 9309 Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      },
+      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" },
+      {
+        "title": "Google common crawlers",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers"
+      }
+    ]
+  },
+  {
+    "id": "A2.2",
+    "group": "A2",
+    "title": "Shopping agents are not blocked",
+    "question": "May user-triggered shopping agents fetch product pages?",
+    "method": "Evaluate robots.txt for ChatGPT-User, Claude-User, OAI-SearchBot, Google-Agent and Perplexity-User against a sampled product path. Fail when any is disallowed; pass otherwise.",
+    "weight": 3,
+    "depends_on": ["A1.1"],
+    "spec": [
+      {
+        "title": "RFC 9309 Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      },
+      { "title": "OpenAI crawler documentation", "url": "https://platform.openai.com/docs/bots" }
+    ]
+  },
+  {
+    "id": "A2.3",
+    "group": "A2",
+    "title": "Content Signals declared",
+    "question": "Does the site state how its content may be used by AI systems?",
+    "method": "Look for Content-Signal: lines in robots.txt or a Content-Signal response header with ai-train, search or ai-input values. Pass when present and parseable.",
+    "weight": 1,
+    "spec": [{ "title": "Content Signals", "url": "https://contentsignals.org/" }]
+  },
+  {
+    "id": "A2.4",
+    "group": "A2",
+    "title": "No WAF challenge for agent profiles",
+    "question": "Do agent user agents get the same product page a browser gets?",
+    "method": "Fetch one product page with a browser baseline and up to six agent user-agent strings. Compare status code and extracted main text. Fail on a challenge page, 403 or cloaked content for any agent profile; warn on minor differences.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "RFC 9110 HTTP Semantics (User-Agent)",
+        "url": "https://www.rfc-editor.org/rfc/rfc9110"
+      }
+    ]
+  },
+  {
+    "id": "A2.5",
+    "group": "A2",
+    "title": "Web Bot Auth key directory",
+    "question": "Does the site publish a key directory so signed agent requests can be verified?",
+    "method": "GET /.well-known/http-message-signatures-directory. Informational: pass when a JWKS-shaped document is served, otherwise warn without penalty beyond weight 1.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Web Bot Auth architecture (IETF draft)",
+        "url": "https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/"
+      }
+    ]
+  },
+  {
+    "id": "A2.6",
+    "group": "A2",
+    "title": "No noindex or nosnippet on product pages",
+    "question": "Do product pages allow indexing and snippets?",
+    "method": "Read X-Robots-Tag headers and meta robots tags on sampled product pages. Fail on noindex; warn on nosnippet, noai or max-snippet:0.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "Robots meta tag and X-Robots-Tag",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+      }
+    ]
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "name": "@agentic-readiness/cli",
+  "version": "0.1.0",
+  "description": "Command-line scanner and stdio MCP server for agentic readiness.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "bin": {
+    "agentic-readiness": "./bin/agentic-readiness.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agentic-readiness/catalog": "workspace:*",
+    "@agentic-readiness/core": "workspace:*",
+    "@agentic-readiness/mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

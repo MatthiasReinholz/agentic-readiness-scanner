@@ -1,0 +1,98 @@
+/**
+ * Scoring is a pure function of results and the catalog's levels. It is versioned
+ * separately from the catalog (scoring_version) so a scoring change never alters evidence.
+ */
+import {
+  catalog as defaultCatalog,
+  type Catalog,
+  type CheckResult,
+  type Dimension,
+  type LevelResult,
+  type Scores,
+} from '@agentic-readiness/catalog';
+
+function weightOf(result: CheckResult): number {
+  return result.weight === 'info' ? 0 : result.weight;
+}
+
+/**
+ * Sum of weights of passed checks (warn counts half) over the sum of weights of
+ * applicable checks, as a 0 to 100 integer. Skipped checks drop out of the denominator.
+ */
+export function scoreDimension(
+  results: readonly CheckResult[],
+  dimension: Dimension,
+  catalog: Catalog = defaultCatalog,
+): number | null {
+  const groupIds = new Set(
+    catalog.groups.filter((group) => group.dimension === dimension).map((group) => group.id),
+  );
+  let earned = 0;
+  let possible = 0;
+  let applicable = 0;
+  for (const result of results) {
+    if (!groupIds.has(result.group) || result.verdict === 'skip' || weightOf(result) === 0)
+      continue;
+    applicable += 1;
+    possible += weightOf(result);
+    if (result.verdict === 'pass') earned += weightOf(result);
+    else if (result.verdict === 'warn') earned += weightOf(result) / 2;
+  }
+  if (applicable === 0) return null;
+  return Math.round((earned / possible) * 100);
+}
+
+export function computeScores(
+  results: readonly CheckResult[],
+  catalog: Catalog = defaultCatalog,
+): Scores {
+  return {
+    ingestion: scoreDimension(results, 'ingestion', catalog) ?? 0,
+    commerce: scoreDimension(results, 'commerce', catalog),
+  };
+}
+
+/**
+ * A gate is satisfied when one alternative passed, or when every alternative does not
+ * apply to the profile at all (a content site is not held back by product gates).
+ * Checks skipped for any other reason (dependency failed, not implemented) block the gate.
+ */
+function gateSatisfied(
+  gate: readonly string[],
+  results: ReadonlyMap<string, CheckResult>,
+): boolean {
+  if (gate.some((id) => results.get(id)?.verdict === 'pass')) return true;
+  return gate.every((id) => {
+    const result = results.get(id);
+    return result?.verdict === 'skip' && result.skip_reason === 'not_applicable';
+  });
+}
+
+/**
+ * Levels are gates, not averages: a target holds a level only when every gate of that
+ * level has at least one passing alternative. next_gate lists what blocks the next level.
+ * maxLevel caps the result for profiles that cannot reach commerce levels.
+ */
+export function computeLevel(
+  results: readonly CheckResult[],
+  catalog: Catalog = defaultCatalog,
+  maxLevel = 5,
+): LevelResult {
+  const byId = new Map(results.map((result) => [result.id, result]));
+  const levels = [...catalog.levels]
+    .sort((a, b) => a.value - b.value)
+    .filter((level) => level.value <= maxLevel);
+  let reached = levels[0];
+  for (const level of levels) {
+    if (level.gates.every((gate) => gateSatisfied(gate, byId))) reached = level;
+    else break;
+  }
+  if (!reached) {
+    return { value: 0, name: 'Not reachable', next_gate: [] };
+  }
+  const next = levels.find((level) => level.value === reached.value + 1);
+  const nextGate = next
+    ? next.gates.filter((gate) => !gateSatisfied(gate, byId)).flatMap((gate) => [...gate])
+    : [];
+  return { value: reached.value, name: reached.name, next_gate: [...new Set(nextGate)] };
+}

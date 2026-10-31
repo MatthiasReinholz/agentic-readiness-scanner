@@ -1,0 +1,75 @@
+[
+  {
+    "value": 0,
+    "name": "Not reachable",
+    "description": "robots.txt blocks shopping agents or product pages are not server-rendered.",
+    "gates": []
+  },
+  {
+    "value": 1,
+    "name": "Crawlable",
+    "description": "Agents can fetch and read product pages.",
+    "gates": [["A1.1"], ["A2.2"], ["A3.2"]]
+  },
+  {
+    "value": 2,
+    "name": "Readable catalog",
+    "description": "The catalog is available as data with price and availability.",
+    "gates": [["A1.1"], ["A2.2"], ["A3.2"], ["B1.2", "B1.5"], ["B2.1"], ["B2.2"]]
+  },
+  {
+    "value": 3,
+    "name": "Identifiable products",
+    "description": "Sampled products carry valid identifiers that resolve across channels.",
+    "gates": [
+      ["A1.1"],
+      ["A2.2"],
+      ["A3.2"],
+      ["B1.2", "B1.5"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1"],
+      ["B3.2"],
+      ["B3.6"]
+    ]
+  },
+  {
+    "value": 4,
+    "name": "Trusted merchant",
+    "description": "Return, shipping, privacy and terms policies are findable.",
+    "gates": [
+      ["A1.1"],
+      ["A2.2"],
+      ["A3.2"],
+      ["B1.2", "B1.5"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1"],
+      ["B3.2"],
+      ["B3.6"],
+      ["B4.1"],
+      ["B4.2"],
+      ["B4.3"]
+    ]
+  },
+  {
+    "value": 5,
+    "name": "Transactable",
+    "description": "A checkout protocol is advertised. This says the public surface is in order, not that a checkout works.",
+    "gates": [
+      ["A1.1"],
+      ["A2.2"],
+      ["A3.2"],
+      ["B1.2", "B1.5"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1"],
+      ["B3.2"],
+      ["B3.6"],
+      ["B4.1"],
+      ["B4.2"],
+      ["B4.3"],
+      ["B5.1", "B5.3"]
+    ]
+  }
+]

@@ -1,0 +1,113 @@
+[
+  {
+    "id": "B1.1",
+    "group": "B1",
+    "title": "WooCommerce detected",
+    "question": "Is this a WooCommerce store?",
+    "method": "Informational. Detect wc/store in the REST index, a woocommerce body class or a WooCommerce generator meta tag. The result selects the profile; it is never scored.",
+    "weight": "info",
+    "spec": [
+      {
+        "title": "WooCommerce developer documentation",
+        "url": "https://developer.woocommerce.com/docs/"
+      }
+    ]
+  },
+  {
+    "id": "B1.2",
+    "group": "B1",
+    "title": "Store API reachable",
+    "question": "Can an agent read products through the Store API without credentials?",
+    "method": "GET /wp-json/wc/store/v1/products?per_page=1. Pass on 200 with a JSON array; fail on 401, 403, 404 or a non-JSON body.",
+    "weight": 3,
+    "requires": ["woocommerce"],
+    "depends_on": ["B1.1"],
+    "spec": [
+      {
+        "title": "WooCommerce Store API",
+        "url": "https://developer.woocommerce.com/docs/apis/store-api/"
+      }
+    ]
+  },
+  {
+    "id": "B1.3",
+    "group": "B1",
+    "title": "Store API not rate-limited for reads",
+    "question": "Do a few sequential Store API reads succeed?",
+    "method": "Three sequential product list requests. Fail on any 429 or 5xx; warn when a Retry-After header appears.",
+    "weight": 2,
+    "requires": ["woocommerce"],
+    "depends_on": ["B1.2"],
+    "spec": [
+      {
+        "title": "WooCommerce Store API rate limiting",
+        "url": "https://developer.woocommerce.com/docs/apis/store-api/rate-limiting/"
+      }
+    ]
+  },
+  {
+    "id": "B1.4",
+    "group": "B1",
+    "title": "Store API product completeness",
+    "question": "Do Store API products carry the fields an agent needs?",
+    "method": "Sampled products must carry name, prices, images, stock status, permalink and categories. Pass when all do; warn when some lack images or categories; fail when prices or stock status are missing.",
+    "weight": 2,
+    "requires": ["woocommerce"],
+    "depends_on": ["B1.2"],
+    "spec": [
+      {
+        "title": "WooCommerce Store API: products",
+        "url": "https://developer.woocommerce.com/docs/apis/store-api/resources-endpoints/products/"
+      }
+    ]
+  },
+  {
+    "id": "B1.5",
+    "group": "B1",
+    "title": "Public product feed discoverable",
+    "question": "Is there a product feed an agent can find without being told its URL?",
+    "method": "Look for links in llms.txt, robots.txt, the sitemap or a rel=alternate link tag pointing at a Google, Meta, ACP or OpenAI-style feed (XML, CSV, JSON). Pass when one is found and fetchable.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "Google Merchant Center product data specification",
+        "url": "https://support.google.com/merchants/answer/7052112"
+      },
+      {
+        "title": "OpenAI product feed specification",
+        "url": "https://developers.openai.com/commerce/specs/feed"
+      }
+    ]
+  },
+  {
+    "id": "B1.6",
+    "group": "B1",
+    "title": "Feed freshness",
+    "question": "Was the feed updated recently?",
+    "method": "Read Last-Modified on the feed response or a timestamp inside the feed. Pass within 24 hours; warn within 7 days; fail beyond.",
+    "weight": 1,
+    "depends_on": ["B1.5"],
+    "spec": [
+      {
+        "title": "RFC 9110 HTTP Semantics (Last-Modified)",
+        "url": "https://www.rfc-editor.org/rfc/rfc9110"
+      }
+    ]
+  },
+  {
+    "id": "B1.7",
+    "group": "B1",
+    "title": "Catalog in sitemap matches Store API",
+    "question": "Do the sitemap and the Store API agree on catalog size?",
+    "method": "Compare the product URL count in the sitemap with the X-WP-Total header of the Store API product list. Pass within 10 percent; warn within 25 percent; fail beyond.",
+    "weight": 1,
+    "requires": ["woocommerce"],
+    "depends_on": ["A1.3", "B1.2"],
+    "spec": [
+      {
+        "title": "WooCommerce Store API: products",
+        "url": "https://developer.woocommerce.com/docs/apis/store-api/resources-endpoints/products/"
+      }
+    ]
+  }
+]

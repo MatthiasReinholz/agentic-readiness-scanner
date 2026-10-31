@@ -1,0 +1,14 @@
+{
+  "$schema": "https://spacefast.com/schema/sf.json",
+  // Build settings for the connected GitHub repository. They do nothing for a folder
+  // publish; the runtime configuration lives in apps/web/sf.jsonc and is copied into
+  // apps/web/dist by apps/web/build.mjs, because Spacefast reads sf.jsonc from the root
+  // of the directory it publishes.
+  "build": {
+    "rootDirectory": ".",
+    "installCommand": "corepack enable && pnpm install --frozen-lockfile",
+    "buildCommand": "pnpm turbo run build --filter=@agentic-readiness/web...",
+    "outputDirectory": "apps/web/dist",
+    "timeoutSeconds": 900,
+  },
+}

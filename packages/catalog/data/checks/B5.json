@@ -1,0 +1,85 @@
+[
+  {
+    "id": "B5.1",
+    "group": "B5",
+    "title": "UCP manifest",
+    "question": "Does the store publish a Universal Commerce Protocol manifest?",
+    "method": "GET /.well-known/ucp. Pass on valid JSON with a version and a capabilities array. The spec version the manifest declares is recorded in the evidence.",
+    "weight": 2,
+    "spec": [{ "title": "Universal Commerce Protocol", "url": "https://ucp.dev/" }]
+  },
+  {
+    "id": "B5.2",
+    "group": "B5",
+    "title": "UCP capabilities declared",
+    "question": "Which UCP capabilities does the store claim?",
+    "method": "Pass when the manifest declares at least checkout; the evidence lists cart, catalog, order, identity linking and payment handlers.",
+    "weight": 1,
+    "depends_on": ["B5.1"],
+    "spec": [{ "title": "Universal Commerce Protocol", "url": "https://ucp.dev/" }]
+  },
+  {
+    "id": "B5.3",
+    "group": "B5",
+    "title": "ACP checkout endpoint advertised",
+    "question": "Does the store advertise an Agentic Commerce Protocol checkout?",
+    "method": "Look for an OpenAPI document or discovery link pointing at checkout_sessions. Pass when HEAD or OPTIONS on the endpoint is reachable without creating a session.",
+    "weight": 2,
+    "spec": [{ "title": "Agentic Commerce Protocol", "url": "https://agenticcommerce.dev/" }]
+  },
+  {
+    "id": "B5.4",
+    "group": "B5",
+    "title": "ACP feed policy fields",
+    "question": "Does the feed carry the seller and return fields an ACP merchant needs?",
+    "method": "When an ACP or OpenAI-style feed is found, pass when seller_name, seller_url, return_policy and return_window are present on sampled items. Skip when no such feed exists.",
+    "weight": 2,
+    "depends_on": ["B1.5"],
+    "spec": [
+      {
+        "title": "OpenAI product feed specification",
+        "url": "https://developers.openai.com/commerce/specs/feed"
+      }
+    ]
+  },
+  {
+    "id": "B5.5",
+    "group": "B5",
+    "title": "Payment-handler signals",
+    "question": "Does the checkout page expose agent-friendly payment handlers?",
+    "method": "Detect Google Pay, Apple Pay, Stripe Link or PayPal scripts or markers in the checkout page HTML. Pass when at least one is present.",
+    "weight": 1,
+    "spec": [
+      { "title": "Google Pay API", "url": "https://developers.google.com/pay/api" },
+      { "title": "Apple Pay on the Web", "url": "https://developer.apple.com/apple-pay/" }
+    ]
+  },
+  {
+    "id": "B5.6",
+    "group": "B5",
+    "title": "AP2 or x402 signals",
+    "question": "Does the store signal support for agent payment protocols?",
+    "method": "Informational. GET /.well-known/x402 and look for HTTP 402 payment-required headers on a probe. Pass when any signal is present.",
+    "weight": 1,
+    "spec": [
+      { "title": "x402 payment protocol", "url": "https://www.x402.org/" },
+      { "title": "Agent Payments Protocol (AP2)", "url": "https://ap2-protocol.org/" }
+    ]
+  },
+  {
+    "id": "B5.7",
+    "group": "B5",
+    "title": "Guest checkout and cart API",
+    "question": "Can an agent build a cart without an account?",
+    "method": "GET /wp-json/wc/store/v1/cart must respond 200 with a cart object. Warn when the checkout page requires login (guest checkout disabled).",
+    "weight": 2,
+    "requires": ["woocommerce"],
+    "depends_on": ["B1.2"],
+    "spec": [
+      {
+        "title": "WooCommerce Store API: cart",
+        "url": "https://developer.woocommerce.com/docs/apis/store-api/resources-endpoints/cart/"
+      }
+    ]
+  }
+]

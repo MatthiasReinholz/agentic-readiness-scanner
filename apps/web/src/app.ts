@@ -1,0 +1,248 @@
+import { catalog, type ScanResult } from '@agentic-readiness/catalog';
+import {
+  BlockedUrlError,
+  normalizeInputUrl,
+  renderBadge,
+  renderHtml,
+  renderJson,
+  renderMarkdown,
+  scan,
+  SCANNER_VERSION,
+  TargetUnreachableError,
+  type Fetcher,
+  type ScanOptions,
+} from '@agentic-readiness/core';
+import { Hono } from 'hono';
+
+import type { AppConfig } from './config.js';
+import { homePage } from './pages/home.js';
+import { page } from './pages/layout.js';
+import { newScanId, type ResultStore, type StoredScan } from './store/types.js';
+
+export interface AppDependencies {
+  config: AppConfig;
+  store: ResultStore;
+  /** Test seam: supply a Fetcher factory to answer from fixtures instead of the network. */
+  fetcherFactory?: () => Fetcher;
+  now?: () => Date;
+}
+
+export interface ScanRequest {
+  url: string;
+  profile?: string;
+}
+
+export class ScanRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ScanRequestError';
+  }
+}
+
+const PROFILE_IDS = new Set(catalog.profiles.map((profile) => profile.id));
+const SCAN_ID = /^[0-9a-f]{16}$/;
+
+function validateScanRequest(input: Record<string, unknown>): ScanRequest {
+  const url = typeof input.url === 'string' ? input.url.trim() : '';
+  if (!url) throw new ScanRequestError('A URL is required.', 400);
+  const profile =
+    typeof input.profile === 'string' && input.profile !== '' ? input.profile : undefined;
+  if (profile !== undefined && !PROFILE_IDS.has(profile))
+    throw new ScanRequestError(`Unknown profile "${profile}".`, 400);
+  return { url, ...(profile !== undefined ? { profile } : {}) };
+}
+
+/**
+ * Runs or reuses a scan. A target host is scanned at most once per cooldown window;
+ * within it the stored result is returned so repeated submissions cost nothing.
+ */
+export async function scanOrReuse(
+  deps: AppDependencies,
+  request: ScanRequest,
+): Promise<{ scan: StoredScan; reused: boolean }> {
+  let host: string;
+  try {
+    host = normalizeInputUrl(request.url).hostname.toLowerCase();
+  } catch {
+    throw new ScanRequestError('That does not look like a URL.', 400);
+  }
+  const now = deps.now ?? (() => new Date());
+  const latest = await deps.store.latestForHost(host);
+  if (
+    latest &&
+    !request.profile &&
+    now().getTime() - Date.parse(latest.createdAt) < deps.config.targetCooldownSeconds * 1000
+  ) {
+    return { scan: latest, reused: true };
+  }
+  const options: ScanOptions = {
+    budget: deps.config.scanBudget,
+    now,
+    ...(deps.fetcherFactory ? { fetcher: deps.fetcherFactory() } : {}),
+    ...(request.profile !== undefined ? { profile: request.profile } : {}),
+  };
+  let result: ScanResult;
+  try {
+    result = await scan(request.url, options);
+  } catch (error) {
+    if (error instanceof TargetUnreachableError) throw new ScanRequestError(error.message, 422);
+    if (error instanceof BlockedUrlError) throw new ScanRequestError(error.message, 400);
+    throw error;
+  }
+  const stored: StoredScan = { id: newScanId(), host, createdAt: now().toISOString(), result };
+  await deps.store.put(stored);
+  return { scan: stored, reused: false };
+}
+
+function reportLinks(config: AppConfig, id: string, host: string) {
+  return {
+    jsonUrl: `${config.baseUrl}/r/${id}.json`,
+    markdownUrl: `${config.baseUrl}/r/${id}.md`,
+    badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
+    pluginUrl: config.pluginUrl,
+    appName: config.appName,
+  };
+}
+
+function llmsTxt(config: AppConfig): string {
+  return `# ${config.appName}
+
+> Scans any store URL for agentic ingestion and agentic commerce readiness. Public signals only. Every finding ships with a fix.
+
+## Use it
+
+- [Scan form](${config.baseUrl}/): submit a URL, get a report
+- [JSON API](${config.baseUrl}/api/scan): POST {"url": "https://example.shop"} and receive the result object
+- [MCP server card](${config.baseUrl}/.well-known/mcp/server-card.json): Streamable HTTP endpoint at ${config.baseUrl}/mcp with tools scan_store, get_fix and list_checks
+- [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
+
+## Reference
+
+- [Check catalog](${config.repositoryUrl}/blob/main/docs/checks.md): ${catalog.checks.length} checks, levels and profiles
+- [Source](${config.repositoryUrl}): GPL-3.0-or-later
+`;
+}
+
+export function createApp(deps: AppDependencies): Hono {
+  const { config, store } = deps;
+  const app = new Hono();
+
+  app.get('/', (c) => c.html(homePage(config)));
+
+  app.get('/health', (c) =>
+    c.json({ ok: true, version: SCANNER_VERSION, catalog: catalog.version }),
+  );
+
+  app.get('/llms.txt', (c) =>
+    c.text(llmsTxt(config), 200, { 'content-type': 'text/markdown; charset=utf-8' }),
+  );
+
+  app.get('/robots.txt', (c) =>
+    c.text(
+      `User-agent: *\nAllow: /\nDisallow: /r/\nDisallow: /api/\nDisallow: /internal/\n\nContent-Signal: ai-train=yes, search=yes, ai-input=yes\n`,
+    ),
+  );
+
+  app.get('/.well-known/security.txt', (c) =>
+    c.text(
+      `Contact: ${config.repositoryUrl}/security/advisories/new\nExpires: 2027-12-31T23:59:59Z\nPreferred-Languages: en, de\nCanonical: ${config.baseUrl}/.well-known/security.txt\n`,
+    ),
+  );
+
+  app.get('/.well-known/mcp/server-card.json', (c) =>
+    c.json({
+      name: config.appName,
+      description: 'Scan a store URL for agentic readiness and get fixes for every finding.',
+      version: SCANNER_VERSION,
+      endpoint: `${config.baseUrl}/mcp`,
+      transport: 'streamable-http',
+      tools: ['scan_store', 'get_fix', 'list_checks'],
+      repository: config.repositoryUrl,
+    }),
+  );
+
+  app.post('/scan', async (c) => {
+    const form = await c.req.parseBody();
+    try {
+      const request = validateScanRequest(form);
+      const { scan: stored } = await scanOrReuse(deps, request);
+      return c.redirect(`/r/${stored.id}`, 303);
+    } catch (error) {
+      if (error instanceof ScanRequestError)
+        return c.html(homePage(config, error.message), error.status as 400);
+      throw error;
+    }
+  });
+
+  app.post('/api/scan', async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'Body must be JSON.' }, 400);
+    }
+    try {
+      const request = validateScanRequest(
+        body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
+      );
+      const { scan: stored, reused } = await scanOrReuse(deps, request);
+      return c.json({
+        id: stored.id,
+        reused,
+        report_url: `${config.baseUrl}/r/${stored.id}`,
+        result: stored.result,
+      });
+    } catch (error) {
+      if (error instanceof ScanRequestError)
+        return c.json({ error: error.message }, error.status as 400);
+      throw error;
+    }
+  });
+
+  app.get('/r/:file', async (c) => {
+    const file = c.req.param('file');
+    const match = /^([0-9a-f]{16})(?:\.(json|md))?$/.exec(file);
+    if (!match?.[1] || !SCAN_ID.test(match[1])) return c.notFound();
+    const stored = await store.get(match[1]);
+    if (!stored) return c.notFound();
+    const format = match[2] ?? (c.req.header('accept')?.includes('text/markdown') ? 'md' : 'html');
+    c.header('cache-control', 'public, max-age=300');
+    if (format === 'json')
+      return c.body(renderJson(stored.result), 200, {
+        'content-type': 'application/json; charset=utf-8',
+      });
+    if (format === 'md')
+      return c.body(renderMarkdown(stored.result), 200, {
+        'content-type': 'text/markdown; charset=utf-8',
+        vary: 'Accept',
+      });
+    return c.html(renderHtml(stored.result, reportLinks(config, stored.id, stored.host)));
+  });
+
+  app.get('/badge/:file', async (c) => {
+    const match = /^([a-z0-9.-]+)\.svg$/i.exec(c.req.param('file'));
+    if (!match?.[1]) return c.notFound();
+    const stored = await store.latestForHost(match[1].toLowerCase());
+    if (!stored) return c.notFound();
+    return c.body(renderBadge(stored.result), 200, {
+      'content-type': 'image/svg+xml',
+      'cache-control': 'public, max-age=86400',
+    });
+  });
+
+  app.get('/internal/cron/cleanup', async (c) => {
+    if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
+    const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
+    const removed = await store.deleteOlderThan(cutoff);
+    return c.json({ removed, cutoff });
+  });
+
+  app.notFound((c) =>
+    c.html(page('Not found', '<h1>Not found</h1><p><a href="/">Back to the scanner</a></p>'), 404),
+  );
+
+  return app;
+}

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "B2.1",
+    "group": "B2",
+    "title": "Product JSON-LD on product pages",
+    "question": "Do product pages carry schema.org Product markup?",
+    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do.",
+    "weight": 3,
+    "spec": [
+      { "title": "schema.org Product", "url": "https://schema.org/Product" },
+      {
+        "title": "Google product structured data",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/product"
+      }
+    ]
+  },
+  {
+    "id": "B2.2",
+    "group": "B2",
+    "title": "Offer with price, currency and availability",
+    "question": "Does the markup state what the product costs and whether it is in stock?",
+    "method": "Each Product must carry an Offer (or AggregateOffer) with price, priceCurrency and an availability value that is a schema.org ItemAvailability URL. Pass when all sampled products do.",
+    "weight": 3,
+    "depends_on": ["B2.1"],
+    "spec": [
+      { "title": "schema.org Offer", "url": "https://schema.org/Offer" },
+      { "title": "schema.org ItemAvailability", "url": "https://schema.org/ItemAvailability" }
+    ]
+  },
+  {
+    "id": "B2.3",
+    "group": "B2",
+    "title": "Variants modeled",
+    "question": "Are variable products exposed as a ProductGroup with variants?",
+    "method": "For products that appear variable (variation form or Store API type variable), expect a ProductGroup with hasVariant or Store API variations. Skip when no variable product was sampled.",
+    "weight": 2,
+    "depends_on": ["B2.1"],
+    "spec": [
+      { "title": "schema.org ProductGroup", "url": "https://schema.org/ProductGroup" },
+      {
+        "title": "Google product variant structured data",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/product-variants"
+      }
+    ]
+  },
+  {
+    "id": "B2.4",
+    "group": "B2",
+    "title": "Shipping and return details in markup",
+    "question": "Can an agent read shipping cost and return terms from the offer?",
+    "method": "Pass when Offers carry shippingDetails (OfferShippingDetails) and hasMerchantReturnPolicy (MerchantReturnPolicy); warn when only one is present.",
+    "weight": 2,
+    "depends_on": ["B2.2"],
+    "spec": [
+      {
+        "title": "schema.org OfferShippingDetails",
+        "url": "https://schema.org/OfferShippingDetails"
+      },
+      {
+        "title": "schema.org MerchantReturnPolicy",
+        "url": "https://schema.org/MerchantReturnPolicy"
+      }
+    ]
+  },
+  {
+    "id": "B2.5",
+    "group": "B2",
+    "title": "Images with alt text and resolution",
+    "question": "Is the primary product image usable by an agent?",
+    "method": "The Product image must resolve, and the rendered img tag must carry alt text. Warn when the image is smaller than 800 px on its longest side (from HTML attributes or a HEAD request).",
+    "weight": 1,
+    "depends_on": ["B2.1"],
+    "spec": [
+      {
+        "title": "Google Merchant Center image requirements",
+        "url": "https://support.google.com/merchants/answer/6324350"
+      }
+    ]
+  },
+  {
+    "id": "B2.6",
+    "group": "B2",
+    "title": "Markup matches visible page",
+    "question": "Does the structured data say the same thing as the page?",
+    "method": "Compare the JSON-LD price with the rendered price and the availability with the add-to-cart state. Fail on a price mismatch; warn on an availability mismatch.",
+    "weight": 2,
+    "depends_on": ["B2.2", "A3.2"],
+    "spec": [
+      {
+        "title": "Google structured data general guidelines",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
+      }
+    ]
+  }
+]

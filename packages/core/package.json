@@ -1,0 +1,38 @@
+{
+  "name": "@agentic-readiness/core",
+  "version": "0.1.0",
+  "description": "The scanning engine: fetcher, target resolution, parsers, checks, runner, scoring and reporters. Web-standard APIs only, so it runs in workers, Node and tests alike.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agentic-readiness/catalog": "workspace:*",
+    "domhandler": "6.0.1",
+    "domutils": "4.0.2",
+    "fast-xml-parser": "5.11.2",
+    "htmlparser2": "12.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "agentic-readiness-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scans any store URL for agentic ingestion and agentic commerce readiness, with a fix list.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "lint:md": "markdownlint-cli2",
+    "check:catalog": "pnpm --filter @agentic-readiness/catalog validate",
+    "check:docs": "bash scripts/ci/check-docs-parity.sh",
+    "check:repo": "bash scripts/ci/check-forbidden-files.sh && bash scripts/ci/check-action-pins.sh && node scripts/ci/check-markdown-links.mjs",
+    "check": "pnpm check:repo && pnpm format:check && pnpm lint:md && pnpm build && pnpm lint && pnpm type-check && pnpm test && pnpm check:catalog && pnpm check:docs",
+    "docs:generate": "pnpm --filter @agentic-readiness/catalog docs",
+    "dev": "pnpm --filter @agentic-readiness/web dev",
+    "scan": "pnpm --filter @agentic-readiness/cli exec agentic-readiness",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "release:bump": "node scripts/release/bump-version.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "markdownlint-cli2": "0.24.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.0.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "re2js": ">=2.8.7"
+    }
+  }
+}

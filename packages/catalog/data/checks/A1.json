@@ -1,0 +1,63 @@
+[
+  {
+    "id": "A1.1",
+    "group": "A1",
+    "title": "robots.txt exists and parses",
+    "question": "Can an agent fetch /robots.txt and parse it?",
+    "method": "GET /robots.txt. Pass on a 200 text response that parses under RFC 9309; warn on 404 (everything allowed by default, but intent is unstated); fail on 5xx, a challenge page or unparseable content.",
+    "weight": 3,
+    "spec": [
+      {
+        "title": "RFC 9309 Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      }
+    ]
+  },
+  {
+    "id": "A1.2",
+    "group": "A1",
+    "title": "Sitemap declared and reachable",
+    "question": "Is there a sitemap an agent can fetch?",
+    "method": "Collect Sitemap: lines from robots.txt, then try /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml. Pass when one returns parseable XML with at least one URL or child sitemap.",
+    "weight": 2,
+    "spec": [{ "title": "Sitemaps XML format", "url": "https://www.sitemaps.org/protocol.html" }]
+  },
+  {
+    "id": "A1.3",
+    "group": "A1",
+    "title": "Product URLs in sitemap",
+    "question": "Does the sitemap list product pages?",
+    "method": "Pass when the sitemap index contains a product sitemap (WooCommerce: product-sitemap.xml or wp-sitemap-posts-product-*.xml) or the URL set contains URLs matching product path patterns.",
+    "weight": 2,
+    "depends_on": ["A1.2"],
+    "spec": [{ "title": "Sitemaps XML format", "url": "https://www.sitemaps.org/protocol.html" }]
+  },
+  {
+    "id": "A1.4",
+    "group": "A1",
+    "title": "Link response headers",
+    "question": "Does the homepage advertise agent-facing resources in Link headers?",
+    "method": "Read the Link header on the homepage response. Pass when it carries rel=\"alternate\" type=\"text/markdown\", rel=\"api-catalog\", rel=\"llms-txt\" or an MCP relation; warn when only unrelated links exist; fail when absent.",
+    "weight": 1,
+    "spec": [{ "title": "RFC 8288 Web Linking", "url": "https://www.rfc-editor.org/rfc/rfc8288" }]
+  },
+  {
+    "id": "A1.5",
+    "group": "A1",
+    "title": "llms.txt present and well-formed",
+    "question": "Is there an /llms.txt an agent can read?",
+    "method": "GET /llms.txt. Pass on a Markdown document with an H1, an optional blockquote summary and at least one link section, per llmstxt.org; warn when present but malformed.",
+    "weight": 2,
+    "spec": [{ "title": "llms.txt proposal", "url": "https://llmstxt.org/" }]
+  },
+  {
+    "id": "A1.6",
+    "group": "A1",
+    "title": "llms.txt links to catalog",
+    "question": "Does llms.txt point an agent at the catalog as data?",
+    "method": "Pass when at least one link in llms.txt targets a product feed, the Store API, a sitemap of products or a product index page.",
+    "weight": 2,
+    "depends_on": ["A1.5"],
+    "spec": [{ "title": "llms.txt proposal", "url": "https://llmstxt.org/" }]
+  }
+]
