@@ -4,6 +4,9 @@ import type { FetchedResponse } from '../http/types.js';
 import type { HtmlDocument } from '../parsers/html.js';
 import type { RobotsTxt } from '../parsers/robots.js';
 
+/** URL entries whose lastmod the resolver records, so a huge sitemap stays bounded. */
+export const LASTMOD_SAMPLE_LIMIT = 5000;
+
 export interface SitemapSummary {
   /** The sitemap URL that answered first. */
   url: string;
@@ -13,6 +16,12 @@ export interface SitemapSummary {
   fetchedSitemaps: string[];
   urls: string[];
   productUrls: string[];
+  /**
+   * <lastmod> values, as written, of the first LASTMOD_SAMPLE_LIMIT URL entries read
+   * (entries without one contribute nothing). Optional so summaries built by hand stay
+   * valid; the resolver always records it.
+   */
+  lastmods?: string[];
 }
 
 /**

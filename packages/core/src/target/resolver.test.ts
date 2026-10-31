@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HtmlDocument } from '../parsers/html.js';
 import type { FetchedResponse } from '../http/types.js';
+import { mapFetcher } from '../testing/index.js';
 import { detectPlatform, findPolicyLinks, resolveTarget } from './resolver.js';
 
 function response(body: string): FetchedResponse {
@@ -100,5 +101,26 @@ describe('findPolicyLinks', () => {
       shipping: 'https://shop.example/versand/',
       imprint: 'https://shop.example/impressum/',
     });
+  });
+});
+
+describe('resolveTarget sitemap lastmod', () => {
+  it('records the lastmod of every URL entry read, across index children, in order', async () => {
+    const fetcher = mapFetcher({
+      'https://shop.example/': '<html><body class="woocommerce"></body></html>',
+      'https://shop.example/sitemap.xml':
+        '<sitemapindex><sitemap><loc>https://shop.example/page-sitemap.xml</loc></sitemap><sitemap><loc>https://shop.example/product-sitemap.xml</loc></sitemap></sitemapindex>',
+      'https://shop.example/product-sitemap.xml':
+        '<urlset><url><loc>https://shop.example/product/a/</loc><lastmod>2026-10-01</lastmod></url><url><loc>https://shop.example/product/b/</loc></url><url><loc>https://evil.example/product/c/</loc><lastmod>2026-10-03</lastmod></url></urlset>',
+      'https://shop.example/page-sitemap.xml':
+        '<urlset><url><loc>https://shop.example/about/</loc><lastmod>2026-09-01T10:00:00Z</lastmod></url></urlset>',
+    });
+    const target = await resolveTarget('shop.example', fetcher);
+    // Product sitemaps are read first and the walk stops once product URLs are found.
+    expect(target.sitemap?.urls).toEqual([
+      'https://shop.example/product/a/',
+      'https://shop.example/product/b/',
+    ]);
+    expect(target.sitemap?.lastmods).toEqual(['2026-10-01']);
   });
 });

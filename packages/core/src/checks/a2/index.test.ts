@@ -1,6 +1,10 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
-import { mapFetcher, runCheck, targetFor } from '../../testing/index.js';
+import { resolveTarget } from '../../target/resolver.js';
+import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/index.js';
 import {
   honestFetchNotBlocked,
   noAnswerExclusionDirectives,
@@ -9,6 +13,7 @@ import {
   SHARED_TRAINING_TOKEN,
   TRAINING_CRAWLERS,
   trainingPolicyStated,
+  usagePreferenceSignalsParse,
   USER_FETCHERS,
   userFetchersAllowed,
 } from './index.js';
@@ -268,5 +273,166 @@ describe('A2.4 no block or challenge on an honest fetch', () => {
     );
     expect(offline.verdict).toBe('pass');
     expect(offline.evidence).toMatchObject({ pages: { [url]: { outcome: 'not_fetched' } } });
+  });
+});
+
+describe('A2.3 usage-preference signals parse', () => {
+  const tdmrepUrl = 'https://shop.example/.well-known/tdmrep.json';
+  interface Signal {
+    field: string;
+    value: string;
+    valid: boolean;
+    problem?: string;
+  }
+  const signalsOf = (evidence: Record<string, unknown>): Signal[] => evidence.signals as Signal[];
+
+  it('passes when nothing is declared, treating an HTML tdmrep.json as a soft 404', async () => {
+    const none = await runCheck(
+      usagePreferenceSignalsParse,
+      targetFor({ robots: 'User-agent: *\nAllow: /\n' }),
+      mapFetcher({}),
+    );
+    expect(none.verdict).toBe('pass');
+    expect(none.message).toMatch(/no usage-preference signal declared/);
+    expect(none.evidence).toMatchObject({
+      declared: 0,
+      malformed: 0,
+      tdmrep: { url: tdmrepUrl, status: 404, outcome: 'absent' },
+    });
+    const soft = await runCheck(
+      usagePreferenceSignalsParse,
+      targetFor(),
+      mapFetcher({ [tdmrepUrl]: '<!doctype html><html><body>Not found</body></html>' }),
+    );
+    expect(soft.verdict).toBe('pass');
+    expect(soft.evidence).toMatchObject({ declared: 0, tdmrep: { outcome: 'soft_404' } });
+  });
+
+  it('passes when every signal in every vocabulary is well-formed and lists each one', async () => {
+    const target = targetFor({
+      robots: [
+        'User-agent: *',
+        'Content-Signal: ai-train=no, search=yes, ai-input=yes',
+        'Content-Usage: train-ai=n',
+        'Content-Usage: /public/ train-ai=y',
+        'License: https://shop.example/license.xml',
+      ].join('\n'),
+      homeHtml:
+        '<html><head><title>Shop</title><meta name="tdm-reservation" content="1"><meta name="tdm-policy" content="https://shop.example/tdm-policy.json"><link rel="license" type="application/rsl+xml" href="/license.xml"></head><body></body></html>',
+    });
+    Object.assign(target.home.headers, {
+      'content-usage': 'train-ai=n, search=y',
+      'tdm-reservation': '1',
+      'tdm-policy': 'https://shop.example/tdm-policy.json',
+      link: '</license.xml>; rel="license"; type="application/rsl+xml"',
+    });
+    const outcome = await runCheck(
+      usagePreferenceSignalsParse,
+      target,
+      mapFetcher({
+        [tdmrepUrl]: {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify([{ location: '/', 'tdm-reservation': 1 }]),
+        },
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('12 usage-preference signal(s) declared and well-formed');
+    const fields = signalsOf(outcome.evidence).map((signal) => signal.field);
+    expect(fields).toEqual([
+      'robots.txt Content-Signal',
+      'robots.txt Content-Usage',
+      'robots.txt Content-Usage',
+      'robots.txt License',
+      'Content-Usage header',
+      'tdm-reservation header',
+      'tdm-policy header',
+      'tdm-reservation meta tag',
+      'tdm-policy meta tag',
+      'Link header rel=license (RSL)',
+      '<link rel="license"> (RSL)',
+      '/.well-known/tdmrep.json',
+    ]);
+    expect(signalsOf(outcome.evidence).every((signal) => signal.valid)).toBe(true);
+    expect(signalsOf(outcome.evidence)[9]?.value).toBe('https://shop.example/license.xml');
+    expect(outcome.evidence).toMatchObject({
+      declared: 12,
+      malformed: 0,
+      tdmrep: { outcome: 'declared' },
+    });
+  });
+
+  it('warns when a signal is malformed and names the field and the problem', async () => {
+    const target = targetFor({
+      robots: 'User-agent: *\nContent-Signal: train-ai=n\nLicense: /license.xml\n',
+      homeHtml:
+        '<html><head><title>Shop</title><meta name="tdm-reservation" content="yes"></head><body></body></html>',
+    });
+    target.home.headers['content-usage'] = 'ai-train=no';
+    const outcome = await runCheck(
+      usagePreferenceSignalsParse,
+      target,
+      mapFetcher({
+        [tdmrepUrl]: {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: '{"tdm-reservation": 1}',
+        },
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      '5 of 5 usage-preference signal(s) malformed: robots.txt Content-Signal, robots.txt License, Content-Usage header, tdm-reservation meta tag, /.well-known/tdmrep.json',
+    );
+    expect(signalsOf(outcome.evidence)).toEqual([
+      {
+        field: 'robots.txt Content-Signal',
+        value: 'train-ai=n',
+        valid: false,
+        problem: 'unknown signal "train-ai" (ai-train, search, ai-input)',
+      },
+      {
+        field: 'robots.txt License',
+        value: '/license.xml',
+        valid: false,
+        problem: 'not an absolute URL',
+      },
+      {
+        field: 'Content-Usage header',
+        value: 'ai-train=no',
+        valid: false,
+        problem: 'unknown key "ai-train" (train-ai, ai-use, search)',
+      },
+      { field: 'tdm-reservation meta tag', value: 'yes', valid: false, problem: 'must be 0 or 1' },
+      {
+        field: '/.well-known/tdmrep.json',
+        value: '{"tdm-reservation": 1}',
+        valid: false,
+        problem: 'must be a JSON array',
+      },
+    ]);
+  });
+});
+
+describe('A2 checks on the good WooCommerce fixture', () => {
+  const fixture = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'fixtures',
+    'stores',
+    'good-woocommerce',
+  );
+
+  it('passes A2.3', async () => {
+    const fetcher = fixtureFetcher(fixture);
+    const target = await resolveTarget('ceramics.example', fetcher);
+    const outcome = await runCheck(usagePreferenceSignalsParse, target, fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({ malformed: 0 });
   });
 });

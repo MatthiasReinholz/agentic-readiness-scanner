@@ -5,3 +5,5 @@ export * from './jsonld.js';
 export * from './llms-txt.js';
 export * from './gtin.js';
 export * from './security-txt.js';
+export * from './link-header.js';
+export * from './usage-preferences.js';

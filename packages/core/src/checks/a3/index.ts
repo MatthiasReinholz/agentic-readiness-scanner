@@ -1,10 +1,20 @@
 import type { Element } from 'domhandler';
 
-import type { FetchedResponse } from '../../http/types.js';
-import { attribute, type HtmlDocument } from '../../parsers/html.js';
+import { contentType, type FetchedResponse, type FetchOptions } from '../../http/types.js';
+import { attribute, HtmlDocument } from '../../parsers/html.js';
 import { extractJsonLd, offersOf, productNodes, asString } from '../../parsers/jsonld.js';
+import { mediaTypeOf } from '../../parsers/link-header.js';
+import { fnv1a32 } from '../../target/sampling.js';
 import { productPages } from '../shared.js';
-import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
+import {
+  defineCheck,
+  fail,
+  outcomeForRatio,
+  pass,
+  skip,
+  warn,
+  type CheckOutcome,
+} from '../types.js';
 
 /**
  * A price in page text: a currency sign or code next to an amount. The amount pattern
@@ -301,6 +311,198 @@ export const accessibleMainContent = defineCheck('A3.5', async ({ target, fetche
   }
   return pass(
     `main landmark present on ${sampled === 'home' ? 'the home page (no product pages sampled)' : 'every sampled product page'} with no overlay markup before it`,
+    evidence,
+  );
+});
+
+/** What a coding agent sends when it wants Markdown. */
+export const MARKDOWN_ACCEPT = 'text/markdown, text/html;q=0.9';
+/** Requests this check sends at most: the negotiated page, a Markdown alternate, the .md neighbour. */
+const MARKDOWN_REQUEST_LIMIT = 3;
+/** Characters of a Markdown body searched for the product name; the heading is at the top. */
+const MARKDOWN_SEARCH_LIMIT = 200_000;
+
+/**
+ * Names a Markdown copy must carry to count as the same page: the Product name from
+ * JSON-LD, the <title>, and the title before its site-name separator ("Mug – Shop").
+ */
+export function pageNames(doc: HtmlDocument): string[] {
+  const names = new Set<string>();
+  for (const product of productNodes(extractJsonLd(doc).nodes)) {
+    const name = asString(product.name)?.trim();
+    if (name) names.add(name);
+  }
+  const title = doc.title();
+  if (title) {
+    names.add(title);
+    const head = title.split(/\s+[|–—-]\s+/, 1)[0]?.trim();
+    if (head) names.add(head);
+  }
+  return [...names];
+}
+
+function namesPage(body: string, names: string[]): boolean {
+  const haystack = body.slice(0, MARKDOWN_SEARCH_LIMIT).replace(/\s+/g, ' ').toLowerCase();
+  return names.some((name) => haystack.includes(name.replace(/\s+/g, ' ').toLowerCase()));
+}
+
+function variesOnAccept(response: FetchedResponse): boolean {
+  return (response.headers.vary ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .some((value) => value === 'accept' || value === '*');
+}
+
+/** /product/mug/ becomes /product/mug.md; query and fragment are dropped. */
+export function markdownNeighbour(pageUrl: string): string {
+  const url = new URL(pageUrl);
+  url.search = '';
+  url.hash = '';
+  url.pathname = `${url.pathname.replace(/\/$/, '')}.md`;
+  return url.href;
+}
+
+function isMarkdown(response: FetchedResponse): boolean {
+  return response.status === 200 && contentType(response) === 'text/markdown';
+}
+
+export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, fetcher }) => {
+  const url = target.sampled.products[0];
+  if (url === undefined) {
+    return skip('not_applicable', 'no product pages sampled');
+  }
+  let sent = 0;
+  const get = async (requestUrl: string, options?: FetchOptions): Promise<FetchedResponse> => {
+    const response = await fetcher.fetch(requestUrl, options);
+    if (!response.fromCache) sent += 1;
+    return response;
+  };
+  const negotiated = await get(url, { headers: { Accept: MARKDOWN_ACCEPT } });
+  // The HTML copy: the negotiated answer when the server ignored Accept, else the plain
+  // page, which earlier checks fetched and the fetcher cached.
+  const html = contentType(negotiated) === 'text/html' ? negotiated : await get(url);
+  const doc = new HtmlDocument(html.body);
+  const names = pageNames(doc);
+  const evidence: Record<string, unknown> = {
+    url,
+    names,
+    negotiated: {
+      status: negotiated.status,
+      content_type: contentType(negotiated),
+      vary: negotiated.headers.vary ?? null,
+      names_product: isMarkdown(negotiated) ? namesPage(negotiated.body, names) : null,
+    },
+    alternate: null,
+    md: null,
+    outcome: 'none',
+  };
+  if (isMarkdown(negotiated) && namesPage(negotiated.body, names)) {
+    evidence.outcome = 'negotiated';
+    if (!variesOnAccept(negotiated)) {
+      return warn(
+        'the product page answers Accept: text/markdown with Markdown but sends no Vary: Accept, so a shared cache may serve Markdown to browsers',
+        evidence,
+      );
+    }
+    return pass(
+      'the product page answers Accept: text/markdown with Markdown that names the product',
+      evidence,
+    );
+  }
+  const probe = async (
+    label: 'alternate' | 'md',
+    probeUrl: string,
+  ): Promise<CheckOutcome | null> => {
+    if (sent >= MARKDOWN_REQUEST_LIMIT) {
+      evidence[label] = { url: probeUrl, skipped: 'request limit reached' };
+      return null;
+    }
+    const response = await get(probeUrl);
+    const markdown = isMarkdown(response);
+    const named = markdown && namesPage(response.body, names);
+    evidence[label] = {
+      url: probeUrl,
+      status: response.status,
+      content_type: contentType(response),
+      names_product: markdown ? named : null,
+    };
+    if (!named) return null;
+    evidence.outcome = label;
+    return pass(
+      label === 'alternate'
+        ? `the Markdown alternate ${probeUrl} names the product`
+        : `${probeUrl} answers Markdown that names the product`,
+      evidence,
+    );
+  };
+  const alternate = doc
+    .links()
+    .find((link) => hasRel(link.rel, 'alternate') && mediaTypeOf(link.type) === 'text/markdown');
+  const alternateUrl = alternate ? resolveUrl(alternate.href, url) : null;
+  if (alternateUrl !== null) {
+    const outcome = await probe('alternate', alternateUrl);
+    if (outcome) return outcome;
+  }
+  const outcome = await probe('md', markdownNeighbour(url));
+  if (outcome) return outcome;
+  return fail(
+    'no Markdown copy of the product page: content negotiation, a rel=alternate link and the .md neighbour all failed',
+    evidence,
+  );
+});
+
+/** A path under the origin that cannot exist, fixed per hostname so a scan stays deterministic. */
+export function probeUrlFor(origin: string, hostname: string): string {
+  return `${origin}/agentic-readiness-probe-${fnv1a32(hostname).toString(16).padStart(8, '0')}`;
+}
+
+function isOriginRoot(url: string, origin: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === origin && parsed.pathname === '/' && parsed.search === '';
+  } catch {
+    return false;
+  }
+}
+
+export const unknownUrlsAnswer404 = defineCheck('A3.6', async ({ target, fetcher }) => {
+  const url = probeUrlFor(target.origin, target.hostname);
+  const response = await fetcher.fetch(url);
+  const type = contentType(response);
+  const evidence = {
+    url,
+    status: response.status,
+    final_url: response.finalUrl,
+    content_type: type,
+  };
+  if (response.status === 0) {
+    return skip(
+      'error',
+      `the probe URL could not be fetched: ${response.error ?? 'no response'}`,
+      evidence,
+    );
+  }
+  if (response.status === 404 || response.status === 410) {
+    return pass(`an unknown URL answers HTTP ${response.status}`, evidence);
+  }
+  if (isOriginRoot(response.finalUrl, target.origin)) {
+    return warn('an unknown URL redirects to the home page instead of answering 404', evidence);
+  }
+  if (response.status >= 300 && response.status < 400) {
+    return warn(
+      `an unknown URL answers HTTP ${response.status} (a redirect) instead of 404`,
+      evidence,
+    );
+  }
+  const html =
+    type === 'text/html' ||
+    type === 'application/xhtml+xml' ||
+    /<html|<!doctype/i.test(response.body.slice(0, 500));
+  if (response.status === 200 && html) {
+    return fail('an unknown URL answers HTTP 200 with an HTML page (soft 404)', evidence);
+  }
+  return warn(
+    `an unknown URL answers HTTP ${response.status}${type ? ` (${type})` : ''} instead of 404`,
     evidence,
   );
 });
