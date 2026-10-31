@@ -21,6 +21,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 - At most 40 requests per scan, redirects included, enforced by the fetcher; a check that runs out is skipped as `budget_exhausted` and the report says so.
 - 10 second timeout per request, 2 MB body cap, 5 redirects.
 - Sequential requests, no parallel fan-out against a target.
+- GET, HEAD and OPTIONS only, with one exception: a read-only JSON-RPC `server/discover` POST to an MCP endpoint the site itself advertises (checks A4.4 and B5.8). It creates nothing on the server.
 
 ## Honest behavior toward targets
 

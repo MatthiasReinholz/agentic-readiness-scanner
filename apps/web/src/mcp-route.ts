@@ -11,6 +11,7 @@ import { scanOrReuse, type ScanDependencies } from './scan-service.js';
 
 export function createMcpRoute(deps: ScanDependencies): Hono {
   const route = new Hono();
+  const { history } = deps;
   route.all('/', async (c) => {
     const server = createMcpServer({
       scanner: async (url, profile) => {
@@ -20,11 +21,8 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
         });
         return stored.result;
       },
-      ...(deps.history
-        ? {
-            history: async (host: string) =>
-              historyJson(host, await deps.history!.forHost(host, 50)),
-          }
+      ...(history
+        ? { history: async (host: string) => historyJson(host, await history.forHost(host, 50)) }
         : {}),
     });
     // No sessionIdGenerator: stateless mode, one transport per request.

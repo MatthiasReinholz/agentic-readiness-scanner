@@ -75,10 +75,10 @@ describe('scan of the good WooCommerce fixture', () => {
     }
   });
 
-  it('skips unimplemented checks honestly and stays within budget', async () => {
+  it('implements every catalog check and stays within budget', async () => {
     const result = await run();
     const notImplemented = result.results.filter((item) => item.skip_reason === 'not_implemented');
-    expect(notImplemented.length).toBeGreaterThan(0);
+    expect(notImplemented.map((item) => item.id)).toEqual([]);
     expect(result.requests).toBeLessThanOrEqual(40);
     expect(result.scanned_at).toBe('2026-10-30T12:00:00.000Z');
   });

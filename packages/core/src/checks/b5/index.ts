@@ -2,6 +2,7 @@ import { elementText, HtmlDocument } from '../../parsers/html.js';
 import { storeApiUrl } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 import { contentType } from '../../http/types.js';
+import { probeMcpEndpoint } from '../mcp.js';
 import { isRecord, looksLikeHtml, nonEmptyString, parseJson, recordEntries } from '../json.js';
 
 /** The Store API cart object, as far as this check dereferences it. */
@@ -151,7 +152,6 @@ const UCP_SHOPPING_SERVICE = 'dev.ucp.shopping';
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
 const UCP_TRANSPORTS = new Set(['rest', 'mcp', 'a2a']);
 const HEADER_LIMIT = 4_000;
-const SNIPPET_LIMIT = 200;
 
 interface UcpProfile {
   version: string;
@@ -592,14 +592,6 @@ export function hasUcpLinkRelation(header: string): boolean {
   return false;
 }
 
-/** Whether a GET on a POST-only MCP endpoint shows that something is listening. */
-function mcpEndpointAnswers(status: number, body: string): boolean {
-  if (status === 405 || status === 401 || status === 200) return true;
-  if (status !== 400) return false;
-  const parsed = parseJson(body);
-  return isRecord(parsed) && ('jsonrpc' in parsed || 'error' in parsed);
-}
-
 export const shopifyAgenticStorefront = defineCheck('B5.8', async ({ target, fetcher }) => {
   if (target.platform !== 'shopify') {
     return skip('not_applicable', 'requires Shopify, which was not detected', {
@@ -609,15 +601,16 @@ export const shopifyAgenticStorefront = defineCheck('B5.8', async ({ target, fet
   const linkHeader = target.home.headers.link ?? null;
   const linkDeclared = linkHeader !== null && hasUcpLinkRelation(linkHeader);
   const endpoint = `${target.origin}/api/ucp/mcp`;
-  const response = await fetcher.fetch(endpoint);
-  const answers = mcpEndpointAnswers(response.status, response.body);
+  const probe = await probeMcpEndpoint(fetcher, endpoint);
+  const response = { status: probe.status };
+  const answers = probe.outcome === 'rpc' || probe.outcome === 'auth';
   const evidence = {
     link_header: linkHeader,
     link_declared: linkDeclared,
     endpoint,
-    endpoint_status: response.status,
+    endpoint_status: probe.status,
     endpoint_answers: answers,
-    body_snippet: response.body.slice(0, SNIPPET_LIMIT),
+    probe: probe.detail,
   };
   if (linkDeclared && answers) {
     return pass(

@@ -124,3 +124,27 @@ describe('resolveTarget sitemap lastmod', () => {
     expect(target.sitemap?.lastmods).toEqual(['2026-10-01']);
   });
 });
+
+describe('Shopify policy page fallback', () => {
+  it('fills in the conventional /policies/* pages that the footer did not link', async () => {
+    const { addShopifyPolicyPages } = await import('./resolver.js');
+    const { mapFetcher } = await import('../testing/index.js');
+    const policies: Partial<Record<'returns' | 'shipping' | 'privacy' | 'terms', string>> = {
+      privacy: 'https://boots.example/pages/privacy',
+    };
+    const fetcher = mapFetcher({
+      'https://boots.example/policies/refund-policy':
+        '<html><title>Refund policy</title><body>30 days</body></html>',
+      'https://boots.example/policies/terms-of-service':
+        '<html><title>Opening soon - password</title><body></body></html>',
+    });
+    await addShopifyPolicyPages(policies, 'https://boots.example', fetcher);
+    expect(policies).toEqual({
+      privacy: 'https://boots.example/pages/privacy',
+      returns: 'https://boots.example/policies/refund-policy',
+    });
+    expect(fetcher.log.map((entry) => entry.url)).not.toContain(
+      'https://boots.example/policies/privacy-policy',
+    );
+  });
+});

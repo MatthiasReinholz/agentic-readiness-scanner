@@ -67,7 +67,7 @@
     "group": "A4",
     "title": "MCP endpoint reachable",
     "question": "Does the advertised MCP endpoint answer like an MCP server?",
-    "method": "GET the endpoint from the server card without a body. Pass on 405 (a 2026-07-28 server accepts POST only), on 406 (the reference transport refusing a GET without an SSE Accept header), on 401 with a WWW-Authenticate header (an authorized server), or on 200 with text/event-stream (a server on the 2025 revisions). Fail on 404, 5xx or an HTML page. The scanner sends no JSON-RPC request, so this proves reachability, not conformance.",
+    "method": "POST a JSON-RPC server/discover request (the read-only method the 2026-07-28 specification makes mandatory) to the endpoint from the server card, with the 2026-07-28 headers. Pass when the answer is a JSON-RPC message, result or error, whatever the status (a 2025 server answers \"method not found\", which proves the transport), or an event stream, or 401 with a WWW-Authenticate header (an authorized server). Fail on 404, 5xx, an HTML page, or any answer without a JSON-RPC body. This is the only request the scanner sends with a body; it creates nothing on the server.",
     "weight": 1,
     "depends_on": ["A4.1"],
     "spec": [

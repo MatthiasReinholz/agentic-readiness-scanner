@@ -113,12 +113,13 @@ export class BudgetedFetcher implements Fetcher {
     const headers = Object.entries(options.headers ?? {})
       .map(([key, value]) => [key.toLowerCase(), value] as const)
       .sort(([a], [b]) => a.localeCompare(b));
-    const key = `${method} ${url} ${JSON.stringify(headers)}`;
+    const body = method === 'POST' ? (options.body ?? '') : undefined;
+    const key = `${method} ${url} ${JSON.stringify(headers)} ${body ?? ''}`;
     const cached = this.cache.get(key);
     if (cached) {
       return { ...(await cached), fromCache: true };
     }
-    const pending = this.perform(url, method, Object.fromEntries(headers));
+    const pending = this.perform(url, method, Object.fromEntries(headers), body);
     this.cache.set(key, pending);
     return pending;
   }
@@ -127,6 +128,7 @@ export class BudgetedFetcher implements Fetcher {
     url: string,
     method: FetchOptions['method'] & string,
     extraHeaders: Record<string, string>,
+    requestBody?: string,
   ): Promise<FetchedResponse> {
     const started = Date.now();
     let current: URL;
@@ -147,6 +149,7 @@ export class BudgetedFetcher implements Fetcher {
         response = await this.fetchImpl(current.href, {
           method,
           headers: { 'user-agent': this.userAgent, accept: DEFAULT_ACCEPT, ...extraHeaders },
+          ...(requestBody !== undefined ? { body: requestBody } : {}),
           redirect: 'manual',
           signal: AbortSignal.timeout(this.timeoutMs),
         });

@@ -126,6 +126,32 @@ export function findPolicyLinks(
   return { ...crossOrigin, ...sameOrigin };
 }
 
+/**
+ * Shopify serves its policy pages at fixed paths whether or not the theme links them from
+ * the server-rendered footer (many themes build the footer in the browser). When a kind
+ * was not found by link, the conventional page is fetched and used if it exists.
+ */
+const SHOPIFY_POLICY_PATHS: Partial<Record<PolicyKind, string>> = {
+  returns: '/policies/refund-policy',
+  shipping: '/policies/shipping-policy',
+  privacy: '/policies/privacy-policy',
+  terms: '/policies/terms-of-service',
+};
+
+export async function addShopifyPolicyPages(
+  policies: Partial<Record<PolicyKind, string>>,
+  origin: string,
+  fetcher: Fetcher,
+): Promise<void> {
+  for (const [kind, path] of Object.entries(SHOPIFY_POLICY_PATHS) as [PolicyKind, string][]) {
+    if (policies[kind]) continue;
+    const response = await fetcher.fetch(origin + path);
+    if (response.status === 200 && !/<title>[^<]*password/i.test(response.body.slice(0, 2000))) {
+      policies[kind] = origin + path;
+    }
+  }
+}
+
 async function discoverSitemap(
   origin: string,
   robots: RobotsTxt | null,
@@ -297,6 +323,7 @@ export async function resolveTarget(
   }
   const listing = anchorUrls.find((url) => LISTING_PATTERN.test(new URL(url).pathname));
   const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
+  if (platform === 'shopify') await addShopifyPolicyPages(policies, origin, fetcher);
 
   const storeSignals =
     products.length > 0 ||

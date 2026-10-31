@@ -13,64 +13,98 @@
     },
     {
       "url": "https://boots.example/robots.txt",
-      "headers": { "content-type": "text/plain" },
+      "headers": {
+        "content-type": "text/plain"
+      },
       "body_file": "robots.txt"
     },
     {
       "url": "https://boots.example/sitemap.xml",
-      "headers": { "content-type": "application/xml" },
+      "headers": {
+        "content-type": "application/xml"
+      },
       "body_file": "sitemap.xml"
     },
     {
       "url": "https://boots.example/sitemap_products_1.xml",
-      "headers": { "content-type": "application/xml" },
+      "headers": {
+        "content-type": "application/xml"
+      },
       "body_file": "sitemap_products_1.xml"
     },
     {
       "url": "https://boots.example/products/trail-boot",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "product-trail-boot.html"
     },
     {
       "url": "https://boots.example/products/canvas-sneaker",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "product-canvas-sneaker.html"
     },
     {
       "url": "https://boots.example/products.json?limit=5",
-      "headers": { "content-type": "application/json; charset=utf-8" },
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
       "body_file": "products.json"
     },
     {
       "url": "https://boots.example/.well-known/ucp",
-      "headers": { "content-type": "application/json", "cache-control": "public, max-age=300" },
+      "headers": {
+        "content-type": "application/json",
+        "cache-control": "public, max-age=300"
+      },
       "body_file": "well-known-ucp.json"
     },
     {
       "url": "https://boots.example/api/ucp/mcp",
-      "status": 405,
-      "headers": { "allow": "POST", "content-type": "text/plain" },
-      "body": ""
+      "status": 404,
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
+      "body": "<!doctype html><html><head><title>404 Not Found</title></head><body>Not found</body></html>"
     },
     {
       "url": "https://boots.example/policies/refund-policy",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "policy-refund.html"
     },
     {
       "url": "https://boots.example/policies/shipping-policy",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "policy-shipping.html"
     },
     {
       "url": "https://boots.example/policies/privacy-policy",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "policy-privacy.html"
     },
     {
       "url": "https://boots.example/policies/terms-of-service",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
       "body_file": "policy-terms.html"
+    },
+    {
+      "url": "https://boots.example/api/ucp/mcp",
+      "method": "POST",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Method not found\"}}"
     }
   ]
 }

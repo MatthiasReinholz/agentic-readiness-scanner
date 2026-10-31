@@ -375,20 +375,20 @@ describe('B4.6 policy pages are agent-readable', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 4 policy page(s) are readable by the crawlers behind AI answers (returns: HTTP 404; shipping: 51 words; privacy: noindex)',
+      '2 of 4 policy page(s) are readable by the crawlers behind AI answers (returns: HTTP 404; shipping: 51 words; privacy: noindex, reachable but excluded from indexes)',
     );
     expect(outcome.evidence).toMatchObject({
-      readable: 1,
+      readable: 2,
       pages: {
         returns: { status: 404, readable: false },
         shipping: { words: 51, readable: false },
-        privacy: { noindex: true, readable: false },
+        privacy: { noindex: true, readable: true },
         terms: { noindex: false, readable: true },
       },
     });
   });
 
-  it('fails when every policy page is blocked for shopping agents or noindexed by header', async () => {
+  it('fails when every policy page is blocked for the crawlers behind answers, warns on noindex by header', async () => {
     const blocked = await runCheck(
       policyPagesAgentReadable,
       targetFor({
@@ -411,8 +411,13 @@ describe('B4.6 policy pages are agent-readable', () => {
         [returns]: { status: 200, headers: { 'X-Robots-Tag': 'noindex' }, body: pageOf(150) },
       }),
     );
-    expect(header.verdict).toBe('fail');
-    expect(header.evidence).toMatchObject({ pages: { returns: { noindex: true } } });
+    // noindex keeps the page out of the indexes behind answers, but every fetcher can read it.
+    expect(header.verdict).toBe('warn');
+    expect(header.message).toMatch(/noindex, reachable but excluded from indexes/);
+    expect(header.evidence).toMatchObject({
+      pages: { returns: { noindex: true, readable: true } },
+      limited: ['returns: noindex'],
+    });
   });
 });
 

@@ -759,16 +759,22 @@ describe('B5.8 Shopify agentic storefront active', () => {
     const outcome = await runAny(
       shopifyAgenticStorefront,
       shopifyTarget(`</llms.txt>; rel="llms-txt", ${link}`),
-      mapFetcher({ [endpoint]: { status: 405, headers: { allow: 'POST' }, body: '' } }),
+      mapFetcher({
+        [endpoint]: {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: '{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}',
+          when: { method: 'POST' },
+        },
+      }),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.evidence).toEqual({
+    expect(outcome.evidence).toMatchObject({
       link_header: `</llms.txt>; rel="llms-txt", ${link}`,
       link_declared: true,
       endpoint,
-      endpoint_status: 405,
+      endpoint_status: 200,
       endpoint_answers: true,
-      body_snippet: '',
     });
   });
 
@@ -791,7 +797,7 @@ describe('B5.8 Shopify agentic storefront active', () => {
     expect(outcome.message).toBe(
       '/api/ucp/mcp answers (HTTP 400) but the homepage sends no Link rel="ucp" header',
     );
-    expect(outcome.evidence).toMatchObject({ link_header: null, body_snippet: body });
+    expect(outcome.evidence).toMatchObject({ link_header: null, endpoint_answers: true });
   });
 
   it('fails when neither signal is present, treating a plain 400 as no answer', async () => {
@@ -840,7 +846,7 @@ describe('recorded stores', () => {
     expect(target.sampled.products).toHaveLength(2);
     const storefront = await runAny(shopifyAgenticStorefront, target, fetcher);
     expect(storefront.verdict).toBe('pass');
-    expect(storefront.evidence).toMatchObject({ link_declared: true, endpoint_status: 405 });
+    expect(storefront.evidence).toMatchObject({ link_declared: true, endpoint_status: 200 });
     const products = await runAny(shopifyProductsJsonReadable, target, fetcher);
     expect(products.verdict).toBe('pass');
     expect(products.evidence).toMatchObject({

@@ -1,8 +1,10 @@
 import {
+  linkResponseHeaders,
   llmsTxtLinksToCatalog,
   llmsTxtPresent,
   productUrlsInSitemap,
   robotsTxtExists,
+  sitemapLastmodPlausible,
   sitemapReachable,
 } from './a1/index.js';
 import {
@@ -10,13 +12,16 @@ import {
   noAnswerExclusionDirectives,
   searchCrawlersAllowed,
   trainingPolicyStated,
+  usagePreferenceSignalsParse,
   userFetchersAllowed,
 } from './a2/index.js';
 import {
   accessibleMainContent,
   canonicalAndHreflang,
+  markdownCopyOfProductPages,
   pageWeightAndResponseTime,
   serverRenderedProductContent,
+  unknownUrlsAnswer404,
 } from './a3/index.js';
 import {
   a2aAgentCard,
@@ -78,17 +83,22 @@ export const builtInChecks: readonly Check[] = [
   robotsTxtExists,
   sitemapReachable,
   productUrlsInSitemap,
+  linkResponseHeaders,
   llmsTxtPresent,
   llmsTxtLinksToCatalog,
+  sitemapLastmodPlausible,
   trainingPolicyStated,
   searchCrawlersAllowed,
+  usagePreferenceSignalsParse,
   honestFetchNotBlocked,
   userFetchersAllowed,
   noAnswerExclusionDirectives,
+  markdownCopyOfProductPages,
   serverRenderedProductContent,
   pageWeightAndResponseTime,
   canonicalAndHreflang,
   accessibleMainContent,
+  unknownUrlsAnswer404,
   mcpServerDiscoverable,
   apiCatalogPublished,
   oauthDiscoveryForMcp,

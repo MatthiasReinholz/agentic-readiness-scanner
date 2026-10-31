@@ -2,6 +2,7 @@ import { contentType, type FetchedResponse, type Fetcher } from '../../http/type
 import { attribute, type HtmlDocument } from '../../parsers/html.js';
 import { hasLinkRelation, parseLinkHeader } from '../../parsers/link-header.js';
 import { parseLlmsTxt } from '../../parsers/llms-txt.js';
+import { probeMcpEndpoint } from '../mcp.js';
 import type { Target } from '../../target/types.js';
 import { productPages } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn, type CheckOutcome, type Evidence } from '../types.js';
@@ -385,62 +386,32 @@ export const oauthDiscoveryForMcp = defineCheck('A4.3', async ({ fetcher, outcom
 
 // A4.4 MCP endpoint reachable
 
-const MCP_RESPONSE_TYPES = new Set(['text/event-stream', 'application/json']);
-
 export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcomes }) => {
   const endpoint = endpointFrom(outcomes);
   if (!endpoint) return skip('dependency_failed', NO_ENDPOINT);
-  const response = await fetcher.fetch(endpoint);
-  const type = contentType(response);
-  const challenge = response.headers['www-authenticate'];
-  const evidence: Evidence = {
-    endpoint,
-    status: response.status,
-    content_type: type,
-    www_authenticate: Boolean(challenge),
-    allow: response.headers.allow ?? null,
-  };
-  const { status } = response;
-  if (status === 0) {
-    return fail(
-      `the MCP endpoint could not be fetched: ${response.error ?? 'no response'}`,
-      evidence,
-    );
+  const probe = await probeMcpEndpoint(fetcher, endpoint);
+  const evidence: Evidence = { ...probe };
+  switch (probe.outcome) {
+    case 'rpc':
+      return pass(
+        `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
+        evidence,
+      );
+    case 'auth':
+      return pass(
+        'the endpoint requires authorization and names a scheme in WWW-Authenticate',
+        evidence,
+      );
+    case 'unreachable':
+      return fail(`the MCP endpoint could not be fetched: ${probe.detail}`, evidence);
+    default:
+      return fail(
+        probe.status === 404
+          ? 'the endpoint answers 404; the card points nowhere'
+          : `the endpoint does not answer like an MCP server (${probe.detail})`,
+        evidence,
+      );
   }
-  if (status === 405) {
-    return pass(
-      'the endpoint answers 405 to GET, as a POST-only Streamable HTTP server does',
-      evidence,
-    );
-  }
-  // The reference SDK answers a GET without an SSE Accept header with 406: a live transport.
-  if (status === 406) {
-    return pass(
-      'the endpoint answers 406 to a GET without an SSE Accept header, as the reference transport does',
-      evidence,
-    );
-  }
-  if (status === 401 && challenge) {
-    return pass(
-      'the endpoint requires authorization and names a scheme in WWW-Authenticate',
-      evidence,
-    );
-  }
-  if (status === 401) {
-    return fail('the endpoint answers 401 without a WWW-Authenticate header', evidence);
-  }
-  if (status === 404) return fail('the endpoint answers 404; the card points nowhere', evidence);
-  if (status >= 500) return fail(`the endpoint answers HTTP ${status}`, evidence);
-  if (type === 'text/html' || looksLikeHtml(response.body)) {
-    return fail('the endpoint answers an HTML page, not an MCP transport', evidence);
-  }
-  if (status === 200 && MCP_RESPONSE_TYPES.has(type)) {
-    return pass(`the endpoint answers 200 with ${type}`, evidence);
-  }
-  return fail(
-    `the endpoint answers HTTP ${status} with ${type || 'no content type'}, which is not an MCP transport response`,
-    evidence,
-  );
 });
 
 // A4.5 A2A agent card

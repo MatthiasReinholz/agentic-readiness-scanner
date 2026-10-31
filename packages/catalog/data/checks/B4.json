@@ -82,7 +82,7 @@
     "group": "B4",
     "title": "Policy pages are agent-readable",
     "question": "Can an agent actually read the policy pages it found?",
-    "method": "For each policy page found, require server-rendered text (as in A3.2) and no robots.txt or meta robots rule that blocks shopping agents. Skip when no policy page was found.",
+    "method": "For each policy page found (returns, shipping, privacy, terms), require HTTP 200, more than 100 words of text outside scripts, and no robots.txt rule that disallows the search and assistant crawlers of A2.2 on its path. Pass when all found pages qualify; warn when some do not, or when a page carries noindex (reachable for every fetcher, but kept out of the indexes that ground AI answers, as Shopify policy pages are by default); fail when none qualifies. Skip when no policy page was found.",
     "weight": 2,
     "spec": [
       {

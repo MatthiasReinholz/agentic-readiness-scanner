@@ -6,7 +6,7 @@ The scanner answers that question for any public store URL. It reads public sign
 
 It is built WordPress-first, so it knows what a WooCommerce store exposes by default, and every check also runs against any other platform because every check reads public HTTP surfaces.
 
-> Status: **0.2.0 released** (2026-10-31), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)); `main` carries catalog 0.2.0 with 57 checks, the great majority implemented and the rest reported as _not implemented_ rather than guessed. The npm packages are not published yet. See [Roadmap](#roadmap).
+> Status: **0.2.0 released** (2026-10-31), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)); `main` carries catalog 0.2.0 with 57 checks, every one implemented; the recorded WooCommerce store reaches Level 5. The npm packages are not published yet. See [Roadmap](#roadmap).
 
 ## What it checks
 
@@ -124,8 +124,8 @@ To add a check, read [CONTRIBUTING.md](CONTRIBUTING.md). To understand the hosti
 
 - **0.1** (released): catalog, engine, 19 checks, CLI, MCP, hosted app with badge and monitoring, CI and release automation.
 - **0.2** (released): per-section scores, agent briefs, monitoring by weekly rescan, the shared visual system.
-- **0.3** (on `main`): the audited catalog 0.2.0 with purpose-classed crawler checks, honest fetching, corrected protocol discovery and Shopify checks; most checks implemented; per-host history and the CLI `diff`; npm publication.
-- **1.0**: the full catalog implemented, a recorded reference store per platform with a nightly diff, and the result contract declared stable.
+- **0.3** (on `main`): the audited catalog 0.2.0 with purpose-classed crawler checks, honest fetching, corrected protocol discovery and Shopify checks, every check implemented; per-host history and the CLI `diff`; npm publication.
+- **1.0**: a recorded reference store per platform with a nightly diff, Web Bot Auth signing for the scanner's own requests, and the result contract declared stable.
 
 ## Related work
 

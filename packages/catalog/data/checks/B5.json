@@ -86,7 +86,7 @@
     "group": "B5",
     "title": "Shopify agentic storefront active",
     "question": "Is the Shopify store exposing its agent surface?",
-    "method": "For Shopify stores: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" and GET /api/ucp/mcp answers as an MCP endpoint (405, 400 with a JSON-RPC error, or 200), which means the Agentic storefronts channel is active; warn when only one of the two answers; fail when neither does (the channel is off or the store is not eligible).",
+    "method": "For Shopify stores: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message or a 401 challenge (the endpoint answers GET with 404), which means the Agentic storefronts channel is active; warn when only one of the two holds; fail when neither does (the channel is off or the store is not eligible).",
     "weight": 2,
     "requires": ["shopify"],
     "depends_on": ["B1.1"],

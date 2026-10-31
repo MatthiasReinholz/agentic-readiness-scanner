@@ -20,7 +20,7 @@ export interface FixtureManifestEntry {
   body?: string;
   body_file?: string;
   /** Request method this answer is for; GET when omitted. */
-  method?: 'GET' | 'HEAD' | 'OPTIONS';
+  method?: 'GET' | 'HEAD' | 'OPTIONS' | 'POST';
   /** Request headers (lower-case names) whose values must contain the text for this answer to apply. */
   request_headers?: Record<string, string>;
 }

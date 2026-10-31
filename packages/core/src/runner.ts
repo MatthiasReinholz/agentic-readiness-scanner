@@ -110,12 +110,25 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       return verdict === 'fail' || verdict === 'skip';
     });
     if (failedParent) {
-      outcomes.set(definition.id, {
-        verdict: 'skip',
-        skipReason: 'dependency_failed',
-        message: `skipped because ${failedParent} did not pass`,
-        evidence: { dependency: failedParent },
-      });
+      // A parent that had nothing to evaluate (an optional file that is absent, say)
+      // leaves its dependents with nothing to evaluate either; that is not a failure.
+      const parentSkip = outcomes.get(failedParent)?.skipReason;
+      outcomes.set(
+        definition.id,
+        parentSkip === 'not_applicable'
+          ? {
+              verdict: 'skip',
+              skipReason: 'not_applicable',
+              message: `does not apply because ${failedParent} did not apply`,
+              evidence: { dependency: failedParent },
+            }
+          : {
+              verdict: 'skip',
+              skipReason: 'dependency_failed',
+              message: `skipped because ${failedParent} did not pass`,
+              evidence: { dependency: failedParent },
+            },
+      );
       continue;
     }
     const implementation = implementations.get(definition.id);

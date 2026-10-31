@@ -47,8 +47,13 @@
     },
     {
       "url": "https://ceramics.example/product/stoneware-mug/",
-      "request_headers": { "accept": "text/markdown" },
-      "headers": { "content-type": "text/markdown; charset=utf-8", "vary": "Accept" },
+      "request_headers": {
+        "accept": "text/markdown"
+      },
+      "headers": {
+        "content-type": "text/markdown; charset=utf-8",
+        "vary": "Accept"
+      },
       "body_file": "product-stoneware-mug.md"
     },
     {
@@ -239,6 +244,15 @@
         "cache-control": "public, max-age=300"
       },
       "body_file": "acp.json"
+    },
+    {
+      "url": "https://ceramics.example/mcp",
+      "method": "POST",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"supportedVersions\":[\"2026-07-28\"],\"capabilities\":{\"tools\":{}},\"_meta\":{\"io.modelcontextprotocol/serverInfo\":{\"name\":\"Example Ceramics\",\"version\":\"1.0.0\"}}}}"
     }
   ]
 }

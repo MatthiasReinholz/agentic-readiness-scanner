@@ -293,6 +293,7 @@ export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fet
     }
   > = {};
   const problems: string[] = [];
+  const limited: string[] = [];
   let readable = 0;
   for (const { kind, url } of found) {
     const response = await fetcher.fetch(url);
@@ -308,8 +309,7 @@ export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fet
           (agent) => !isAllowed(robots, agent, path),
         )
       : [];
-    const ok =
-      response.status === 200 && words > MIN_POLICY_WORDS && !noindex && blocked.length === 0;
+    const ok = response.status === 200 && words > MIN_POLICY_WORDS && blocked.length === 0;
     pages[kind] = {
       url,
       status: response.status,
@@ -318,22 +318,25 @@ export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fet
       blocked_agents: blocked,
       readable: ok,
     };
-    if (ok) readable += 1;
-    else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
+    if (ok) {
+      readable += 1;
+      // Reachable for every fetcher, but kept out of the indexes that ground AI answers.
+      if (noindex) limited.push(`${kind}: noindex`);
+    } else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
     else if (words <= MIN_POLICY_WORDS) problems.push(`${kind}: ${words} words`);
-    else if (noindex) problems.push(`${kind}: noindex`);
     else problems.push(`${kind}: blocks ${blocked.join(', ')}`);
   }
   const total = found.length;
-  return outcomeForRatio(
-    readable,
-    total,
-    `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
-      problems.length > 0 ? ` (${problems.join('; ')})` : ''
-    }`,
-    { pages, readable, total, problems },
-    0,
-  );
+  const notes = [
+    ...problems,
+    ...limited.map((item) => `${item}, reachable but excluded from indexes`),
+  ];
+  const message = `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
+    notes.length > 0 ? ` (${notes.join('; ')})` : ''
+  }`;
+  const evidence = { pages, readable, total, problems, limited };
+  if (readable === total && limited.length > 0) return warn(message, evidence);
+  return outcomeForRatio(readable, total, message, evidence, 0);
 });
 
 export const securityTxt = defineCheck('B4.7', async ({ target, fetcher }) => {

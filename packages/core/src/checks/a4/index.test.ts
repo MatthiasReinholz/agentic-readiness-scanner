@@ -448,19 +448,12 @@ describe('A4.3 OAuth discovery for the MCP endpoint', () => {
 });
 
 describe('A4.4 MCP endpoint reachable', () => {
-  it('passes on 406 from the reference transport', async () => {
-    const outcome = await runCheck(
-      mcpEndpointReachable,
-      targetFor(),
-      mapFetcher({ 'https://shop.example/mcp': { status: 406, body: 'Not Acceptable' } }),
-      new Map([
-        ['A4.1', { verdict: 'pass' as const, evidence: { endpoint: 'https://shop.example/mcp' } }],
-      ]),
-    );
-    expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toMatch(/406/);
+  const rpc = (status: number, body: unknown) => ({
+    status,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    when: { method: 'POST' as const },
   });
-
   const run = (response?: FixtureResponse, outcomes = discovered()) =>
     runCheck(
       mcpEndpointReachable,
@@ -470,75 +463,71 @@ describe('A4.4 MCP endpoint reachable', () => {
     );
 
   it('skips with dependency_failed when A4.1 recorded no endpoint', async () => {
-    const outcome = await run({ status: 405 }, new Map());
+    const outcome = await run(rpc(200, { jsonrpc: '2.0', id: 1, result: {} }), new Map());
     expect(outcome.verdict).toBe('skip');
     expect(outcome.skipReason).toBe('dependency_failed');
   });
 
-  it('passes on 405 and reports the Allow header', async () => {
-    const outcome = await run({
-      status: 405,
-      headers: { allow: 'POST', 'content-type': 'text/plain' },
-      body: 'Method Not Allowed',
+  it('posts server/discover and passes on a JSON-RPC result or error, whatever the status', async () => {
+    const fetcher = mapFetcher({
+      [endpoint]: rpc(200, {
+        jsonrpc: '2.0',
+        id: 1,
+        result: { supportedVersions: ['2026-07-28'] },
+      }),
     });
+    const outcome = await runCheck(mcpEndpointReachable, targetFor(), fetcher, discovered());
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toContain('405');
-    expect(outcome.evidence).toEqual({
+    expect(fetcher.log[0]?.options.method).toBe('POST');
+    expect(fetcher.log[0]?.options.headers?.['mcp-method']).toBe('server/discover');
+    expect(outcome.evidence).toMatchObject({
       endpoint,
-      status: 405,
-      content_type: 'text/plain',
-      www_authenticate: false,
-      allow: 'POST',
+      status: 200,
+      jsonrpc: true,
+      outcome: 'rpc',
     });
+    const older = await run(
+      rpc(404, { jsonrpc: '2.0', id: 1, error: { code: -32601, message: 'Method not found' } }),
+    );
+    expect(older.verdict).toBe('pass');
+    expect(older.evidence).toMatchObject({ status: 404, jsonrpc: true });
+    const stream = await run({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: 'event: message\ndata: {"jsonrpc":"2.0","id":1,"result":{}}\n',
+    });
+    expect(stream.verdict).toBe('pass');
   });
 
   it('passes on 401 with WWW-Authenticate and fails on 401 without it', async () => {
     const authorized = await run({
       status: 401,
-      headers: { 'www-authenticate': 'Bearer realm="mcp"' },
+      headers: {
+        'www-authenticate':
+          'Bearer resource_metadata="https://shop.example/.well-known/oauth-protected-resource/mcp"',
+      },
     });
     expect(authorized.verdict).toBe('pass');
-    expect(authorized.evidence).toMatchObject({ status: 401, www_authenticate: true, allow: null });
+    expect(authorized.evidence).toMatchObject({
+      status: 401,
+      www_authenticate: true,
+      outcome: 'auth',
+    });
     const bare = await run({ status: 401 });
     expect(bare.verdict).toBe('fail');
-    expect(bare.message).toContain('without a WWW-Authenticate header');
   });
 
-  it('passes on 200 with text/event-stream or application/json', async () => {
-    const stream = await run({
-      status: 200,
-      headers: { 'content-type': 'text/event-stream' },
-      body: 'event: endpoint\n',
-    });
-    expect(stream.verdict).toBe('pass');
-    expect(stream.evidence).toMatchObject({ content_type: 'text/event-stream' });
-    const jsonBody = await run(json({ jsonrpc: '2.0' }));
-    expect(jsonBody.verdict).toBe('pass');
-  });
-
-  it('fails on 404, 5xx and no response', async () => {
+  it('fails on 404, 405 without a body, 5xx, HTML and no response', async () => {
     const gone = await run();
     expect(gone.verdict).toBe('fail');
     expect(gone.message).toContain('404');
-    const down = await run({ status: 503, body: 'down' });
-    expect(down.verdict).toBe('fail');
-    expect(down.message).toBe('the endpoint answers HTTP 503');
+    expect((await run({ status: 405, headers: { allow: 'GET' }, body: '' })).verdict).toBe('fail');
+    expect((await run({ status: 503, body: 'down' })).verdict).toBe('fail');
+    const page = await run({ status: 200, headers: { 'content-type': 'text/html' }, body: HTML });
+    expect(page.verdict).toBe('fail');
     const unreachable = await run({ status: 0 });
     expect(unreachable.verdict).toBe('fail');
     expect(unreachable.message).toMatch(/could not be fetched/);
-    expect(unreachable.evidence).toMatchObject({ status: 0 });
-  });
-
-  it('fails on an HTML page and on other non-transport answers', async () => {
-    const page = await run({ status: 200, headers: { 'content-type': 'text/html' }, body: HTML });
-    expect(page.verdict).toBe('fail');
-    expect(page.message).toMatch(/HTML page/);
-    const untyped = await run({ status: 200, body: HTML });
-    expect(untyped.verdict).toBe('fail');
-    expect(untyped.message).toMatch(/HTML page/);
-    const plain = await run({ status: 200, headers: { 'content-type': 'text/plain' }, body: 'ok' });
-    expect(plain.verdict).toBe('fail');
-    expect(plain.message).toContain('HTTP 200 with text/plain');
   });
 });
 
