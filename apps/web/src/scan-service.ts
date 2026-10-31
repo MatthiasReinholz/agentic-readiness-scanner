@@ -9,6 +9,7 @@ import {
 } from '@agentic-readiness/core';
 
 import type { AppConfig } from './config.js';
+import type { HistoryStore } from './history/types.js';
 import { newScanId } from './ids.js';
 import type { ResultStore, StoredScan } from './store/types.js';
 import type { TargetRegistry } from './targets/types.js';
@@ -19,6 +20,8 @@ export interface ScanDependencies {
   store: ResultStore;
   /** Durable registry of every host scanned; optional so the app runs without it. */
   targets?: TargetRegistry;
+  /** Durable per-host history of distinct states; optional for the same reason. */
+  history?: HistoryStore;
   /** Test seam: supply a Fetcher factory to answer from fixtures instead of the network. */
   fetcherFactory?: () => Fetcher;
   now?: () => Date;
@@ -118,5 +121,6 @@ async function performScan(
   const stored: StoredScan = { id: newScanId(), host, createdAt: now().toISOString(), result };
   await deps.store.put(stored);
   await deps.targets?.record(stored);
+  await deps.history?.record(stored);
   return stored;
 }

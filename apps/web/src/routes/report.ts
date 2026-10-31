@@ -2,8 +2,10 @@ import { renderBadge, renderHtml, renderJson, renderMarkdown } from '@agentic-re
 import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
+import { entryContaining } from '../history/types.js';
 import { SCAN_ID } from '../ids.js';
 import type { MonitoringService } from '../monitoring/service.js';
+import { historyJson, historyPage, sincePreviousPanel } from '../pages/history.js';
 import { homePage } from '../pages/home.js';
 import { hostedFooterHtml, hostedHead } from '../pages/layout.js';
 import { MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
@@ -33,7 +35,10 @@ function reportLinks(config: AppConfig, id: string, host: string) {
   };
 }
 
-/** Scanning and reports: the form, the JSON API, /r/:id in three formats and the badge. */
+/** Distinct states shown on a history page at most. */
+export const HISTORY_PAGE_ENTRIES = 200;
+
+/** Scanning and reports: the form, the JSON API, /r/:id in three formats, history and the badge. */
 export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies): Hono {
   const { config, store } = deps;
   const app = new Hono();
@@ -99,9 +104,14 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
           vary: 'Accept',
         },
       );
+    // Recent entries are enough to place this scan and show what changed before it.
+    const entries = deps.history ? await deps.history.forHost(stored.host, 20) : [];
+    const progress =
+      entries.length > 0
+        ? sincePreviousPanel(stored.host, entries, stored, entryContaining(entries, stored))
+        : '';
     const monitorSlots = monitoring
       ? {
-          afterScoresHtml: monitorPanel(config, stored),
           endHtml: monitorDialog(config, stored),
           scripts: [MONITOR_SCRIPT],
         }
@@ -109,9 +119,26 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     return c.html(
       renderHtml(stored.result, {
         ...reportLinks(config, stored.id, stored.host),
+        afterScoresHtml: `${progress}${monitoring ? monitorPanel(config, stored) : ''}`,
         ...monitorSlots,
       }),
     );
+  });
+
+  // History per host: one row per distinct state, never purged.
+  app.get('/h/:file', async (c) => {
+    const match = /^([a-z0-9.-]+?)(\.json)?$/i.exec(c.req.param('file'));
+    if (!match?.[1] || !deps.history) return c.notFound();
+    const host = match[1].toLowerCase();
+    const entries = await deps.history.forHost(host, HISTORY_PAGE_ENTRIES);
+    c.header('cache-control', 'public, max-age=300');
+    if (match[2]) {
+      if (entries.length === 0) return c.json({ error: 'No scans recorded for this host.' }, 404);
+      return c.json(historyJson(host, entries));
+    }
+    if (entries.length === 0 && !(await store.latestForHost(host))) return c.notFound();
+    const now = deps.now ?? (() => new Date());
+    return c.html(historyPage(config, { host, entries, now: now() }));
   });
 
   app.get('/badge/:file', async (c) => {

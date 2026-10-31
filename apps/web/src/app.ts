@@ -51,6 +51,7 @@ function llmsTxt(config: AppConfig): string {
 - [Scan form](${config.baseUrl}/): submit a URL, get a report
 - [JSON API](${config.baseUrl}/): POST {"url": "https://example.com"} to ${config.baseUrl}/api/scan and receive the result object (GET is not served)
 - [MCP server card](${config.baseUrl}/.well-known/mcp/server-card.json): Streamable HTTP endpoint at ${config.baseUrl}/mcp with tools scan_store, get_fix and list_checks
+- [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
 ## Reference
@@ -123,6 +124,7 @@ export function createApp(deps: AppDependencies): Hono {
         'User-agent: *',
         'Allow: /',
         'Disallow: /r/',
+        'Disallow: /h/',
         'Disallow: /api/',
         'Disallow: /internal/',
         'Disallow: /monitor/',
@@ -138,6 +140,7 @@ export function createApp(deps: AppDependencies): Hono {
         'User-agent: Applebot-Extended',
         'Allow: /',
         'Disallow: /r/',
+        'Disallow: /h/',
         'Disallow: /api/',
         'Disallow: /internal/',
         'Disallow: /monitor/',
@@ -159,7 +162,7 @@ export function createApp(deps: AppDependencies): Hono {
       version: SCANNER_VERSION,
       endpoint: `${config.baseUrl}/mcp`,
       transport: 'streamable-http',
-      tools: ['scan_store', 'get_fix', 'list_checks'],
+      tools: ['scan_store', 'get_history', 'get_fix', 'list_checks'],
       repository: config.repositoryUrl,
     }),
   );
@@ -176,6 +179,7 @@ export function createApp(deps: AppDependencies): Hono {
       monitoring,
       now,
       ...(deps.targets ? { targets: deps.targets } : {}),
+      ...(deps.history ? { history: deps.history } : {}),
       ...(deps.monitors ? { monitors: deps.monitors } : {}),
     }),
   );

@@ -10,6 +10,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
+import { MemoryHistoryStore } from './history/memory.js';
 import { createMcpRoute } from './mcp-route.js';
 import { createMailer } from './monitoring/mailer.js';
 import { MemoryMonitorStore } from './monitoring/memory.js';
@@ -23,15 +24,17 @@ const config = configFromEnv({
   APP_BASE_URL: process.env.APP_BASE_URL ?? `http://localhost:${port}`,
 });
 const store = new MemoryResultStore();
+const history = new MemoryHistoryStore();
 const mailer = createMailer(config.monitoring);
 const app = createApp({
   config,
   store,
   targets: new MemoryTargetRegistry(),
+  history,
   monitors: new MemoryMonitorStore(),
   ...(mailer ? { mailer } : {}),
 });
-app.route('/mcp', createMcpRoute({ config, store }));
+app.route('/mcp', createMcpRoute({ config, store, history }));
 
 // Static files that Spacefast serves from dist/ in production: public/ as is, and the
 // Inter files straight from the package (build.mjs copies them to dist/fonts).
