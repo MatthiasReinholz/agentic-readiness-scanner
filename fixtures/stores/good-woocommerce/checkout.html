@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Checkout – Ceramics Example</title>
+    <meta name="robots" content="noindex, follow" />
+  </head>
+  <body class="page-template-default page woocommerce-checkout woocommerce-page">
+    <header>
+      <a href="/">Ceramics Example</a>
+    </header>
+    <main class="woocommerce">
+      <h1>Checkout</h1>
+      <div class="woocommerce-form-coupon-toggle">
+        <div class="woocommerce-info">
+          Have a coupon? <a href="#" class="showcoupon">Click here to enter your code</a>
+        </div>
+      </div>
+      <form
+        name="checkout"
+        method="post"
+        class="checkout woocommerce-checkout"
+        action="https://ceramics.example/checkout/"
+      >
+        <div class="col2-set" id="customer_details">
+          <div class="woocommerce-billing-fields">
+            <h3>Billing details</h3>
+            <p class="form-row">
+              <label for="billing_first_name">First name</label
+              ><input type="text" name="billing_first_name" id="billing_first_name" />
+            </p>
+            <p class="form-row">
+              <label for="billing_last_name">Last name</label
+              ><input type="text" name="billing_last_name" id="billing_last_name" />
+            </p>
+            <p class="form-row">
+              <label for="billing_email">Email address</label
+              ><input type="email" name="billing_email" id="billing_email" />
+            </p>
+            <p class="form-row">
+              <label for="billing_address_1">Street address</label
+              ><input type="text" name="billing_address_1" id="billing_address_1" />
+            </p>
+            <p class="form-row">
+              <label for="billing_postcode">Postcode</label
+              ><input type="text" name="billing_postcode" id="billing_postcode" />
+            </p>
+            <p class="form-row">
+              <label for="billing_city">Town / City</label
+              ><input type="text" name="billing_city" id="billing_city" />
+            </p>
+          </div>
+        </div>
+        <h3 id="order_review_heading">Your order</h3>
+        <div id="order_review" class="woocommerce-checkout-review-order">
+          <table class="shop_table woocommerce-checkout-review-order-table">
+            <tbody></tbody>
+          </table>
+          <div id="payment" class="woocommerce-checkout-payment">
+            <ul class="wc_payment_methods payment_methods methods">
+              <li class="wc_payment_method payment_method_bacs">
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="bacs"
+                  id="payment_method_bacs"
+                /><label for="payment_method_bacs">Direct bank transfer</label>
+              </li>
+              <li class="wc_payment_method payment_method_cod">
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="cod"
+                  id="payment_method_cod"
+                /><label for="payment_method_cod">Cash on delivery</label>
+              </li>
+            </ul>
+            <div class="form-row place-order">
+              <button
+                type="submit"
+                class="button alt"
+                name="woocommerce_checkout_place_order"
+                id="place_order"
+              >
+                Place order
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
+    <footer><a href="/privacy-policy/">Privacy policy</a> · <a href="/terms/">Terms</a></footer>
+  </body>
+</html>
