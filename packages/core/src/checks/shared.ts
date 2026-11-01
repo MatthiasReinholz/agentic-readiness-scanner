@@ -1,7 +1,8 @@
-import type { Fetcher } from '../http/types.js';
+import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { HtmlDocument } from '../parsers/html.js';
 import { extractJsonLd, productNodes } from '../parsers/jsonld.js';
 import type { Target } from '../target/types.js';
+import { skip, type CheckOutcome } from './types.js';
 
 /** Controls whose name, class, id, value or text say they add the item to the cart. */
 export const ADD_TO_CART = /add[-_ ]?to[-_ ]?cart|single_add_to_cart_button|buy now/i;
@@ -26,6 +27,20 @@ export interface ProductPage {
   url: string;
   status: number;
   doc: HtmlDocument;
+  /** True when the page answered 2xx: its content can be judged. */
+  readable: boolean;
+  /** Why the page could not be read, when it could not (status 0, 4xx, 5xx). */
+  failure?: string;
+}
+
+/**
+ * One line that says why a response is not usable: the transport or policy error the
+ * fetcher recorded (a dropped connection, a timeout, a URL robots.txt disallows for the
+ * scanner), or the HTTP status. Checks quote it instead of judging a page they never read.
+ */
+export function describeFailure(response: Pick<FetchedResponse, 'status' | 'error'>): string {
+  if (response.status === 0) return response.error ?? 'no response';
+  return `HTTP ${response.status}`;
 }
 
 /** Fetches every sampled product page (cached by the fetcher across checks). */
@@ -33,9 +48,42 @@ export async function productPages(target: Target, fetcher: Fetcher): Promise<Pr
   const pages: ProductPage[] = [];
   for (const url of target.sampled.products) {
     const response = await fetcher.fetch(url);
-    pages.push({ url, status: response.status, doc: new HtmlDocument(response.body) });
+    const readable = response.status >= 200 && response.status < 300;
+    pages.push({
+      url,
+      status: response.status,
+      doc: new HtmlDocument(response.body),
+      readable,
+      ...(readable ? {} : { failure: describeFailure(response) }),
+    });
   }
   return pages;
+}
+
+/**
+ * The sampled product pages a content check may judge, and the outcome to return when
+ * none can be: `skip` with reason `not_applicable` when nothing was sampled, `skip` with
+ * reason `error` when pages were sampled but none answered. A page that was never read
+ * is never scored as empty, blocked or malformed.
+ */
+export async function readableProductPages(
+  target: Target,
+  fetcher: Fetcher,
+): Promise<{ pages: ProductPage[]; unavailable: CheckOutcome | null }> {
+  const all = await productPages(target, fetcher);
+  const pages = all.filter((page) => page.readable);
+  if (all.length === 0)
+    return { pages, unavailable: skip('not_applicable', 'no product pages sampled') };
+  if (pages.length === 0) {
+    const reasons = all.map((page) => `${page.url} (${page.failure ?? 'unknown'})`).join('; ');
+    return {
+      pages,
+      unavailable: skip('error', `no sampled product page could be fetched: ${reasons}`, {
+        pages: Object.fromEntries(all.map((page) => [page.url, page.failure ?? null])),
+      }),
+    };
+  }
+  return { pages, unavailable: null };
 }
 
 export interface StoreApiProduct {
