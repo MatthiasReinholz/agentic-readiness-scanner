@@ -7,7 +7,6 @@ import {
   renderJson,
   renderMarkdown,
   scan,
-  TargetUnreachableError,
   type ScanOptions,
 } from '@agentic-readiness/core';
 import { fixtureFetcher } from '@agentic-readiness/core/testing';
@@ -25,6 +24,27 @@ export function render(result: ScanResult, format: OutputFormat): string {
     case 'badge':
       return renderBadge(result);
   }
+}
+
+/**
+ * The full reason a scan did not produce a report: the error's own message followed by
+ * every cause down the chain, since the platform fetch keeps the useful part
+ * (ECONNRESET, a TLS code) in `cause`.
+ */
+export function describeScanError(error: unknown): string {
+  if (!(error instanceof Error)) return `scan failed: ${String(error)}`;
+  const parts = [error.message || error.name];
+  for (let cause = error.cause; cause !== undefined && cause !== null;) {
+    if (cause instanceof Error) {
+      const code = (cause as { code?: unknown }).code;
+      parts.push(cause.message || (typeof code === 'string' ? code : cause.name));
+      cause = cause.cause;
+    } else {
+      parts.push(typeof cause === 'string' ? cause : JSON.stringify(cause));
+      break;
+    }
+  }
+  return `scan failed: ${parts.join(': ')}`;
 }
 
 export async function runScan(
@@ -50,11 +70,8 @@ export async function runScan(
   try {
     result = await scan(args.url, options);
   } catch (error) {
-    if (error instanceof TargetUnreachableError) {
-      stderr(`${error.message}\n`);
-      return 2;
-    }
-    throw error;
+    stderr(`${describeScanError(error)}\n`);
+    return 2;
   }
   const output = render(result, args.format);
   if (args.output) {

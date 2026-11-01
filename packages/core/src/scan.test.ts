@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { ScanResultSchema } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
+import type { FetchFailure, FetchOptions, FetchedResponse, Fetcher } from './http/types.js';
 import { renderBadge, renderHtml, renderMarkdown } from './reporters/index.js';
 import { scan } from './scan.js';
 import { fixtureFetcher } from './testing/index.js';
@@ -160,5 +161,54 @@ describe('scan of an unreachable target', () => {
     await expect(
       scan('https://nowhere.example/', { fetcher: fixtureFetcher(join(fixtures, 'content-site')) }),
     ).rejects.toThrow(/not reachable/);
+  });
+});
+
+describe('scan warnings about requests that did not succeed', () => {
+  /** The fixture fetcher with the failure list a live BudgetedFetcher would have kept. */
+  function withFailures(failures: FetchFailure[]): Fetcher {
+    const inner = fixtureFetcher(join(fixtures, 'good-woocommerce'));
+    return {
+      fetch: (url: string, options?: FetchOptions): Promise<FetchedResponse> =>
+        inner.fetch(url, options),
+      get requestCount() {
+        return inner.requestCount;
+      },
+      budget: inner.budget,
+      failures,
+    };
+  }
+
+  it('names every failed request and summarises rate limiting', async () => {
+    const result = await scan('ceramics.example', {
+      fetcher: withFailures([
+        {
+          url: 'https://ceramics.example/product/vase/',
+          status: 0,
+          reason: 'TypeError: fetch failed (read ECONNRESET)',
+        },
+        {
+          url: 'https://ceramics.example/llms.txt',
+          status: 429,
+          reason: 'HTTP 429, Retry-After: 30',
+        },
+      ]),
+      now: fixedNow,
+    });
+    expect(result.warnings).toContain(
+      'request failed: https://ceramics.example/product/vase/ (TypeError: fetch failed (read ECONNRESET))',
+    );
+    expect(result.warnings).toContain(
+      'request failed: https://ceramics.example/llms.txt (HTTP 429, Retry-After: 30)',
+    );
+    expect(result.warnings.filter((warning) => warning.includes('429 Too Many Requests'))).toEqual([
+      'the store answered 429 Too Many Requests on 1 URL(s); verdicts for those pages reflect the rate limit, not the page: https://ceramics.example/llms.txt',
+    ]);
+    expect(ScanResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it('adds nothing when every request succeeded', async () => {
+    const result = await scan('ceramics.example', { fetcher: withFailures([]), now: fixedNow });
+    expect(result.warnings.some((warning) => warning.startsWith('request failed'))).toBe(false);
   });
 });

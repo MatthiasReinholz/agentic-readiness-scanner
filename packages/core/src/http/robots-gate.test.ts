@@ -44,7 +44,13 @@ describe('RobotsGatedFetcher', () => {
     gate.setRobots(parseRobotsTxt(ROBOTS));
     const blocked = await gate.fetch('https://shop.example/private/x');
     expect(blocked.status).toBe(0);
-    expect(blocked.error).toContain('blocked by robots.txt');
+    expect(blocked.error).toBe(
+      'not fetched: robots.txt disallows /private/x for AgenticReadinessScanner',
+    );
+    const withQuery = await gate.fetch('https://shop.example/private/x?view=json');
+    expect(withQuery.error).toBe(
+      'not fetched: robots.txt disallows /private/x?view=json for AgenticReadinessScanner',
+    );
     const allowed = await gate.fetch('https://shop.example/private/open/y');
     expect(allowed.status).toBe(200);
     const pdf = await gate.fetch('https://shop.example/catalog.pdf');
@@ -55,8 +61,11 @@ describe('RobotsGatedFetcher', () => {
     ]);
     expect(gate.blocked).toEqual([
       'https://shop.example/private/x',
+      'https://shop.example/private/x?view=json',
       'https://shop.example/catalog.pdf',
     ]);
+    // A refusal is policy, not a failed request.
+    expect(gate.failures).toEqual([]);
   });
 
   it('never blocks robots.txt, sitemaps or the well-known directory', async () => {
