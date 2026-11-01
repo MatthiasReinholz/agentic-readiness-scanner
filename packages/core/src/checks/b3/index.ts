@@ -10,13 +10,13 @@ import {
   productNodes,
   variantNodes,
 } from '../../parsers/jsonld.js';
-import type { Target } from '../../target/types.js';
 import {
+  fetchNote,
   permalinkKey,
-  type ProductPage,
   readableProductPages,
   storeApiProducts,
   storeApiProductsByPermalink,
+  unfetched,
 } from '../shared.js';
 import {
   type CheckContext,
@@ -28,19 +28,6 @@ import {
   warn,
 } from '../types.js';
 
-/** The sampled product URLs that answered with no readable page (status 0, 4xx or 5xx). */
-function unfetched(target: Target, pages: ProductPage[]): string[] {
-  const read = new Set(pages.map((page) => page.url));
-  return target.sampled.products.filter((url) => !read.has(url));
-}
-
-/** "; 1 of 2 sampled page(s) could not be fetched" when some pages failed, else empty. */
-function fetchNote(target: Target, pages: ProductPage[]): string {
-  const failed = unfetched(target, pages).length;
-  if (failed === 0) return '';
-  return `; ${failed} of ${target.sampled.products.length} sampled page(s) could not be fetched`;
-}
-
 interface IdentitySample {
   url: string;
   /** The first value shaped like a GTIN (8, 12, 13 or 14 digits), or null. */
@@ -51,6 +38,8 @@ interface IdentitySample {
   invalid_format: string[];
   variants_with_gtin: number;
   source: 'jsonld' | 'store-api' | null;
+  /** True when the JSON-LD carries brand and mpn, Google's documented alternative to a GTIN. */
+  brand_and_mpn: boolean;
 }
 
 interface IdentitySamples {
@@ -91,6 +80,8 @@ export async function collectGtins(context: CheckContext): Promise<IdentitySampl
       gtins: [...gtins],
       invalid_format: [...invalid],
       variants_with_gtin: variantsWithGtin,
+      brand_and_mpn:
+        brandNameOf(products) !== null && products.map(mpnOf).some((value) => value !== null),
     };
     const fromJsonLd = base.gtins[0] ?? null;
     if (fromJsonLd !== null) return { ...base, gtin: fromJsonLd, source: 'jsonld' };
@@ -117,10 +108,13 @@ export const gtinPresent = defineCheck('B3.1', async (context) => {
   ).length;
   const invalid = [...new Set(samples.flatMap((sample) => sample.invalid_format))];
   const ratio = withGtin / samples.length;
+  const withoutGtin = samples.filter((sample) => sample.gtin === null);
+  const alternative = withoutGtin.filter((sample) => sample.brand_and_mpn).length;
   const evidence = {
     sampled: samples.length,
     with_gtin: withGtin,
     from_variants: fromVariants,
+    without_gtin_with_brand_and_mpn: alternative,
     invalid_format: invalid,
     products: samples,
     unfetched: failed,
@@ -130,11 +124,21 @@ export const gtinPresent = defineCheck('B3.1', async (context) => {
     invalid.length > 0
       ? `; ${invalid.length} gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: ${invalid.slice(0, 5).join(', ')}`
       : '';
-  const message = `${withGtin} of ${samples.length} sampled product(s) carry a GTIN${variantNote}${invalidNote}${note}`;
+  const message = `${withGtin} of ${samples.length} sampled product(s) carry a GTIN${variantNote}${invalidNote}`;
   // Channel rules ask for identifiers on most of the catalog, not all of it, hence 80 percent.
-  if (ratio >= 0.8) return pass(message, evidence);
-  if (ratio > 0.5) return warn(message, evidence);
-  return fail(message, evidence);
+  if (ratio >= 0.8) return pass(`${message}${note}`, evidence);
+  if (ratio > 0.5) return warn(`${message}${note}`, evidence);
+  // Google accepts brand plus MPN where no GTIN exists; a product identified that way is
+  // weak, not unidentified.
+  if (withoutGtin.length > 0 && alternative === withoutGtin.length)
+    return warn(
+      `${message}; the ${withoutGtin.length} without one carry brand and mpn, Google's documented alternative to a GTIN${note}`,
+      evidence,
+    );
+  return fail(
+    `${message}; ${withoutGtin.length - alternative} of the ${withoutGtin.length} without one also lack brand plus mpn, Google's documented alternative${note}`,
+    evidence,
+  );
 });
 
 export const gtinValid = defineCheck('B3.2', async (context) => {
@@ -194,6 +198,7 @@ export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
   let considered = 0;
   let missing = 0;
   let weak = 0;
+  let strings = 0;
   for (const page of pages) {
     const products = productNodes(extractJsonLd(page.doc).nodes);
     if (products.length === 0) continue;
@@ -209,7 +214,8 @@ export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
       spellings.set(key, (spellings.get(key) ?? new Set<string>()).add(brand.name));
     }
     let issue: string | null = null;
-    if (brand.kind === 'string') issue = 'brand is a bare string, not a Brand object';
+    // Google reads a bare string as the brand name too; the Brand object is a recommendation.
+    if (brand.kind === 'string') strings += 1;
     else if (brand.name === null) issue = 'brand object has no name';
     else if (brand.type === null || !BRAND_TYPES.has(brand.type.toLowerCase()))
       issue = `brand @type is ${brand.type ?? 'missing'}, expected Brand or Organization`;
@@ -227,24 +233,29 @@ export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
     considered,
     missing,
     weak,
+    bare_strings: strings,
     inconsistent_casing: inconsistent,
     unfetched: unfetched(target, pages),
   };
   const note = fetchNote(target, pages);
+  const stringNote =
+    strings > 0
+      ? ` (${strings} as a bare string; Google recommends brand.name on a Brand object)`
+      : '';
   if (missing > 0)
     return fail(`${missing} of ${considered} product(s) have no brand${note}`, evidence);
   if (weak > 0)
     return warn(
-      `${weak} of ${considered} product(s) carry the brand as a string or an incomplete object${note}`,
+      `${weak} of ${considered} product(s) carry the brand as an incomplete object${stringNote}${note}`,
       evidence,
     );
   if (inconsistent.length > 0)
     return warn(
-      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join('; ')}${note}`,
+      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join('; ')}${stringNote}${note}`,
       evidence,
     );
   return pass(
-    `all ${considered} product(s) carry a Brand object with a consistent name${note}`,
+    `all ${considered} product(s) carry a brand with a consistent name${stringNote}${note}`,
     evidence,
   );
 });
@@ -321,19 +332,31 @@ export const skuPresentAndUnique = defineCheck('B3.5', async ({ target, fetcher 
   const { pages, unavailable } = await readableProductPages(target, fetcher);
   if (unavailable) return unavailable;
   const api = await storeApiProductsByPermalink(target, fetcher);
-  const perPage: Record<string, { sku: string | null; source: 'jsonld' | 'store-api' | null }> = {};
+  const perPage: Record<
+    string,
+    {
+      sku: string | null;
+      source: 'jsonld' | 'store-api' | null;
+      /** The JSON-LD property that supplied the identifier: sku, or productID (Meta's on-page markup). */
+      field: 'sku' | 'productID' | null;
+    }
+  > = {};
   const owners = new Map<string, string[]>();
   const missing: string[] = [];
   for (const page of pages) {
     const products = productNodes(extractJsonLd(page.doc).nodes);
     // A ProductGroup rarely carries a sku itself; its first variant does.
     const candidates = [...products, ...products.flatMap(variantNodes)];
-    const fromJsonLd =
+    const fromSku =
       candidates.map((node) => asString(node.sku)).find((value) => value !== null) ?? null;
+    const fromProductId =
+      candidates.map((node) => asString(node.productID)).find((value) => value !== null) ?? null;
+    const fromJsonLd = fromSku ?? fromProductId;
     const fromApi = asString(api.get(permalinkKey(page.url))?.sku);
     const sku = fromJsonLd ?? fromApi;
     const source = fromJsonLd !== null ? 'jsonld' : fromApi !== null ? 'store-api' : null;
-    perPage[page.url] = { sku, source };
+    const field = fromSku !== null ? 'sku' : fromProductId !== null ? 'productID' : null;
+    perPage[page.url] = { sku, source, field };
     if (sku === null) missing.push(page.url);
     else owners.set(sku, [...(owners.get(sku) ?? []), page.url]);
   }
@@ -349,15 +372,20 @@ export const skuPresentAndUnique = defineCheck('B3.5', async ({ target, fetcher 
     unfetched: unfetched(target, pages),
   };
   const note = fetchNote(target, pages);
+  const viaProductId = Object.values(perPage).filter((page) => page.field === 'productID').length;
+  const fieldNote = viaProductId > 0 ? ` (${viaProductId} as productID)` : '';
   if (missing.length > 0)
     return fail(
-      `${missing.length} of ${pages.length} sampled product(s) have no SKU${note}`,
+      `${missing.length} of ${pages.length} sampled product(s) have no sku or productID${note}`,
       evidence,
     );
   if (duplicates.length > 0)
     return warn(
-      `SKU ${duplicates.map((d) => d.sku).join(', ')} is shared by more than one sampled product${note}`,
+      `SKU ${duplicates.map((d) => d.sku).join(', ')} is shared by more than one sampled product${fieldNote}${note}`,
       evidence,
     );
-  return pass(`all ${pages.length} sampled product(s) carry a distinct SKU${note}`, evidence);
+  return pass(
+    `all ${pages.length} sampled product(s) carry a distinct SKU${fieldNote}${note}`,
+    evidence,
+  );
 });
