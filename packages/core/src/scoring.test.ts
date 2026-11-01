@@ -56,6 +56,7 @@ describe('computeLevel', () => {
       'B1.2',
       'B1.8',
       'B1.5',
+      'B5.8',
       'A2.6',
       'B2.1',
       'B2.2',
@@ -167,7 +168,7 @@ describe('next_gate and profiles', () => {
       weight: check.weight,
       verdict: !ids.has(check.id)
         ? 'skip'
-        : ['A1.3', 'B1.5', 'B1.8'].includes(check.id)
+        : ['A1.3', 'B1.5', 'B1.8', 'B5.8'].includes(check.id)
           ? 'fail'
           : 'pass',
       applies: ids.has(check.id),
@@ -176,7 +177,7 @@ describe('next_gate and profiles', () => {
     }));
     const level = computeLevel(results, catalog, profile);
     expect(level.value).toBe(1);
-    expect(level.next_gate).toEqual(['A1.3', 'B1.8', 'B1.5']);
+    expect(level.next_gate).toEqual(['A1.3', 'B1.8', 'B1.5', 'B5.8']);
     expect(level.next_gate).not.toContain('B1.2');
   });
 });
