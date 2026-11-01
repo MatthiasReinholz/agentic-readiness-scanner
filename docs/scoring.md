@@ -22,14 +22,14 @@ Requirements make this explicit in the catalog: a check may require `woocommerce
 | ----- | --------------------- | ------------------------------------------------------ |
 | 0     | Not reachable         | default                                                |
 | 1     | Crawlable             | A1.1, A2.2, A2.4, A3.2                                 |
-| 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5), B2.1, B2.2 |
+| 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5), A2.6, B2.1, B2.2 |
 | 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3       |
 | 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                     |
 | 5     | Transactable          | Level 4 and (B5.1 or B5.3)                             |
 
 Each profile declares a maximum level: content sites stop at 1. The report leads with the level and `next_gate`, the ids standing between the store and the next level.
 
-A gate whose check is not implemented yet blocks the level, by design: the scanner never awards a level it could not verify. Level 1 includes A2.4 (no block or challenge on the scanner's honest fetch): a store that challenges every unverified client is unreachable for every agent that is not on an allow list. Level 5 means the public prerequisites of a checkout protocol are in place, never that a checkout was exercised. The reasons behind every gate are in the [check audit](audits/2026-10-31-check-audit.md).
+A gate whose check is not implemented yet blocks the level, by design: the scanner never awards a level it could not verify. Level 1 includes A2.4 (no block or challenge on the scanner's honest fetch): a store that challenges every unverified client is unreachable for every agent that is not on an allow list. Level 2 includes A2.6 (no directive withdraws product pages from AI answers): Google builds AI Overviews and AI Mode only from pages eligible for a snippet, and Apple generates no web answer without one, so a catalog under `nosnippet` is not readable to them whatever its markup says. Level 5 means the public prerequisites of a checkout protocol are in place, never that a checkout was exercised. The reasons behind every gate are in the [check audit](audits/2026-10-31-check-audit.md) and the [technical SEO audit](audits/2026-11-01-technical-seo-audit.md).
 
 ## Profiles
 

@@ -1,0 +1,68 @@
+# Technical SEO audit of the catalog, 2026-11-01
+
+Follow-up to the [2026-10-31 check audit](2026-10-31-check-audit.md). Question asked: does the catalog cover the conventional technical SEO that decides whether an AI answer product can find, index and cite a page, and is every such check as deep as the documentation allows? Method: three research passes over primary sources only (the vendors' own documentation, read on 2026-11-01), plus the published issue taxonomies of Lighthouse, Google Search Console, Screaming Frog, Ahrefs, Semrush, Sitebulb and Bing Site Scan. Result: catalog 0.3.0 and scoring 0.3.0, recorded as [decision 0011](../decisions/0011-technical-seo-scope.md).
+
+## 1. Why conventional indexability matters to AI answers
+
+| Product | Index it draws on | What the vendor documents |
+| --- | --- | --- |
+| Google AI Overviews, AI Mode, Gemini grounding | Google Search | "a page must be indexed and eligible to be shown in Google Search with a snippet"; "There are no additional technical requirements" ([AI features and your website](https://developers.google.com/search/docs/appearance/ai-features), 2025-12-10). `nosnippet` and `max-snippet` limit what AI Overviews and AI Mode may use ([robots meta tag](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag), 2026-03-24). |
+| Microsoft Copilot, Bing grounding API | Bing | "Bing and Copilot search experiences rely on the same core crawling, indexing, and ranking foundation as traditional search"; client-side-only content "may not be indexed or selected for grounding results"; "Missing, duplicate, or overly short title tags and meta descriptions may reduce indexing reliability, ranking, and eligibility for grounding results and citations"; "Duplicate URLs dilute signals and reduce Bing's confidence in selecting a URL for grounding results or citations"; 301 for permanent moves, 404 for removed pages, sitemaps with canonical URLs and `lastmod`, ETags ([Bing Webmaster Guidelines](https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a)). `noarchive` keeps a page out of Copilot answers, `nocache` reduces it to URL, title and snippet; `ai-grounding:disallow` replaces both from 2027 ([Bing blog, 2026-10-30](https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/)). |
+| ChatGPT search | Third-party providers and partner feeds; Microsoft and Shopify are named ([Searching the web with ChatGPT](https://help.openai.com/en/articles/9237897-searching-the-web-with-chatgpt)) | Eligibility: allow OAI-SearchBot and let the host or CDN pass its traffic. Nothing on titles, descriptions, canonicals or rendering. |
+| Claude web search | Brave Search ([Anthropic subprocessors](https://trust.anthropic.com/subprocessors)) | Brave crawls nothing "not crawlable by Googlebot" and delists on `noindex` ([Brave crawler help](https://search.brave.com/help/brave-search-crawler)); Claude's fetch tool "does not support websites dynamically rendered with JavaScript" ([web fetch tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool)). |
+| Apple Intelligence, Siri, Spotlight | Applebot | Follows Googlebot's robots rules when unnamed; cannot render when scripts or styles are blocked; `noindex` removes the page, `nosnippet` means no web answer, only the title ([About Applebot](https://support.apple.com/en-us/119829), 2026-09-04). |
+| Perplexity, Meta AI, Amazon, Mistral, DuckDuckGo | Own crawlers; DuckDuckGo "largely" Bing; Meta also Bing | Only robots.txt access is documented (Amazon also honours `noindex`). Nothing on page properties. |
+| xAI Grok | Undocumented | No crawler, user agent or policy published; nothing to test. |
+
+Across all vendors, the only documented inputs to a citation are the URL, a title, a snippet and a page date. No vendor documents meta description, Open Graph, favicon, schema.org, hreflang, mobile, HTTPS or page speed as inputs to how a citation is chosen or rendered. Bing is the single primary source that ties title, description, duplicates, redirects, 404s and sitemaps to grounding, and it feeds Copilot, ChatGPT search's named provider and DuckDuckGo.
+
+## 2. Google's indexing requirements, which the AI gate inherits
+
+From Search Central, with the rule each check now applies:
+
+- Indexable content, HTTP 200, Googlebot not blocked ([technical requirements](https://developers.google.com/search/docs/essentials/technical)): A1.1, A2.2, A2.4, A3.2, A3.6.
+- Googlebot reads the first 2 MB of a document, headers included, and ignores the rest; truncated bytes "aren't fetched, they aren't rendered, and they aren't indexed" ([Googlebot](https://developers.google.com/search/docs/crawling-indexing/googlebot), [crawler blog 2026-03](https://developers.google.com/search/blog/2026/03/crawler-blog-post)): A3.3 fails at 2 MB.
+- Canonical must be absolute, self-referencing on the canonical page, HTTPS preferred, no HTTPS-to-HTTP redirects; a page whose canonical names another URL is "Alternate page with proper canonical tag" and is not shown ([consolidate duplicate URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls), [Page indexing report](https://support.google.com/webmasters/answer/7440203)): A3.4.
+- Googlebot follows up to ten redirect hops; a listed URL that redirects is "Page with redirect" ([HTTP status codes](https://developers.google.com/search/docs/crawling-indexing/http-network-errors)): A3.7.
+- Since July 2024 Google crawls and indexes with the smartphone crawler only; a site not accessible on mobile "will no longer be indexable"; the viewport tag is the documented mobile-friendly signal ([mobile indexing, 2024-06](https://developers.google.com/search/blog/2024/06/mobile-indexing-vlast-final-final.doc), [special tags](https://developers.google.com/search/docs/crawling-indexing/special-tags)): A3.10.
+- Google does not render JavaScript from blocked files; Applebot and Bing say the same ([JavaScript SEO basics](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)): A2.7.
+- Google's crawlers do not click buttons or trigger user-action JavaScript; links are discovered only as `<a href>` ([pagination](https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading)): A1.8.
+- Google reads the head only until the first element that does not belong there and ignores metadata after it ([valid page metadata](https://developers.google.com/search/docs/crawling-indexing/valid-page-metadata)); a zero-second meta refresh is a permanent redirect ([redirects](https://developers.google.com/search/docs/crawling-indexing/301-redirects)): A3.11.
+- Crawlers support ETag and If-None-Match and recommend ETag over Last-Modified ([crawler overview](https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers)); Bing names ETags for change detection: A3.9.
+- The title link is built from `<title>`, headings and `og:title`; the snippet mostly from page content, sometimes from the meta description ([title links](https://developers.google.com/search/docs/appearance/title-link), [snippets](https://developers.google.com/search/docs/appearance/snippet)): A3.8, with Bing's eligibility statement as the reason it is weight 2.
+
+## 3. Decisions per check
+
+| Check | Change | Evidence |
+| --- | --- | --- |
+| A2.6 snippet eligibility | `nosnippet`, `max-snippet:0` and `data-nosnippet` around the main content now fail (were warn); recognises Bing's `ai-grounding:disallowextended` and the `Bingbot:`-prefixed header form; weight 3; Level 2 gate | Google AI features, Apple nosnippet, Bing guidelines |
+| A2.7 render resources (new) | same-origin scripts and stylesheets evaluated against robots.txt for Googlebot and Bingbot; Googlebot block fails | Google JS SEO, Apple, Bing |
+| A3.3 page weight | 2 MB is a fail, not a warn band; the scanner's own 2 MB body cap is the same cutoff | Google file size limits |
+| A3.4 canonical | correctness, not presence: HTML and Link header read together; absolute, single, same origin, HTTPS, self-referencing; relative hreflang alternates warn | Google canonicalisation, hreflang; Lighthouse canonical audit rules |
+| A3.7 direct URLs (new) | sampled product URLs must answer 200 at their address; http:// and the other host variant must redirect to the origin; HTTPS-to-HTTP fails | Google canonicalisation and redirect hops; Bing sitemaps and redirects |
+| A3.8 title and description (new) | missing title fails; duplicate or very short titles and missing descriptions warn; no length maxima | Bing guidelines; Google title link and snippet |
+| A3.9 conditional requests (new) | ETag or Last-Modified plus a 304 to a conditional re-request | Google crawler overview; Bing guidelines |
+| A3.10 viewport (new) | `width=device-width` declared; fixed widths and blocked zoom warn; parity not judged | Google mobile-first indexing |
+| A3.11 head well-formed (new) | metadata after a head-breaking element or in the body fails; quick meta refresh fails; missing doctype or charset warns | Google valid page metadata and redirects; Lighthouse charset and doctype audits |
+| A1.8 listing links (new) | product anchors and link-based pagination on the sampled listing page | Google pagination; Bing links |
+
+Levels: Level 2 and above now require A2.6 alongside the Product markup gates. The gate list is in [docs/scoring.md](../scoring.md).
+
+## 4. What the audit tools check and why most of it stays out
+
+The seven tools report several hundred issue types. Classified by effect:
+
+- **Indexing** (status codes, robots, noindex, canonical conflicts, redirect chains, soft 404, head integrity, blocked resources, the 2 MB cutoff, host duplicates, viewport): now covered, with the vendors' thresholds. Google Search Console's fifteen "not indexed" reasons are reproduced where a public fetch can decide them; "Crawled, currently not indexed" and "Discovered, currently not indexed" cannot be.
+- **Representation** (title, description, structured data, images, snippet controls): covered where a vendor documents the effect; Open Graph and favicon are not, because no vendor does (Google's favicon guidance is explicitly for organic results).
+- **Crawl efficiency** (sitemap hygiene, validators, response time): covered by A1.2, A1.3, A1.7, A3.3, A3.9. Compression and HTTP/2 are not decidable from a web-standard `fetch` and Google states HTTP/2 brings no ranking effect.
+- **Quality heuristics** (lengths in characters or pixels, H1 counts, word counts, text ratios, readability, link text, tap targets, Core Web Vitals, security headers): refused. No primary source ties them to inclusion or citation; Lighthouse itself removed tap targets, font size, plugins and viewport from its SEO category in versions 12 and 13.
+
+## 5. Depth and honesty limits
+
+- The scanner still samples two product pages, the home page, one listing page and the policy pages within a budget of 40 requests. The new checks spend up to four more requests (listing page, http:// origin, other host variant, conditional re-request). Pagination targets and hreflang alternates are not fetched.
+- Mobile content parity, JavaScript rendering outcomes and duplicate-content similarity need a renderer or a crawl; the scanner says "declared" where it cannot say "verified".
+- Search Console's inclusion toggle for generative AI features is invisible from outside; a site can be opted out there and pass every check here.
+
+## 6. Sources read
+
+Google Search Central: AI features and your website; AI optimization guide; technical requirements; robots meta tag; Googlebot; crawler blog 2026-03; consolidate duplicate URLs; localized versions; mobile-first indexing (blog 2024-06 and best practices); special tags; overview of Google crawlers; HTTP status and network errors; JavaScript SEO basics; fixing JavaScript problems; pagination and incremental loading; valid page metadata; redirects; title links; snippets; favicon in search; structured data policies; build a sitemap; crawl budget; Search Console page indexing report. Microsoft: Bing Webmaster Guidelines; robots meta tags Bing supports; AI preferences blog 2026-10-30; bingbot JavaScript blog 2018. Apple: About Applebot. OpenAI: searching the web with ChatGPT; crawler documentation. Anthropic: crawler support article; web fetch and web search tool docs; subprocessor list. Brave: crawler help; search independence. Perplexity: bots documentation; robots.txt help; Search API launch. Meta: web crawlers page. Amazon: Amazonbot page. Mistral: robots page. DuckDuckGo: sources, DuckAssistBot and AI-assisted answers pages. Tool taxonomies: Lighthouse source and release notes 12.0 and 13.0; Screaming Frog issues index; Ahrefs Site Audit help collection; Semrush issues list; Sitebulb hints; Bing Site Scan help. Vercel's crawler measurement is cited as third-party evidence only.

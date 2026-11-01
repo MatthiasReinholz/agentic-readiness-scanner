@@ -41,7 +41,9 @@
     {
       "url": "https://ceramics.example/product/stoneware-mug/",
       "headers": {
-        "content-type": "text/html; charset=utf-8"
+        "content-type": "text/html; charset=utf-8",
+        "etag": "\"ceramics-1-v3\"",
+        "last-modified": "Fri, 24 Oct 2026 09:00:00 GMT"
       },
       "body_file": "product-stoneware-mug.html"
     },
@@ -59,7 +61,9 @@
     {
       "url": "https://ceramics.example/product/serving-bowl/",
       "headers": {
-        "content-type": "text/html; charset=utf-8"
+        "content-type": "text/html; charset=utf-8",
+        "etag": "\"ceramics-2-v3\"",
+        "last-modified": "Fri, 24 Oct 2026 09:00:00 GMT"
       },
       "body_file": "product-serving-bowl.html"
     },
@@ -253,6 +257,55 @@
         "content-type": "application/json"
       },
       "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"supportedVersions\":[\"2026-07-28\"],\"capabilities\":{\"tools\":{}},\"_meta\":{\"io.modelcontextprotocol/serverInfo\":{\"name\":\"Example Ceramics\",\"version\":\"1.0.0\"}}}}"
+    },
+    {
+      "url": "http://ceramics.example/",
+      "status": 200,
+      "final_url": "https://ceramics.example/",
+      "redirects": 1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "link": "</llms.txt>; rel=\"llms-txt\"; type=\"text/markdown\""
+      },
+      "body_file": "home.html"
+    },
+    {
+      "url": "https://www.ceramics.example/",
+      "status": 200,
+      "final_url": "https://ceramics.example/",
+      "redirects": 1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "link": "</llms.txt>; rel=\"llms-txt\"; type=\"text/markdown\""
+      },
+      "body_file": "home.html"
+    },
+    {
+      "url": "https://ceramics.example/product/stoneware-mug/",
+      "request_headers": {
+        "if-none-match": "\"ceramics-1-v3\""
+      },
+      "status": 304,
+      "headers": {
+        "etag": "\"ceramics-1-v3\""
+      }
+    },
+    {
+      "url": "https://ceramics.example/product/serving-bowl/",
+      "request_headers": {
+        "if-none-match": "\"ceramics-2-v3\""
+      },
+      "status": 304,
+      "headers": {
+        "etag": "\"ceramics-2-v3\""
+      }
+    },
+    {
+      "url": "https://ceramics.example/shop/",
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
+      "body_file": "shop.html"
     }
   ]
 }

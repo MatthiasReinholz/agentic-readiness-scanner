@@ -16,8 +16,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 57 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(57);
+  it('has 64 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(64);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });

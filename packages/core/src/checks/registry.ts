@@ -23,6 +23,7 @@ import {
   serverRenderedProductContent,
   unknownUrlsAnswer404,
 } from './a3/index.js';
+import { documentHeadWellFormed } from './a3/head.js';
 import {
   a2aAgentCard,
   apiCatalogPublished,
@@ -99,6 +100,7 @@ export const builtInChecks: readonly Check[] = [
   canonicalAndHreflang,
   accessibleMainContent,
   unknownUrlsAnswer404,
+  documentHeadWellFormed,
   mcpServerDiscoverable,
   apiCatalogPublished,
   oauthDiscoveryForMcp,

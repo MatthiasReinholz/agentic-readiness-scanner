@@ -138,8 +138,8 @@ export class HtmlDocument {
   /** The `lang` attribute of the root element, or null. */
   lang(): string | null {
     const html = this.elements('html')[0];
-    const lang = html ? getAttributeValue(html, 'lang') : undefined;
-    return lang?.trim() || null;
+    const lang = (html ? getAttributeValue(html, 'lang') : undefined)?.trim();
+    return lang ? lang : null;
   }
 
   /** `src` of every external script, in document order (unresolved). */

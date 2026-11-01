@@ -4,13 +4,49 @@
   "responses": [
     {
       "url": "https://blog.example/",
-      "headers": { "content-type": "text/html; charset=utf-8" },
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "etag": "\"blog-1-v3\"",
+        "last-modified": "Fri, 24 Oct 2026 09:00:00 GMT"
+      },
       "body_file": "home.html"
     },
     {
       "url": "https://blog.example/robots.txt",
-      "headers": { "content-type": "text/plain" },
+      "headers": {
+        "content-type": "text/plain"
+      },
       "body": "User-agent: *\nDisallow: /wp-admin/\n"
+    },
+    {
+      "url": "http://blog.example/",
+      "status": 200,
+      "final_url": "https://blog.example/",
+      "redirects": 1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
+      "body_file": "home.html"
+    },
+    {
+      "url": "https://www.blog.example/",
+      "status": 200,
+      "final_url": "https://blog.example/",
+      "redirects": 1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8"
+      },
+      "body_file": "home.html"
+    },
+    {
+      "url": "https://blog.example/",
+      "request_headers": {
+        "if-none-match": "\"blog-1-v3\""
+      },
+      "status": 304,
+      "headers": {
+        "etag": "\"blog-1-v3\""
+      }
     }
   ]
 }

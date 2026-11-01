@@ -211,5 +211,31 @@
         "url": "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
       }
     ]
+  },
+  {
+    "id": "A3.11",
+    "group": "A3",
+    "title": "Document head is well-formed",
+    "question": "Will a crawler see the title, canonical and directives where the page put them?",
+    "method": "Scan the raw HTML of each sampled product page (the home page when none were sampled) in document order. Google reads the head only up to the first element that does not belong there (anything but title, meta, link, script, style, base, noscript and template) and ignores metadata after it; browsers do the same when they close the head early. Fail when a <title>, rel=canonical, robots or description meta, or hreflang alternate appears after such an element or inside the body, or when a meta refresh with a delay of five seconds or less turns the page into a redirect. Warn when the document has no HTML doctype (quirks parsing), when no character encoding is declared in the Content-Type header or within the first 1024 bytes, or when the page is not served as text/html. Pass otherwise.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: valid page metadata (what Google reads in the head)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/valid-page-metadata"
+      },
+      {
+        "title": "Google: redirects and Google Search (meta refresh)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/301-redirects"
+      },
+      {
+        "title": "Lighthouse: properly defines charset",
+        "url": "https://developer.chrome.com/docs/lighthouse/best-practices/charset"
+      },
+      {
+        "title": "Lighthouse: page has the HTML doctype",
+        "url": "https://developer.chrome.com/docs/lighthouse/best-practices/doctype"
+      }
+    ]
   }
 ]
