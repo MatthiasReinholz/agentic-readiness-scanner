@@ -14,20 +14,20 @@ The scanner fetches URLs that strangers type in. That makes it a server-side req
 
 Every redirect hop is checked again. DNS resolution happens on the platform, so resolution-time protection against private addresses depends on the host's outbound policy; see [hosting.md](hosting.md). That platform-level block was verified on 2026-10-31: scans of `http://127.0.0.1.nip.io/` and `http://10.0.0.1.nip.io/` on the live deployment both failed with HTTP 530 from the platform.
 
-Response bodies are decoded with the charset the `Content-Type` header declares, falling back to UTF-8 for unknown labels, so a page's declared encoding cannot make the scanner misread it.
+Response bodies are decoded with the charset the `Content-Type` header declares, falling back to UTF-8 for unknown labels, so a page's declared encoding cannot make the scanner misread it. A body served as a gzip file (`application/gzip`, a `.gz` path or the gzip magic bytes, as the sitemaps protocol allows) is inflated first, and the 2 MB cap applies to the inflated bytes.
 
 ## Budget and caps
 
-- At most 40 requests per scan, redirects included, enforced by the fetcher; a check that runs out is skipped as `budget_exhausted` and the report says so.
-- 10 second timeout per request, 2 MB body cap, 5 redirects.
-- Sequential requests, no parallel fan-out against a target.
+- At most 40 requests per scan, redirects and retries included, enforced by the fetcher; a check that runs out is skipped as `budget_exhausted` and the report says so.
+- 10 second timeout per request, 2 MB body cap (applied to the inflated bytes when a sitemap is served as a gzip file), 5 redirects.
+- Sequential requests with at least 150 ms between them, no parallel fan-out against a target. One retry per request: after 500 ms when the connection dropped, after `Retry-After` on a 429 or 503 when it is five seconds or less (one second when absent), never beyond the budget. Every request that still failed, and every 429, is listed under the scan warnings.
 - GET, HEAD and OPTIONS only, with one exception: a read-only JSON-RPC `server/discover` POST to an MCP endpoint the site itself advertises (checks A4.4 and B5.8). It creates nothing on the server.
 
 ## Honest behavior toward targets
 
 - User agent `AgenticReadinessScanner/<version> (+repository URL)` on every request, without exception.
 - Besides the pages a scan samples, the scanner fetches the `http://` form of the origin and the other host variant (`www` or apex) once each to see whether they redirect (A3.7), and repeats one product-page request with `If-None-Match` or `If-Modified-Since` to see whether the server answers 304 (A3.9). Both go through the URL policy like every other request; `http://` is allowed only for that probe's first hop and the response is never used as content. The scanner never sends another agent's product token: the block-and-challenge check (A2.4) classifies the responses the scan made under its own identity, and robots.txt is evaluated for other crawlers from the file ([decision 0010](decisions/0010-honest-fetch.md)).
-- robots.txt is honoured for the scanner's own user agent (`AgenticReadinessScanner`) on everything except robots.txt, sitemaps and the well-known directory: `RobotsGatedFetcher` refuses disallowed URLs without spending budget, the affected checks see "page not readable", and the report lists the refused URLs under scan warnings.
+- robots.txt is honoured for the scanner's own user agent (`AgenticReadinessScanner`) on everything except robots.txt, sitemaps and the well-known directory: `RobotsGatedFetcher` refuses disallowed URLs without spending budget, the affected checks quote the refusal (`not fetched: robots.txt disallows <path> for AgenticReadinessScanner`), and the report lists the refused URLs under scan warnings.
 - One scan per target host per cooldown window on the hosted app, whatever the caller asks for: a profile override does not reopen the window, parallel submissions for one host share a single scan, and an isolate runs at most four scans at once (503 beyond that). This is the only control against using the scanner as a request amplifier, since the platform exposes no client address.
 
 ## Hosted app

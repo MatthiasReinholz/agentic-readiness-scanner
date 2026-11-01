@@ -197,7 +197,10 @@ export const noAnswerExclusionDirectives = defineCheck('A2.6', async ({ target, 
     const header = response.headers['x-robots-tag'] ?? null;
     const meta = page.doc.meta('robots');
     const bingbot = page.doc.meta('bingbot');
-    const directives = `${header ?? ''} ${meta ?? ''} ${bingbot ?? ''}`;
+    // Google and Apple also read their own meta names; Apple's page shows name="applebot".
+    const googlebot = page.doc.meta('googlebot');
+    const applebot = page.doc.meta('applebot');
+    const directives = `${header ?? ''} ${meta ?? ''} ${bingbot ?? ''} ${googlebot ?? ''} ${applebot ?? ''}`;
     const pageWords = page.doc.wordCount();
     let covered = 0;
     for (const element of page.doc.find('*', 'data-nosnippet', /^/)) {

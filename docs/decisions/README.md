@@ -13,3 +13,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0009 Result storage in three tiers; history records states, not scans](0009-result-storage-tiers.md)
 - [0010 The scanner identifies itself and never impersonates an agent](0010-honest-fetch.md)
 - [0011 Conventional technical SEO is scored only where a documented AI surface depends on it](0011-technical-seo-scope.md)
+- [0012 Reports lead with priorities, and a page the scanner did not read is never scored](0012-priorities-and-honest-non-answers.md)

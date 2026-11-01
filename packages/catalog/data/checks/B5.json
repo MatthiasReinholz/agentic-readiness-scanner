@@ -4,7 +4,7 @@
     "group": "B5",
     "title": "UCP business profile",
     "question": "Does the merchant publish a Universal Commerce Protocol profile?",
-    "method": "GET /.well-known/ucp. Pass on 200 application/json whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect, as HTML content type, or without Cache-Control public with max-age of at least 60 seconds, all of which the specification forbids or requires. Fail when absent or not JSON. Shopify serves this profile for every eligible store; Google Merchant Center requires it for agentic checkout.",
+    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
     "weight": 2,
     "spec": [
       {
@@ -12,8 +12,16 @@
         "url": "https://ucp.dev/latest/specification/overview/"
       },
       {
-        "title": "Google Merchant Center: UCP guides",
-        "url": "https://developers.google.com/merchant/ucp/guides"
+        "title": "Universal Commerce Protocol: release 2026-08-25 (keys replaces signing_keys)",
+        "url": "https://github.com/Universal-Commerce-Protocol/ucp/releases/tag/v2026-08-25"
+      },
+      {
+        "title": "Google Merchant Center: UCP overview",
+        "url": "https://developers.google.com/merchant/ucp/guides/merchant-center/overview"
+      },
+      {
+        "title": "Google Merchant Center: UCP network and WAF requirements",
+        "url": "https://developers.google.com/merchant/ucp/guides/overview/network-and-waf"
       }
     ]
   },
@@ -37,7 +45,7 @@
     "group": "B5",
     "title": "ACP discovery document",
     "question": "Does the merchant advertise an Agentic Commerce Protocol integration?",
-    "method": "GET /.well-known/acp.json. Pass on JSON with protocol.name \"acp\", a protocol.version, an api_base_url and a transports array that includes rest. Fail when absent. The document is an unreleased proposal in the ACP repository, and checkout endpoints are otherwise registered with the platform privately, so this is the only public trace and the weight is low.",
+    "method": "GET /.well-known/acp.json. Pass on JSON with protocol.name \"acp\", a protocol.version, an api_base_url and a transports array that includes rest; record supported_versions and capabilities. Fail when absent. The document is a merged proposal in the ACP repository (status proposal, version unreleased, not part of the released 2026-04-17 specification), and OpenAI does not document probing it; checkout endpoints are registered with the platform privately, so this is the only public trace and the weight is low.",
     "weight": 1,
     "spec": [
       {
@@ -86,18 +94,26 @@
     "group": "B5",
     "title": "Shopify agentic storefront active",
     "question": "Is the Shopify store exposing its agent surface?",
-    "method": "For Shopify stores: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message or a 401 challenge (the endpoint answers GET with 404), which means the Agentic storefronts channel is active; warn when only one of the two holds; fail when neither does (the channel is off or the store is not eligible).",
-    "weight": 2,
+    "method": "For Shopify Online Store storefronts: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" (or the HTML link element) and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message (an authorization failure arrives as a JSON-RPC error, not a 401), which means the Agentic storefronts channel is active and its catalog tools are reachable; warn when only one of the two holds, or when the scanner did not call the endpoint because robots.txt disallows /api/ for its user agent; fail when neither holds. The channel is active by default for eligible stores, so a fail means ineligibility or opt-out. A headless storefront (Shopify assets but no Shopify-served origin) gets neither the profile nor the endpoint on its own domain and is not judged here.",
+    "weight": 3,
     "requires": ["shopify"],
     "depends_on": ["B1.1"],
     "spec": [
       {
-        "title": "Shopify: agentic checkout for agents",
-        "url": "https://shopify.dev/docs/agents/checkout"
-      },
-      {
         "title": "Shopify: Agentic storefronts",
         "url": "https://help.shopify.com/en/manual/online-sales-channels/agentic-storefronts"
+      },
+      {
+        "title": "Shopify: Storefront catalog over MCP",
+        "url": "https://shopify.dev/docs/agents/catalog/storefront-catalog"
+      },
+      {
+        "title": "Shopify: checkout over MCP",
+        "url": "https://shopify.dev/docs/agents/carts-and-checkout/checkout-mcp"
+      },
+      {
+        "title": "Shopify Hydrogen: the rel=\"ucp\" Link header (pull request 4153)",
+        "url": "https://github.com/Shopify/hydrogen/pull/4153"
       }
     ]
   }

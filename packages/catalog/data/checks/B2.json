@@ -4,7 +4,7 @@
     "group": "B2",
     "title": "Product JSON-LD on product pages",
     "question": "Do product pages carry schema.org Product markup?",
-    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do.",
+    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node that carries name and image, the properties Google requires besides offers; warn when some pages do or when name or image is missing; fail when none do. Product markup earns rich results, free-listing eligibility and automatic Merchant Center submission on Google and grounding data on Bing; Google's AI Overviews and AI Mode need no particular markup beyond an indexed, snippet-eligible page, and ChatGPT shopping reads feeds and third-party metadata, so the weight rests on the Merchant Center and Bing basis.",
     "weight": 3,
     "spec": [
       {
@@ -12,8 +12,16 @@
         "url": "https://schema.org/Product"
       },
       {
+        "title": "Google merchant listing structured data",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/merchant-listing"
+      },
+      {
         "title": "Google product structured data",
         "url": "https://developers.google.com/search/docs/appearance/structured-data/product"
+      },
+      {
+        "title": "Google Merchant Center: automatic product submission from structured data",
+        "url": "https://support.google.com/merchants/answer/7538732"
       }
     ],
     "requires": ["products"]

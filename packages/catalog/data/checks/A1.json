@@ -51,7 +51,7 @@
     "group": "A1",
     "title": "Link response headers",
     "question": "Does the site point agents at its machine-readable resources through Link headers?",
-    "method": "Read the Link response headers of the home page and one sampled product page. Pass when any relation an agent can use is present: llms-txt, alternate with type text/markdown, api-catalog, service-desc, describedby, license with type application/rsl+xml, or ucp (the relation Shopify sends on every response). Fail when none is. Low weight: a convention, not a requirement.",
+    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version). Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, also accepted as an HTML link element), license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
     "weight": 1,
     "spec": [
       {
@@ -63,8 +63,12 @@
         "url": "https://www.rfc-editor.org/rfc/rfc9727"
       },
       {
-        "title": "Shopify: agentic checkout for agents",
-        "url": "https://shopify.dev/docs/agents/checkout"
+        "title": "Shopify Hydrogen: the rel=\"ucp\" Link header and HTML link (pull request 4153)",
+        "url": "https://github.com/Shopify/hydrogen/pull/4153"
+      },
+      {
+        "title": "Really Simple Licensing 1.0",
+        "url": "https://rslstandard.org/rsl"
       }
     ]
   },
@@ -73,7 +77,7 @@
     "group": "A1",
     "title": "llms.txt is valid when present",
     "question": "If the site publishes llms.txt, is it a usable file?",
-    "method": "GET /llms.txt. A 404 or 410 skips the check as not applicable: the file is optional and no major assistant documents reading it, so its absence is never scored. On a 200 the body must be text, not HTML (a soft 404 fails), and must start with an H1, the only element the proposal requires; warn when it has no links; pass otherwise. The same rule Lighthouse applies.",
+    "method": "GET /llms.txt. A 404 or 410 skips the check as not applicable: the file is optional and no major assistant documents reading it (Google states that Search does not use it), so its absence is never scored. On a 200 the body must be text, not HTML (a soft 404 fails), and must start with an H1, the only element the proposal requires; warn when it has no links; pass otherwise. Stricter than Lighthouse on the content type, more lenient on links (Lighthouse fails a file without a Markdown link or under 50 characters).",
     "weight": 1,
     "spec": [
       {
@@ -83,6 +87,10 @@
       {
         "title": "Lighthouse: llms.txt audit",
         "url": "https://developer.chrome.com/docs/lighthouse/agentic-browsing/llms-txt"
+      },
+      {
+        "title": "Google: AI features and your website (llms.txt is not used by Search)",
+        "url": "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide"
       }
     ]
   },
@@ -91,7 +99,7 @@
     "group": "A1",
     "title": "llms.txt links to the catalog",
     "question": "Does llms.txt lead an agent to the catalog as data?",
-    "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap or the shop index. Fail when it links only to prose pages. Skipped when there is no llms.txt.",
+    "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap, the shop index, a UCP profile or an MCP endpoint (Shopify's generated file names /.well-known/ucp and /api/ucp/mcp), so an agent that reads the file reaches the catalog as data. Fail when it links only to prose pages. Skipped when there is no llms.txt. A convention with no documented reader: weight 1.",
     "weight": 1,
     "depends_on": ["A1.5"],
     "spec": [
