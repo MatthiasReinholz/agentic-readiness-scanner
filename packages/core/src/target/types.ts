@@ -56,4 +56,11 @@ export interface Target {
    * or sampled pages are skipped by the runner; A2.4 reports the refusal.
    */
   blocked?: HomeBlocked;
+  /**
+   * For Shopify: true when Shopify itself serves the origin (its response headers or the
+   * rel="ucp" Link header are present), false for a headless storefront that only loads
+   * Shopify assets. The Shopify-only checks (products.json, the UCP catalog) are not
+   * applicable to a headless storefront, which gets neither on its own domain.
+   */
+  shopifyHosted?: boolean;
 }

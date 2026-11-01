@@ -32,6 +32,7 @@ import {
   failedResults,
   groupResults,
   nextGateSentence,
+  scopeLines,
   type GroupedResults,
 } from './shared.js';
 
@@ -289,6 +290,11 @@ ${options.afterScoresHtml ?? ''}
 <div class="mb-3 mt-10 flex items-center justify-between gap-4"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
 <div class="space-y-3">${sections}</div>
 ${prompts ? `<section class="${card} mt-8 p-6"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold tracking-tight">All fix briefs</h2><p class="mt-1 text-sm text-muted-foreground">One brief per finding, ready for a coding agent working on the store.</p></div>${copyButton('all-prompts', 'Copy all')}</div><textarea class="${textarea} mt-3.5 min-h-[260px]" id="all-prompts" readonly aria-label="All fix briefs">${escapeHtml(prompts)}</textarea></section>` : ''}
+<section class="mt-8" id="scope"><h2 class="text-lg font-semibold tracking-tight">What this scan did and did not do</h2><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">${scopeLines(
+    result,
+  )
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join('')}</ul></section>
 ${result.warnings.length > 0 ? `<section class="mt-8"><h2 class="text-lg font-semibold tracking-tight">Scan warnings</h2><ul class="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">${result.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></section>` : ''}
 ${options.endHtml ?? ''}
 ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeHtml(result.scoring_version)} · scanner ${escapeHtml(result.scanner_version)} · ${result.requests} requests in ${result.duration_ms} ms${links.length > 0 ? ` · ${links.join(' · ')}` : ''}${options.footerHtml ? `<br>${options.footerHtml}` : ''}`)}`;

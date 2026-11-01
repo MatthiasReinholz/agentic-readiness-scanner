@@ -166,6 +166,18 @@ export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Pl
   return 'unknown';
 }
 
+/**
+ * Shopify's own edge answers with its shop headers and the rel="ucp" Link header; a
+ * headless storefront on another host loads Shopify assets but shows none of them.
+ */
+export function isShopifyServed(response: FetchedResponse): boolean {
+  const headers = response.headers;
+  if (headers['x-shopid'] !== undefined || headers['x-shopify-stage'] !== undefined) return true;
+  if (/shopify/i.test(headers['powered-by'] ?? '')) return true;
+  if (/rel="?ucp"?/i.test(headers['link'] ?? '')) return true;
+  return false;
+}
+
 function resolveHttpUrl(href: string, origin: string): URL | null {
   try {
     const url = new URL(href, origin);
@@ -476,6 +488,12 @@ export async function resolveTarget(
   const hostname = new URL(origin).hostname;
   const homeDoc = new HtmlDocument(blocked ? '' : home.body);
   const platform = blocked ? 'unknown' : detectPlatform(homeDoc, home);
+  const shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
+  if (shopifyHosted === false) {
+    warnings.push(
+      'Shopify assets are loaded but Shopify does not serve this origin (a headless storefront); the Shopify-only checks do not apply here',
+    );
+  }
   if (blocked) {
     warnings.push(
       `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}); platform, profile and product pages could not be determined and most checks were not evaluated`,
@@ -553,5 +571,6 @@ export async function resolveTarget(
     sampled,
     warnings,
     ...(blocked ? { blocked } : {}),
+    ...(shopifyHosted === undefined ? {} : { shopifyHosted }),
   };
 }

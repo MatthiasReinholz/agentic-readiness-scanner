@@ -9,6 +9,7 @@ import {
   findPolicyLinks,
   hasStoreSignals,
   isListingPath,
+  isShopifyServed,
   policyLinkScore,
   resolveTarget,
 } from './resolver.js';
@@ -290,5 +291,20 @@ describe('store signals and listing choice', () => {
     expect(chooseListing(['https://shop.example/shop/'])).toBe('https://shop.example/shop/');
     expect(isListingPath('/us/en/cat/products-products/')).toBe(true);
     expect(isListingPath('/products-feed.xml')).toBe(false);
+  });
+});
+
+describe('isShopifyServed', () => {
+  it('tells a Shopify-served origin from a headless storefront', () => {
+    const base = response('<html></html>');
+    expect(isShopifyServed({ ...base, headers: { 'x-shopid': '123' } })).toBe(true);
+    expect(isShopifyServed({ ...base, headers: { 'powered-by': 'Shopify' } })).toBe(true);
+    expect(
+      isShopifyServed({
+        ...base,
+        headers: { link: '</.well-known/ucp>; rel="ucp"; version="2026-08-25"' },
+      }),
+    ).toBe(true);
+    expect(isShopifyServed({ ...base, headers: { server: 'CloudFront' } })).toBe(false);
   });
 });

@@ -7,7 +7,13 @@ import {
 
 import { scoreGroup } from '../scoring.js';
 import { countSkips, prioritize, TIER_LABEL, type Priority } from './priorities.js';
-import { countVerdicts, groupResults, nextGateSentence, verdictSymbol } from './shared.js';
+import {
+  countVerdicts,
+  groupResults,
+  nextGateSentence,
+  scopeLines,
+  verdictSymbol,
+} from './shared.js';
 
 /**
  * The Markdown report is written for a coding agent or a ticket: level first, the next
@@ -219,6 +225,10 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     AGENT_WORKING_RULES.forEach((rule, index) => lines.push(`${index + 1}. ${rule}`));
     lines.push('');
   }
+  lines.push('## What this scan did and did not do');
+  lines.push('');
+  for (const line of scopeLines(result)) lines.push(`- ${line}`);
+  lines.push('');
   if (result.warnings.length > 0) {
     lines.push('## Scan warnings');
     lines.push('');

@@ -41,6 +41,7 @@ describe('HTML report', () => {
     // Protocol discovery is nice to have only, so its zero is muted and tagged.
     expect(html).toMatch(/data-group="A4"[\s\S]*?data-group-optional/);
     expect(html).toContain('did not apply to this site');
+    expect(html).toContain('What this scan did and did not do');
   });
 
   it('accepts host-app slots', async () => {
@@ -82,5 +83,7 @@ describe('Markdown report', () => {
     expect(markdown.match(/## Working rules for coding agents/g)?.length).toBe(1);
     expect(markdown).not.toContain('## How to work');
     expect(markdown).toContain('Full report: https://scanner.example/r/x');
+    expect(markdown).toContain('## What this scan did and did not do');
+    expect(markdown).toMatch(/without running JavaScript, signing in/);
   });
 });
