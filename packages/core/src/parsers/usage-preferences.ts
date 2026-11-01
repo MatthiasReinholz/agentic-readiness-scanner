@@ -13,7 +13,9 @@ export interface SignalValidation {
 
 /** Characters of one value examined; every documented example is under 200. */
 const VALUE_LIMIT = 2000;
-const CONTENT_SIGNAL_NAMES = new Set(['ai-train', 'search', 'ai-input']);
+const CONTENT_SIGNAL_NAMES = new Set(['ai-train', 'search', 'ai-input', 'use']);
+/** Cloudflare's content-use extension of the vocabulary: how far AI may use the content. */
+const CONTENT_USE_SETTINGS = new Set(['immediate', 'reference', 'full']);
 const CONTENT_USAGE_KEYS = new Set(['train-ai', 'ai-use', 'search']);
 /** RFC 9651 dictionary key: a lower-case letter or `*`, then lower-case letters, digits, `_-.*`. */
 const DICTIONARY_KEY = /^[a-z*][a-z0-9_\-.*]*$/;
@@ -57,7 +59,10 @@ export function validateContentSignal(value: string): SignalValidation {
             .trim()
             .toLowerCase();
     if (!CONTENT_SIGNAL_NAMES.has(name)) {
-      problems.push(`unknown signal "${name}" (ai-train, search, ai-input)`);
+      problems.push(`unknown signal "${name}" (ai-train, search, ai-input, use)`);
+    } else if (name === 'use') {
+      if (setting === null || !CONTENT_USE_SETTINGS.has(setting))
+        problems.push('"use" must be set to immediate, reference or full');
     } else if (setting !== 'yes' && setting !== 'no') {
       problems.push(`"${name}" must be set to yes or no`);
     }

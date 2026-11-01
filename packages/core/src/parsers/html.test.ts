@@ -56,7 +56,9 @@ describe('HtmlDocument', () => {
   });
 
   it('lists anchors with href and whitespace-normalised text', () => {
-    expect(doc.anchors()).toEqual([{ href: '/returns/', text: 'Returns and refunds' }]);
+    expect(doc.anchors()).toEqual([
+      { href: '/returns/', text: 'Returns and refunds', inFooter: false },
+    ]);
   });
 
   it('splits body classes and finds scripts by type', () => {

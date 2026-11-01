@@ -84,3 +84,13 @@ describe('sitemap entries and lastmod', () => {
     }
   });
 });
+
+describe('product sitemap names from large platforms', () => {
+  it('recognises prod-<locale>_N.xml and products_N.xml but not product_update', () => {
+    expect(looksLikeProductSitemap('https://a.example/sitemaps/prod-et-EE_1.xml')).toBe(true);
+    expect(looksLikeProductSitemap('https://a.example/products_3.xml')).toBe(true);
+    expect(looksLikeProductSitemap('https://a.example/artikel-sitemap.xml')).toBe(true);
+    expect(looksLikeProductSitemap('https://a.example/product_update-sitemap.xml')).toBe(false);
+    expect(looksLikeProductSitemap('https://a.example/production-notes.xml')).toBe(false);
+  });
+});

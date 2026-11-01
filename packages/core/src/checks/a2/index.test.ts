@@ -575,7 +575,7 @@ describe('A2.3 usage-preference signals parse', () => {
         field: 'robots.txt Content-Signal',
         value: 'train-ai=n',
         valid: false,
-        problem: 'unknown signal "train-ai" (ai-train, search, ai-input)',
+        problem: 'unknown signal "train-ai" (ai-train, search, ai-input, use)',
       },
       {
         field: 'robots.txt License',

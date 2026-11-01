@@ -86,3 +86,10 @@ describe('parseTdmrepJson', () => {
     expect(parseTdmrepJson('[1]').problem).toBe('entry 0 is not an object');
   });
 });
+
+describe('Content-Signal use= extension', () => {
+  it('accepts the content-use values Cloudflare emits and rejects others', () => {
+    expect(validateContentSignal('search=yes, ai-train=no, use=reference').valid).toBe(true);
+    expect(validateContentSignal('use=sometimes').valid).toBe(false);
+  });
+});

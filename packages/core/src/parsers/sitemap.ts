@@ -122,7 +122,7 @@ export function parseSitemap(xml: string): ParsedSitemap {
  */
 const PRODUCT_SITEMAP_NAME_PATTERNS: readonly RegExp[] = [
   /^wp-sitemap-posts-product-\d+\.xml$/i,
-  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)[-_]?(?:sitemap)?[-_.]/i,
+  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)(?:[-_](?:[a-z]{2}(?:[-_][a-z]{2})?|\d+)(?:[-_.]|$)|\.xml$)/i,
   /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)[-_]?sitemap/i,
   /^sitemap[-_]?(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)/i,
 ];
