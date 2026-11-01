@@ -1,3 +1,4 @@
+import { describeRefusal, isChallengePage, REFUSAL_STATUSES } from '../../http/bot-management.js';
 import { contentType, type FetchedResponse, type Fetcher } from '../../http/types.js';
 import { attribute, type HtmlDocument } from '../../parsers/html.js';
 import { hasLinkRelation, parseLinkHeader } from '../../parsers/link-header.js';
@@ -6,6 +7,18 @@ import { probeMcpEndpoint } from '../mcp.js';
 import type { Target } from '../../target/types.js';
 import { describeFailure, productPages } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn, type CheckOutcome, type Evidence } from '../types.js';
+
+/** Statuses that say nothing about the resource: throttling or a gateway failure. */
+const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
+
+function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
+  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
+}
+
+/** "was rate limited (HTTP 429)" or "failed (HTTP 503)" / "failed (no response)". */
+function transientPhrase(response: Pick<FetchedResponse, 'status' | 'error'>): string {
+  return `${response.status === 429 ? 'was rate limited' : 'failed'} (${describeFailure(response)})`;
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -42,12 +55,24 @@ function httpUrl(value: unknown, base: string): string | null {
 interface Probe {
   url: string;
   status: number;
+  /** Set when the URL was refused or challenged, or met a transient failure: not judged. */
+  refused?: string;
 }
 
-/** Fetches and records the attempt, so evidence lists every URL tried with its status. */
+/**
+ * Fetches and records the attempt, so evidence lists every URL tried with its status. A
+ * refusal (401, 402, 403, 406, 429, 451), a bot-management challenge or a transient
+ * failure is named, because such an answer says nothing about whether the file exists.
+ */
 async function probe(fetcher: Fetcher, url: string, tried: Probe[]): Promise<FetchedResponse> {
   const response = await fetcher.fetch(url);
-  tried.push({ url, status: response.status });
+  const refused =
+    REFUSAL_STATUSES.has(response.status) || isChallengePage(response)
+      ? describeRefusal(response)
+      : isTransient(response)
+        ? describeFailure(response)
+        : null;
+  tried.push({ url, status: response.status, ...(refused !== null ? { refused } : {}) });
   return response;
 }
 
@@ -92,8 +117,13 @@ export function parseServerCard(value: unknown, base: string): ServerCard | null
 }
 
 const MCP_CARD_TYPE = 'application/mcp-server-card+json';
-/** Requests one run of A4.1 may send; the last one is kept for the community path. */
+/** Requests one run of A4.1 may send; the last two are kept for the community paths. */
 const MAX_PROBES = 6;
+/**
+ * The community well-known paths, outside the specification: the one the Server Card
+ * extension's discovery document names, then the older `.json` form still in the wild.
+ */
+const COMMUNITY_PATHS = ['/.well-known/mcp/server-card', '/.well-known/mcp/server-card.json'];
 const MAX_CATALOG_CARDS = 2;
 const MAX_HINTS = 2;
 
@@ -190,7 +220,7 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
   // (2) Endpoint hints, each probed at <endpoint>/server-card.
   const hints = await endpointHints(target, fetcher, tried);
   for (const hint of hints) {
-    if (tried.length >= MAX_PROBES - 1) break;
+    if (tried.length >= MAX_PROBES - COMMUNITY_PATHS.length) break;
     const cardUrl = serverCardUrl(hint);
     const card = await fetchServerCard(fetcher, cardUrl, tried);
     if (card) {
@@ -201,17 +231,34 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
     }
   }
 
-  // (3) The community path, which the specification does not define.
-  const communityUrl = `${target.origin}/.well-known/mcp/server-card.json`;
-  const community = await fetchServerCard(fetcher, communityUrl, tried);
-  if (community) {
-    return warn(
-      `MCP server "${community.name}" at ${community.endpoint} is advertised only at the community path /.well-known/mcp/server-card.json`,
-      { ...found(community, 'community', communityUrl), hints },
+  // (3) The community paths, which the specification does not define.
+  for (const path of COMMUNITY_PATHS) {
+    const communityUrl = `${target.origin}${path}`;
+    const community = await fetchServerCard(fetcher, communityUrl, tried);
+    if (community) {
+      const form = path.endsWith('.json')
+        ? 'the older .json form of the community path'
+        : 'the community path the Server Card discovery document names';
+      return warn(
+        `MCP server "${community.name}" at ${community.endpoint} is advertised only at ${path} (${form}, which the specification does not define)`,
+        { ...found(community, 'community', communityUrl), community_path: path, hints },
+      );
+    }
+  }
+  // A refused card URL is not a missing card: say which URL refused, and how.
+  const refusals = tried.filter(
+    (attempt) => attempt.refused !== undefined && !attempt.url.endsWith('/llms.txt'),
+  );
+  const firstRefusal = refusals[0];
+  if (firstRefusal?.refused !== undefined) {
+    return skip(
+      'error',
+      `no MCP server card found, and ${firstRefusal.url} answered ${firstRefusal.refused}${refusals.length > 1 ? ` (${refusals.length - 1} more URL(s) likewise)` : ''}, so the check is inconclusive`,
+      { tried, hints, refused: refusals.map((attempt) => attempt.url) },
     );
   }
   return fail(
-    'no MCP server card found via ai-catalog.json, an endpoint hint or the community path',
+    'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths',
     { tried, hints },
   );
 });
@@ -219,8 +266,6 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
 // A4.2 API catalog
 
 const LINKSET_TYPE = 'application/linkset+json';
-/** Statuses that say nothing about the resource: throttling or a gateway failure. */
-const API_CATALOG_TRANSIENT = new Set([429, 502, 503, 504]);
 
 interface LinksetSummary {
   entries: number;
@@ -266,11 +311,10 @@ export const apiCatalogPublished = defineCheck('A4.2', async ({ target, fetcher 
   const evidence: Evidence = { url, status: response.status, content_type: type };
   // A throttled or failed request says nothing about whether a catalog is published;
   // a 404 or 410 does, and stays a fail below.
-  if (response.status === 0 || API_CATALOG_TRANSIENT.has(response.status)) {
-    const why = response.status === 429 ? 'was rate limited' : 'failed';
+  if (isTransient(response)) {
     return skip(
       'error',
-      `the API catalog could not be judged because the request ${why} (${describeFailure(response)})`,
+      `the API catalog could not be judged because the request ${transientPhrase(response)}`,
       evidence,
     );
   }
@@ -405,8 +449,13 @@ export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcom
   const evidence: Evidence = { ...probe };
   switch (probe.outcome) {
     case 'rpc':
+      // The 2026-07-28 Streamable HTTP transport: a server that does not implement the
+      // requested method MUST answer 404 with a JSON-RPC -32601 error, and a header
+      // mismatch 400 with -32020. Either proves the transport as well as a result does.
       return pass(
-        `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
+        probe.status === 404
+          ? 'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven'
+          : `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
         evidence,
       );
     case 'auth':
@@ -415,11 +464,22 @@ export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcom
         evidence,
       );
     case 'unreachable':
-      return fail(`the MCP endpoint could not be fetched: ${probe.detail}`, evidence);
+      return skip(
+        'error',
+        `the MCP endpoint could not be judged because the request failed (${probe.detail})`,
+        evidence,
+      );
     default:
+      if (isTransient(probe)) {
+        return skip(
+          'error',
+          `the MCP endpoint could not be judged because the request ${transientPhrase({ status: probe.status })}`,
+          evidence,
+        );
+      }
       return fail(
         probe.status === 404
-          ? 'the endpoint answers 404; the card points nowhere'
+          ? 'the endpoint answers 404 without a JSON-RPC body, so the card points nowhere (a server that merely lacks server/discover answers 404 with a JSON-RPC -32601 error)'
           : `the endpoint does not answer like an MCP server (${probe.detail})`,
         evidence,
       );
@@ -445,6 +505,24 @@ function agentCardFields(card: JsonRecord): { present: string[]; missing: string
   return { present, missing };
 }
 
+/**
+ * True when a document at the pre-0.3 path is an A2A agent card and not another
+ * vocabulary that shares the file name: /.well-known/agent.json is also used by the
+ * IETF draft-pro-adp-agent-discovery. An A2A card of any version names the agent and
+ * describes it, says where to reach it (`url` before 0.3, `supportedInterfaces` since),
+ * and carries version, capabilities and skills.
+ */
+export function isA2aAgentCard(card: JsonRecord): boolean {
+  return (
+    typeof card.name === 'string' &&
+    typeof card.description === 'string' &&
+    (typeof card.url === 'string' || card.supportedInterfaces !== undefined) &&
+    card.version !== undefined &&
+    card.capabilities !== undefined &&
+    card.skills !== undefined
+  );
+}
+
 export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
   const currentPath = '/.well-known/agent-card.json';
   const legacyPath = '/.well-known/agent.json';
@@ -456,6 +534,7 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
     path: null,
     present: [],
     missing: A2A_REQUIRED_FIELDS,
+    required_by_a2a_1_0: A2A_REQUIRED_FIELDS,
   };
   if (first.status === 200) {
     const card = parseJson(first.body);
@@ -480,8 +559,16 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
   evidence.legacy_status = second.status;
   const legacyCard = second.status === 200 ? parseJson(second.body) : undefined;
   if (isRecord(legacyCard)) {
+    if (!isA2aAgentCard(legacyCard)) {
+      evidence.legacy_is_a2a = false;
+      return fail(
+        'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills); that path is also used by other agent-discovery drafts',
+        evidence,
+      );
+    }
     Object.assign(evidence, {
       path: legacyPath,
+      legacy_is_a2a: true,
       ...agentCardFields(legacyCard),
       name: typeof legacyCard.name === 'string' ? legacyCard.name : null,
     });

@@ -1,6 +1,6 @@
 import { contentType } from '../../http/types.js';
 import { attribute, elementText, HtmlDocument } from '../../parsers/html.js';
-import { parseLinkHeader, type LinkValue } from '../../parsers/link-header.js';
+import { mediaTypeOf, parseLinkHeader, type LinkValue } from '../../parsers/link-header.js';
 import { isWellFormedLlmsTxt, parseLlmsTxt } from '../../parsers/llms-txt.js';
 import { isW3cDatetime, looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { LASTMOD_SAMPLE_LIMIT } from '../../target/types.js';
@@ -196,7 +196,17 @@ interface FoundLink {
   rel: string[];
   type: string | null;
   usable: boolean;
+  /** Where the link was declared: the Link response header, or a <link> element in the head. */
+  source: 'header' | 'html';
 }
+
+/**
+ * Link relations that also count when declared as a `<link>` element in the home page's
+ * head: Shopify's Hydrogen storefronts emit `<link rel="ucp" href="/.well-known/ucp">`
+ * there instead of a response header, and an agent reading the document finds it just
+ * the same.
+ */
+const HTML_LINK_RELATIONS = new Set(['ucp']);
 
 export const linkResponseHeaders = defineCheck('A1.4', async ({ target, fetcher }) => {
   const pages: { url: string; header: string | null }[] = [
@@ -209,6 +219,9 @@ export const linkResponseHeaders = defineCheck('A1.4', async ({ target, fetcher 
   }
   const links: FoundLink[] = [];
   for (const page of pages) {
+    // parseLinkHeader splits a multi-member header per RFC 8288, so a member such as
+    // </.well-known/ucp>; rel="ucp"; version="2026-08-25" keeps its relation whatever
+    // parameters follow it.
     for (const link of parseLinkHeader(page.header)) {
       links.push({
         page: page.url,
@@ -216,14 +229,34 @@ export const linkResponseHeaders = defineCheck('A1.4', async ({ target, fetcher 
         rel: link.rel,
         type: link.type ?? null,
         usable: isAgentUsableLink(link),
+        source: 'header',
       });
     }
+  }
+  for (const link of target.homeDoc.links()) {
+    const rel = link.rel.split(/\s+/).filter(Boolean);
+    if (!rel.some((token) => HTML_LINK_RELATIONS.has(token))) continue;
+    links.push({
+      page: target.home.finalUrl,
+      href: resolveHref(link.href, target.home.finalUrl),
+      rel,
+      type: link.type ? mediaTypeOf(link.type) : null,
+      usable: true,
+      source: 'html',
+    });
   }
   const usable = links.filter((link) => link.usable);
   const evidence = { pages: pages.map((page) => page.url), links, usable: usable.length };
   if (usable.length > 0) {
     const relations = [...new Set(usable.flatMap((link) => link.rel))].join(', ');
-    return pass(`Link header relation(s) an agent can use: ${relations}`, evidence);
+    const inHead = usable.filter((link) => link.source === 'html');
+    const headNote =
+      inHead.length === usable.length
+        ? ` (declared as a <link rel="${inHead.map((link) => link.rel.join(' ')).join('", "')}"> element in the home page's head, not as a response header)`
+        : inHead.length > 0
+          ? ` (${inHead.map((link) => link.rel.join(' ')).join(', ')} also as a <link> element in the home page's head)`
+          : '';
+    return pass(`Link relation(s) an agent can use: ${relations}${headNote}`, evidence);
   }
   if (links.length > 0) {
     return fail(
@@ -231,7 +264,10 @@ export const linkResponseHeaders = defineCheck('A1.4', async ({ target, fetcher 
       evidence,
     );
   }
-  return fail('no Link response header on the home page or a sampled product page', evidence);
+  return fail(
+    'no Link response header on the home page or a sampled product page, and no <link rel="ucp"> in the home page',
+    evidence,
+  );
 });
 
 /** Share of entries that must carry a valid lastmod for a pass. */
@@ -302,8 +338,12 @@ const LOAD_MORE_SAMPLE = 5;
  */
 const CATEGORY_URL =
   /\/(shop|store|collections?|product-category|categor(?:y|ies|ie|ia)|cat|kategorien?|c)\/[^/?#]+/i;
-/** Product links below which a page reads as a landing page rather than a listing. */
-const LISTING_MIN_PRODUCTS = 3;
+/**
+ * Product links below which a page reads as a landing page rather than a listing: a
+ * single link (a gift card, a featured item) is not a catalog, while a two-product store
+ * is a real store.
+ */
+const LISTING_MIN_PRODUCTS = 2;
 /** Category links from which a page without product links reads as a category index. */
 const CATEGORY_INDEX_MIN_LINKS = 3;
 
@@ -393,7 +433,7 @@ export const listingLinksProductsAndPages = defineCheck('A1.8', async ({ target,
   }
   if (productLinks.length < LISTING_MIN_PRODUCTS) {
     return warn(
-      `only ${productLinks.length} product link${productLinks.length === 1 ? '' : 's'} on the listing page (${productLinks.join(', ')}), too few for a listing an agent could enumerate the catalog from`,
+      `only 1 product link on the listing page (${productLinks[0] ?? ''}), too few for a listing an agent could enumerate the catalog from`,
       evidence,
     );
   }

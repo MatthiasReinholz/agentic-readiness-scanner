@@ -8,7 +8,13 @@ import { hasLinkRelation, mediaTypeOf, parseLinkHeader } from '../../parsers/lin
 import { fnv1a32 } from '../../target/sampling.js';
 import type { Fetcher } from '../../http/types.js';
 import type { Target } from '../../target/types.js';
-import { describeFailure, readableProductPages, type ProductPage } from '../shared.js';
+import {
+  describeFailure,
+  looksLikeProductPage,
+  pathOf,
+  readableProductPages,
+  type ProductPage,
+} from '../shared.js';
 import {
   defineCheck,
   fail,
@@ -119,6 +125,30 @@ async function judgedDocuments(
   return { sampled: 'products', docs: pages, unavailable, failed, note };
 }
 
+/**
+ * The path of a sign-in, registration or storefront password page a product URL may be
+ * redirected to (Shopify's /password, WooCommerce's /my-account/, generic /login).
+ * Tested against the final URL only when the product URL redirected: a product named
+ * "Password Journal" at its own address is a product.
+ */
+const SIGN_IN_PATH = /login|signin|sign-in|password|account\/login|my-account/i;
+const SIGN_IN_SPEC = 'https://support.google.com/merchants/answer/6324416';
+
+/**
+ * True when what answered a product URL is a sign-in or password page rather than the
+ * product: the URL was redirected to a sign-in path, or the document is a password form
+ * with no product content at all. A product page that merely links to the account area,
+ * or carries a login form in its header next to the product, is a product page.
+ */
+export function isSignInPage(doc: HtmlDocument, requestedUrl: string, finalUrl: string): boolean {
+  const redirected = finalUrl !== '' && finalUrl !== requestedUrl;
+  if (redirected && SIGN_IN_PATH.test(pathOf(finalUrl))) return true;
+  const passwordForm = doc
+    .controls()
+    .some((control) => control.tag === 'input' && control.type?.toLowerCase() === 'password');
+  return passwordForm && !looksLikeProductPage(doc);
+}
+
 export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
   const { pages, unavailable, failed, note } = await sampledProductPages(target, fetcher);
   if (unavailable) return unavailable;
@@ -126,6 +156,31 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
     string,
     { title: boolean; price: boolean; description: boolean; words: number }
   > = {};
+  // A product URL that lands on a sign-in or password page has no product content to
+  // judge: Google's landing-page rules forbid requiring registration or sign-in, and
+  // Shopify's password page makes a store ineligible for agentic storefronts.
+  const signIn: Record<string, string> = {};
+  for (const page of pages) {
+    const response = await fetcher.fetch(page.url);
+    if (isSignInPage(page.doc, page.url, response.finalUrl)) {
+      signIn[page.url] = response.finalUrl || page.url;
+    }
+  }
+  const firstSignIn = Object.entries(signIn)[0];
+  if (firstSignIn) {
+    const { phrase, plural } = judgedPages('products', Object.keys(signIn).length, pages.length);
+    return fail(
+      `${phrase.replace('page', 'URL')} ${plural ? 'redirect' : 'redirects'} to a sign-in or password page (${firstSignIn[1]}); Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts${note}`,
+      {
+        pages: perPage,
+        complete: 0,
+        total: pages.length,
+        failed,
+        sign_in: signIn,
+        spec: SIGN_IN_SPEC,
+      },
+    );
+  }
   let complete = 0;
   for (const page of pages) {
     const { nodes } = extractJsonLd(page.doc);
@@ -598,6 +653,16 @@ function isMarkdown(response: FetchedResponse): boolean {
   return response.status === 200 && contentType(response) === 'text/markdown';
 }
 
+/**
+ * True when a body labelled text/markdown is HTML: it opens with a tag, or carries a
+ * doctype or <html> near the top. Real converted Markdown (Cloudflare's Markdown for
+ * Agents, for one) starts with YAML front matter or a heading and never with a tag.
+ */
+export function isHtmlLabelledAsMarkdown(body: string): boolean {
+  const head = body.slice(0, 2000);
+  return head.trimStart().startsWith('<') || /<!doctype\s|<html[\s>]/i.test(head);
+}
+
 export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, fetcher }) => {
   const url = target.sampled.products[0];
   if (url === undefined) {
@@ -623,11 +688,19 @@ export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, f
       content_type: contentType(negotiated),
       vary: negotiated.headers.vary ?? null,
       names_product: isMarkdown(negotiated) ? namesPage(negotiated.body, names) : null,
+      html_body: isMarkdown(negotiated) ? isHtmlLabelledAsMarkdown(negotiated.body) : null,
     },
     alternate: null,
     md: null,
     outcome: 'none',
   };
+  if (isMarkdown(negotiated) && isHtmlLabelledAsMarkdown(negotiated.body)) {
+    evidence.outcome = 'mislabelled';
+    return fail(
+      'the product page answers Accept: text/markdown with a response labelled text/markdown whose body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML',
+      evidence,
+    );
+  }
   if (isMarkdown(negotiated) && namesPage(negotiated.body, names)) {
     evidence.outcome = 'negotiated';
     if (!variesOnAccept(negotiated)) {
@@ -651,13 +724,22 @@ export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, f
     }
     const response = await get(probeUrl);
     const markdown = isMarkdown(response);
-    const named = markdown && namesPage(response.body, names);
+    const mislabelled = markdown && isHtmlLabelledAsMarkdown(response.body);
+    const named = markdown && !mislabelled && namesPage(response.body, names);
     evidence[label] = {
       url: probeUrl,
       status: response.status,
       content_type: contentType(response),
       names_product: markdown ? named : null,
+      html_body: markdown ? mislabelled : null,
     };
+    if (mislabelled) {
+      evidence.outcome = 'mislabelled';
+      return fail(
+        `${label === 'alternate' ? 'the Markdown alternate' : 'the .md neighbour'} ${probeUrl} is labelled text/markdown but its body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML`,
+        evidence,
+      );
+    }
     if (!named) return null;
     evidence.outcome = label;
     return pass(
@@ -821,12 +903,23 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     string,
     { status: number; redirects: number; final_url: string; error?: string }
   > = {};
-  const counts = { downgraded: 0, tooMany: 0, redirected: 0, unreachable: 0, wrongStatus: 0 };
+  const counts = {
+    downgraded: 0,
+    tooMany: 0,
+    stale: 0,
+    redirected: 0,
+    unreachable: 0,
+    wrongStatus: 0,
+  };
   const examples: Partial<Record<keyof typeof counts, FetchedResponse>> = {};
   const record = (key: keyof typeof counts, response: FetchedResponse) => {
     counts[key] += 1;
     examples[key] ??= response;
   };
+  // Sampled URLs the sitemap listed: one of them answering 404 or 410 is a stale entry,
+  // which Google and Bing both ask publishers to remove promptly.
+  const fromSitemap = new Set(target.sitemap?.productUrls ?? []);
+  const staleEntries: string[] = [];
   let longest = 0;
   for (const response of responses) {
     products[response.url] = {
@@ -842,6 +935,15 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     }
     if (/^https:/i.test(response.url) && /^http:/i.test(response.finalUrl))
       record('downgraded', response);
+    if (
+      sampled === 'products' &&
+      fromSitemap.has(response.url) &&
+      (response.status === 404 || response.status === 410)
+    ) {
+      record('stale', response);
+      staleEntries.push(response.url);
+      continue;
+    }
     if (response.redirects > 0) {
       record('redirected', response);
       longest = Math.max(longest, response.redirects);
@@ -903,6 +1005,7 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     longest_chain: longest,
     unreachable: counts.unreachable,
     landing_redirect: landingRedirect,
+    stale_sitemap_entries: staleEntries,
   };
   const subject = (count: number) => judgedUrls(sampled, count, total);
   const s = (plural: boolean) => (plural ? '' : 's');
@@ -917,6 +1020,16 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     const { phrase, plural } = subject(counts.tooMany);
     return fail(
       `${phrase} redirect${s(plural)} more times than the scanner follows (Google stops at ten hops), starting from ${examples.tooMany.url}`,
+      evidence,
+    );
+  }
+  if (counts.stale > 0 && examples.stale) {
+    const more =
+      counts.stale > 1
+        ? ` and ${counts.stale - 1} more sampled URL${counts.stale > 2 ? 's' : ''}`
+        : '';
+    return fail(
+      `the sitemap lists ${examples.stale.url}${more}, which answer${counts.stale > 1 ? '' : 's'} HTTP ${examples.stale.status}; Google and Bing ask for sitemaps that list only live, canonical URLs`,
       evidence,
     );
   }
@@ -1115,6 +1228,9 @@ export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target,
       return judged.unavailable ?? skip('error', 'no sampled product page could be fetched');
     }
     url = first.url;
+    // The plain HTML response: no Accept: text/markdown, so this is never the Markdown
+    // copy A3.1 negotiated (a converted Markdown response drops ETag and Last-Modified,
+    // and the fetcher caches the two requests separately by their headers).
     response = await fetcher.fetch(url);
     what = 'the product page';
     const skipped = target.sampled.products.filter((candidate) => candidate !== url);
@@ -1127,6 +1243,7 @@ export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target,
   const lastModified = response.headers['last-modified'] ?? null;
   const evidence: Record<string, unknown> = {
     url,
+    content_type: contentType(response),
     etag,
     last_modified: lastModified,
     conditional_header_sent: null,

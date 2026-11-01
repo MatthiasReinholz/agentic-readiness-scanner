@@ -7,6 +7,7 @@ import type { CheckOutcome } from '../types.js';
 import {
   a2aAgentCard,
   apiCatalogPublished,
+  isA2aAgentCard,
   mcpEndpointReachable,
   mcpServerDiscoverable,
   oauthDiscoveryForMcp,
@@ -42,6 +43,7 @@ function discovered(value: string | null = endpoint): Map<string, CheckOutcome> 
 describe('A4.1 MCP server discoverable', () => {
   const catalogUrl = `${origin}/.well-known/ai-catalog.json`;
   const cardUrl = `${origin}/mcp/server-card`;
+  const documentedCommunityUrl = `${origin}/.well-known/mcp/server-card`;
   const communityUrl = `${origin}/.well-known/mcp/server-card.json`;
   const catalog = (entry: Record<string, unknown>) => ({
     entries: [{ identifier: 'urn:air:shop.example:shop', ...entry }],
@@ -125,21 +127,44 @@ describe('A4.1 MCP server discoverable', () => {
     });
   });
 
-  it('warns when only the community path answers', async () => {
-    const outcome = await runCheck(
+  it('warns when only a community path answers, saying which form it was', async () => {
+    const documented = await runCheck(
       mcpServerDiscoverable,
       targetFor(),
-      mapFetcher({ [communityUrl]: json(card) }),
+      mapFetcher({ [documentedCommunityUrl]: json(card) }),
     );
-    expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toContain('community path');
-    expect(outcome.evidence).toMatchObject({
+    expect(documented.verdict).toBe('warn');
+    expect(documented.message).toBe(
+      'MCP server "Shop catalog" at https://shop.example/mcp is advertised only at /.well-known/mcp/server-card (the community path the Server Card discovery document names, which the specification does not define)',
+    );
+    expect(documented.evidence).toMatchObject({
       source: 'community',
-      card_url: communityUrl,
+      card_url: documentedCommunityUrl,
+      community_path: '/.well-known/mcp/server-card',
       endpoint,
       tried: [
         { url: catalogUrl, status: 404 },
         { url: `${origin}/llms.txt`, status: 404 },
+        { url: documentedCommunityUrl, status: 200 },
+      ],
+    });
+    const legacy = await runCheck(
+      mcpServerDiscoverable,
+      targetFor(),
+      mapFetcher({ [communityUrl]: json(card) }),
+    );
+    expect(legacy.verdict).toBe('warn');
+    expect(legacy.message).toContain(
+      'only at /.well-known/mcp/server-card.json (the older .json form of the community path',
+    );
+    expect(legacy.evidence).toMatchObject({
+      source: 'community',
+      card_url: communityUrl,
+      community_path: '/.well-known/mcp/server-card.json',
+      tried: [
+        { url: catalogUrl, status: 404 },
+        { url: `${origin}/llms.txt`, status: 404 },
+        { url: documentedCommunityUrl, status: 404 },
         { url: communityUrl, status: 200 },
       ],
     });
@@ -148,10 +173,14 @@ describe('A4.1 MCP server discoverable', () => {
   it('fails when nothing answers, listing every URL tried', async () => {
     const outcome = await runCheck(mcpServerDiscoverable, targetFor(), mapFetcher({}));
     expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe(
+      'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths',
+    );
     expect(outcome.evidence).toEqual({
       tried: [
         { url: catalogUrl, status: 404 },
         { url: `${origin}/llms.txt`, status: 404 },
+        { url: documentedCommunityUrl, status: 404 },
         { url: communityUrl, status: 404 },
       ],
       hints: [],
@@ -169,7 +198,62 @@ describe('A4.1 MCP server discoverable', () => {
       }),
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.evidence.tried).toHaveLength(4);
+    expect(outcome.evidence.tried).toHaveLength(5);
+  });
+
+  it('reports a refused or challenged card URL as refused, not as a missing card', async () => {
+    const challenged = await runCheck(
+      mcpServerDiscoverable,
+      targetFor(),
+      mapFetcher({
+        [documentedCommunityUrl]: {
+          status: 403,
+          headers: {
+            server: 'cloudflare',
+            'cf-mitigated': 'challenge',
+            'content-type': 'text/html',
+          },
+          body: '<!doctype html><html><head><title>Just a moment...</title></head><body></body></html>',
+        },
+      }),
+    );
+    expect(challenged.verdict).toBe('skip');
+    expect(challenged.skipReason).toBe('error');
+    expect(challenged.message).toBe(
+      'no MCP server card found, and https://shop.example/.well-known/mcp/server-card answered a Cloudflare challenge (HTTP 403), so the check is inconclusive',
+    );
+    expect(challenged.evidence).toMatchObject({
+      refused: [documentedCommunityUrl],
+      tried: [
+        { url: catalogUrl, status: 404 },
+        { url: `${origin}/llms.txt`, status: 404 },
+        {
+          url: documentedCommunityUrl,
+          status: 403,
+          refused: 'a Cloudflare challenge (HTTP 403)',
+        },
+        { url: communityUrl, status: 404 },
+      ],
+    });
+    const forbidden = await runCheck(
+      mcpServerDiscoverable,
+      targetFor(),
+      mapFetcher({
+        [catalogUrl]: { status: 403, body: 'Forbidden' },
+        [communityUrl]: { status: 429, body: '' },
+      }),
+    );
+    expect(forbidden.verdict).toBe('skip');
+    expect(forbidden.message).toBe(
+      'no MCP server card found, and https://shop.example/.well-known/ai-catalog.json answered HTTP 403 (1 more URL(s) likewise), so the check is inconclusive',
+    );
+    // A refused llms.txt is a hint source, not a card URL, and does not make the check inconclusive.
+    const llmsRefused = await runCheck(
+      mcpServerDiscoverable,
+      targetFor(),
+      mapFetcher({ [`${origin}/llms.txt`]: { status: 403, body: '' } }),
+    );
+    expect(llmsRefused.verdict).toBe('fail');
   });
 
   it('never sends more than six requests however many hints there are', async () => {
@@ -516,7 +600,17 @@ describe('A4.4 MCP endpoint reachable', () => {
       rpc(404, { jsonrpc: '2.0', id: 1, error: { code: -32601, message: 'Method not found' } }),
     );
     expect(older.verdict).toBe('pass');
+    expect(older.message).toBe(
+      'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven',
+    );
     expect(older.evidence).toMatchObject({ status: 404, jsonrpc: true });
+    const headerMismatch = await run(
+      rpc(400, { jsonrpc: '2.0', id: 1, error: { code: -32020, message: 'Unsupported version' } }),
+    );
+    expect(headerMismatch.verdict).toBe('pass');
+    expect(headerMismatch.message).toBe(
+      'the endpoint answers server/discover with a JSON-RPC message (HTTP 400)',
+    );
     const stream = await run({
       status: 200,
       headers: { 'content-type': 'text/event-stream' },
@@ -543,17 +637,38 @@ describe('A4.4 MCP endpoint reachable', () => {
     expect(bare.verdict).toBe('fail');
   });
 
-  it('fails on 404, 405 without a body, 5xx, HTML and no response', async () => {
+  it('fails on a 404 without a JSON-RPC body, on 405, 500 and HTML', async () => {
     const gone = await run();
     expect(gone.verdict).toBe('fail');
-    expect(gone.message).toContain('404');
+    expect(gone.message).toBe(
+      'the endpoint answers 404 without a JSON-RPC body, so the card points nowhere (a server that merely lacks server/discover answers 404 with a JSON-RPC -32601 error)',
+    );
     expect((await run({ status: 405, headers: { allow: 'GET' }, body: '' })).verdict).toBe('fail');
-    expect((await run({ status: 503, body: 'down' })).verdict).toBe('fail');
+    expect((await run({ status: 500, body: 'boom' })).verdict).toBe('fail');
     const page = await run({ status: 200, headers: { 'content-type': 'text/html' }, body: HTML });
     expect(page.verdict).toBe('fail');
+  });
+
+  it('is inconclusive on 429, a gateway error or no response', async () => {
+    const throttled = await run({ status: 429, body: '' });
+    expect(throttled.verdict).toBe('skip');
+    expect(throttled.skipReason).toBe('error');
+    expect(throttled.message).toBe(
+      'the MCP endpoint could not be judged because the request was rate limited (HTTP 429)',
+    );
+    for (const status of [502, 503, 504]) {
+      const down = await run({ status, body: 'down' });
+      expect(down.verdict, `HTTP ${status}`).toBe('skip');
+      expect(down.message).toBe(
+        `the MCP endpoint could not be judged because the request failed (HTTP ${status})`,
+      );
+    }
     const unreachable = await run({ status: 0 });
-    expect(unreachable.verdict).toBe('fail');
-    expect(unreachable.message).toMatch(/could not be fetched/);
+    expect(unreachable.verdict).toBe('skip');
+    expect(unreachable.skipReason).toBe('error');
+    expect(unreachable.message).toMatch(
+      /^the MCP endpoint could not be judged because the request failed \(/,
+    );
   });
 });
 
@@ -609,8 +724,51 @@ describe('A4.5 A2A agent card', () => {
       status: 404,
       legacy_status: 200,
       path: '/.well-known/agent.json',
+      legacy_is_a2a: true,
       missing: [],
+      required_by_a2a_1_0: [
+        'name',
+        'description',
+        'supportedInterfaces',
+        'version',
+        'capabilities',
+        'defaultInputModes',
+        'defaultOutputModes',
+        'skills',
+      ],
     });
+    // A pre-0.3 card names its endpoint with url instead of supportedInterfaces.
+    const rest = Object.fromEntries(
+      Object.entries(complete).filter(([field]) => field !== 'supportedInterfaces'),
+    );
+    const pre03 = await run({ [legacy]: json({ ...rest, url: `${origin}/a2a` }) });
+    expect(pre03.verdict).toBe('warn');
+    expect(pre03.evidence).toMatchObject({ missing: ['supportedInterfaces'] });
+  });
+
+  it('does not take another vocabulary at /.well-known/agent.json for an A2A card', async () => {
+    const adp = await run({
+      [legacy]: json({
+        agents: [{ id: 'shop', endpoint: `${origin}/agent` }],
+        discovery_version: '0.1',
+      }),
+    });
+    expect(adp.verdict).toBe('fail');
+    expect(adp.message).toBe(
+      'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills); that path is also used by other agent-discovery drafts',
+    );
+    expect(adp.evidence).toMatchObject({ legacy_status: 200, legacy_is_a2a: false, path: null });
+    expect(isA2aAgentCard({ name: 'x', description: 'y', url: 'u', version: '1' })).toBe(false);
+    expect(
+      isA2aAgentCard({
+        name: 'x',
+        description: 'y',
+        url: 'u',
+        version: '1',
+        capabilities: {},
+        skills: [],
+      }),
+    ).toBe(true);
   });
 
   it('fails when neither path answers JSON, and does not probe the legacy path after a 200', async () => {
