@@ -85,8 +85,17 @@ export function isW3cDatetime(value: string): boolean {
 function salvageTruncatedUrlset(xml: string): ParsedSitemap | null {
   if (!/<urlset[\s>]/i.test(xml.slice(0, 2000))) return null;
   const entries: SitemapEntry[] = [];
-  for (const block of xml.matchAll(/<url>([\s\S]*?)<\/url>/gi)) {
-    const body = block[1] ?? '';
+  // Split on the opening tag and cut each piece at its closing tag with indexOf, so the
+  // scan stays linear whatever the file contains; the piece without a closing tag is the
+  // cut-off entry and is dropped.
+  const lower = xml.toLowerCase();
+  let from = lower.indexOf('<url>');
+  while (from !== -1) {
+    const start = from + '<url>'.length;
+    const close = lower.indexOf('</url>', start);
+    if (close === -1) break;
+    const body = xml.slice(start, close);
+    from = lower.indexOf('<url>', close);
     const loc = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(body)?.[1];
     if (!loc) continue;
     const lastmod = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/i.exec(body)?.[1];
