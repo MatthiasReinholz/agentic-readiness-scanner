@@ -72,7 +72,7 @@ The research pass checked every vendor programme and twenty comparable tools aga
 
 ## 5. Verification
 
-`pnpm check` is green (core 640 tests, web 56, cli 12, mcp 5, catalog 8, ui 4); the recorded WooCommerce store reaches Level 5, the recorded Shopify store Level 3, the content site Level 1. Live re-scans through the development server on the finished build, same day:
+`pnpm check` is green (core 634 tests, web 56, cli 12, mcp 5, catalog 8, ui 4); the recorded WooCommerce store reaches Level 5, the recorded Shopify store Level 3, the content site Level 1. Live re-scans through the development server on the finished build, same day:
 
 | Site            | Before                | After                      | What changed                                                                                                                                                                                                                                            |
 | --------------- | --------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
