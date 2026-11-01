@@ -85,7 +85,97 @@ describe('B3.1 GTIN present', () => {
     expect(other.verdict).toBe('fail');
     expect(other.evidence).toMatchObject({ products: [{ url, gtin: null, source: null }] });
   });
+
+  it('reads GTINs from the variants of a ProductGroup, the way Shopify emits them', async () => {
+    const outcome = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({
+        [mug]: shopifyGroupPage([
+          { gtin13: VALID_GTIN, mpn: 'VSL-001' },
+          { gtin13: '4006381333948', mpn: 'VSL-002' },
+          { mpn: 'VSL-003' },
+        ]),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('1 of 1 sampled product(s) carry a GTIN (1 on variants)');
+    expect(outcome.evidence).toMatchObject({
+      with_gtin: 1,
+      from_variants: 1,
+      invalid_format: [],
+      products: [
+        {
+          url: mug,
+          gtin: VALID_GTIN,
+          gtins: [VALID_GTIN, '4006381333948'],
+          variants_with_gtin: 2,
+          source: 'jsonld',
+        },
+      ],
+    });
+  });
+
+  it('does not count a gtin value that is not 8, 12, 13 or 14 digits and says so', async () => {
+    const outcome = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({
+        [mug]: withProduct({ gtin: 'FG006780' }),
+        [bowl]: withProduct({ gtin13: '4006 3813 33931' }),
+      }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe(
+      '1 of 2 sampled product(s) carry a GTIN; 1 gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: FG006780',
+    );
+    expect(outcome.evidence).toMatchObject({
+      with_gtin: 1,
+      invalid_format: ['FG006780'],
+      products: [
+        { url: mug, gtin: null, invalid_format: ['FG006780'], source: null },
+        { url: bowl, gtin: '4006 3813 33931', source: 'jsonld' },
+      ],
+    });
+  });
+
+  it('never scores a page that could not be fetched and says so', async () => {
+    const outcome = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({ [mug]: productPage(VALID_GTIN), [bowl]: { status: 403, body: 'denied' } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      '1 of 1 sampled product(s) carry a GTIN; 1 of 2 sampled page(s) could not be fetched',
+    );
+    expect(outcome.evidence).toMatchObject({ sampled: 1, unfetched: [bowl] });
+    const none = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: { status: 0 } }),
+    );
+    expect(none).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+  });
 });
+
+/** A Shopify-style ProductGroup page: identifiers and offers live on the hasVariant Products. */
+function shopifyGroupPage(variants: Record<string, unknown>[]): string {
+  const node = {
+    '@context': 'https://schema.org',
+    '@type': 'ProductGroup',
+    name: 'Vital Seamless Leggings',
+    brand: { '@type': 'Brand', name: 'Example Athletics' },
+    hasVariant: variants.map((fields, index) => ({
+      '@type': 'Product',
+      name: `Vital Seamless Leggings - ${index}`,
+      sku: `VSL-${index}`,
+      offers: { '@type': 'Offer', price: '40.00', priceCurrency: 'USD' },
+      ...fields,
+    })),
+  };
+  return `<!doctype html><html><head><title>P</title><script type="application/ld+json">${JSON.stringify(node)}</script></head><body></body></html>`;
+}
 
 describe('B3.2 GTIN valid', () => {
   const url = 'https://shop.example/product/mug/';
@@ -118,10 +208,32 @@ describe('B3.2 GTIN valid', () => {
       mapFetcher({ [url]: productPage('4006381333932') }),
     );
     expect(invalid.verdict).toBe('fail');
+    expect(invalid.message).toBe('1 of 1 GTIN(s) fail the GS1 check digit: 4006381333932');
     expect(invalid.evidence).toMatchObject({
       checked: 1,
       invalid: 1,
       products: [{ url, gtin: '4006381333932', valid: false }],
+    });
+  });
+
+  it('validates every well-formed GTIN on the variants, and leaves malformed values to B3.1', async () => {
+    const outcome = await runCheck(
+      gtinValid,
+      targetFor({ products: [url], platform: 'shopify' }),
+      mapFetcher({
+        [url]: shopifyGroupPage([
+          { gtin13: VALID_GTIN },
+          { gtin13: '4006381333932' },
+          { gtin: 'FG006780' },
+        ]),
+      }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.evidence).toMatchObject({
+      checked: 2,
+      invalid: 1,
+      invalid_values: ['4006381333932'],
+      products: [{ url, gtin: VALID_GTIN, valid: false }],
     });
   });
 });
@@ -289,6 +401,18 @@ describe('B3.4 MPN present when GTIN absent', () => {
     expect(outcome.evidence.pages).not.toHaveProperty(mug);
   });
 
+  it('reads the mpn from the variants of a ProductGroup', async () => {
+    const outcome = await runCheck(
+      mpnWhenGtinAbsent,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: shopifyGroupPage([{ mpn: 'VSL-001' }, { mpn: 'VSL-002' }]) }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { mpn: 'VSL-001', brand: 'Example Athletics', status: 'both' } },
+    });
+  });
+
   it('warns when only one of mpn and brand is present', async () => {
     const outcome = await runCheck(
       mpnWhenGtinAbsent,
@@ -386,5 +510,29 @@ describe('B3.5 SKU present and unique in sample', () => {
       missing: [bowl],
       pages: { [bowl]: { sku: null, source: null } },
     });
+  });
+
+  it('does not score a page that could not be fetched as missing a SKU', async () => {
+    const outcome = await runCheck(
+      skuPresentAndUnique,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({ [mug]: withProduct({ sku: 'MUG-350' }), [bowl]: { status: 0 } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 1 sampled product(s) carry a distinct SKU; 1 of 2 sampled page(s) could not be fetched',
+    );
+    expect(outcome.evidence).toMatchObject({ sampled: 1, unfetched: [bowl] });
+  });
+});
+
+describe('B3.3 brand on unreadable pages', () => {
+  it('skips with reason error when no sampled page could be fetched', async () => {
+    const outcome = await runCheck(
+      brandEntity,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: { status: 503, body: '' } }),
+    );
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'error' });
   });
 });

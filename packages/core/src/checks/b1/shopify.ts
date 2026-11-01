@@ -1,9 +1,25 @@
-import { contentType } from '../../http/types.js';
+import { contentType, type FetchedResponse } from '../../http/types.js';
 import { HtmlDocument } from '../../parsers/html.js';
 import { isRecord, looksLikeHtml, parseJson } from '../json.js';
-import { defineCheck, fail, pass, skip } from '../types.js';
+import { describeFailure } from '../shared.js';
+import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
 const HANDLE_SAMPLE = 5;
+const TITLE_LIMIT = 80;
+
+/** True when the fetcher refused the URL because the store's robots.txt disallows it for the scanner. */
+function blockedByRobots(response: Pick<FetchedResponse, 'status' | 'error'>): boolean {
+  return response.status === 0 && /robots\.txt/i.test(response.error ?? '');
+}
+
+/** What an HTML answer with this status most likely is; the status itself is always named. */
+function htmlAnswerHint(status: number): string {
+  if (status === 403) return 'the CDN or bot manager refused the request';
+  if (status >= 500) return 'the storefront errored';
+  if (status >= 200 && status < 300)
+    return 'the request was redirected to a theme page or a bot challenge';
+  return 'the endpoint is not serving JSON';
+}
 
 /** A Shopify storefront password page: a password form, or the "Opening Soon" title. */
 function isPasswordPage(doc: HtmlDocument): boolean {
@@ -27,6 +43,17 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
     status: response.status,
     content_type: contentType(response),
   };
+  if (response.status === 0) {
+    evidence.error = response.error ?? null;
+    // The scanner itself did not read the endpoint: that is not evidence that it is off.
+    if (blockedByRobots(response)) {
+      return warn(
+        `products.json was not requested because the store's robots.txt disallows it for the scanner (${describeFailure(response)}); whether it is readable could not be verified`,
+        evidence,
+      );
+    }
+    return fail(`products.json could not be fetched: ${describeFailure(response)}`, evidence);
+  }
   if (response.status === 401) {
     return fail(
       'products.json requires authentication (HTTP 401): the storefront is password-protected or the public JSON endpoints are disabled',
@@ -49,13 +76,16 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
         evidence,
       );
     }
+    const title = evidence.title;
+    const titled =
+      typeof title === 'string' && title !== '' ? ` titled "${title.slice(0, TITLE_LIMIT)}"` : '';
     return fail(
-      `products.json answered an HTML page (HTTP ${response.status}) instead of JSON: the request was redirected to a theme page or a bot challenge`,
+      `products.json answered ${describeFailure(response)} with an HTML page${titled} instead of JSON: ${htmlAnswerHint(response.status)}`,
       evidence,
     );
   }
   if (response.status !== 200) {
-    return fail(`products.json returned HTTP ${response.status}`, evidence);
+    return fail(`products.json returned ${describeFailure(response)}`, evidence);
   }
   const parsed = parseJson(response.body);
   if (parsed === undefined) {

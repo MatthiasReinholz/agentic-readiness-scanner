@@ -3,54 +3,134 @@ import {
   asString,
   brandOf,
   extractJsonLd,
-  gtinOf,
-  productNodes,
-  variantsOf,
+  gtinsOf,
   type JsonLdNode,
+  looksLikeGtin,
+  mpnOf,
+  productNodes,
+  variantNodes,
 } from '../../parsers/jsonld.js';
+import type { Target } from '../../target/types.js';
 import {
   permalinkKey,
-  productPages,
+  type ProductPage,
+  readableProductPages,
   storeApiProducts,
   storeApiProductsByPermalink,
 } from '../shared.js';
-import { defineCheck, fail, pass, skip, warn, type CheckContext } from '../types.js';
+import {
+  type CheckContext,
+  type CheckOutcome,
+  defineCheck,
+  fail,
+  pass,
+  skip,
+  warn,
+} from '../types.js';
+
+/** The sampled product URLs that answered with no readable page (status 0, 4xx or 5xx). */
+function unfetched(target: Target, pages: ProductPage[]): string[] {
+  const read = new Set(pages.map((page) => page.url));
+  return target.sampled.products.filter((url) => !read.has(url));
+}
+
+/** "; 1 of 2 sampled page(s) could not be fetched" when some pages failed, else empty. */
+function fetchNote(target: Target, pages: ProductPage[]): string {
+  const failed = unfetched(target, pages).length;
+  if (failed === 0) return '';
+  return `; ${failed} of ${target.sampled.products.length} sampled page(s) could not be fetched`;
+}
 
 interface IdentitySample {
   url: string;
+  /** The first value shaped like a GTIN (8, 12, 13 or 14 digits), or null. */
   gtin: string | null;
+  /** Every value shaped like a GTIN on the product and its variants. */
+  gtins: string[];
+  /** Values in a gtin field that are not shaped like a GTIN; they do not count as present. */
+  invalid_format: string[];
+  variants_with_gtin: number;
   source: 'jsonld' | 'store-api' | null;
 }
 
-/** GTIN per sampled product from JSON-LD, falling back to the Store API global_unique_id. */
-export async function collectGtins(context: CheckContext): Promise<IdentitySample[]> {
+interface IdentitySamples {
+  samples: IdentitySample[];
+  /** The outcome to return when no sampled page could be read. */
+  unavailable: CheckOutcome | null;
+  unfetched: string[];
+  note: string;
+}
+
+/**
+ * GTINs per readable sampled product: from the Product JSON-LD and its variants, falling
+ * back to the Store API global_unique_id. A value counts only when it is shaped like a
+ * GTIN; "FG006780" in a gtin field is recorded as invalid_format instead.
+ */
+export async function collectGtins(context: CheckContext): Promise<IdentitySamples> {
   const { target, fetcher } = context;
-  const pages = await productPages(target, fetcher);
+  const { pages, unavailable } = await readableProductPages(target, fetcher);
   const apiProducts = await storeApiProducts(target, fetcher);
   const byPermalink = new Map<string, string>();
   for (const product of apiProducts ?? []) {
     if (product.global_unique_id)
-      byPermalink.set(product.permalink.replace(/\/$/, ''), product.global_unique_id);
+      byPermalink.set(permalinkKey(product.permalink), product.global_unique_id);
   }
-  return pages.map((page) => {
+  const samples = pages.map((page): IdentitySample => {
     const products = productNodes(extractJsonLd(page.doc).nodes);
-    const fromJsonLd = products.map(gtinOf).find((value) => value !== null) ?? null;
-    if (fromJsonLd) return { url: page.url, gtin: fromJsonLd, source: 'jsonld' };
-    const fromApi = byPermalink.get(page.url.replace(/\/$/, '')) ?? null;
-    if (fromApi) return { url: page.url, gtin: fromApi, source: 'store-api' };
-    return { url: page.url, gtin: null, source: null };
+    const gtins = new Set<string>();
+    const invalid = new Set<string>();
+    let variantsWithGtin = 0;
+    for (const product of products) {
+      const found = gtinsOf(product);
+      found.gtins.forEach((value) => gtins.add(value));
+      found.invalid_format.forEach((value) => invalid.add(value));
+      variantsWithGtin += found.variants_with_gtin;
+    }
+    const base = {
+      url: page.url,
+      gtins: [...gtins],
+      invalid_format: [...invalid],
+      variants_with_gtin: variantsWithGtin,
+    };
+    const fromJsonLd = base.gtins[0] ?? null;
+    if (fromJsonLd !== null) return { ...base, gtin: fromJsonLd, source: 'jsonld' };
+    const fromApi = byPermalink.get(permalinkKey(page.url)) ?? null;
+    if (fromApi !== null && looksLikeGtin(fromApi))
+      return { ...base, gtin: fromApi, gtins: [fromApi], source: 'store-api' };
+    if (fromApi !== null) base.invalid_format.push(fromApi);
+    return { ...base, gtin: null, source: null };
   });
+  return {
+    samples,
+    unavailable,
+    unfetched: unfetched(target, pages),
+    note: fetchNote(target, pages),
+  };
 }
 
 export const gtinPresent = defineCheck('B3.1', async (context) => {
-  const samples = await collectGtins(context);
-  if (samples.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { samples, unavailable, unfetched: failed, note } = await collectGtins(context);
+  if (unavailable) return unavailable;
   const withGtin = samples.filter((sample) => sample.gtin !== null).length;
+  const fromVariants = samples.filter(
+    (sample) => sample.source === 'jsonld' && sample.variants_with_gtin > 0,
+  ).length;
+  const invalid = [...new Set(samples.flatMap((sample) => sample.invalid_format))];
   const ratio = withGtin / samples.length;
-  const evidence = { sampled: samples.length, with_gtin: withGtin, products: samples };
-  const message = `${withGtin} of ${samples.length} sampled product(s) carry a GTIN`;
+  const evidence = {
+    sampled: samples.length,
+    with_gtin: withGtin,
+    from_variants: fromVariants,
+    invalid_format: invalid,
+    products: samples,
+    unfetched: failed,
+  };
+  const variantNote = fromVariants > 0 ? ` (${fromVariants} on variants)` : '';
+  const invalidNote =
+    invalid.length > 0
+      ? `; ${invalid.length} gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: ${invalid.slice(0, 5).join(', ')}`
+      : '';
+  const message = `${withGtin} of ${samples.length} sampled product(s) carry a GTIN${variantNote}${invalidNote}${note}`;
   // Channel rules ask for identifiers on most of the catalog, not all of it, hence 80 percent.
   if (ratio >= 0.8) return pass(message, evidence);
   if (ratio > 0.5) return warn(message, evidence);
@@ -58,25 +138,43 @@ export const gtinPresent = defineCheck('B3.1', async (context) => {
 });
 
 export const gtinValid = defineCheck('B3.2', async (context) => {
-  const all = await collectGtins(context);
-  if (all.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { samples: all, unavailable, note } = await collectGtins(context);
+  if (unavailable) return unavailable;
   const samples = all.filter((sample) => sample.gtin !== null);
   if (samples.length === 0) {
     return skip('dependency_failed', 'no GTINs to validate');
   }
-  const results = samples.map((sample) => ({
-    url: sample.url,
-    gtin: sample.gtin,
-    normalized: normalizeGtin(sample.gtin ?? ''),
-    valid: isValidGtin(sample.gtin ?? ''),
-  }));
-  const invalid = results.filter((result) => !result.valid);
-  const evidence = { checked: results.length, invalid: invalid.length, products: results };
-  if (invalid.length === 0)
-    return pass(`all ${results.length} GTIN(s) pass the GS1 check digit`, evidence);
-  return fail(`${invalid.length} of ${results.length} GTIN(s) are invalid`, evidence);
+  // Every well-formed GTIN on the product and its variants is checked, not only the first.
+  const results = samples.map((sample) => {
+    const values = sample.gtins.map((value) => ({
+      value,
+      normalized: normalizeGtin(value),
+      valid: isValidGtin(value),
+    }));
+    return {
+      url: sample.url,
+      gtin: sample.gtin,
+      normalized: normalizeGtin(sample.gtin ?? ''),
+      gtins: values,
+      valid: values.every((entry) => entry.valid),
+    };
+  });
+  const checked = results.reduce((sum, result) => sum + result.gtins.length, 0);
+  const invalidValues = results.flatMap((result) =>
+    result.gtins.filter((entry) => !entry.valid).map((entry) => entry.value),
+  );
+  const evidence = {
+    checked,
+    invalid: invalidValues.length,
+    products: results,
+    invalid_values: invalidValues,
+  };
+  if (invalidValues.length === 0)
+    return pass(`all ${checked} GTIN(s) pass the GS1 check digit${note}`, evidence);
+  return fail(
+    `${invalidValues.length} of ${checked} GTIN(s) fail the GS1 check digit: ${invalidValues.slice(0, 5).join(', ')}${note}`,
+    evidence,
+  );
 });
 
 const BRAND_TYPES = new Set(['brand', 'organization']);
@@ -89,10 +187,8 @@ interface BrandEvidence {
 }
 
 export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
-  const pages = await productPages(target, fetcher);
-  if (pages.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { pages, unavailable } = await readableProductPages(target, fetcher);
+  if (unavailable) return unavailable;
   const perPage: Record<string, BrandEvidence> = {};
   const spellings = new Map<string, Set<string>>();
   let considered = 0;
@@ -126,19 +222,31 @@ export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
   const inconsistent = [...spellings.values()]
     .filter((variants) => variants.size > 1)
     .map((variants) => [...variants]);
-  const evidence = { pages: perPage, considered, missing, weak, inconsistent_casing: inconsistent };
-  if (missing > 0) return fail(`${missing} of ${considered} product(s) have no brand`, evidence);
+  const evidence = {
+    pages: perPage,
+    considered,
+    missing,
+    weak,
+    inconsistent_casing: inconsistent,
+    unfetched: unfetched(target, pages),
+  };
+  const note = fetchNote(target, pages);
+  if (missing > 0)
+    return fail(`${missing} of ${considered} product(s) have no brand${note}`, evidence);
   if (weak > 0)
     return warn(
-      `${weak} of ${considered} product(s) carry the brand as a string or an incomplete object`,
+      `${weak} of ${considered} product(s) carry the brand as a string or an incomplete object${note}`,
       evidence,
     );
   if (inconsistent.length > 0)
     return warn(
-      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join('; ')}`,
+      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join('; ')}${note}`,
       evidence,
     );
-  return pass(`all ${considered} product(s) carry a Brand object with a consistent name`, evidence);
+  return pass(
+    `all ${considered} product(s) carry a Brand object with a consistent name${note}`,
+    evidence,
+  );
 });
 
 /** The brand name however it is written: the entity's name or the bare string. */
@@ -147,17 +255,16 @@ function brandNameOf(products: JsonLdNode[]): string | null {
 }
 
 export const mpnWhenGtinAbsent = defineCheck('B3.4', async (context) => {
-  const samples = await collectGtins(context);
-  if (samples.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { samples, unavailable, unfetched: failed, note } = await collectGtins(context);
+  if (unavailable) return unavailable;
   const withoutGtin = samples.filter((sample) => sample.gtin === null);
   if (withoutGtin.length === 0) {
-    return skip('not_applicable', 'every sampled product carries a GTIN', {
+    return skip('not_applicable', `every sampled product carries a GTIN${note}`, {
       sampled: samples.length,
+      unfetched: failed,
     });
   }
-  const pages = await productPages(context.target, context.fetcher);
+  const { pages } = await readableProductPages(context.target, context.fetcher);
   const perPage: Record<
     string,
     { mpn: string | null; brand: string | null; status: 'both' | 'one' | 'neither' }
@@ -168,7 +275,8 @@ export const mpnWhenGtinAbsent = defineCheck('B3.4', async (context) => {
     const products = page ? productNodes(extractJsonLd(page.doc).nodes) : [];
     // A page without Product JSON-LD is B2.1's failure; it cannot carry an mpn here.
     if (products.length === 0) continue;
-    const mpn = products.map((product) => asString(product.mpn)).find((v) => v !== null) ?? null;
+    // The mpn sits on the Product, or on the variants of a ProductGroup.
+    const mpn = products.map(mpnOf).find((value) => value !== null) ?? null;
     const brand = brandNameOf(products);
     const status = mpn && brand ? 'both' : mpn || brand ? 'one' : 'neither';
     counts[status] += 1;
@@ -184,10 +292,11 @@ export const mpnWhenGtinAbsent = defineCheck('B3.4', async (context) => {
     without_gtin: withoutGtin.length,
     considered,
     ...counts,
+    unfetched: failed,
   };
   if (counts.neither > 0)
     return fail(
-      `${counts.neither} of ${considered} product(s) without a GTIN carry neither mpn nor brand`,
+      `${counts.neither} of ${considered} product(s) without a GTIN carry neither mpn nor brand${note}`,
       evidence,
     );
   if (counts.one > 0) {
@@ -201,18 +310,16 @@ export const mpnWhenGtinAbsent = defineCheck('B3.4', async (context) => {
       .filter(Boolean)
       .join(' and ');
     return warn(
-      `${counts.one} of ${considered} product(s) without a GTIN are only half identified: ${missing}`,
+      `${counts.one} of ${considered} product(s) without a GTIN are only half identified: ${missing}${note}`,
       evidence,
     );
   }
-  return pass(`all ${considered} product(s) without a GTIN carry mpn and brand`, evidence);
+  return pass(`all ${considered} product(s) without a GTIN carry mpn and brand${note}`, evidence);
 });
 
 export const skuPresentAndUnique = defineCheck('B3.5', async ({ target, fetcher }) => {
-  const pages = await productPages(target, fetcher);
-  if (pages.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { pages, unavailable } = await readableProductPages(target, fetcher);
+  if (unavailable) return unavailable;
   const api = await storeApiProductsByPermalink(target, fetcher);
   const perPage: Record<string, { sku: string | null; source: 'jsonld' | 'store-api' | null }> = {};
   const owners = new Map<string, string[]>();
@@ -220,7 +327,7 @@ export const skuPresentAndUnique = defineCheck('B3.5', async ({ target, fetcher 
   for (const page of pages) {
     const products = productNodes(extractJsonLd(page.doc).nodes);
     // A ProductGroup rarely carries a sku itself; its first variant does.
-    const candidates = [...products, ...products.flatMap(variantsOf)];
+    const candidates = [...products, ...products.flatMap(variantNodes)];
     const fromJsonLd =
       candidates.map((node) => asString(node.sku)).find((value) => value !== null) ?? null;
     const fromApi = asString(api.get(permalinkKey(page.url))?.sku);
@@ -239,13 +346,18 @@ export const skuPresentAndUnique = defineCheck('B3.5', async ({ target, fetcher 
     with_sku: pages.length - missing.length,
     missing,
     duplicates,
+    unfetched: unfetched(target, pages),
   };
+  const note = fetchNote(target, pages);
   if (missing.length > 0)
-    return fail(`${missing.length} of ${pages.length} sampled product(s) have no SKU`, evidence);
-  if (duplicates.length > 0)
-    return warn(
-      `SKU ${duplicates.map((d) => d.sku).join(', ')} is shared by more than one sampled product`,
+    return fail(
+      `${missing.length} of ${pages.length} sampled product(s) have no SKU${note}`,
       evidence,
     );
-  return pass(`all ${pages.length} sampled product(s) carry a distinct SKU`, evidence);
+  if (duplicates.length > 0)
+    return warn(
+      `SKU ${duplicates.map((d) => d.sku).join(', ')} is shared by more than one sampled product${note}`,
+      evidence,
+    );
+  return pass(`all ${pages.length} sampled product(s) carry a distinct SKU${note}`, evidence);
 });

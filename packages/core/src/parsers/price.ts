@@ -2,8 +2,15 @@
  * Prices in page text: a currency sign or code next to an amount. The amount pattern has
  * bounded repetitions (groups of three digits, at most two decimals) so matching stays
  * linear on pages full of numbers; the text is capped as well.
+ *
+ * Symbols match anywhere; letter codes (ISO 4217 and the written forms stores use, such as
+ * "kr", "zł" or "Rs") only where no other letter touches them, so "Rs" in "colours" or
+ * "kr" in "krone" is not a currency marker. Codes are case-sensitive on purpose.
  */
-const CURRENCY = '(?:[$€£¥]|USD|EUR|GBP|CHF|JPY|AUD|CAD|SEK|NOK|DKK|PLN|CZK)';
+const CURRENCY_SYMBOL = '[$€£¥₹₩₪₺₱₫฿₴₦]|R\\$|US\\$|C\\$|A\\$|NZ\\$|S\\$|HK\\$';
+const CURRENCY_CODE =
+  'USD|EUR|GBP|CHF|JPY|CNY|AUD|CAD|NZD|SEK|NOK|DKK|ISK|PLN|CZK|HUF|RON|BGN|TRY|ILS|AED|SAR|QAR|INR|KRW|SGD|HKD|TWD|MYR|THB|PHP|IDR|VND|ZAR|MXN|BRL|ARS|CLP|COP|PEN|RUB|UAH|kr|zł|Kč|lei|Rp|RM|Rs';
+const CURRENCY = `(?:${CURRENCY_SYMBOL}|(?<![A-Za-z])(?:${CURRENCY_CODE})(?![A-Za-z]))`;
 const AMOUNT = '(?:\\d{1,3}(?:[.,]\\d{3}){1,4}|\\d{1,7})(?:[.,]\\d{1,2})?';
 const PRICE_TEXT = new RegExp(`${CURRENCY}\\s?${AMOUNT}|\\b${AMOUNT}\\s?${CURRENCY}`);
 const PRICE_TEXT_ALL = new RegExp(`${CURRENCY}\\s?(${AMOUNT})|\\b(${AMOUNT})\\s?${CURRENCY}`, 'g');
