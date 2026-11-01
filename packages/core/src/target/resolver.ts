@@ -174,7 +174,7 @@ export function isShopifyServed(response: FetchedResponse): boolean {
   const headers = response.headers;
   if (headers['x-shopid'] !== undefined || headers['x-shopify-stage'] !== undefined) return true;
   if (/shopify/i.test(headers['powered-by'] ?? '')) return true;
-  if (/rel="?ucp"?/i.test(headers['link'] ?? '')) return true;
+  if (/rel="?ucp"?/i.test(headers.link ?? '')) return true;
   return false;
 }
 
