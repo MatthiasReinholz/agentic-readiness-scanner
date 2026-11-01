@@ -37,6 +37,18 @@ describe('B1.8 Shopify products.json readable', () => {
     expect(outcome.skipReason).toBe('not_applicable');
   });
 
+  it('skips as not applicable on a headless storefront that Shopify does not serve itself', async () => {
+    const headless: Target = { ...shopify(), shopifyHosted: false };
+    const fetcher = mapFetcher({ [url]: '{"products":[]}' });
+    const outcome = await run(headless, fetcher);
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(outcome.message).toBe(
+      'headless Shopify storefront: Shopify serves neither products.json nor the UCP endpoint on this domain',
+    );
+    expect(outcome.evidence).toEqual({ platform: 'shopify', shopify_hosted: false });
+    expect(fetcher.log).toHaveLength(0);
+  });
+
   it('passes on a JSON products array and records count and handles', async () => {
     const outcome = await answer({
       status: 200,
@@ -64,6 +76,15 @@ describe('B1.8 Shopify products.json readable', () => {
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toMatch(/HTTP 401.*password-protected/);
     expect(outcome.evidence).toMatchObject({ status: 401 });
+  });
+
+  it('skips as inconclusive on a 429 the fetcher could not retry past', async () => {
+    const outcome = await answer({ status: 429, headers: { 'retry-after': '30' }, body: '' });
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+    expect(outcome.message).toBe(
+      'products.json answered HTTP 429 (Shopify rate-limits this endpoint per IP), so whether it is readable could not be judged',
+    );
+    expect(outcome.evidence).toMatchObject({ status: 429 });
   });
 
   it('fails on 404 naming disabled endpoints', async () => {

@@ -30,6 +30,11 @@ function product(offer: Record<string, unknown> | undefined): unknown {
   };
 }
 
+/** A Product with Google's three required properties: name, image and offers. */
+function fullProduct(offer: Record<string, unknown>): unknown {
+  return { ...(product(offer) as object), image: 'https://shop.example/uploads/mug.jpg' };
+}
+
 const COMPLETE = {
   price: '24.00',
   priceCurrency: 'EUR',
@@ -54,6 +59,7 @@ function shopifyGroup(
     '@context': 'https://schema.org',
     '@type': 'ProductGroup',
     name: 'Vital Seamless Leggings',
+    productGroupID: 'VSL',
     brand: { '@type': 'Brand', name: 'Example Athletics' },
     image: 'https://cdn.shopify.com/s/files/1/0001/products/leggings.jpg?v=1700000000',
     hasVariant: offers.map((offer, index) => ({
@@ -76,14 +82,17 @@ describe('B2.1 Product JSON-LD on product pages', () => {
     const all = await runCheck(
       productJsonLd,
       targetFor({ products: [mug, bowl] }),
-      mapFetcher({ [mug]: withJsonLd(product(COMPLETE)), [bowl]: withJsonLd(product(COMPLETE)) }),
+      mapFetcher({
+        [mug]: withJsonLd(fullProduct(COMPLETE)),
+        [bowl]: withJsonLd(fullProduct(COMPLETE)),
+      }),
     );
     expect(all.verdict).toBe('pass');
-    expect(all.evidence).toMatchObject({ with_product: 2, total: 2 });
+    expect(all.evidence).toMatchObject({ with_product: 2, total: 2, incomplete: 0 });
     const some = await runCheck(
       productJsonLd,
       targetFor({ products: [mug, bowl] }),
-      mapFetcher({ [mug]: withJsonLd(product(COMPLETE)), [bowl]: PLAIN }),
+      mapFetcher({ [mug]: withJsonLd(fullProduct(COMPLETE)), [bowl]: PLAIN }),
     );
     expect(some.verdict).toBe('warn');
     expect(some.evidence).toMatchObject({
@@ -95,6 +104,35 @@ describe('B2.1 Product JSON-LD on product pages', () => {
       mapFetcher({ [mug]: PLAIN }),
     );
     expect(none.verdict).toBe('fail');
+  });
+
+  it("warns when a Product node lacks Google's required name or image, naming the gap", async () => {
+    const outcome = await runCheck(
+      productJsonLd,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: withJsonLd(product(COMPLETE)),
+        [bowl]: withJsonLd({ '@type': 'Product', offers: { '@type': 'Offer', ...COMPLETE } }),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `2 of 2 sampled product page(s) carry Product JSON-LD; 2 lack Google's required Product properties: image on ${mug}, name and image on ${bowl}`,
+    );
+    expect(outcome.evidence).toMatchObject({
+      incomplete: 2,
+      pages: {
+        [mug]: { missing_required: ['image'] },
+        [bowl]: { missing_required: ['name', 'image'] },
+      },
+    });
+    // A ProductGroup whose variants carry the image is complete.
+    const group = await runCheck(
+      productJsonLd,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(shopifyGroup()) }),
+    );
+    expect(group.verdict).toBe('pass');
   });
 
   it('records parse errors as evidence instead of throwing', async () => {
@@ -241,7 +279,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     expect(allDown).toMatchObject({ verdict: 'skip', skipReason: 'error' });
   });
 
-  it('accepts an AggregateOffer with lowPrice', async () => {
+  it('accepts an AggregateOffer with lowPrice, recording it and noting the merchant-listing limit', async () => {
     const node = {
       '@type': 'ProductGroup',
       name: 'Mugs',
@@ -258,16 +296,83 @@ describe('B2.2 offers carry price, currency and availability', () => {
       mapFetcher({ [mug]: withJsonLd(node) }),
     );
     expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 product(s) use an AggregateOffer: eligible for product snippets, not for Google merchant listings, which require an Offer',
+    );
+    expect(outcome.evidence).toMatchObject({
+      aggregate_offer_products: 1,
+      pages: { [mug]: { aggregate_offer: true } },
+    });
+  });
+
+  it('warns on a price of zero or below', async () => {
+    const outcome = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product({ ...COMPLETE, price: '0' })) }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 offer(s) have a price of 0 or below: merchant listing experiences require a price greater than zero',
+    );
+    expect(outcome.evidence).toMatchObject({
+      non_positive_price: 1,
+      pages: { [mug]: { non_positive_price: 1 } },
+    });
+  });
+
+  it('warns when priceValidUntil is already past when the page was served, and records it', async () => {
+    const served = { date: 'Sat, 01 Nov 2026 10:00:00 GMT' };
+    const past = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          headers: served,
+          body: withJsonLd(product({ ...COMPLETE, priceValidUntil: '2026-10-31' })),
+        },
+      }),
+    );
+    expect(past.verdict).toBe('warn');
+    expect(past.message).toBe(
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; priceValidUntil 2026-10-31 is in the past on 1 offer(s): Google says your listing may not display if the priceValidUntil property indicates a past date',
+    );
+    expect(past.evidence).toMatchObject({
+      expired_price_valid_until: ['2026-10-31'],
+      pages: { [mug]: { expired_price_valid_until: ['2026-10-31'] } },
+    });
+    // The day named by priceValidUntil is still valid until it ends.
+    const today = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          headers: served,
+          body: withJsonLd(product({ ...COMPLETE, priceValidUntil: '2026-11-01' })),
+        },
+      }),
+    );
+    expect(today.verdict).toBe('pass');
+    const future = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(product({ ...COMPLETE, priceValidUntil: '2999-12-31' })) }),
+    );
+    expect(future.verdict).toBe('pass');
   });
 });
 
 const VARIATIONS_FORM =
   '<form class="variations_form cart"><select name="attribute_pa_size"><option value="s">S</option></select></form>';
 
-function productGroup(variants: number): unknown {
+function productGroup(variants: number, fields: Record<string, unknown> = {}): unknown {
   return {
     '@type': 'ProductGroup',
     name: 'Mugs',
+    productGroupID: 'MUG',
+    ...fields,
     hasVariant: Array.from({ length: variants }, (_, i) => ({
       '@type': 'Product',
       name: `Mug ${i}`,
@@ -321,6 +426,66 @@ describe('B2.3 variants modeled', () => {
           product_group: true,
           jsonld_variants: 2,
           store_api_variations: 0,
+        },
+      },
+    });
+  });
+
+  it('accepts the multi-page form where a variant page points at its group with isVariantOf', async () => {
+    const variantPage = {
+      '@type': 'Product',
+      name: 'Mug, small',
+      sku: 'MUG-S',
+      offers: { '@type': 'Offer', ...COMPLETE },
+      isVariantOf: { '@type': 'ProductGroup', name: 'Mugs', productGroupID: 'MUG' },
+    };
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: withJsonLd(variantPage) }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      modeled: 1,
+      variable: 1,
+      pages: {
+        [mug]: {
+          signals: ['jsonld:Product.isVariantOf'],
+          is_variant_of: true,
+          jsonld_variants: 0,
+          issues: [],
+        },
+      },
+    });
+  });
+
+  it('warns when variants cannot be told apart or the group lacks name or productGroupID', async () => {
+    const group = {
+      '@type': 'ProductGroup',
+      hasVariant: [
+        { '@type': 'Product', name: 'Small', sku: 'SAME' },
+        { '@type': 'Product', name: 'Large', sku: 'SAME' },
+        { '@type': 'Product', name: 'Huge' },
+      ],
+    };
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: withJsonLd(group) }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `1 of 1 variable product(s) expose variants as a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations; variants under hasVariant lack a unique sku or gtin, ProductGroup lacks name, ProductGroup lacks productGroupID on ${mug}`,
+    );
+    expect(outcome.evidence).toMatchObject({
+      modeled: 1,
+      pages: {
+        [mug]: {
+          issues: [
+            'variants under hasVariant lack a unique sku or gtin',
+            'ProductGroup lacks name',
+            'ProductGroup lacks productGroupID',
+          ],
         },
       },
     });
@@ -413,8 +578,30 @@ describe('B2.3 variants modeled', () => {
 const SHIPPING = {
   '@type': 'OfferShippingDetails',
   shippingRate: { '@type': 'MonetaryAmount', value: '4.90', currency: 'EUR' },
+  shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'DE' },
+  deliveryTime: {
+    '@type': 'ShippingDeliveryTime',
+    transitTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' },
+  },
 };
-const RETURNS = { '@type': 'MerchantReturnPolicy', merchantReturnDays: 30 };
+const RETURNS = {
+  '@type': 'MerchantReturnPolicy',
+  applicableCountry: 'DE',
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+  merchantReturnDays: 30,
+};
+const ORGANIZATION = {
+  '@type': 'OnlineStore',
+  name: 'Example Ceramics',
+  hasMerchantReturnPolicy: RETURNS,
+  hasShippingService: {
+    '@type': 'ShippingService',
+    shippingConditions: {
+      '@type': 'ShippingConditions',
+      shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'DE' },
+    },
+  },
+};
 
 describe('B2.4 shipping and return details in markup', () => {
   it('does not apply without sampled product pages', async () => {
@@ -457,8 +644,94 @@ describe('B2.4 shipping and return details in markup', () => {
     expect(outcome.evidence).toMatchObject({
       complete: 2,
       total: 2,
-      pages: { [mug]: { offers: 1, shipping: true, returns: true } },
+      organization_level: false,
+      incomplete: [],
+      pages: {
+        [mug]: {
+          offers: 1,
+          shipping: true,
+          returns: true,
+          shipping_source: 'offer',
+          returns_source: 'offer',
+        },
+      },
     });
+  });
+
+  it('accepts the standard policies on an Organization node of the product page or the home page', async () => {
+    const onPage = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: `<!doctype html><html><head><script type="application/ld+json">${JSON.stringify([product(COMPLETE), ORGANIZATION])}</script></head><body></body></html>`,
+      }),
+    );
+    expect(onPage.verdict).toBe('pass');
+    expect(onPage.message).toBe(
+      '1 of 1 product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy (partly at Organization level)',
+    );
+    expect(onPage.evidence).toMatchObject({
+      organization_level: true,
+      pages: { [mug]: { shipping_source: 'organization', returns_source: 'organization' } },
+    });
+    const onHome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug], homeHtml: withJsonLd(ORGANIZATION) }),
+      mapFetcher({ [mug]: withJsonLd(product({ ...COMPLETE, shippingDetails: SHIPPING })) }),
+    );
+    expect(onHome.verdict).toBe('pass');
+    expect(onHome.evidence).toMatchObject({
+      pages: { [mug]: { shipping_source: 'offer', returns_source: 'organization' } },
+    });
+  });
+
+  it('warns, naming the fields, when a policy lacks what Google requires', async () => {
+    const outcome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({
+        products: [mug],
+        homeHtml: withJsonLd({
+          '@type': 'Organization',
+          name: 'Shop',
+          hasShippingService: { '@type': 'ShippingService', name: 'Standard' },
+        }),
+      }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          product({
+            ...COMPLETE,
+            shippingDetails: { '@type': 'OfferShippingDetails', shippingRate: '4.90' },
+            hasMerchantReturnPolicy: {
+              '@type': 'MerchantReturnPolicy',
+              returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+            },
+          }),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      '1 of 1 product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy; required fields missing: OfferShippingDetails lacks shippingDestination.addressCountry, deliveryTime; ShippingService lacks shippingConditions; MerchantReturnPolicy lacks applicableCountry, merchantReturnDays',
+    );
+    expect(outcome.evidence).toMatchObject({ complete: 1, total: 1 });
+    // A merchantReturnLink alone satisfies the return policy.
+    const linked = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          product({
+            ...COMPLETE,
+            shippingDetails: SHIPPING,
+            hasMerchantReturnPolicy: {
+              '@type': 'MerchantReturnPolicy',
+              merchantReturnLink: 'https://shop.example/returns/',
+            },
+          }),
+        ),
+      }),
+    );
+    expect(linked.verdict).toBe('pass');
   });
 
   it('reads shipping and return details from the variant offers of a ProductGroup', async () => {
@@ -629,7 +902,7 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      `1 of 1 product image(s) need attention: ${IMAGE}: no alt text on the rendered img`,
+      `1 of 1 product image(s) need attention: ${IMAGE}: no alt text on the rendered img; 1 below the recommended 1500 px (Google recommends 1500 px)`,
     );
     expect(outcome.evidence).toMatchObject({
       warn: 1,
@@ -666,8 +939,18 @@ describe('B2.5 images with alt text and resolution', () => {
       }),
     );
     expect(sized.verdict).toBe('pass');
+    expect(sized.message).toBe(
+      'all 1 product image(s) resolve with alt text; 1 below the recommended 1500 px (Google recommends 1500 px)',
+    );
     expect(sized.evidence).toMatchObject({
-      pages: { [mug]: { alt: 'Vital Seamless Leggings', longest_side: 1350 } },
+      below_recommended: 1,
+      pages: {
+        [mug]: {
+          alt: 'Vital Seamless Leggings',
+          longest_side: 1350,
+          notes: ['longest side is 1350 px; Google recommends 1500 px'],
+        },
+      },
     });
     const suffixed = await runCheck(
       productImageUsable,
@@ -679,10 +962,60 @@ describe('B2.5 images with alt text and resolution', () => {
         ),
       }),
     );
-    expect(suffixed.verdict).toBe('warn');
+    expect(suffixed.verdict).toBe('pass');
     expect(suffixed.evidence).toMatchObject({
-      pages: { [mug]: { alt: 'Leggings', issues: ['longest side is 750 px, below 800 px'] } },
+      pages: {
+        [mug]: {
+          alt: 'Leggings',
+          longest_side: 750,
+          issues: [],
+          notes: ['longest side is 750 px; Google recommends 1500 px'],
+        },
+      },
     });
+  });
+
+  it("warns when the store's robots.txt keeps Googlebot or Googlebot-Image from a same-origin image", async () => {
+    const page = withJsonLd(
+      { ...(product(COMPLETE) as object), image: IMAGE },
+      imgTag('alt="Blue mug" width="1500" height="1500"'),
+    );
+    const blocked = await runCheck(
+      productImageUsable,
+      targetFor({
+        products: [mug],
+        robots:
+          'User-agent: Googlebot-Image\nDisallow: /wp-content/uploads/\n\nUser-agent: *\nAllow: /\n',
+      }),
+      mapFetcher({ [mug]: page }),
+    );
+    expect(blocked.verdict).toBe('warn');
+    expect(blocked.message).toBe(
+      `1 of 1 product image(s) need attention: ${IMAGE}: robots.txt blocks Googlebot-Image from the image (products whose images are blocked stop showing in free listings)`,
+    );
+    expect(blocked.evidence).toMatchObject({
+      pages: { [mug]: { robots_blocked_for: ['Googlebot-Image'] } },
+    });
+    const allowed = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug], robots: 'User-agent: *\nDisallow: /cart/\n' }),
+      mapFetcher({ [mug]: page }),
+    );
+    expect(allowed.verdict).toBe('pass');
+    // A CDN image on another host is not judged by this store's robots.txt.
+    const cdn = 'https://cdn.example/mug.jpg';
+    const offsite = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug], robots: 'User-agent: *\nDisallow: /\n' }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: cdn },
+          `<img src="${cdn}" alt="Mug" width="1500" height="1500">`,
+        ),
+      }),
+    );
+    expect(offsite.verdict).toBe('pass');
+    expect(offsite.evidence).toMatchObject({ pages: { [mug]: { robots_blocked_for: [] } } });
   });
 
   it('prefers a matching img with alt text and ignores one-pixel and aria-hidden helpers', async () => {
@@ -760,12 +1093,33 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(mixed.verdict).toBe('pass');
     expect(mixed.message).toBe(
-      'all 1 product image(s) resolve with alt text; 1 could not be checked',
+      'all 1 product image(s) resolve with alt text; 1 could not be checked; 1 below the recommended 1500 px (Google recommends 1500 px)',
     );
   });
 
-  it('warns when the known size is below 800 px on the longest side', async () => {
+  it('warns below 500 px on the longest side and only notes a size under the recommended 1500 px', async () => {
     const outcome = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          imgTag('alt="Blue mug" width="400" height="300"'),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `1 of 1 product image(s) need attention: ${IMAGE}: longest side is 400 px, below 500 px`,
+    );
+    expect(outcome.evidence).toMatchObject({
+      min_longest_side: 500,
+      recommended_longest_side: 1500,
+      pages: {
+        [mug]: { longest_side: 400, issues: ['longest side is 400 px, below 500 px'] },
+      },
+    });
+    const adequate = await runCheck(
       productImageUsable,
       targetFor({ products: [mug] }),
       mapFetcher({
@@ -775,12 +1129,10 @@ describe('B2.5 images with alt text and resolution', () => {
         ),
       }),
     );
-    expect(outcome.verdict).toBe('warn');
-    expect(outcome.evidence).toMatchObject({
-      pages: {
-        [mug]: { longest_side: 600, issues: ['longest side is 600 px, below 800 px'] },
-      },
-    });
+    expect(adequate.verdict).toBe('pass');
+    expect(adequate.message).toBe(
+      'all 1 product image(s) resolve with alt text; 1 below the recommended 1500 px (Google recommends 1500 px)',
+    );
     // WooCommerce's data-large_image_width describes the full-size image behind the thumbnail.
     const large = await runCheck(
       productImageUsable,
@@ -796,6 +1148,17 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(large.verdict).toBe('pass');
     expect(large.evidence).toMatchObject({ pages: { [mug]: { longest_side: 1200 } } });
+    const recommended = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          imgTag('alt="Blue mug" width="1500" height="1500"'),
+        ),
+      }),
+    );
+    expect(recommended.message).toBe('all 1 product image(s) resolve with alt text');
   });
 
   it('fails when the Product has no image, a non-http image, or one that does not resolve', async () => {

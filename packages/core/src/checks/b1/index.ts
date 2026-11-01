@@ -94,6 +94,8 @@ interface SequentialRead {
   url: string;
   status: number;
   headers: Record<string, string>;
+  /** True when this answer came from the fetcher's one retry after a 429, 503 or dropped connection. */
+  retried?: boolean;
 }
 
 function signalsRateLimit(read: SequentialRead): boolean {
@@ -110,7 +112,12 @@ export const storeApiNotRateLimited = defineCheck('B1.3', async ({ target, fetch
   for (const perPage of SEQUENTIAL_READ_PAGE_SIZES) {
     const url = storeApiUrl(target, `/products?per_page=${perPage}`);
     const response = await fetcher.fetch(url);
-    requests.push({ url, status: response.status, headers: rateLimitHeaders(response) });
+    requests.push({
+      url,
+      status: response.status,
+      headers: rateLimitHeaders(response),
+      ...(response.retried ? { retried: true } : {}),
+    });
   }
   const evidence = { requests };
   const limited = requests.find((read) => read.status === 429);
@@ -123,6 +130,15 @@ export const storeApiNotRateLimited = defineCheck('B1.3', async ({ target, fetch
       failed.status === 0
         ? `Store API read got no response (${failed.url})`
         : `Store API read returned HTTP ${failed.status} (${failed.url})`,
+      evidence,
+    );
+  }
+  // The fetcher retries one 429 or 503 after Retry-After; the recovered answer would
+  // otherwise hide the very throttling this check looks for.
+  const recovered = requests.find((read) => read.retried);
+  if (recovered) {
+    return warn(
+      `Store API throttled a sequential read once (${recovered.url} answered 429 or 503 first and recovered on retry after Retry-After)`,
       evidence,
     );
   }
@@ -401,6 +417,45 @@ function sampleItem(item: Record<string, string>): Record<string, string> {
   return sample;
 }
 
+/**
+ * The column names of the OpenAI product feed specification, which names the identifier
+ * item_id (or sku), the page url (or link) and the image image_url (or image_link), where
+ * Google's tabular feeds use id, link and image_link.
+ */
+const OPENAI_COLUMNS = {
+  id: ['item_id', 'sku'],
+  title: ['title'],
+  url: ['url', 'link'],
+  price: ['price'],
+  image: ['image_url', 'image_link'],
+} as const;
+
+type OpenAiColumns = Record<keyof typeof OPENAI_COLUMNS, string | null>;
+
+/** The column that supplies each OpenAI field, or null when the feed does not carry it. */
+function openAiColumnsOf(feed: ParsedFeed): OpenAiColumns {
+  const present = (name: string): boolean =>
+    feed.format === 'csv' || feed.format === 'tsv'
+      ? feed.fields.includes(name)
+      : feed.items.some((item) => name in item && item[name] !== '');
+  const columns = {} as OpenAiColumns;
+  for (const [field, names] of Object.entries(OPENAI_COLUMNS) as [
+    keyof typeof OPENAI_COLUMNS,
+    readonly string[],
+  ][]) {
+    columns[field] = names.find(present) ?? null;
+  }
+  return columns;
+}
+
+/** True for a CSV, TSV, JSON or JSON Lines body with the OpenAI feed's identifier, title, url and price columns. */
+function isOpenAiFeed(feed: ParsedFeed, columns: OpenAiColumns): boolean {
+  if (!['csv', 'tsv', 'json', 'jsonl'].includes(feed.format)) return false;
+  return (
+    columns.id !== null && columns.title !== null && columns.url !== null && columns.price !== null
+  );
+}
+
 export const productFeedDiscoverable = defineCheck('B1.5', async ({ target, fetcher }) => {
   const candidates = await feedCandidates(target, fetcher);
   const tried: TriedCandidate[] = [];
@@ -411,13 +466,19 @@ export const productFeedDiscoverable = defineCheck('B1.5', async ({ target, fetc
       continue;
     }
     const feed: ParsedFeed = parseFeed(response.body, contentType(response));
-    if (isProductFeed(feed)) {
+    const columns = openAiColumnsOf(feed);
+    const google = isProductFeed(feed);
+    const openAi = !google && isOpenAiFeed(feed, columns);
+    if (google || openAi) {
+      const dialect = openAi ? 'openai' : feed.format === 'xml' ? 'google-xml' : 'google-tabular';
       return pass(
-        `product feed at ${candidate.url} (${feed.format}, ${feed.items.length} item(s) read)`,
+        `product feed at ${candidate.url} (${feed.format}${openAi ? ', OpenAI feed columns' : ''}, ${feed.items.length} item(s) read)`,
         {
           feed_url: candidate.url,
           source: candidate.source,
           format: feed.format,
+          dialect,
+          columns,
           content_type: contentType(response),
           namespace_google: feed.namespaceGoogle,
           items_read: feed.items.length,

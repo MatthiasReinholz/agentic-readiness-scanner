@@ -1,16 +1,15 @@
-import { contentType, type FetchedResponse } from '../../http/types.js';
+import { contentType } from '../../http/types.js';
 import { HtmlDocument } from '../../parsers/html.js';
 import { isRecord, looksLikeHtml, parseJson } from '../json.js';
-import { describeFailure } from '../shared.js';
+import { blockedByRobots, describeFailure } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
 const HANDLE_SAMPLE = 5;
 const TITLE_LIMIT = 80;
 
-/** True when the fetcher refused the URL because the store's robots.txt disallows it for the scanner. */
-function blockedByRobots(response: Pick<FetchedResponse, 'status' | 'error'>): boolean {
-  return response.status === 0 && /robots\.txt/i.test(response.error ?? '');
-}
+/** The message both Shopify-only checks give on a storefront Shopify does not serve itself. */
+export const HEADLESS_SHOPIFY =
+  'headless Shopify storefront: Shopify serves neither products.json nor the UCP endpoint on this domain';
 
 /** What an HTML answer with this status most likely is; the status itself is always named. */
 function htmlAnswerHint(status: number): string {
@@ -36,6 +35,12 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
       platform: target.platform,
     });
   }
+  if (target.shopifyHosted === false) {
+    return skip('not_applicable', HEADLESS_SHOPIFY, {
+      platform: target.platform,
+      shopify_hosted: false,
+    });
+  }
   const url = `${target.origin}/products.json?limit=${HANDLE_SAMPLE}`;
   const response = await fetcher.fetch(url);
   const evidence: Record<string, unknown> = {
@@ -53,6 +58,15 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
       );
     }
     return fail(`products.json could not be fetched: ${describeFailure(response)}`, evidence);
+  }
+  // Shopify rate-limits this endpoint per IP after a few requests; the fetcher's one retry
+  // after Retry-After did not recover here, so nothing can be said about readability.
+  if (response.status === 429) {
+    return skip(
+      'error',
+      'products.json answered HTTP 429 (Shopify rate-limits this endpoint per IP), so whether it is readable could not be judged',
+      evidence,
+    );
   }
   if (response.status === 401) {
     return fail(

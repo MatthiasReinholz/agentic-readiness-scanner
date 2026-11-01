@@ -57,8 +57,45 @@ describe('B3.1 GTIN present', () => {
       const outcome = await runCheck(gtinPresent, targetFor({ products }), mapFetcher(record));
       expect(outcome.verdict, `${withGtin} of ${total}`).toBe(verdict);
       expect(outcome.evidence).toMatchObject({ sampled: total, with_gtin: withGtin });
-      expect(outcome.message).toBe(`${withGtin} of ${total} sampled product(s) carry a GTIN`);
+      const without = total - withGtin;
+      expect(outcome.message).toBe(
+        verdict === 'fail'
+          ? `${withGtin} of ${total} sampled product(s) carry a GTIN; ${without} of the ${without} without one also lack brand plus mpn, Google's documented alternative`
+          : `${withGtin} of ${total} sampled product(s) carry a GTIN`,
+      );
     }
+  });
+
+  it('warns instead of failing when the products without a GTIN carry brand and mpn', async () => {
+    const identified = withProduct({
+      mpn: 'MUG-350',
+      brand: { '@type': 'Brand', name: 'Example' },
+    });
+    const outcome = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({ [mug]: identified, [bowl]: identified }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      "0 of 2 sampled product(s) carry a GTIN; the 2 without one carry brand and mpn, Google's documented alternative to a GTIN",
+    );
+    expect(outcome.evidence).toMatchObject({
+      without_gtin_with_brand_and_mpn: 2,
+      products: [
+        { url: mug, brand_and_mpn: true },
+        { url: bowl, brand_and_mpn: true },
+      ],
+    });
+    const half = await runCheck(
+      gtinPresent,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({ [mug]: identified, [bowl]: withProduct({ brand: 'Example' }) }),
+    );
+    expect(half.verdict).toBe('fail');
+    expect(half.message).toBe(
+      "0 of 2 sampled product(s) carry a GTIN; 1 of the 2 without one also lack brand plus mpn, Google's documented alternative",
+    );
   });
 
   it('falls back to the Store API global_unique_id on WooCommerce and records the source', async () => {
@@ -127,7 +164,7 @@ describe('B3.1 GTIN present', () => {
     );
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe(
-      '1 of 2 sampled product(s) carry a GTIN; 1 gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: FG006780',
+      "1 of 2 sampled product(s) carry a GTIN; 1 gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: FG006780; 1 of the 1 without one also lack brand plus mpn, Google's documented alternative",
     );
     expect(outcome.evidence).toMatchObject({
       with_gtin: 1,
@@ -281,22 +318,20 @@ describe('B3.3 brand present as entity', () => {
     });
   });
 
-  it('warns on a bare string brand', async () => {
+  it('passes a bare string brand with a note recommending the Brand object', async () => {
     const outcome = await runCheck(
       brandEntity,
       targetFor({ products: [mug] }),
       mapFetcher({ [mug]: withProduct({ brand: 'Example Ceramics' }) }),
     );
-    expect(outcome.verdict).toBe('warn');
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 1 product(s) carry a brand with a consistent name (1 as a bare string; Google recommends brand.name on a Brand object)',
+    );
     expect(outcome.evidence).toMatchObject({
-      weak: 1,
-      pages: {
-        [mug]: {
-          brand: 'Example Ceramics',
-          shape: 'string',
-          issue: 'brand is a bare string, not a Brand object',
-        },
-      },
+      weak: 0,
+      bare_strings: 1,
+      pages: { [mug]: { brand: 'Example Ceramics', shape: 'string', issue: null } },
     });
   });
 
@@ -469,6 +504,25 @@ describe('B3.5 SKU present and unique in sample', () => {
       pages: {
         [mug]: { sku: 'MUG-350', source: 'jsonld' },
         [bowl]: { sku: 'BOWL-280', source: 'store-api' },
+      },
+    });
+  });
+
+  it('accepts productID as the identifier and records which field supplied it', async () => {
+    const outcome = await runCheck(
+      skuPresentAndUnique,
+      targetFor({ products: [mug, bowl], platform: 'shopify' }),
+      mapFetcher({
+        [mug]: withProduct({ productID: 'meta:12345' }),
+        [bowl]: withProduct({ sku: 'BOWL-280', productID: 'meta:67890' }),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('all 2 sampled product(s) carry a distinct SKU (1 as productID)');
+    expect(outcome.evidence).toMatchObject({
+      pages: {
+        [mug]: { sku: 'meta:12345', source: 'jsonld', field: 'productID' },
+        [bowl]: { sku: 'BOWL-280', source: 'jsonld', field: 'sku' },
       },
     });
   });

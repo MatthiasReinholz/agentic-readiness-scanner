@@ -314,7 +314,7 @@ const profile = {
       ],
     },
   },
-  signing_keys: [{ kid: 'k1', kty: 'EC', crv: 'P-256', x: 'x', y: 'y', use: 'sig', alg: 'ES256' }],
+  keys: [{ kid: 'k1', kty: 'EC', crv: 'P-256', x: 'x', y: 'y', use: 'sig', alg: 'ES256' }],
 };
 
 describe('B5.1 UCP business profile', () => {
@@ -326,6 +326,61 @@ describe('B5.1 UCP business profile', () => {
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe('no UCP business profile at /.well-known/ucp (HTTP 404)');
     expect(outcome.evidence).toMatchObject({ url, status: 404, redirects: 0 });
+  });
+
+  it('reports a refusal or challenge as refused, not as absent', async () => {
+    const refused = await run(
+      mapFetcher({
+        [url]: { status: 403, headers: { server: 'AkamaiGHost' }, body: 'Access Denied' },
+      }),
+    );
+    expect(refused.verdict).toBe('fail');
+    expect(refused.message).toBe(
+      '/.well-known/ucp was refused (HTTP 403 from Akamai bot management): whether a profile exists cannot be told, and an agent cannot read it either',
+    );
+    expect(refused.evidence).toMatchObject({
+      status: 403,
+      refused: 'HTTP 403 from Akamai bot management',
+    });
+    const challenged = await run(
+      mapFetcher({
+        [url]: {
+          status: 403,
+          headers: { 'cf-mitigated': 'challenge', 'content-type': 'text/html' },
+          body: '<html><head><title>Just a moment...</title></head><body></body></html>',
+        },
+      }),
+    );
+    expect(challenged.message).toMatch(
+      /^\/\.well-known\/ucp was refused \(a Cloudflare challenge \(HTTP 403\)\)/,
+    );
+    const limited = await run(mapFetcher({ [url]: { status: 429, body: '' } }));
+    expect(limited.message).toMatch(/^\/\.well-known\/ucp was refused \(HTTP 429\)/);
+  });
+
+  it('warns when a 2026-08-25 or later profile still carries signing_keys instead of keys', async () => {
+    const legacy = { ...profile, keys: undefined, signing_keys: profile.keys };
+    const outcome = await run(
+      mapFetcher({ [url]: { status: 200, headers: JSON_HEADERS, body: JSON.stringify(legacy) } }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      'UCP profile version 2026-08-25 with 1 service(s), 1 capability set(s) and 1 payment handler(s), but it carries signing_keys but no keys, although the 2026-08-25 release replaced signing_keys with keys',
+    );
+    expect(outcome.evidence).toMatchObject({ keys_present: true, keys_field: 'signing_keys' });
+    // Google's guides still target 2026-04-08; that version is not flagged for signing_keys.
+    const older = {
+      ...legacy,
+      ucp: { ...profile.ucp, version: '2026-04-08' },
+    };
+    const outcomeOlder = await run(
+      mapFetcher({ [url]: { status: 200, headers: JSON_HEADERS, body: JSON.stringify(older) } }),
+    );
+    expect(outcomeOlder.verdict).toBe('pass');
+    expect(outcomeOlder.evidence).toMatchObject({
+      version: '2026-04-08',
+      keys_field: 'signing_keys',
+    });
   });
 
   it('fails on an HTML body, a non-JSON body and other statuses', async () => {
@@ -380,6 +435,7 @@ describe('B5.1 UCP business profile', () => {
       capabilities: ['dev.ucp.shopping.checkout'],
       payment_handlers: ['com.google.pay'],
       keys_present: true,
+      keys_field: 'keys',
       profile: profile.ucp,
     });
   });
@@ -390,7 +446,11 @@ describe('B5.1 UCP business profile', () => {
       mapFetcher({ [url]: { status: 200, headers: JSON_HEADERS, body: JSON.stringify(minimal) } }),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.evidence).toMatchObject({ capabilities: [], keys_present: false });
+    expect(outcome.evidence).toMatchObject({
+      capabilities: [],
+      keys_present: false,
+      keys_field: null,
+    });
   });
 
   it('warns, and combines the reasons, when the profile is served through a redirect, as text or without shared caching', async () => {
@@ -473,11 +533,34 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
       checkout_capability: true,
       shopping_transports: ['rest'],
       handlers: ['gpay-1'],
+      handlers_without_spec: 0,
       endpoint,
       endpoint_status: 401,
       endpoint_error: null,
     });
     expect(fetcher.log.map((entry) => entry.url)).toEqual([endpoint]);
+  });
+
+  it('accepts a payment handler with id and version only, and the embedded transport', async () => {
+    const outcome = await run({
+      version: '2026-08-25',
+      services: {
+        'dev.ucp.shopping': [{ version: '2026-08-25', transport: 'embedded' }],
+      },
+      payment_handlers: {
+        'com.shopify.payments': [{ id: 'shopify_payments_1', version: '2026-08-25' }],
+      },
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'UCP profile declares checkout and 1 payment handler(s): shopify_payments_1',
+    );
+    expect(outcome.evidence).toMatchObject({
+      checkout: true,
+      shopping_transports: ['embedded'],
+      handlers: ['shopify_payments_1'],
+      handlers_without_spec: 1,
+    });
   });
 
   it('records a 404 on the REST base without warning: a REST base has no GET resource', async () => {
@@ -559,7 +642,7 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
     });
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'UCP profile declares checkout but no payment handler with id, version and spec',
+      'UCP profile declares checkout but no payment handler with id and version',
     );
     expect(outcome.evidence).toMatchObject({ checkout: true, handlers: [] });
   });
@@ -573,7 +656,7 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
     });
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'UCP profile declares 1 payment handler(s) but no checkout capability or shopping service',
+      'UCP profile declares 1 payment handler(s) but no checkout capability or shopping service with a rest, mcp, a2a or embedded transport',
     );
     expect(outcome.evidence).toMatchObject({ checkout: false, handlers: ['gpay-1'] });
   });
@@ -594,7 +677,7 @@ describe('B5.3 ACP discovery document', () => {
       mapFetcher(body === undefined ? {} : { [url]: body }),
     );
   const document = {
-    protocol: { name: 'acp', version: '2026-04-17' },
+    protocol: { name: 'acp', version: '2026-04-17', supported_versions: ['2026-04-17'] },
     api_base_url: 'https://shop.example/acp',
     transports: ['rest'],
     capabilities: { services: ['checkout'] },
@@ -637,13 +720,14 @@ describe('B5.3 ACP discovery document', () => {
     const outcome = await run(JSON.stringify(document));
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'ACP 2026-04-17 discovery document with a REST API at https://shop.example/acp',
+      'ACP 2026-04-17 discovery document with a REST API at https://shop.example/acp (the document is a merged proposal in the ACP repository; OpenAI does not document probing it)',
     );
     expect(outcome.evidence).toMatchObject({
       status: 200,
-      protocol: { name: 'acp', version: '2026-04-17' },
+      protocol: { name: 'acp', version: '2026-04-17', supported_versions: ['2026-04-17'] },
       api_base_url: 'https://shop.example/acp',
       transports: ['rest'],
+      capabilities: { services: ['checkout'] },
       services: ['checkout'],
     });
   });
@@ -651,21 +735,35 @@ describe('B5.3 ACP discovery document', () => {
 
 describe('B5.4 ACP feed fields', () => {
   const feedUrl = 'https://shop.example/feeds/products.json';
-  const complete = {
-    id: '1',
+  /** The nine fields the OpenAI feed specification requires. */
+  const required = {
+    item_id: '1',
     title: 'Mug',
+    description: 'A stoneware mug',
+    url: 'https://shop.example/product/mug/',
+    brand: 'Example Ceramics',
     seller_name: 'Example Ceramics',
+    image_url: 'https://shop.example/uploads/mug.jpg',
+    availability: 'in_stock',
+    price: '24.00 EUR',
+  };
+  const complete = {
+    ...required,
     seller_url: 'https://shop.example/',
     return_policy: 'https://shop.example/returns/',
     return_window: '30',
+    seller_privacy_policy: 'https://shop.example/privacy/',
+    seller_tos: 'https://shop.example/terms/',
+    enable_search: 'true',
+    enable_checkout: 'true',
   };
   const policiesOnly = {
-    id: '2',
-    seller_name: 'Example Ceramics',
+    ...required,
+    item_id: '2',
     seller_privacy_policy: 'https://shop.example/privacy/',
     seller_tos: 'https://shop.example/terms/',
   };
-  const sellerOnly = { id: '3', seller_name: 'Example Ceramics' };
+  const sellerOnly = { ...required, item_id: '3' };
   const bare = { id: '4', title: 'Bowl' };
   const run = (evidence: Record<string, unknown>, fetcher: Fetcher = mapFetcher({})) =>
     runCheck(acpFeedFields, targetFor(), fetcher, outcomesWith('B1.5', evidence));
@@ -684,35 +782,97 @@ describe('B5.4 ACP feed fields', () => {
     expect(outcome.evidence).toMatchObject({ format: 'google-xml' });
   });
 
-  it('passes when every sampled item carries seller_name with return or policy fields', async () => {
+  it('passes when every sampled item carries the required, return and seller policy fields', async () => {
     const outcome = await run({
       feed_url: feedUrl,
       format: 'json',
-      items: [complete, policiesOnly],
+      items: [complete, complete],
     });
     expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      '2 sampled feed item(s) carry the nine required OpenAI fields, the return fields and the seller policy fields',
+    );
     expect(outcome.evidence).toMatchObject({
       feed_url: feedUrl,
       items_sampled: 2,
+      missing_required: {},
+      missing_return: {},
+      missing_checkout_policy: {},
       fields: [
-        { seller_name: true, seller_url: true, return_policy: true, return_window: true },
-        { seller_name: true, seller_privacy_policy: true, seller_tos: true, return_policy: false },
+        {
+          item_id: true,
+          title: true,
+          description: true,
+          url: true,
+          brand: true,
+          seller_name: true,
+          image_url: true,
+          availability: true,
+          price: true,
+          return_policy: true,
+          return_deadline_in_days: true,
+          seller_privacy_policy: true,
+          seller_tos: true,
+        },
+        { item_id: true },
+      ],
+      flags: [
+        { is_eligible_search: true, is_eligible_checkout: true },
+        { is_eligible_search: true, is_eligible_checkout: true },
       ],
     });
   });
 
-  it('warns when items carry seller_name but not the return or policy fields', async () => {
-    const outcome = await run({ feed_url: feedUrl, format: 'json', items: [complete, sellerOnly] });
+  it('warns when the required fields are present but the return or seller policy fields are not', async () => {
+    const outcome = await run({
+      feed_url: feedUrl,
+      format: 'json',
+      items: [complete, policiesOnly, sellerOnly],
+    });
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '2 of 2 sampled feed item(s) carry seller_name, but only 1 carry the return or seller policy fields',
+      '3 sampled feed item(s) carry the nine required OpenAI fields but lack the optional return fields return_policy (2 of 3), return_deadline_in_days (2 of 3) and the seller policy fields checkout requires seller_privacy_policy (1 of 3), seller_tos (1 of 3)',
     );
+    expect(outcome.evidence).toMatchObject({
+      missing_return: { return_policy: 2, return_deadline_in_days: 2 },
+      missing_checkout_policy: { seller_privacy_policy: 1, seller_tos: 1 },
+    });
+    // An item that opts out of checkout does not need the seller policy fields.
+    const optedOut = await run({
+      feed_url: feedUrl,
+      format: 'json',
+      items: [{ ...complete, is_eligible_checkout: false, seller_tos: '' }],
+    });
+    expect(optedOut.verdict).toBe('pass');
+    expect(optedOut.evidence).toMatchObject({ flags: [{ is_eligible_checkout: false }] });
   });
 
-  it('fails when no sampled item carries seller_name', async () => {
+  it('fails when required fields are missing, naming them', async () => {
     const outcome = await run({ feed_url: feedUrl, format: 'json', items: [bare, bare] });
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toMatch(/none of 2 sampled feed item\(s\)/);
+    expect(outcome.message).toBe(
+      "sampled feed items lack OpenAI's required fields: description (2 of 2), url (2 of 2), brand (2 of 2), seller_name (2 of 2), image_url (2 of 2), availability (2 of 2), price (2 of 2)",
+    );
+    expect(outcome.evidence).toMatchObject({
+      missing_required: { description: 2, url: 2, brand: 2 },
+    });
+    // Google-style column names are accepted as aliases for the identifier, link and image.
+    const aliased = await run({
+      feed_url: feedUrl,
+      format: 'json',
+      items: [
+        {
+          ...complete,
+          item_id: undefined,
+          url: undefined,
+          image_url: undefined,
+          sku: 'MUG-350',
+          link: required.url,
+          image_link: required.image_url,
+        },
+      ],
+    });
+    expect(aliased.verdict).toBe('pass');
   });
 
   it('samples at most five items', async () => {
@@ -741,12 +901,13 @@ describe('B5.4 ACP feed fields', () => {
           'id,title,seller_name,return_policy,return_deadline_in_days\n1,"Mug, large",Example Ceramics,https://shop.example/returns/,30\n2,Bowl,,,\n',
       }),
     );
-    expect(csv.verdict).toBe('warn');
+    expect(csv.verdict).toBe('fail');
     expect(csv.evidence).toMatchObject({
       fields: [
-        { seller_name: true, return_policy: true, return_deadline_in_days: true },
-        { seller_name: false },
+        { item_id: true, seller_name: true, return_policy: true, return_deadline_in_days: true },
+        { item_id: true, seller_name: false },
       ],
+      missing_required: { seller_name: 1, description: 2 },
     });
   });
 
@@ -919,7 +1080,9 @@ describe('recorded stores', () => {
     const target = await resolveTarget('ceramics.example', fetcher);
     const outcomes = new Map<string, CheckOutcome>();
     outcomes.set('B5.1', await runCheck(ucpBusinessProfile, target, fetcher));
-    expect(outcomes.get('B5.1')?.verdict).toBe('pass');
+    // The recorded profile predates the keys rename: a 2026-08-25 profile with signing_keys.
+    expect(outcomes.get('B5.1')?.verdict).toBe('warn');
+    expect(outcomes.get('B5.1')?.message).toMatch(/signing_keys but no keys/);
     const checkout = await runCheck(ucpCheckoutDeclared, target, fetcher, outcomes);
     expect(checkout.verdict).toBe('pass');
     expect(checkout.evidence).toMatchObject({
@@ -944,8 +1107,19 @@ describe('recorded stores', () => {
       handles: ['trail-boot', 'canvas-sneaker'],
     });
     const ucp = await runCheck(ucpBusinessProfile, target, fetcher);
-    expect(ucp.verdict).toBe('pass');
+    expect(ucp.verdict).toBe('warn');
+    expect(ucp.evidence).toMatchObject({ keys_field: 'signing_keys' });
     const checkout = await runCheck(ucpCheckoutDeclared, target, fetcher, new Map([['B5.1', ucp]]));
     expect(checkout.verdict).toBe('pass');
+  });
+
+  it('skips B5.8 on a headless Shopify storefront', async () => {
+    const target: Target = { ...targetFor({ platform: 'shopify' }), shopifyHosted: false };
+    const outcome = await runAny(shopifyAgenticStorefront, target, mapFetcher({}));
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(outcome.message).toBe(
+      'headless Shopify storefront: Shopify serves neither products.json nor the UCP endpoint on this domain',
+    );
+    expect(outcome.evidence).toEqual({ platform: 'shopify', shopify_hosted: false });
   });
 });

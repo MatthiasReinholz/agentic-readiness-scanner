@@ -9,18 +9,21 @@ import {
   type JsonLdNode,
   nodesOf,
   offersOf,
+  organizationNodes,
   productNodes,
   variantNodes,
 } from '../../parsers/jsonld.js';
 import { amountVisible, parseAmount, PRICE_TEXT_LIMIT, pricesInText } from '../../parsers/price.js';
+import { isAllowed } from '../../parsers/robots.js';
 import type { Target } from '../../target/types.js';
 import {
   ADD_TO_CART,
   describeFailure,
+  fetchNote,
   permalinkKey,
-  type ProductPage,
   readableProductPages,
   storeApiProductsByPermalink,
+  unfetched,
 } from '../shared.js';
 import {
   type CheckOutcome,
@@ -32,17 +35,13 @@ import {
   warn,
 } from '../types.js';
 
-/** The sampled product URLs that answered with no readable page (status 0, 4xx or 5xx). */
-function unfetched(target: Target, pages: ProductPage[]): string[] {
-  const read = new Set(pages.map((page) => page.url));
-  return target.sampled.products.filter((url) => !read.has(url));
-}
-
-/** "; 1 of 2 sampled page(s) could not be fetched" when some pages failed, else empty. */
-function fetchNote(target: Target, pages: ProductPage[]): string {
-  const failed = unfetched(target, pages).length;
-  if (failed === 0) return '';
-  return `; ${failed} of ${target.sampled.products.length} sampled page(s) could not be fetched`;
+/** Google's required Product properties for any rich result: name, image and offers. */
+function missingRequiredProductProperties(products: JsonLdNode[]): string[] {
+  const nodes = [...products, ...products.flatMap(variantNodes)];
+  const missing: string[] = [];
+  if (!nodes.some((node) => asString(node.name) !== null)) missing.push('name');
+  if (!nodes.some((node) => imageOf(node) !== null)) missing.push('image');
+  return missing;
 }
 
 export const productJsonLd = defineCheck('B2.1', async ({ target, fetcher }) => {
@@ -50,31 +49,44 @@ export const productJsonLd = defineCheck('B2.1', async ({ target, fetcher }) => 
   if (unavailable) return unavailable;
   const perPage: Record<
     string,
-    { product_nodes: number; types: string[]; parse_errors: string[] }
+    { product_nodes: number; types: string[]; parse_errors: string[]; missing_required: string[] }
   > = {};
   let withProduct = 0;
+  const incomplete: string[] = [];
   for (const page of pages) {
     const { nodes, errors } = extractJsonLd(page.doc);
     const products = productNodes(nodes);
+    const missing = products.length > 0 ? missingRequiredProductProperties(products) : [];
     perPage[page.url] = {
       product_nodes: products.length,
       types: products.map((node) => String(node['@type'])),
       parse_errors: errors,
+      missing_required: missing,
     };
     if (products.length > 0) withProduct += 1;
+    if (missing.length > 0) incomplete.push(`${missing.join(' and ')} on ${page.url}`);
   }
-  return outcomeForRatio(
+  const evidence = {
+    pages: perPage,
+    with_product: withProduct,
+    total: pages.length,
+    incomplete: incomplete.length,
+    unfetched: unfetched(target, pages),
+  };
+  const outcome = outcomeForRatio(
     withProduct,
     pages.length,
     `${withProduct} of ${pages.length} sampled product page(s) carry Product JSON-LD${fetchNote(target, pages)}`,
-    {
-      pages: perPage,
-      with_product: withProduct,
-      total: pages.length,
-      unfetched: unfetched(target, pages),
-    },
+    evidence,
     0,
   );
+  if (incomplete.length === 0) return outcome;
+  const note = `; ${incomplete.length} lack Google's required Product properties: ${incomplete.join(', ')}`;
+  return {
+    ...outcome,
+    verdict: outcome.verdict === 'pass' ? 'warn' : outcome.verdict,
+    message: `${outcome.message ?? ''}${note}`,
+  };
 });
 
 const AVAILABILITY =
@@ -88,6 +100,21 @@ const hasAvailability = (offer: JsonLdNode): boolean =>
 const isCompleteOffer = (offer: JsonLdNode): boolean =>
   hasPrice(offer) && hasCurrency(offer) && hasAvailability(offer);
 
+/** The offer's price (or lowPrice) as a number, null when absent or not a number. */
+function offerAmount(offer: JsonLdNode): number | null {
+  return parseAmount(asString(offer.price) ?? asString(offer.lowPrice));
+}
+
+/** True when priceValidUntil parses to a date before the page was served. */
+function priceValidUntilExpired(offer: JsonLdNode, servedAt: number): boolean {
+  const value = asString(offer.priceValidUntil);
+  if (value === null) return false;
+  const until = Date.parse(value);
+  // A bare date names a whole day; it is past once that day has ended.
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(value) ? until + 86_400_000 : until;
+  return Number.isFinite(end) && end < servedAt;
+}
+
 interface OfferEvidence {
   /** Offers on the product plus offers on its variants. */
   offers: number;
@@ -98,6 +125,12 @@ interface OfferEvidence {
   price: boolean;
   currency: boolean;
   availability: boolean;
+  /** True when any offer is an AggregateOffer. */
+  aggregate_offer: boolean;
+  /** Offers whose price is 0 or below. */
+  non_positive_price: number;
+  /** priceValidUntil values that were already in the past when the page was served. */
+  expired_price_valid_until: string[];
 }
 
 export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => {
@@ -108,6 +141,9 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
   let completeProducts = 0;
   let offers = 0;
   let completeOffers = 0;
+  let aggregateProducts = 0;
+  let nonPositive = 0;
+  const expired: string[] = [];
   const missing = { price: 0, currency: 0, availability: 0 };
   for (const page of pages) {
     const nodes = productNodes(extractJsonLd(page.doc).nodes);
@@ -121,6 +157,14 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
     missing.price += all.filter((offer) => !hasPrice(offer)).length;
     missing.currency += all.filter((offer) => !hasCurrency(offer)).length;
     missing.availability += all.filter((offer) => !hasAvailability(offer)).length;
+    const aggregate = all.some((offer) => hasType(offer, 'AggregateOffer'));
+    const zero = all.filter((offer) => {
+      const amount = offerAmount(offer);
+      return amount !== null && amount <= 0;
+    }).length;
+    const pastDates = all
+      .filter((offer) => priceValidUntilExpired(offer, page.fetchedAt))
+      .map((offer) => asString(offer.priceValidUntil) ?? '');
     perPage[page.url] = {
       offers: all.length,
       own_offers: own.length,
@@ -129,9 +173,15 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
       price: all.length > 0 && all.every(hasPrice),
       currency: all.length > 0 && all.every(hasCurrency),
       availability: all.length > 0 && all.every(hasAvailability),
+      aggregate_offer: aggregate,
+      non_positive_price: zero,
+      expired_price_valid_until: pastDates,
     };
     offers += all.length;
     completeOffers += complete;
+    if (aggregate) aggregateProducts += 1;
+    nonPositive += zero;
+    expired.push(...pastDates);
     if (all.length > 0 && complete === all.length) completeProducts += 1;
   }
   // Pages exist but none carries Product JSON-LD: that is B2.1's failure, not a missing target.
@@ -145,6 +195,9 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
     offers,
     complete_offers: completeOffers,
     missing,
+    aggregate_offer_products: aggregateProducts,
+    non_positive_price: nonPositive,
+    expired_price_valid_until: [...new Set(expired)],
     unfetched: unfetched(target, pages),
   };
   const note = fetchNote(target, pages);
@@ -160,15 +213,54 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
     .join(', ');
   const variantOffers = Object.values(perPage).reduce((sum, page) => sum + page.variant_offers, 0);
   const where = variantOffers > 0 ? ` (${variantOffers} on variants)` : '';
-  if (completeProducts === products) {
-    return pass(
-      `all ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}${note}`,
-      evidence,
+  // Google's merchant-listing rules on top of completeness: these demote a pass to a warn.
+  const concerns: string[] = [];
+  if (nonPositive > 0)
+    concerns.push(
+      `${nonPositive} offer(s) have a price of 0 or below: merchant listing experiences require a price greater than zero`,
     );
+  if (expired.length > 0)
+    concerns.push(
+      `priceValidUntil ${[...new Set(expired)].join(', ')} is in the past on ${expired.length} offer(s): Google says your listing may not display if the priceValidUntil property indicates a past date`,
+    );
+  const remarks = [
+    ...concerns,
+    ...(aggregateProducts > 0
+      ? [
+          `${aggregateProducts} product(s) use an AggregateOffer: eligible for product snippets, not for Google merchant listings, which require an Offer`,
+        ]
+      : []),
+  ];
+  const remarkText = remarks.length > 0 ? `; ${remarks.join('; ')}` : '';
+  if (completeProducts === products) {
+    const message = `all ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}${remarkText}${note}`;
+    return concerns.length > 0 ? warn(message, evidence) : pass(message, evidence);
   }
-  const message = `${completeOffers} of ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}; missing: ${gaps}${note}`;
+  const message = `${completeOffers} of ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}; missing: ${gaps}${remarkText}${note}`;
   return completeOffers > 0 ? warn(message, evidence) : fail(message, evidence);
 });
+
+/** Variants must be told apart by a sku or gtin of their own (Google's variant structured data). */
+function variantIdentityIssues(group: JsonLdNode): string[] {
+  const variants = variantNodes(group);
+  const issues: string[] = [];
+  if (variants.length > 0) {
+    const ids = variants.map(
+      (variant) =>
+        asString(variant.sku) ??
+        asString(variant.gtin13) ??
+        asString(variant.gtin12) ??
+        asString(variant.gtin14) ??
+        asString(variant.gtin8) ??
+        asString(variant.gtin),
+    );
+    if (ids.some((id) => id === null) || new Set(ids).size !== ids.length)
+      issues.push('variants under hasVariant lack a unique sku or gtin');
+  }
+  if (asString(group.name) === null) issues.push('ProductGroup lacks name');
+  if (asString(group.productGroupID) === null) issues.push('ProductGroup lacks productGroupID');
+  return issues;
+}
 
 export const variantsModeled = defineCheck('B2.3', async ({ target, fetcher }) => {
   const { pages, unavailable } = await readableProductPages(target, fetcher);
@@ -180,35 +272,47 @@ export const variantsModeled = defineCheck('B2.3', async ({ target, fetcher }) =
       appears_variable: boolean;
       signals: string[];
       product_group: boolean;
+      is_variant_of: boolean;
       jsonld_variants: number;
       store_api_variations: number;
+      issues: string[];
     }
   > = {};
   let variable = 0;
   let modeled = 0;
+  const issues: string[] = [];
   for (const page of pages) {
     const apiProduct = api.get(permalinkKey(page.url));
     const signals = page.doc.variationFormSignals();
     if (apiProduct?.type === 'variable') signals.push('store-api:type=variable');
-    const groups = productNodes(extractJsonLd(page.doc).nodes).filter((node) =>
-      hasType(node, 'ProductGroup'),
-    );
+    const products = productNodes(extractJsonLd(page.doc).nodes);
+    const groups = products.filter((node) => hasType(node, 'ProductGroup'));
+    // The multi-page form: each variant page is a Product whose isVariantOf names the group.
+    const parentGroups = products
+      .filter((node) => hasType(node, 'Product'))
+      .flatMap((node) => nodesOf(node, 'isVariantOf'))
+      .filter((node) => hasType(node, 'ProductGroup'));
     const jsonLdVariants = groups.reduce((sum, group) => sum + variantNodes(group).length, 0);
     // A ProductGroup with variants is itself evidence of a variable product, whatever the
     // theme renders: Shopify's native markup carries it with no WooCommerce-style form.
     if (jsonLdVariants > 0) signals.push('jsonld:ProductGroup.hasVariant');
+    if (parentGroups.length > 0) signals.push('jsonld:Product.isVariantOf');
     const apiVariations = Array.isArray(apiProduct?.variations) ? apiProduct.variations.length : 0;
     const appearsVariable = signals.length > 0;
+    const pageIssues = [...new Set([...groups, ...parentGroups].flatMap(variantIdentityIssues))];
     perPage[page.url] = {
       appears_variable: appearsVariable,
       signals,
       product_group: groups.length > 0,
+      is_variant_of: parentGroups.length > 0,
       jsonld_variants: jsonLdVariants,
       store_api_variations: apiVariations,
+      issues: pageIssues,
     };
     if (!appearsVariable) continue;
     variable += 1;
-    if (jsonLdVariants > 0 || apiVariations > 0) modeled += 1;
+    if (jsonLdVariants > 0 || parentGroups.length > 0 || apiVariations > 0) modeled += 1;
+    if (pageIssues.length > 0) issues.push(`${pageIssues.join(', ')} on ${page.url}`);
   }
   const evidence = { pages: perPage, modeled, variable, unfetched: unfetched(target, pages) };
   if (variable === 0) {
@@ -218,43 +322,136 @@ export const variantsModeled = defineCheck('B2.3', async ({ target, fetcher }) =
       evidence,
     );
   }
-  return outcomeForRatio(
+  const outcome = outcomeForRatio(
     modeled,
     variable,
-    `${modeled} of ${variable} variable product(s) expose variants as a ProductGroup with hasVariant or Store API variations${fetchNote(target, pages)}`,
+    `${modeled} of ${variable} variable product(s) expose variants as a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations${fetchNote(target, pages)}`,
     evidence,
     0,
   );
+  if (issues.length === 0) return outcome;
+  return {
+    ...outcome,
+    verdict: outcome.verdict === 'pass' ? 'warn' : outcome.verdict,
+    message: `${outcome.message ?? ''}; ${issues.join('; ')}`,
+  };
 });
 
-/** True when any node carries `key` with a value of the given schema.org type. */
-function carries(nodes: JsonLdNode[], key: string, type: string): boolean {
-  return nodes.some((node) => nodesOf(node, key).some((value) => hasType(value, type)));
+/** The nodes of `type` found under `key` on any of the carriers. */
+function valuesOf(nodes: JsonLdNode[], key: string, type: string): JsonLdNode[] {
+  return nodes.flatMap((node) => nodesOf(node, key).filter((value) => hasType(value, type)));
 }
+
+/** Google's required MerchantReturnPolicy fields: a link, or country plus category (plus days for a finite window). */
+function returnPolicyGaps(policy: JsonLdNode): string[] {
+  if (asString(policy.merchantReturnLink) !== null) return [];
+  const gaps: string[] = [];
+  if (
+    asString(policy.applicableCountry) === null &&
+    nodesOf(policy, 'applicableCountry').length === 0
+  )
+    gaps.push('applicableCountry');
+  const category = asString(policy.returnPolicyCategory);
+  if (category === null) gaps.push('returnPolicyCategory');
+  else if (
+    category.endsWith('MerchantReturnFiniteReturnWindow') &&
+    asString(policy.merchantReturnDays) === null
+  )
+    gaps.push('merchantReturnDays');
+  return gaps;
+}
+
+/** Google's required OfferShippingDetails fields. */
+function shippingDetailsGaps(details: JsonLdNode): string[] {
+  const gaps: string[] = [];
+  const destinations = nodesOf(details, 'shippingDestination');
+  if (
+    !destinations.some(
+      (place) =>
+        asString(place.addressCountry) !== null || nodesOf(place, 'addressCountry').length > 0,
+    )
+  )
+    gaps.push('shippingDestination.addressCountry');
+  if (asString(details.shippingRate) === null && nodesOf(details, 'shippingRate').length === 0)
+    gaps.push('shippingRate');
+  if (nodesOf(details, 'deliveryTime').length === 0) gaps.push('deliveryTime');
+  return gaps;
+}
+
+/** The Organization-level ShippingService needs its conditions. */
+function shippingServiceGaps(service: JsonLdNode): string[] {
+  return nodesOf(service, 'shippingConditions').length === 0 ? ['shippingConditions'] : [];
+}
+
+function describeGaps(
+  type: string,
+  nodes: JsonLdNode[],
+  gapsOf: (node: JsonLdNode) => string[],
+): string[] {
+  const gaps = [...new Set(nodes.flatMap(gapsOf))];
+  return gaps.length > 0 ? [`${type} lacks ${gaps.join(', ')}`] : [];
+}
+
+type PolicySource = 'offer' | 'organization' | null;
 
 export const shippingAndReturnsInMarkup = defineCheck('B2.4', async ({ target, fetcher }) => {
   const { pages, unavailable } = await readableProductPages(target, fetcher);
   if (unavailable) return unavailable;
-  const perPage: Record<string, { offers: number; shipping: boolean; returns: boolean }> = {};
+  // Google documents the standard policies at Organization level (home page or product
+  // page JSON-LD), with Offer-level details as the override.
+  const homeOrganizations = organizationNodes(extractJsonLd(target.homeDoc).nodes);
+  const perPage: Record<
+    string,
+    {
+      offers: number;
+      shipping: boolean;
+      returns: boolean;
+      shipping_source: PolicySource;
+      returns_source: PolicySource;
+      incomplete: string[];
+    }
+  > = {};
   let withProduct = 0;
   let considered = 0;
   let both = 0;
   let partial = 0;
+  const incomplete: string[] = [];
   for (const page of pages) {
-    const products = productNodes(extractJsonLd(page.doc).nodes);
+    const nodes = extractJsonLd(page.doc).nodes;
+    const products = productNodes(nodes);
     if (products.length === 0) continue;
     withProduct += 1;
     const offers = products.flatMap(allOffersOf);
-    // Google accepts both properties on the Offer and, more recently, on the Product itself;
-    // on a ProductGroup page the variants are Products too.
+    // Google accepts both properties on the Offer and on the Product itself; on a
+    // ProductGroup page the variants are Products too.
     const carriers = [...offers, ...products, ...products.flatMap(variantNodes)];
-    const shipping = carries(carriers, 'shippingDetails', 'OfferShippingDetails');
-    const returns = carries(carriers, 'hasMerchantReturnPolicy', 'MerchantReturnPolicy');
-    perPage[page.url] = { offers: offers.length, shipping, returns };
+    const organizations = [...organizationNodes(nodes), ...homeOrganizations];
+    const offerShipping = valuesOf(carriers, 'shippingDetails', 'OfferShippingDetails');
+    const offerReturns = valuesOf(carriers, 'hasMerchantReturnPolicy', 'MerchantReturnPolicy');
+    const orgShipping = valuesOf(organizations, 'hasShippingService', 'ShippingService');
+    const orgReturns = valuesOf(organizations, 'hasMerchantReturnPolicy', 'MerchantReturnPolicy');
+    const shippingSource: PolicySource =
+      offerShipping.length > 0 ? 'offer' : orgShipping.length > 0 ? 'organization' : null;
+    const returnsSource: PolicySource =
+      offerReturns.length > 0 ? 'offer' : orgReturns.length > 0 ? 'organization' : null;
+    const pageIncomplete = [
+      ...describeGaps('OfferShippingDetails', offerShipping, shippingDetailsGaps),
+      ...describeGaps('ShippingService', orgShipping, shippingServiceGaps),
+      ...describeGaps('MerchantReturnPolicy', [...offerReturns, ...orgReturns], returnPolicyGaps),
+    ];
+    perPage[page.url] = {
+      offers: offers.length,
+      shipping: shippingSource !== null,
+      returns: returnsSource !== null,
+      shipping_source: shippingSource,
+      returns_source: returnsSource,
+      incomplete: pageIncomplete,
+    };
     if (offers.length === 0) continue;
     considered += 1;
-    if (shipping && returns) both += 1;
-    else if (shipping || returns) partial += 1;
+    if (shippingSource && returnsSource) both += 1;
+    else if (shippingSource || returnsSource) partial += 1;
+    for (const gap of pageIncomplete) if (!incomplete.includes(gap)) incomplete.push(gap);
   }
   if (withProduct === 0) {
     return skip('dependency_failed', 'no Product JSON-LD to inspect');
@@ -262,21 +459,35 @@ export const shippingAndReturnsInMarkup = defineCheck('B2.4', async ({ target, f
   if (considered === 0) {
     return skip('dependency_failed', 'no Offer to inspect', { pages: perPage });
   }
+  const organizationLevel = Object.values(perPage).some(
+    (page) => page.shipping_source === 'organization' || page.returns_source === 'organization',
+  );
   const evidence = {
     pages: perPage,
     complete: both,
     partial,
     total: considered,
+    organization_level: organizationLevel,
+    incomplete,
     unfetched: unfetched(target, pages),
   };
-  const message = `${both} of ${considered} product(s) carry both OfferShippingDetails and MerchantReturnPolicy${fetchNote(target, pages)}`;
-  if (both === considered) return pass(message, evidence);
+  const where = organizationLevel ? ' (partly at Organization level)' : '';
+  const gaps = incomplete.length > 0 ? `; required fields missing: ${incomplete.join('; ')}` : '';
+  const message = `${both} of ${considered} product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy${where}${gaps}${fetchNote(target, pages)}`;
+  if (both === considered)
+    return incomplete.length > 0 ? warn(message, evidence) : pass(message, evidence);
   if (both + partial > 0) return warn(message, evidence);
   return fail(message, evidence);
 });
 
-/** Google Merchant Center asks for at least 800 px on the longest side for apparel; 100 px otherwise. */
-const MIN_LONGEST_SIDE = 800;
+/**
+ * Google Merchant Center's image minimum for every product from 2027-01-31 is 500 x 500 px;
+ * 1500 x 1500 px is the recommendation.
+ */
+const MIN_LONGEST_SIDE = 500;
+const RECOMMENDED_LONGEST_SIDE = 1500;
+/** The Google crawlers Merchant Center fetches images with; a block on either drops the product from free listings. */
+const IMAGE_CRAWLERS = ['Googlebot', 'Googlebot-Image'] as const;
 
 interface ImageEvidence {
   image_url: string | null;
@@ -288,9 +499,28 @@ interface ImageEvidence {
   head_status: number | null;
   /** The fetcher's own reason when the HEAD request ended with status 0. */
   head_error: string | null;
+  /** The Google crawlers the store's robots.txt keeps from the image (same-origin images only). */
+  robots_blocked_for: string[];
   issues: string[];
+  /** Remarks that do not change the verdict, such as a size under the recommendation. */
+  notes: string[];
   /** `inconclusive`: the image could not be checked (the HEAD request got no response). */
   verdict: 'pass' | 'warn' | 'fail' | 'inconclusive';
+}
+
+/** The Google crawlers the store's own robots.txt disallows from a same-origin image URL. */
+function crawlersBlockedFrom(target: Target, url: string): string[] {
+  if (!target.robots) return [];
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return [];
+  }
+  if (parsed.origin !== target.origin) return [];
+  const robots = target.robots;
+  const path = parsed.pathname + parsed.search;
+  return IMAGE_CRAWLERS.filter((token) => !isAllowed(robots, token, path));
 }
 
 export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }) => {
@@ -298,11 +528,13 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
   if (unavailable) return unavailable;
   const perPage: Record<string, ImageEvidence> = {};
   const counts = { pass: 0, warn: 0, fail: 0, inconclusive: 0 };
+  let belowRecommended = 0;
   for (const page of pages) {
     const products = productNodes(extractJsonLd(page.doc).nodes);
     if (products.length === 0) continue;
     const image = products.map(imageOf).find((value) => value !== null) ?? null;
     const issues: string[] = [];
+    const notes: string[] = [];
     const url =
       image?.url !== null && image?.url !== undefined && /^https?:\/\//i.test(image.url)
         ? image.url
@@ -318,7 +550,9 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
         size_source: null,
         head_status: null,
         head_error: null,
+        robots_blocked_for: [],
         issues,
+        notes,
         verdict: 'fail',
       };
       counts.fail += 1;
@@ -357,6 +591,15 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
     }
     if (longest !== null && longest < MIN_LONGEST_SIDE)
       issues.push(`longest side is ${longest} px, below ${MIN_LONGEST_SIDE} px`);
+    else if (longest !== null && longest < RECOMMENDED_LONGEST_SIDE) {
+      notes.push(`longest side is ${longest} px; Google recommends ${RECOMMENDED_LONGEST_SIDE} px`);
+      belowRecommended += 1;
+    }
+    const blockedFor = crawlersBlockedFrom(target, url);
+    if (blockedFor.length > 0)
+      issues.push(
+        `robots.txt blocks ${blockedFor.join(' and ')} from the image (products whose images are blocked stop showing in free listings)`,
+      );
     const verdict: ImageEvidence['verdict'] =
       resolves === false
         ? 'fail'
@@ -375,7 +618,9 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
       size_source: sizeSource,
       head_status: headStatus,
       head_error: headError,
+      robots_blocked_for: blockedFor,
       issues,
+      notes,
       verdict,
     };
   }
@@ -388,7 +633,9 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
     pages: perPage,
     ...counts,
     total: considered,
+    below_recommended: belowRecommended,
     min_longest_side: MIN_LONGEST_SIDE,
+    recommended_longest_side: RECOMMENDED_LONGEST_SIDE,
     unfetched: unfetched(target, pages),
   };
   const describe = (verdicts: ImageEvidence['verdict'][]): string =>
@@ -405,6 +652,10 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
   }
   const note = fetchNote(target, pages);
   const unchecked = counts.inconclusive > 0 ? `; ${counts.inconclusive} could not be checked` : '';
+  const recommendation =
+    belowRecommended > 0
+      ? `; ${belowRecommended} below the recommended ${RECOMMENDED_LONGEST_SIDE} px (Google recommends 1500 px)`
+      : '';
   const outcome = (verdict: 'pass' | 'warn' | 'fail', message: string): CheckOutcome => ({
     verdict,
     message,
@@ -413,14 +664,17 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
   if (counts.fail > 0)
     return outcome(
       'fail',
-      `${counts.fail} of ${scored} product image(s) unusable: ${describe(['fail'])}${unchecked}${note}`,
+      `${counts.fail} of ${scored} product image(s) unusable: ${describe(['fail'])}${unchecked}${recommendation}${note}`,
     );
   if (counts.warn > 0)
     return outcome(
       'warn',
-      `${counts.warn} of ${scored} product image(s) need attention: ${describe(['warn'])}${unchecked}${note}`,
+      `${counts.warn} of ${scored} product image(s) need attention: ${describe(['warn'])}${unchecked}${recommendation}${note}`,
     );
-  return outcome('pass', `all ${scored} product image(s) resolve with alt text${unchecked}${note}`);
+  return outcome(
+    'pass',
+    `all ${scored} product image(s) resolve with alt text${unchecked}${recommendation}${note}`,
+  );
 });
 
 const OUT_OF_STOCK_TEXT = /out of stock|sold out|ausverkauft|nicht vorrätig|épuisé|agotado/i;
