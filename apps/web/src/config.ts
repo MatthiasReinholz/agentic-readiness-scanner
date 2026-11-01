@@ -38,6 +38,8 @@ export interface AppConfig {
   appName: string;
   /** Requests per scan. */
   scanBudget: number;
+  /** Wall-clock budget per scan in milliseconds, below the platform's request limit (30 s on Spacefast Functions). */
+  scanDeadlineMs: number;
   /** Seconds a stored result is reused before a target is scanned again. */
   targetCooldownSeconds: number;
   /** Days a stored result is kept. */
@@ -66,6 +68,7 @@ export function configFromEnv(
     baseUrlExplicit: Boolean(env.APP_BASE_URL),
     appName: env.APP_NAME ?? 'Agentic Readiness Scanner',
     scanBudget: positiveInt('SCAN_BUDGET', env.SCAN_BUDGET, 40),
+    scanDeadlineMs: positiveInt('SCAN_DEADLINE_MS', env.SCAN_DEADLINE_MS, 24_000),
     targetCooldownSeconds: positiveInt('TARGET_COOLDOWN_SECONDS', env.TARGET_COOLDOWN_SECONDS, 120),
     retentionDays: positiveInt('RETENTION_DAYS', env.RETENTION_DAYS, 30),
     repositoryUrl:

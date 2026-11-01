@@ -6,6 +6,7 @@ import {
   type FetchOptions,
   type FetchedResponse,
   type Fetcher,
+  DeadlineExhaustedError,
   RateLimitedError,
 } from './types.js';
 import { assertPublicUrl } from './url-policy.js';
@@ -29,6 +30,13 @@ export interface BudgetedFetcherOptions {
    * parallel. Defaults to 150 ms; tests pass 0.
    */
   minIntervalMs?: number;
+  /**
+   * Wall-clock budget for the whole scan, in milliseconds from construction. Once it is
+   * used up every further request throws DeadlineExhaustedError and the runner skips the
+   * remaining checks with that reason; the per-request timeout is capped to what is left.
+   * Hosted scans set it below the platform's request limit. Unset means no deadline.
+   */
+  deadlineMs?: number;
 }
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -235,6 +243,8 @@ export class BudgetedFetcher implements Fetcher {
   readonly budget: number;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
+  private readonly deadlineMs: number | null;
+  private readonly startedAt = Date.now();
   private readonly maxBodyBytes: number;
   private readonly maxRedirects: number;
   private readonly userAgent: string;
@@ -251,6 +261,7 @@ export class BudgetedFetcher implements Fetcher {
     this.fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     this.budget = options.budget ?? 40;
     this.timeoutMs = options.timeoutMs ?? 10_000;
+    this.deadlineMs = options.deadlineMs ?? null;
     this.maxBodyBytes = options.maxBodyBytes ?? 2 * 1024 * 1024;
     this.maxRedirects = options.maxRedirects ?? 5;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
@@ -315,10 +326,27 @@ export class BudgetedFetcher implements Fetcher {
     if (this.persistentRateLimits >= PERSISTENT_RATE_LIMIT_STOP) {
       throw new RateLimitedError(this.persistentRateLimits);
     }
+    if (this.deadlineMs !== null && this.remainingMs() <= 0) {
+      throw new DeadlineExhaustedError(this.deadlineMs);
+    }
     const wait = this.lastSentAt + this.intervalMs - Date.now();
-    if (wait > 0) await sleep(wait);
+    if (wait > 0) await sleep(this.deadlineMs === null ? wait : Math.min(wait, this.remainingMs()));
+    if (this.deadlineMs !== null && this.remainingMs() <= 0) {
+      throw new DeadlineExhaustedError(this.deadlineMs);
+    }
     this.sent += 1;
     this.lastSentAt = Date.now();
+  }
+
+  /** Milliseconds left of the wall-clock budget; large when there is none. */
+  private remainingMs(): number {
+    if (this.deadlineMs === null) return Number.MAX_SAFE_INTEGER;
+    return this.startedAt + this.deadlineMs - Date.now();
+  }
+
+  /** The per-request timeout, never past the scan's deadline. */
+  private requestTimeoutMs(): number {
+    return Math.max(1, Math.min(this.timeoutMs, this.remainingMs()));
   }
 
   private async perform(
@@ -413,7 +441,7 @@ export class BudgetedFetcher implements Fetcher {
         headers: { 'user-agent': this.userAgent, accept: DEFAULT_ACCEPT, ...extraHeaders },
         ...(requestBody !== undefined ? { body: requestBody } : {}),
         redirect: 'manual',
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(this.requestTimeoutMs()),
       });
     } catch (error) {
       return { error };

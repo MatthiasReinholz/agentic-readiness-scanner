@@ -491,3 +491,29 @@ describe('backing off after a 429', () => {
     expect(fetcher.failures).toHaveLength(3);
   });
 });
+
+describe('wall-clock deadline', () => {
+  it('stops issuing requests once the scan deadline is used up and caps the request timeout', async () => {
+    const fetcher = new BudgetedFetcher({
+      minIntervalMs: 0,
+      deadlineMs: 40,
+      fetch: (_input, init) =>
+        new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            resolve(new Response('ok'));
+          }, 60);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        }),
+    });
+    // The per-request timeout is capped to the 40 ms left, so the 60 ms answer never arrives;
+    // the one retry then finds the deadline used up and the scan stops.
+    await expect(fetcher.fetch('https://shop.example/a')).rejects.toThrow(
+      /time budget of 0 s was used up/,
+    );
+    expect(fetcher.requestCount).toBe(1);
+    await expect(fetcher.fetch('https://shop.example/b')).rejects.toThrow(/time budget/);
+  });
+});

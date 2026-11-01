@@ -18,7 +18,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 
 ## Budget and caps
 
-- At most 40 requests per scan, redirects and retries included, enforced by the fetcher; a check that runs out is skipped as `budget_exhausted` and the report says so.
+- At most 40 requests per scan, redirects and retries included, enforced by the fetcher, and on the hosted app a wall-clock budget of 24 s (the platform answers within 30 s); a check that runs out of either is skipped as `budget_exhausted` and the report says which budget.
 - 10 second timeout per request, 2 MB body cap (applied to the inflated bytes when a sitemap is served as a gzip file), 5 redirects.
 - Sequential requests with at least 150 ms between them, no parallel fan-out against a target. One retry per request: after 500 ms when the connection dropped, after `Retry-After` on a 429 or 503 when it is five seconds or less (one second when absent), never beyond the budget. After a 429 the interval grows to one second, then two, for the rest of the scan; a 429 is retried only until one persists, and after three persistent 429s the scan stops and the remaining checks say so. Every request that still failed, and every 429, is listed under the scan warnings.
 - GET, HEAD and OPTIONS only, with one exception: a read-only JSON-RPC `server/discover` POST to an MCP endpoint the site itself advertises (checks A4.4 and B5.8). It creates nothing on the server.

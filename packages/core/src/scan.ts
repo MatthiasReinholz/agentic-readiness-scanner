@@ -24,6 +24,8 @@ export interface ScanOptions {
   userAgent?: string;
   /** Minimum time between two network requests; see BudgetedFetcherOptions. */
   minIntervalMs?: number;
+  /** Wall-clock budget for the whole scan in milliseconds; remaining checks are skipped once it is used up. */
+  deadlineMs?: number;
   /** Profile id override. */
   profile?: string;
   sampleSize?: number;
@@ -48,6 +50,7 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
       ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
       ...(options.userAgent !== undefined ? { userAgent: options.userAgent } : {}),
       ...(options.minIntervalMs !== undefined ? { minIntervalMs: options.minIntervalMs } : {}),
+      ...(options.deadlineMs !== undefined ? { deadlineMs: options.deadlineMs } : {}),
     });
   // Every fetch after robots.txt is parsed honours the store's rules for the scanner.
   const fetcher = new RobotsGatedFetcher(inner);

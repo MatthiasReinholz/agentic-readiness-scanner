@@ -106,6 +106,7 @@ async function performScan(
 ): Promise<StoredScan> {
   const options: ScanOptions = {
     budget: deps.config.scanBudget,
+    deadlineMs: deps.config.scanDeadlineMs,
     now,
     ...(deps.fetcherFactory ? { fetcher: deps.fetcherFactory() } : {}),
     ...(request.profile !== undefined ? { profile: request.profile } : {}),

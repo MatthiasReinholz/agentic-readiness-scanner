@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- A wall-clock budget per scan (`ScanOptions.deadlineMs`, hosted default `SCAN_DEADLINE_MS` = 24 s under the platform's 30 s request limit): once it is used up the remaining checks are skipped with that reason and the report is still produced, instead of the platform answering with an error for a slow store.
+
 - **Reports lead with what to do** ([decision 0012](docs/decisions/0012-priorities-and-honest-non-answers.md), [the report and accuracy audit](docs/audits/2026-11-01-report-and-accuracy-audit.md)): open findings are ordered by the level they unlock, then by tier (blocking, expected, nice to have, informational), then fail before warn, and every surface renders the same list; summary lines count findings per tier and split skips into "did not apply" and "could not run"; groups made only of optional checks are tagged and their score muted; every report ends with what the scan did and did not do (pages read, no JavaScript, no sign-in, no impersonation).
 - A refused home page (403, 429, a bot-management challenge) now produces a Level 0 report that names the product behind the refusal (Cloudflare, Akamai, DataDome, Vercel, Imperva, HUMAN, AWS WAF) and evaluates robots.txt and the sitemap, instead of aborting with "not reachable".
 - The fetcher inflates gzip sitemaps, keeps at least 150 ms between requests, retries once on a dropped connection or a short `Retry-After`, and the scan lists every request that failed and every 429 in its warnings. Scan option `minIntervalMs`.
