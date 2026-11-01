@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
 ### Added
 
 - **Catalog 0.3.0 and scoring 0.3.0** after an audit of the conventional technical SEO that AI answer products inherit from the indexes they run on ([docs/audits/2026-11-01-technical-seo-audit.md](docs/audits/2026-11-01-technical-seo-audit.md), [decision 0011](docs/decisions/0011-technical-seo-scope.md)). New checks: A1.8 listing pages link to products and further pages, A2.7 render resources not blocked by robots.txt, A3.7 product URLs answer directly over HTTPS (with http:// and host-variant consolidation), A3.8 title and description on every page, A3.9 conditional requests supported, A3.10 mobile viewport declared, A3.11 document head is well-formed (metadata after a head-breaking element, meta refresh, doctype, charset).

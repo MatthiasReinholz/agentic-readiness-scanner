@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/catalog",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The check catalog: check definitions, scoring levels, profiles, fixes and the versioned result schema, as data.",
   "license": "GPL-3.0-or-later",
   "repository": {
