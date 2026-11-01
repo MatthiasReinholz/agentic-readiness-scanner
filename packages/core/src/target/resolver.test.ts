@@ -342,3 +342,27 @@ describe('discoverProductsBySampling', () => {
     expect(fetcher.requestCount).toBeLessThanOrEqual(4);
   });
 });
+
+describe('policy links: brand names and help centres elsewhere', () => {
+  it('ignores a product that carries the site name next to a policy word', () => {
+    const doc = new HtmlDocument(
+      '<footer><a href="/woocommerce-shipping/">WooCommerce Shipping</a><a href="/shipping-policy/">Shipping policy</a></footer>',
+    );
+    expect(findPolicyLinks(doc, 'https://woocommerce.com')).toMatchObject({
+      shipping: 'https://woocommerce.com/shipping-policy/',
+    });
+    const only = new HtmlDocument(
+      '<footer><a href="/woocommerce-shipping/">WooCommerce Shipping</a></footer>',
+    );
+    expect(findPolicyLinks(only, 'https://woocommerce.com')).toEqual({});
+  });
+
+  it('prefers a labelled help centre on another host over a same-origin stray match', () => {
+    const doc = new HtmlDocument(
+      '<a href="/pages/sports-bras?banner_id=guide">Find your support</a><footer><a href="https://support.gymshark.com/">Help</a></footer>',
+    );
+    expect(findPolicyLinks(doc, 'https://www.gymshark.com')).toMatchObject({
+      contact: 'https://support.gymshark.com/',
+    });
+  });
+});

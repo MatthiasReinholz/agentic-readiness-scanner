@@ -4,7 +4,7 @@
     "group": "B5",
     "title": "UCP business profile",
     "question": "Does the merchant publish a Universal Commerce Protocol profile?",
-    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
+    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 or later still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
     "weight": 2,
     "spec": [
       {
@@ -30,13 +30,17 @@
     "group": "B5",
     "title": "UCP checkout capability and payment handler",
     "question": "Does the UCP profile declare a checkout an agent could use?",
-    "method": "From the profile: pass when a dev.ucp.shopping.checkout capability or a dev.ucp.shopping service with a rest, mcp or a2a transport is declared and at least one payment handler carries id, version and spec; warn when only one of the two is present; fail when neither. When a rest service names an endpoint, GET it and record the status: 404 or 5xx adds a warning, because the agent would fail there.",
+    "method": "From the profile: pass when a dev.ucp.shopping.checkout capability or a dev.ucp.shopping service with a rest, mcp, a2a or embedded transport is declared and at least one payment handler carries id and version (spec is optional); warn when only one of the two is present; fail when neither. A handler whose environment is not production is named as such. When a rest service names an endpoint, GET it and record the status; a 404 or 405 on the base URL is normal (it has no GET resource), and only a host that does not answer or a 5xx adds a warning. An endpoint the scanner did not request because robots.txt disallows it is noted, not scored.",
     "weight": 1,
     "depends_on": ["B5.1"],
     "spec": [
       {
         "title": "Universal Commerce Protocol: overview and business profile",
         "url": "https://ucp.dev/latest/specification/overview/"
+      },
+      {
+        "title": "Universal Commerce Protocol: payment handlers (id and version required)",
+        "url": "https://ucp.dev/latest/specification/payment/guide/"
       }
     ]
   },
@@ -63,7 +67,7 @@
     "group": "B5",
     "title": "ACP feed fields",
     "question": "If the public feed follows the OpenAI format, does it carry the seller and return fields a checkout needs?",
-    "method": "When B1.5 found a JSON, CSV or TSV feed with OpenAI-style columns, read sampled items. Pass when seller_name, return_policy and return_deadline_in_days (alias return_window) are present, or seller_privacy_policy and seller_tos (required for checkout) are; warn when only seller_name is; fail when none. Skip as not applicable for Google-format XML feeds, which have no such fields.",
+    "method": "When B1.5 found a JSON, CSV or TSV feed, read sampled items against the OpenAI product feed specification. Pass when the nine required fields (item_id, title, description, url, brand, seller_name, image_url, availability, price) are present together with the return fields (return_policy, return_deadline_in_days or return_window) and the seller policy fields checkout requires (seller_privacy_policy, seller_tos); warn when the required fields are present but the return or seller policy fields are missing (an item whose is_eligible_checkout or enable_checkout is false does not need the policy fields); fail when required fields are missing, naming them. Skip as not applicable for Google-format XML feeds. OpenAI ingests feeds pushed to it, so this reads a public copy only: weight 1.",
     "weight": 1,
     "depends_on": ["B1.5"],
     "spec": [
@@ -94,7 +98,7 @@
     "group": "B5",
     "title": "Shopify agentic storefront active",
     "question": "Is the Shopify store exposing its agent surface?",
-    "method": "For Shopify Online Store storefronts: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" (or the HTML link element) and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message (an authorization failure arrives as a JSON-RPC error, not a 401), which means the Agentic storefronts channel is active and its catalog tools are reachable; warn when only one of the two holds, or when the scanner did not call the endpoint because robots.txt disallows /api/ for its user agent; fail when neither holds. The channel is active by default for eligible stores, so a fail means ineligibility or opt-out. A headless storefront (Shopify assets but no Shopify-served origin) gets neither the profile nor the endpoint on its own domain and is not judged here.",
+    "method": "For Shopify Online Store storefronts: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message (an authorization failure arrives as a JSON-RPC error, not a 401), which means the Agentic storefronts channel is active and its catalog tools are reachable; warn when only one of the two holds, or when the scanner did not call the endpoint because robots.txt disallows /api/ for its user agent; fail when neither holds. The channel is active by default for eligible stores, so a fail means ineligibility or opt-out. A headless storefront (Shopify assets but no Shopify-served origin) gets neither the profile nor the endpoint on its own domain and is not judged here.",
     "weight": 3,
     "requires": ["shopify"],
     "depends_on": ["B1.1"],

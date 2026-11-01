@@ -7,6 +7,7 @@ import {
 } from '@agentic-readiness/catalog';
 
 import { botManagementVendor, isChallengePage, REFUSAL_STATUSES } from '../http/bot-management.js';
+import { registrableDomain } from '../http/domain.js';
 import { isRobotsAware } from '../http/robots-gate.js';
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
@@ -221,7 +222,13 @@ function lastSegment(pathname: string): string {
  * a matching path segment last. "Shipping & returns" in the footer at /shipping-policy
  * scores 7; a product named "WooCommerce Shipping" in the same footer scores 5.
  */
-export function policyLinkScore(anchor: Anchor, pathname: string, kind: PolicyKind): number {
+export function policyLinkScore(
+  anchor: Anchor,
+  pathname: string,
+  kind: PolicyKind,
+  /** The site's own name (the registrable label of its hostname); a label that carries it names a product, not a policy. */
+  brand?: string,
+): number {
   const pattern = POLICY_PATTERNS[kind];
   const text = anchor.text;
   const labelMatches = pattern.test(text);
@@ -233,6 +240,7 @@ export function policyLinkScore(anchor: Anchor, pathname: string, kind: PolicyKi
       .toLowerCase()
       .split(/[^\p{L}\p{N}&]+/u)
       .filter(Boolean);
+    if (brand && tokens.includes(brand) && tokens.length > 1) return 0;
     const known = tokens.filter(isPolicyWord).length;
     score += 2 + 2 * (tokens.length > 0 ? known / tokens.length : 0);
   }
@@ -274,6 +282,7 @@ export function rankPolicyLinks(
   type Best = RankedPolicyLinks;
   const sameOrigin: Best = {};
   const crossOrigin: Best = {};
+  const brand = registrableDomain(new URL(origin).hostname).split('.')[0];
   for (const anchor of doc.anchors()) {
     const url = resolveHttpUrl(anchor.href, base);
     if (!url || url.href === `${origin}/`) continue;
@@ -281,7 +290,7 @@ export function rankPolicyLinks(
     if (looksLikeProductUrl(url.href) || LISTING_PATTERN.test(url.pathname)) continue;
     const bucket = url.origin === origin ? sameOrigin : crossOrigin;
     for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
-      const score = policyLinkScore(anchor, url.pathname, kind);
+      const score = policyLinkScore(anchor, url.pathname, kind, brand);
       if (score === 0) continue;
       const current = bucket[kind];
       if (!current || score > current.score) bucket[kind] = { url: url.href, score };
@@ -289,7 +298,14 @@ export function rankPolicyLinks(
   }
   const result: Best = {};
   for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
-    const best = sameOrigin[kind] ?? crossOrigin[kind];
+    const own = sameOrigin[kind];
+    const other = crossOrigin[kind];
+    // A labelled link elsewhere (a help centre on support.shop.example) beats a same-origin
+    // link that only matched by path or by a stray word.
+    const best =
+      own && (own.score >= LABELLED_POLICY_SCORE || !other || other.score < LABELLED_POLICY_SCORE)
+        ? own
+        : (other ?? own);
     if (best) result[kind] = best;
   }
   return result;

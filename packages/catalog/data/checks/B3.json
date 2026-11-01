@@ -4,7 +4,7 @@
     "group": "B3",
     "title": "GTIN present",
     "question": "Do sampled products carry a GTIN?",
-    "method": "Read gtin, gtin8, gtin12, gtin13 or gtin14 from Product JSON-LD, or global_unique_id from the Store API. Pass when at least 80 percent of sampled products have one; warn above 50 percent; fail below.",
+    "method": "Read gtin, gtin8, gtin12, gtin13 or gtin14 from the Product JSON-LD or its hasVariant Products, or global_unique_id from the Store API; a value counts only when it is 8, 12, 13 or 14 digits after spaces and hyphens are removed. Pass when at least 80 percent of sampled products have one; warn above 50 percent, or at or below it when every product without a GTIN carries brand and mpn, Google's documented alternative; fail when products without a GTIN also lack brand plus mpn.",
     "weight": 3,
     "spec": [
       {
@@ -39,7 +39,7 @@
     "group": "B3",
     "title": "Brand present as entity",
     "question": "Is the brand a Brand object with a consistent name?",
-    "method": "Pass when Product.brand is a Brand (or Organization) object with a name on all sampled products; warn when it is a bare string or its casing varies across the sample; fail when absent.",
+    "method": "Pass when Product.brand names the brand on all sampled products, as a Brand (or Organization) object with a name or as a bare string (noted: Google recommends brand.name on a Brand object); warn when the object lacks a name or has another type, or when the casing varies across the sample; fail when absent.",
     "weight": 2,
     "depends_on": ["B2.1"],
     "spec": [
@@ -71,12 +71,20 @@
     "group": "B3",
     "title": "SKU present and unique in sample",
     "question": "Does every sampled product have a SKU, and are they distinct?",
-    "method": "Read sku from JSON-LD or the Store API. Pass when all sampled products have one and no two share it; warn on a duplicate; fail when missing.",
+    "method": "Read sku (or productID, which Meta's on-page markup uses) from JSON-LD, or sku from the Store API; the field that supplied it is recorded. Pass when all sampled products have one and no two share it; warn on a duplicate; fail when missing.",
     "weight": 2,
     "spec": [
       {
         "title": "schema.org sku",
         "url": "https://schema.org/sku"
+      },
+      {
+        "title": "Google Merchant Center: sku",
+        "url": "https://support.google.com/merchants/answer/6324353"
+      },
+      {
+        "title": "Meta: on-page product markup (productID)",
+        "url": "https://developers.facebook.com/docs/marketing-api/catalog/guides/microdata-tags"
       }
     ],
     "requires": ["products"]

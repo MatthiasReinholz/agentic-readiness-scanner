@@ -10,9 +10,20 @@ import { extractJsonLd, productNodes } from './jsonld.js';
 export const ADD_TO_CART =
   /add[-_ ]?to[-_ ]?(?:cart|bag|basket)|single_add_to_cart_button|buy now|in den (?:warenkorb|einkaufswagen)|ajouter au panier|aggiungi al carrello|a(?:ñ|n)adir al carrito|in winkelwagen/i;
 
+/**
+ * True when the document is marked up as a product: Product JSON-LD or og:type product.
+ * The strict test for pages that must not be products (a policy page); theme chrome on
+ * platforms such as Shopify carries add-to-cart controls on every page, so those do not
+ * count here.
+ */
+export function hasProductMarkup(doc: HtmlDocument): boolean {
+  if (productNodes(extractJsonLd(doc).nodes).length > 0) return true;
+  return (doc.meta('og:type') ?? '').toLowerCase().startsWith('product');
+}
+
 /** True when a document carries Product JSON-LD or an add-to-cart control or link. */
 export function looksLikeProductPage(doc: HtmlDocument): boolean {
-  if (productNodes(extractJsonLd(doc).nodes).length > 0) return true;
+  if (hasProductMarkup(doc)) return true;
   if (
     doc
       .controls()

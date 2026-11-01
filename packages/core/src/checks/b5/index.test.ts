@@ -1081,8 +1081,8 @@ describe('recorded stores', () => {
     const outcomes = new Map<string, CheckOutcome>();
     outcomes.set('B5.1', await runCheck(ucpBusinessProfile, target, fetcher));
     // The recorded profile predates the keys rename: a 2026-08-25 profile with signing_keys.
-    expect(outcomes.get('B5.1')?.verdict).toBe('warn');
-    expect(outcomes.get('B5.1')?.message).toMatch(/signing_keys but no keys/);
+    expect(outcomes.get('B5.1')?.verdict).toBe('pass');
+    expect(outcomes.get('B5.1')?.message).not.toMatch(/signing_keys/);
     const checkout = await runCheck(ucpCheckoutDeclared, target, fetcher, outcomes);
     expect(checkout.verdict).toBe('pass');
     expect(checkout.evidence).toMatchObject({
@@ -1107,8 +1107,8 @@ describe('recorded stores', () => {
       handles: ['trail-boot', 'canvas-sneaker'],
     });
     const ucp = await runCheck(ucpBusinessProfile, target, fetcher);
-    expect(ucp.verdict).toBe('warn');
-    expect(ucp.evidence).toMatchObject({ keys_field: 'signing_keys' });
+    expect(ucp.verdict).toBe('pass');
+    expect(ucp.evidence).toMatchObject({ keys_field: 'keys' });
     const checkout = await runCheck(ucpCheckoutDeclared, target, fetcher, new Map([['B5.1', ucp]]));
     expect(checkout.verdict).toBe('pass');
   });

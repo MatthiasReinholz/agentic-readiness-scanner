@@ -307,10 +307,19 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
   const handlers = isRecord(profile.payment_handlers) ? profile.payment_handlers : {};
   const handlerIds: string[] = [];
   let handlersWithoutSpec = 0;
+  // A handler in a test or sandbox environment is declared, not live; the message says so.
+  const handlerLabels: string[] = [];
   for (const [key, value] of Object.entries(handlers)) {
     for (const entry of recordEntries(value)) {
       if (!isDeclaredHandler(entry)) continue;
-      handlerIds.push(typeof entry.id === 'string' ? entry.id : key);
+      const id = typeof entry.id === 'string' ? entry.id : key;
+      handlerIds.push(id);
+      const environment = typeof entry.environment === 'string' ? entry.environment : null;
+      handlerLabels.push(
+        environment && environment.toLowerCase() !== 'production'
+          ? `${id} (environment: ${environment})`
+          : id,
+      );
       if (!nonEmptyString(entry.spec)) handlersWithoutSpec += 1;
     }
   }
@@ -355,7 +364,7 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
   }
 
   if (checkout && handlerIds.length > 0) {
-    const summary = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerIds.join(', ')}`;
+    const summary = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerLabels.join(', ')}`;
     return endpointProblem
       ? warn(`${summary}, but ${endpointProblem}`, evidence)
       : pass(`${summary}${endpointNote}`, evidence);

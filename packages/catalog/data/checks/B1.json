@@ -38,7 +38,7 @@
     "group": "B1",
     "title": "Store API not rate-limited for reads",
     "question": "Do a few sequential Store API reads succeed?",
-    "method": "Three sequential product list requests. Fail on any 429 or 5xx; warn when a Retry-After header appears.",
+    "method": "Three sequential product list requests. Fail on any 429 or 5xx; warn when a Retry-After header appears, or when a read succeeded only on the scanner's single retry after a 429 or 503 (the Store API throttled the scanner once and recovered after Retry-After).",
     "weight": 2,
     "requires": ["woocommerce"],
     "depends_on": ["B1.2"],
@@ -70,7 +70,7 @@
     "group": "B1",
     "title": "Public product feed discoverable",
     "question": "Can an agent reach the catalog as a feed without an account?",
-    "method": "Look for a feed URL in link rel=alternate tags of the home page (RSS, Atom, XML or JSON types), in llms.txt, in robots.txt comments and Sitemap lines, and in the sitemap index (feed paths and data files only, never a product page whose slug contains the word); fetch the first candidate. Pass when it is a Google-format XML feed (g: namespace), a CSV or TSV with id (or item_id or sku), title, link (or url) and price columns, or JSON items with the same fields. Fail when none is found. Every shopping surface ingests feeds pushed through its own channel and none documents reading a merchant-hosted URL, so a public copy is a convenience for agents, not a requirement: weight 1. The specifications are cited for the formats only.",
+    "method": "Look for a feed URL in link rel=alternate tags of the home page (RSS, Atom, XML or JSON types), in llms.txt, in robots.txt comments and Sitemap lines, and in the sitemap index (feed paths and data files only, never a product page whose slug contains the word); fetch the first candidate. Pass when it is a Google-format XML feed (g: namespace), a CSV or TSV with id (or item_id or sku), title, link (or url) and price columns, or JSON items with the same fields; an OpenAI-format feed (item_id or sku, url or link, image_url or image_link) is recognised and recorded as such. Fail when none is found. Every shopping surface ingests feeds pushed through its own channel and none documents reading a merchant-hosted URL, so a public copy is a convenience for agents, not a requirement: weight 1. The specifications are cited for the formats only.",
     "weight": 1,
     "spec": [
       {
@@ -119,7 +119,7 @@
     "group": "B1",
     "title": "Shopify products.json readable",
     "question": "Can an agent read a Shopify catalog as JSON?",
-    "method": "GET /products.json?limit=5. Pass on 200 with a products array; fail on 404, 401, a password page or HTML (the endpoint is disabled, the store is password-protected or headless); inconclusive (skipped) on 429, because Shopify rate-limits this endpoint per IP after a few requests. The endpoint is an undocumented but long-standing convention of every Online Store theme (the documented per-product form is /products/<handle>.js); Shopify's generated robots.txt and agents.md now point agents at the UCP catalog on /api/ucp/mcp instead, which B5.8 covers, so this check carries weight 2 and B5.8 counts as a readable catalog for Level 2.",
+    "method": "GET /products.json?limit=5. Pass on 200 with a products array; fail on 404, 401, a password page or HTML (the endpoint is disabled, the store is password-protected or headless); inconclusive (skipped) on 429, because Shopify rate-limits this endpoint per IP after a few requests. The endpoint is an undocumented but long-standing convention of every Online Store theme (the documented per-product form is /products/<handle>.js); Shopify's generated robots.txt and agents.md now point agents at the UCP catalog on /api/ucp/mcp instead, which B5.8 covers, so this check carries weight 2 and B5.8 counts as a readable catalog for Level 2. A headless storefront that only loads Shopify assets is skipped as not applicable: Shopify serves neither products.json nor the UCP endpoint on that domain.",
     "weight": 2,
     "requires": ["shopify"],
     "depends_on": ["B1.1"],

@@ -3,7 +3,7 @@ import { HtmlDocument } from '../parsers/html.js';
 import type { Target } from '../target/types.js';
 import { skip, type CheckOutcome } from './types.js';
 
-export { ADD_TO_CART, looksLikeProductPage } from '../parsers/product-page.js';
+export { ADD_TO_CART, hasProductMarkup, looksLikeProductPage } from '../parsers/product-page.js';
 
 export interface ProductPage {
   url: string;

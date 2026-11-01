@@ -4,7 +4,8 @@ import { asString, extractJsonLd, hasValue, organizationNodes } from '../../pars
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { SEARCH_CRAWLERS } from '../a2/index.js';
-import { describeFailure, looksLikeProductPage, pathOf } from '../shared.js';
+import { describeFailure, hasProductMarkup, pathOf } from '../shared.js';
+import { registrableDomain } from '../../http/domain.js';
 import { looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { ACCOUNT_AREA_PATTERN, isListingPath } from '../../target/resolver.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
@@ -38,7 +39,7 @@ export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher })
   const response = await fetcher.fetch(url);
   const doc = new HtmlDocument(response.body);
   const words = doc.wordCount();
-  const productPage = response.status === 200 && looksLikeProductPage(doc);
+  const productPage = response.status === 200 && hasProductMarkup(doc);
   const evidence = { url, status: response.status, words, product_page: productPage };
   if (response.status !== 200)
     return fail(`return policy page returned HTTP ${response.status}`, evidence);
@@ -61,7 +62,7 @@ export const shippingPolicyFound = defineCheck('B4.2', async ({ target, fetcher 
   const doc = new HtmlDocument(response.body);
   const text = doc.text();
   const mentionsDetails = hasShippingDetails(text);
-  const productPage = response.status === 200 && looksLikeProductPage(doc);
+  const productPage = response.status === 200 && hasProductMarkup(doc);
   const evidence = {
     url,
     status: response.status,
@@ -244,7 +245,17 @@ export const merchantIdentity = defineCheck('B4.4', async ({ target, fetcher }) 
 const CONTACT_LINK =
   /\b(contacts?|contact[- ]us|contactez|kontakt|contatt[io]|contacto|support|help|hilfe|aide|ayuda|customer[- ]service|kundenservice|kundendienst|service client|servizio clienti|faq)\b/i;
 
+/** Words a contact label may consist of besides the contact words themselves. */
+const CONTACT_LABEL_WORDS =
+  /^(?:us|me|page|form|center|centre|desk|team|&|and|our|your|the|get|in|touch|uns|nous|contactez|service|customer|client|clienti|cliente|hilfe|aide|ayuda|faq|faqs)$/i;
+function isContactLabelWord(token: string): boolean {
+  return CONTACT_LINK.test(token) || CONTACT_LABEL_WORDS.test(token);
+}
+
 export const contactChannel = defineCheck('B4.5', ({ target }) => {
+  // A help centre on the store's own subdomain (support.shop.example) is the store's.
+  const sameSite = (hostname: string): boolean =>
+    registrableDomain(hostname) === registrableDomain(target.hostname);
   const mailto = new Set<string>();
   const tel = new Set<string>();
   const sameOrigin = new Set<string>();
@@ -274,16 +285,20 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     // and a support form inside the account area answers with a login wall.
     if (looksLikeProductUrl(url.href) || isListingPath(url.pathname)) continue;
     if (ACCOUNT_AREA_PATTERN.test(url.pathname)) continue;
-    const label = anchor.text.split(/\s+/).filter(Boolean);
-    const labelMatches = CONTACT_LINK.test(anchor.text) && label.length <= 5;
+    // A short label made of contact words ("Contact us", "Help", "Kundenservice"), or a
+    // path whose last segment is one; longer labels ("Find your support") are not links
+    // to a contact channel.
+    const label = anchor.text.trim().split(/\s+/).filter(Boolean);
+    const labelMatches =
+      CONTACT_LINK.test(anchor.text) && label.length <= 3 && label.every(isContactLabelWord);
     const pathMatches = CONTACT_LINK.test(url.pathname.split('/').filter(Boolean).pop() ?? '');
     if (!labelMatches && !pathMatches) continue;
-    (url.origin === target.origin ? sameOrigin : crossOrigin).add(url.href);
+    (sameSite(url.hostname) ? sameOrigin : crossOrigin).add(url.href);
   }
   // The resolver already picked a contact page from the same links; keep it in evidence.
   const resolved = target.sampled.policies.contact;
   if (resolved) {
-    (new URL(resolved).origin === target.origin ? sameOrigin : crossOrigin).add(resolved);
+    (sameSite(new URL(resolved).hostname) ? sameOrigin : crossOrigin).add(resolved);
   }
 
   const evidence = {
@@ -302,7 +317,7 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
   ];
   if (channels.length > 0) return pass(`the home page links ${channels.join(', ')}`, evidence);
   if (crossOrigin.size > 0) {
-    return warn(`only a contact link on another origin: ${first(crossOrigin)}`, evidence);
+    return warn(`only a contact link on another site: ${first(crossOrigin)}`, evidence);
   }
   return fail('no mailto:, tel: or contact page link on the home page', evidence);
 });

@@ -322,7 +322,7 @@ describe('B4.5 contact channel', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'only a contact link on another origin: https://help.other.example/tickets',
+      'only a contact link on another site: https://help.other.example/tickets',
     );
     expect(outcome.evidence).toMatchObject({
       contact_pages: [],
