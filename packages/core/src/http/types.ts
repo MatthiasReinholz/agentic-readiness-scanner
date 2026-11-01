@@ -60,9 +60,24 @@ export interface Fetcher {
 }
 
 export class BudgetExhaustedError extends Error {
-  constructor(budget: number) {
-    super(`Request budget of ${budget} exhausted`);
+  constructor(budget: number, message = `Request budget of ${budget} exhausted`) {
+    super(message);
     this.name = 'BudgetExhaustedError';
+  }
+}
+
+/**
+ * The store kept answering 429 after the scanner backed off and retried: continuing would
+ * only confirm what it already said. Treated like an exhausted budget by the runner, so
+ * the remaining checks are skipped with this reason.
+ */
+export class RateLimitedError extends BudgetExhaustedError {
+  constructor(public readonly count: number) {
+    super(
+      0,
+      `the store answered 429 Too Many Requests ${count} times after the scanner backed off and retried; the scan stopped to respect it`,
+    );
+    this.name = 'RateLimitedError';
   }
 }
 

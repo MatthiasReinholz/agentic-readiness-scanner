@@ -104,6 +104,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   const applicable = new Set(checksForProfile(target.profile).map((definition) => definition.id));
   const outcomes = new Map<string, CheckOutcome>();
   let budgetExhausted = false;
+  let stopReason = 'request budget exhausted before this check ran';
 
   for (const definition of orderByDependencies(catalog.checks)) {
     // A home page that refused the scanner leaves nothing to read: only robots.txt, the
@@ -169,7 +170,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       outcomes.set(definition.id, {
         verdict: 'skip',
         skipReason: 'budget_exhausted',
-        message: 'request budget exhausted before this check ran',
+        message: stopReason,
         evidence: {},
       });
       continue;
@@ -182,6 +183,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     } catch (error) {
       if (error instanceof BudgetExhaustedError) {
         budgetExhausted = true;
+        if (error.name === 'RateLimitedError') stopReason = `not run: ${error.message}`;
         outcomes.set(definition.id, {
           verdict: 'skip',
           skipReason: 'budget_exhausted',

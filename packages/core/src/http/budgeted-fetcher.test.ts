@@ -467,6 +467,27 @@ describe('backing off after a 429', () => {
     await fetcher.fetch('https://shop.example/a');
     expect(fetcher.currentIntervalMs).toBe(1000);
     await fetcher.fetch('https://shop.example/b');
-    expect(fetcher.currentIntervalMs).toBe(4000);
+    expect(fetcher.currentIntervalMs).toBe(2000);
+  });
+
+  it('stops asking after three persistent 429s and does not retry a 429 once one persisted', async () => {
+    let calls = 0;
+    const fetcher = new BudgetedFetcher({
+      minIntervalMs: 0,
+      fetch: () => {
+        calls += 1;
+        return Promise.resolve(
+          new Response('slow down', { status: 429, headers: { 'retry-after': '0' } }),
+        );
+      },
+    });
+    await fetcher.fetch('https://shop.example/a'); // one retry
+    await fetcher.fetch('https://shop.example/b'); // no retry any more
+    await fetcher.fetch('https://shop.example/c');
+    expect(calls).toBe(4);
+    await expect(fetcher.fetch('https://shop.example/d')).rejects.toThrow(
+      /answered 429 Too Many Requests 3 times/,
+    );
+    expect(fetcher.failures).toHaveLength(3);
   });
 });

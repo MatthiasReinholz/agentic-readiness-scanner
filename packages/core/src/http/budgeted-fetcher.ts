@@ -6,6 +6,7 @@ import {
   type FetchOptions,
   type FetchedResponse,
   type Fetcher,
+  RateLimitedError,
 } from './types.js';
 import { assertPublicUrl } from './url-policy.js';
 
@@ -37,6 +38,8 @@ const GZIP_TYPES = new Set(['application/gzip', 'application/x-gzip']);
 const TRANSPORT_RETRY_MS = 500;
 /** Wait before the one retry of a 429 or 503 that carries no Retry-After. */
 const DEFAULT_RETRY_MS = 1_000;
+/** Final 429s after which the scan stops instead of asking again. */
+const PERSISTENT_RATE_LIMIT_STOP = 3;
 /** A Retry-After longer than this is honoured by not retrying at all. */
 const MAX_RETRY_AFTER_MS = 5_000;
 const DEFAULT_ACCEPT =
@@ -268,8 +271,12 @@ export class BudgetedFetcher implements Fetcher {
    * four, for the rest of the scan. Backing off is the honest answer to being told so.
    */
   private backOff(): void {
-    this.intervalMs = this.intervalMs < 1000 ? 1000 : Math.min(this.intervalMs * 4, 4000);
+    this.persistentRateLimits += 1;
+    this.intervalMs = this.intervalMs < 1000 ? 1000 : Math.min(this.intervalMs * 2, 2000);
   }
+
+  /** Final 429s so far; after PERSISTENT_RATE_LIMIT_STOP of them the scan stops. */
+  private persistentRateLimits = 0;
 
   /** Requests that ended without a response after the retry, and every final 429. */
   get failures(): readonly FetchFailure[] {
@@ -305,6 +312,9 @@ export class BudgetedFetcher implements Fetcher {
     if (this.sent >= this.budget) {
       throw new BudgetExhaustedError(this.budget);
     }
+    if (this.persistentRateLimits >= PERSISTENT_RATE_LIMIT_STOP) {
+      throw new RateLimitedError(this.persistentRateLimits);
+    }
     const wait = this.lastSentAt + this.intervalMs - Date.now();
     if (wait > 0) await sleep(wait);
     this.sent += 1;
@@ -330,7 +340,9 @@ export class BudgetedFetcher implements Fetcher {
     for (let hop = 0; hop <= this.maxRedirects; hop += 1) {
       let attempt = await this.attempt(current, method, extraHeaders, requestBody);
       const delay = retryDelayFor(attempt);
-      if (delay !== null && !retried && this.sent < this.budget) {
+      const rateLimitedAgain =
+        !('error' in attempt) && attempt.response.status === 429 && this.persistentRateLimits > 0;
+      if (delay !== null && !retried && !rateLimitedAgain && this.sent < this.budget) {
         retried = true;
         await sleep(delay);
         attempt = await this.attempt(current, method, extraHeaders, requestBody);
