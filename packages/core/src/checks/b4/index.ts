@@ -295,11 +295,20 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     if (!labelMatches && !pathMatches) continue;
     (sameSite(url.hostname) ? sameOrigin : crossOrigin).add(url.href);
   }
-  // The resolver already picked a contact page from the same links; keep it in evidence.
+  // The resolver's ranked pick leads the list, so the message names the best page.
   const resolved = target.sampled.policies.contact;
   if (resolved) {
-    (sameSite(new URL(resolved).hostname) ? sameOrigin : crossOrigin).add(resolved);
+    const bucket = sameSite(new URL(resolved).hostname) ? sameOrigin : crossOrigin;
+    const rest = [...bucket].filter((url) => url !== resolved);
+    bucket.clear();
+    bucket.add(resolved);
+    for (const url of rest) bucket.add(url);
   }
+  // A page on the store's own subdomain is named with its host; one on this origin by path.
+  const describeContact = (url: string): string => {
+    const parsed = new URL(url);
+    return parsed.hostname === target.hostname ? pathOf(url) : `${parsed.hostname}${pathOf(url)}`;
+  };
 
   const evidence = {
     mailto: [...mailto],
@@ -312,7 +321,7 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     ...(mailto.size > 0 ? [`${mailto.size} mailto: address(es)`] : []),
     ...(tel.size > 0 ? [`${tel.size} tel: number(s)`] : []),
     ...(sameOrigin.size > 0
-      ? [`${sameOrigin.size} contact page(s) such as ${pathOf(first(sameOrigin))}`]
+      ? [`${sameOrigin.size} contact page(s) such as ${describeContact(first(sameOrigin))}`]
       : []),
   ];
   if (channels.length > 0) return pass(`the home page links ${channels.join(', ')}`, evidence);

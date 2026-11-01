@@ -232,7 +232,18 @@ export function policyLinkScore(
   const pattern = POLICY_PATTERNS[kind];
   const text = anchor.text;
   const labelMatches = pattern.test(text);
-  const pathMatches = pattern.test(lastSegment(pathname));
+  const segment = lastSegment(pathname);
+  // A path segment that carries the site's own name next to a policy word names a product
+  // of that brand (/woocommerce-shipping/), not the shipping policy.
+  const pathMatches =
+    pattern.test(segment) &&
+    !(
+      brand !== undefined &&
+      segment
+        .toLowerCase()
+        .split(/[-_.]+/)
+        .includes(brand)
+    );
   if (!labelMatches && !pathMatches) return 0;
   let score = 0;
   if (labelMatches) {

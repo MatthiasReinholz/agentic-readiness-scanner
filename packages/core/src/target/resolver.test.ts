@@ -352,7 +352,7 @@ describe('policy links: brand names and help centres elsewhere', () => {
       shipping: 'https://woocommerce.com/shipping-policy/',
     });
     const only = new HtmlDocument(
-      '<footer><a href="/woocommerce-shipping/">WooCommerce Shipping</a></footer>',
+      '<footer><a href="/woocommerce-shipping/">WooCommerce Shipping</a><a href="/woocommerce-shipping/"><img alt=""></a></footer>',
     );
     expect(findPolicyLinks(only, 'https://woocommerce.com')).toEqual({});
   });
