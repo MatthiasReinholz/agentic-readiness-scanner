@@ -100,7 +100,7 @@
     "group": "A4",
     "title": "WebMCP tool declarations",
     "question": "Does the site declare in-page tools for browser agents?",
-    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; a plain pass when not, because the API is a Chrome origin trial and a W3C community draft with no shipping consumer. Reported, never scored.",
+    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; not applicable when the page declares none. The API is a W3C community draft with origin trials in Chrome and Edge and one shipping consumer (ChatGPT's site tools in its desktop browser); no shopping agent documents calling it on arbitrary stores, so this is reported and never scored.",
     "weight": "info",
     "spec": [
       {

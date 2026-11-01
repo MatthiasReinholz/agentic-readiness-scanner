@@ -6,10 +6,12 @@ import {
   type SampledPages,
 } from '@agentic-readiness/catalog';
 
+import { botManagementVendor, isChallengePage, REFUSAL_STATUSES } from '../http/bot-management.js';
 import { isRobotsAware } from '../http/robots-gate.js';
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument, type Anchor } from '../parsers/html.js';
+import { extractJsonLd, hasType } from '../parsers/jsonld.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
 import {
   looksLikeProductSitemap,
@@ -18,7 +20,12 @@ import {
   type SitemapEntry,
 } from '../parsers/sitemap.js';
 import { sample } from './sampling.js';
-import { LASTMOD_SAMPLE_LIMIT, type SitemapSummary, type Target } from './types.js';
+import {
+  LASTMOD_SAMPLE_LIMIT,
+  type HomeBlocked,
+  type SitemapSummary,
+  type Target,
+} from './types.js';
 
 export interface ResolveOptions {
   /** Profile id override; detected otherwise. */
@@ -41,17 +48,84 @@ export class TargetUnreachableError extends Error {
 
 const SITEMAP_CANDIDATES = ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml'];
 
+/**
+ * Policy keywords as whole words (hyphen and slash count as boundaries), with the compound
+ * forms the languages use, so "Versandkosten" matches and "Versandlager" (a warehouse) or
+ * "resources" (not the Italian "reso") do not.
+ */
 const POLICY_PATTERNS: Record<PolicyKind, RegExp> = {
-  returns: /\b(returns?|refunds?|widerruf|rückgabe|retour|reso|devoluci)/i,
-  shipping: /\b(shipping|delivery|versand|lieferung|livraison|spedizion|envío)/i,
-  privacy: /\b(privacy|datenschutz|confidentialit|privacidad)/i,
-  terms: /\b(terms|agb|conditions|condizioni|términos|geschäftsbedingungen)/i,
-  imprint: /\b(imprint|impressum|legal notice|mentions légales|aviso legal)/i,
-  contact: /\b(contact|kontakt|contatt|contacto)/i,
+  returns:
+    /\b(returns?|refunds?|exchanges?|withdrawal|widerruf(?:srecht|sbelehrung|sformular)?|rückgabe(?:recht)?|rücksendung(?:en)?|retouren?|retours?|resi|reso|rimbors[io]|devoluci(?:ó|o)n(?:es)?|reembolsos?)\b/i,
+  shipping:
+    /\b(shipping|deliver(?:y|ies)|versand(?:kosten|informationen|info|bedingungen|arten|zeiten|optionen|hinweise)?|lieferung(?:en)?|lieferzeit(?:en)?|lieferbedingungen|livraisons?|exp(?:é|e)dition|spedizion[ei]|consegn[ae]|env(?:í|i)os?|entregas?)\b/i,
+  privacy:
+    /\b(privacy|datenschutz(?:erkl(?:ä|a)rung|hinweise?|richtlinie|bestimmungen)?|confidentialit(?:é|e)|privacidad|riservatezza)\b/i,
+  terms:
+    /\b(terms|agb|conditions|condizioni|t(?:é|e)rminos|geschäftsbedingungen|nutzungsbedingungen|cgv|t&cs?)\b/i,
+  imprint: /\b(imprint|impressum|legal notice|mentions l(?:é|e)gales|aviso legal|note legali)\b/i,
+  contact:
+    /\b(contacts?|contactez|kontakt|contatt[io]|contacto|support|help|hilfe|aide|ayuda|customer service|kundenservice|kundendienst|service client|servizio clienti|atenci(?:ó|o)n al cliente)\b/i,
 };
 
-const LISTING_PATTERN =
-  /\/(shop|store|products|collections|product-category|kategorie|categorie)\/?/i;
+/** Path segments that name a listing (collection, category or shop index). */
+const LISTING_SEGMENT =
+  /^(shop|store|collections?|collection|product-category|category|categories|cat|c|kategorie|kategorien|categorie|categoria|categorias|catalog|catalogue)$/i;
+
+/** True when the path has a listing segment: /collections/socks, /shop/, /c/shoes. */
+export function isListingPath(pathname: string): boolean {
+  return pathname.split('/').some((segment) => LISTING_SEGMENT.test(segment));
+}
+
+/** Kept for callers that tested the old pattern; same semantics as isListingPath on a path. */
+const LISTING_PATTERN = {
+  test: (pathname: string): boolean => isListingPath(pathname),
+};
+
+/**
+ * Picks the listing page to sample: a URL with a listing segment that is not a product
+ * page, preferring one that names a concrete collection or category (two segments:
+ * /collections/socks) over a bare index (/shop/), and the most-linked one among those.
+ */
+export function chooseListing(urls: readonly string[]): string | undefined {
+  const counts = new Map<string, { url: string; depth: number; count: number }>();
+  for (const href of urls) {
+    let pathname: string;
+    try {
+      pathname = new URL(href).pathname;
+    } catch {
+      continue;
+    }
+    if (!isListingPath(pathname) || looksLikeProductUrl(href)) continue;
+    const segments = pathname.split('/').filter(Boolean);
+    const index = segments.findIndex((segment) => LISTING_SEGMENT.test(segment));
+    const depth = segments.length - index;
+    const entry = counts.get(href) ?? { url: href, depth, count: 0 };
+    entry.count += 1;
+    counts.set(href, entry);
+  }
+  const ranked = [...counts.values()].sort((a, b) => {
+    const concrete = Number(b.depth >= 2) - Number(a.depth >= 2);
+    if (concrete !== 0) return concrete;
+    return b.count - a.count;
+  });
+  return ranked[0]?.url;
+}
+
+/**
+ * Signs that a page sells something, in the languages the policy patterns cover: an
+ * add-to-cart phrase or a cart path in the HTML, or Product, Offer or ItemList JSON-LD.
+ */
+const STORE_TEXT_SIGNAL =
+  /add[-_ ]?to[-_ ]?(?:cart|bag|basket)|in den (?:warenkorb|einkaufswagen)|ajouter au panier|aggiungi al carrello|a(?:ñ|n)adir al carrito|in winkelwagen|do koszyka|lägg i (?:varukorg|kundvagn)|læg i kurv|legg i handlekurv|lisää ostoskoriin|в корзину|カートに入れる|加入购物车|加入購物車|장바구니/i;
+const STORE_PATH_SIGNAL =
+  /["'(]\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(?:carts?|checkouts?|warenkorb|einkaufswagen|kasse|panier|commande|carrello|cassa|carrito|caja|basket|bag|winkelwagen|koszyk|varukorg|kundvagn|kurv|handlekurv|ostoskori)(?:[/?"')]|$)/i;
+
+export function hasStoreSignals(doc: HtmlDocument, body: string): boolean {
+  if (STORE_TEXT_SIGNAL.test(body) || STORE_PATH_SIGNAL.test(body)) return true;
+  return extractJsonLd(doc).nodes.some((node) =>
+    hasType(node, 'Product', 'ProductGroup', 'Offer', 'AggregateOffer', 'ItemList', 'OnlineStore'),
+  );
+}
 
 /**
  * Paths that belong to a signed-in or transactional area. A link there may carry the word
@@ -160,12 +234,31 @@ export function policyLinkScore(anchor: Anchor, pathname: string, kind: PolicyKi
  * kept as a fallback because an agent would follow it too. Product pages, listings and
  * account areas are never policy pages, whatever their label says.
  */
+export type RankedPolicyLinks = Partial<Record<PolicyKind, { url: string; score: number }>>;
+
 export function findPolicyLinks(
   doc: HtmlDocument,
   origin: string,
   base: string = origin,
 ): Partial<Record<PolicyKind, string>> {
-  type Best = Partial<Record<PolicyKind, { url: string; score: number }>>;
+  const ranked = rankPolicyLinks(doc, origin, base);
+  const result: Partial<Record<PolicyKind, string>> = {};
+  for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
+    const best = ranked[kind];
+    if (best) result[kind] = best.url;
+  }
+  return result;
+}
+
+/** Score 4 and above means the link's label names the policy; below it only the path did. */
+export const LABELLED_POLICY_SCORE = 4;
+
+export function rankPolicyLinks(
+  doc: HtmlDocument,
+  origin: string,
+  base: string = origin,
+): RankedPolicyLinks {
+  type Best = RankedPolicyLinks;
   const sameOrigin: Best = {};
   const crossOrigin: Best = {};
   for (const anchor of doc.anchors()) {
@@ -181,10 +274,10 @@ export function findPolicyLinks(
       if (!current || score > current.score) bucket[kind] = { url: url.href, score };
     }
   }
-  const result: Partial<Record<PolicyKind, string>> = {};
+  const result: Best = {};
   for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
     const best = sameOrigin[kind] ?? crossOrigin[kind];
-    if (best) result[kind] = best.url;
+    if (best) result[kind] = best;
   }
   return result;
 }
@@ -205,9 +298,11 @@ export async function addShopifyPolicyPages(
   policies: Partial<Record<PolicyKind, string>>,
   origin: string,
   fetcher: Fetcher,
+  /** Kinds whose current pick was matched by path only; the platform's own page is more likely right. */
+  weak: ReadonlySet<PolicyKind> = new Set(),
 ): Promise<void> {
   for (const [kind, path] of Object.entries(SHOPIFY_POLICY_PATHS) as [PolicyKind, string][]) {
-    if (policies[kind]) continue;
+    if (policies[kind] && !weak.has(kind)) continue;
     const response = await fetcher.fetch(origin + path);
     if (response.status === 200 && !/<title>[^<]*password/i.test(response.body.slice(0, 2000))) {
       policies[kind] = origin + path;
@@ -288,16 +383,32 @@ async function discoverSitemap(
         if (!childUrl) continue;
         fetches += 1;
         const childResponse = await fetcher.fetch(childUrl);
-        if (childResponse.status !== 200) continue;
+        if (childResponse.status !== 200) {
+          warnings.push(`child sitemap ${childUrl} answered HTTP ${childResponse.status}`);
+          continue;
+        }
         const childParsed = parseSitemap(childResponse.body);
-        if (childParsed.kind !== 'urlset') continue;
+        if (childParsed.kind !== 'urlset') {
+          // Silent drops hid gzip files and 2 MB cut-offs from every report.
+          const why =
+            childParsed.kind === 'invalid'
+              ? childResponse.truncated
+                ? 'larger than the 2 MB the scanner reads, so the XML was cut off'
+                : (childParsed.error ?? 'not valid sitemap XML')
+              : 'a nested sitemap index';
+          warnings.push(`child sitemap ${childUrl} could not be read: ${why}`);
+          continue;
+        }
         summary.fetchedSitemaps.push(childUrl);
         const childEntries = sameOrigin(childParsed.entries);
         recordLastmods(childEntries);
         const childUrls = childEntries.map((entry) => entry.loc);
         summary.urls.push(...childUrls);
         if (looksLikeProductSitemap(childUrl)) {
-          summary.productUrls.push(...childUrls);
+          // Shopify lists the store root first in its product sitemap; the root is not a product.
+          summary.productUrls.push(
+            ...childUrls.filter((childUrl) => new URL(childUrl).pathname !== '/'),
+          );
         } else {
           summary.productUrls.push(...childUrls.filter(looksLikeProductUrl));
         }
@@ -348,13 +459,28 @@ export async function resolveTarget(
   if (home.status === 0) {
     throw new TargetUnreachableError(input.href, home.error ?? 'no response');
   }
-  if (home.status >= 400) {
+  // A refusal (403, 429, a challenge page) is a finding, not an error: the site is up and
+  // turns unverified clients away, which is what A2.4 reports. Anything else above 400
+  // (404, 410, 5xx) means there is no site to scan at this address.
+  const blocked: HomeBlocked | undefined = REFUSAL_STATUSES.has(home.status)
+    ? {
+        status: home.status,
+        vendor: botManagementVendor(home),
+        challenge: isChallengePage(home),
+      }
+    : undefined;
+  if (home.status >= 400 && !blocked) {
     throw new TargetUnreachableError(input.href, `HTTP ${home.status}`);
   }
   const origin = new URL(home.finalUrl).origin;
   const hostname = new URL(origin).hostname;
-  const homeDoc = new HtmlDocument(home.body);
-  const platform = detectPlatform(homeDoc, home);
+  const homeDoc = new HtmlDocument(blocked ? '' : home.body);
+  const platform = blocked ? 'unknown' : detectPlatform(homeDoc, home);
+  if (blocked) {
+    warnings.push(
+      `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}); platform, profile and product pages could not be determined and most checks were not evaluated`,
+    );
+  }
 
   const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
   const robotsLooksLikeText =
@@ -384,14 +510,26 @@ export async function resolveTarget(
       'no product URLs found in sitemap or homepage links; product checks will not apply',
     );
   }
-  const listing = anchorUrls.find((url) => LISTING_PATTERN.test(new URL(url).pathname));
+  const listing = chooseListing(anchorUrls);
+  const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
   const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
-  if (platform === 'shopify') await addShopifyPolicyPages(policies, origin, fetcher);
+  if (platform === 'shopify') {
+    const weak = new Set(
+      (Object.keys(ranked) as PolicyKind[]).filter(
+        (kind) => (ranked[kind]?.score ?? 0) < LABELLED_POLICY_SCORE,
+      ),
+    );
+    await addShopifyPolicyPages(policies, origin, fetcher, weak);
+  }
 
+  // A refused home page says nothing about what the site sells; without an override the
+  // scan assumes a store so the commerce dimension is reported as not evaluated rather
+  // than as not applicable.
   const storeSignals =
+    blocked !== undefined ||
     products.length > 0 ||
     listing !== undefined ||
-    /add[-_ ]to[-_ ]cart|\/cart\b|\/checkout\b/i.test(home.body);
+    hasStoreSignals(homeDoc, home.body);
   const profile = selectProfile(platform, storeSignals, options.profile);
 
   const sampled: SampledPages = {
@@ -414,5 +552,6 @@ export async function resolveTarget(
     sitemap,
     sampled,
     warnings,
+    ...(blocked ? { blocked } : {}),
   };
 }

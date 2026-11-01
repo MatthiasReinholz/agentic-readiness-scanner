@@ -4,7 +4,7 @@
     "group": "B4",
     "title": "Return policy page found",
     "question": "Can an agent find and read the return policy?",
-    "method": "Follow home-page links whose text or URL matches return, refund, Widerruf, retour or similar, or MerchantReturnPolicy.merchantReturnLink. Pass when the page is fetchable and carries more than 100 words of text; warn when it is shorter; fail when none is found. Every checkout programme (Google Merchant Center and UCP, the OpenAI feed, Stripe, Shopify channels) asks for a return policy URL.",
+    "method": "Follow the home-page link whose label or path names returns, refunds, exchanges, withdrawal, Widerruf, Rückgabe, retour, reso or their equivalents, as whole words. A label made of policy words outranks a product name that carries the word, a footer link outranks a body link, and product, listing and account URLs are never chosen; on Shopify the platform's own policy page replaces a pick matched by path alone. Fail when the linked page is a product page rather than a policy, when it is not fetchable or when no link is found; warn when it carries 100 words or fewer; pass otherwise. Every checkout programme (Google Merchant Center and UCP, the OpenAI feed, Stripe, Shopify channels) asks for a return policy URL.",
     "weight": 3,
     "spec": [
       {
@@ -22,7 +22,7 @@
     "group": "B4",
     "title": "Shipping policy page found",
     "question": "Can an agent find shipping costs, regions and delivery times?",
-    "method": "Same link heuristics for shipping, delivery, Versand, livraison. Pass when the page is fetchable and mentions regions, costs or delivery times.",
+    "method": "The same link heuristics for shipping, delivery, Versand, Lieferung, livraison, spedizione, envío and their compounds (Versandkosten counts, Versandlager does not). Fail when the linked page is a product page or not fetchable; warn when it does not mention regions, costs or delivery times; pass otherwise.",
     "weight": 3,
     "spec": [
       {
@@ -36,7 +36,7 @@
     "group": "B4",
     "title": "Privacy policy and terms found",
     "question": "Are the privacy policy and terms of service linked and fetchable?",
-    "method": "Look for the WordPress privacy page link, link text matching privacy, Datenschutz, terms, AGB, conditions. Pass when both pages are fetchable.",
+    "method": "Look for link labels or paths matching privacy, Datenschutz, terms, AGB, conditions, T&Cs and their equivalents, ranked the same way, so that Terms of Service outranks Promo T&Cs. Pass when both pages answer 200; warn when one does; fail when neither does. When a page was linked but could not be read, the message names the link and the response.",
     "weight": 3,
     "spec": [
       {
@@ -64,7 +64,7 @@
     "group": "B4",
     "title": "Contact channel",
     "question": "Can an agent or its user find a way to contact the merchant?",
-    "method": "Pass when the home page links a mailto: address, a tel: number, or a same-origin contact or support page; warn when only a cross-origin contact link exists; fail when none. Google Merchant Center requires a contact method on the site, and UCP onboarding asks for at least one.",
+    "method": "Pass when the home page links a mailto: address, a tel: number, or a same-origin contact, support, help or customer-service page (the words must stand alone in a short label or in the last path segment, and product or listing pages never count); warn when only a cross-origin contact link exists; fail when none. The message names a page. Google Merchant Center requires a contact method on the site, and UCP onboarding asks for at least one.",
     "weight": 2,
     "spec": [
       {
@@ -96,7 +96,7 @@
     "group": "B4",
     "title": "security.txt",
     "question": "Does the site publish a security contact?",
-    "method": "Informational. GET /.well-known/security.txt. Pass on a text document with Contact: and Expires: fields whose Expires date is in the future; warn when a field is missing or expired; fail when absent. Operational maturity, not agent readiness: reported, never scored.",
+    "method": "Informational. GET /.well-known/security.txt. Pass on a text document with Contact: and Expires: fields whose Expires date is in the future; warn when a field is missing or expired; not applicable when absent. Operational maturity, not agent readiness: reported, never scored.",
     "weight": "info",
     "spec": [
       {

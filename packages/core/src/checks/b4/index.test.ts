@@ -266,7 +266,7 @@ describe('B4.5 contact channel', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('home page links 1 mailto: address(es)');
+    expect(outcome.message).toBe('the home page links 1 mailto: address(es)');
     expect(outcome.evidence).toEqual({
       mailto: ['hello@shop.example'],
       tel: [],
@@ -296,7 +296,7 @@ describe('B4.5 contact channel', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('home page links 2 contact page(s)');
+    expect(outcome.message).toMatch(/^the home page links 2 contact page\(s\) such as \//);
     expect(outcome.evidence).toMatchObject({
       contact_pages: ['https://shop.example/about-us/', 'https://shop.example/support/'],
     });

@@ -87,8 +87,8 @@
     "group": "A3",
     "title": "Accessible main content",
     "question": "Is the product content inside a main landmark and not hidden behind an overlay in the HTML?",
-    "method": "Pass when a main or article landmark wraps the product content; warn when a consent overlay appears to wrap or precede it in the DOM.",
-    "weight": 1,
+    "method": "Informational. Pass when a main or article landmark wraps the product content; warn when a cookie or consent banner precedes it in the DOM, naming the element (a cart drawer or a closed modal does not count). No answer engine documents depending on landmarks, so this is reported and never scored.",
+    "weight": "info",
     "spec": [
       {
         "title": "WAI-ARIA 1.2: landmark roles",

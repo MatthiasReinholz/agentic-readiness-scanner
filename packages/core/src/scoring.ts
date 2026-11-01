@@ -116,10 +116,13 @@ export function computeLevel(
     return { value: 0, name: 'Not reachable', next_gate: [] };
   }
   const next = levels.find((level) => level.value === reached.value + 1);
+  // Alternatives outside the profile (a WooCommerce-only check on a Shopify store) are
+  // not something the owner can act on, so the gate lists only the ones that apply.
   const nextGate = next
     ? next.gates
         .filter((gate) => !gateSatisfied(gate, byId, inProfile))
         .flatMap((gate) => [...gate])
+        .filter((id) => (inProfile ? inProfile.has(id) : true))
     : [];
   return { value: reached.value, name: reached.name, next_gate: [...new Set(nextGate)] };
 }

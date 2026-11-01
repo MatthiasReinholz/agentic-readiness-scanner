@@ -1,4 +1,10 @@
 import type { FetchedResponse } from '../../http/types.js';
+import {
+  botManagementVendor,
+  describeRefusal,
+  isChallengePage,
+  REFUSAL_STATUSES,
+} from '../../http/bot-management.js';
 import { extractJsonLd } from '../../parsers/jsonld.js';
 import { elementText } from '../../parsers/html.js';
 import { mediaTypeOf, parseLinkHeader } from '../../parsers/link-header.js';
@@ -261,11 +267,6 @@ export function blockedSearchCrawlers(robots: RobotsTxt, path: string): string[]
 
 export type { CheckOutcome };
 
-/** Status codes that refuse a polite client outright. */
-const REFUSAL_STATUSES = new Set([402, 403, 429, 451]);
-/** Page titles and phrases that bot-management products put on challenge and denial pages. */
-const CHALLENGE_PAGE =
-  /just a moment|attention required|access denied|verify you are human|checking your browser|enable javascript and cookies to continue|请稍候|pardon our interruption|request unsuccessful|incapsula incident|perimeterx|datadome|are you a robot/i;
 /** Redirect targets that stand in for the content: consent, region and geo interstitials. */
 const INTERSTITIAL_PATH =
   /consent|gdpr|cookie|privacy-choices|choose-(country|region|location)|geo|region-select|unsupported|not-available/i;
@@ -275,26 +276,21 @@ interface FetchVerdict {
   final_url: string;
   outcome: 'ok' | 'refused' | 'challenged' | 'interstitial' | 'not_fetched';
   detail: string | null;
+  /** The bot-management product the response names, when recognisable. */
+  vendor: string | null;
 }
 
 function classifyResponse(response: FetchedResponse): FetchVerdict {
-  const base = { status: response.status, final_url: response.finalUrl };
+  const base = { status: response.status, final_url: response.finalUrl, vendor: null };
   if (response.status === 0) {
     return { ...base, outcome: 'not_fetched', detail: response.error ?? 'no response' };
   }
-  if ((response.headers['cf-mitigated'] ?? '').toLowerCase() === 'challenge') {
-    return { ...base, outcome: 'challenged', detail: 'cf-mitigated: challenge' };
+  const vendor = botManagementVendor(response);
+  if (isChallengePage(response)) {
+    return { ...base, vendor, outcome: 'challenged', detail: describeRefusal(response) };
   }
   if (REFUSAL_STATUSES.has(response.status)) {
-    return { ...base, outcome: 'refused', detail: `HTTP ${response.status}` };
-  }
-  const head = response.body.slice(0, 4000);
-  const title = /<title[^>]*>([^<]{0,200})/i.exec(head)?.[1]?.trim() ?? '';
-  if (
-    CHALLENGE_PAGE.test(title) ||
-    (response.status === 200 && CHALLENGE_PAGE.test(head) && response.bytes < 20_000)
-  ) {
-    return { ...base, outcome: 'challenged', detail: `challenge page (${title || 'no title'})` };
+    return { ...base, vendor, outcome: 'refused', detail: describeRefusal(response) };
   }
   if (response.redirects > 0) {
     try {
@@ -316,7 +312,8 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
 export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetcher }) => {
   // The pages an agent must reach to use the store at all: home, robots.txt and the
   // product pages. A refusal there is a block. The policy pages matter too, but one of them
-  // behind a login wall or a stricter rule does not make the store unreachable.
+  // behind a login wall or a stricter rule does not make the store unreachable; B4.6
+  // reports what that costs.
   const gate: FetchedResponse[] = [target.home, target.robotsResponse];
   for (const url of target.sampled.products) gate.push(await fetcher.fetch(url));
   const policy: FetchedResponse[] = [];
@@ -327,6 +324,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
   const refused: string[] = [];
   const challenged: string[] = [];
   const interstitial: string[] = [];
+  const notFetched: string[] = [];
   const policyUrls = new Set<string>();
   for (const [responses, isPolicy] of [
     [gate, false],
@@ -339,11 +337,13 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
       if (verdict.outcome === 'refused') refused.push(response.url);
       if (verdict.outcome === 'challenged') challenged.push(response.url);
       if (verdict.outcome === 'interstitial') interstitial.push(response.url);
+      if (verdict.outcome === 'not_fetched') notFetched.push(response.url);
     }
   }
   const blocked = [...challenged, ...refused];
   const blockedGate = blocked.filter((url) => !policyUrls.has(url));
   const blockedPolicy = blocked.filter((url) => policyUrls.has(url));
+  const answered = Object.keys(pages).length - notFetched.length;
   const evidence = {
     user_agent:
       'the scanner identifies itself as AgenticReadinessScanner with a documentation URL and never impersonates another agent',
@@ -351,39 +351,61 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     refused,
     challenged,
     interstitial,
+    not_fetched: notFetched,
     blocked_policy_pages: blockedPolicy,
   };
-  const note =
-    ' (verified crawlers fetching from published IP ranges or with signed requests may be treated differently)';
-  const statusesOf = (urls: string[]): string =>
-    [...new Set(urls.map((url) => pages[url]?.status))].join(', ');
+  const note = '; crawlers verified by published IP ranges or signed requests may be let through';
+  const describe = (urls: string[]): string =>
+    [...new Set(urls.map((url) => pages[url]?.detail).filter(Boolean))].join(', ');
+  const what = [
+    'the home page',
+    'robots.txt',
+    ...(target.sampled.products.length > 0
+      ? [`${target.sampled.products.length} product page(s)`]
+      : []),
+  ].join(', ');
+  const unfetched =
+    notFetched.length > 0
+      ? `; ${notFetched.length} page(s) could not be fetched (${describe(notFetched)})`
+      : '';
   if (blockedGate.length > 0) {
     const gateChallenged = blockedGate.filter((url) => challenged.includes(url));
+    const roles: string[] = [];
+    if (blockedGate.includes(target.home.url)) roles.push('the home page');
+    if (blockedGate.includes(target.robotsResponse.url)) roles.push('robots.txt');
+    const products = blockedGate.filter(
+      (url) => url !== target.home.url && url !== target.robotsResponse.url,
+    ).length;
+    if (products > 0) roles.push(`${products} product page(s)`);
+    const where = roles.join(' and ');
     if (gateChallenged.length > 0) {
       return fail(
-        `${gateChallenged.length} page(s) answered with a bot-management challenge${note}`,
+        `${where} answered an honestly identified client with ${describe(gateChallenged)}; the store is unreachable for any agent that is not on an allow list${note}`,
         evidence,
       );
     }
     return fail(
-      `${blockedGate.length} page(s) refused an honestly identified client (HTTP ${statusesOf(blockedGate)})${note}`,
+      `${where} refused an honestly identified client (${describe(blockedGate)}); the store is unreachable for any agent that is not on an allow list${note}`,
+      evidence,
+    );
+  }
+  if (notFetched.length > 0 && answered === 0) {
+    return skip('error', `no page could be fetched (${describe(notFetched)})`, evidence);
+  }
+  if (interstitial.length > 0) {
+    return warn(
+      `${interstitial.length} page(s) redirected to a consent or region interstitial instead of their content${unfetched}`,
       evidence,
     );
   }
   if (blockedPolicy.length > 0) {
-    return warn(
-      `the home page and product pages answered, but ${blockedPolicy.length} policy page(s) refused or challenged an honestly identified client (HTTP ${statusesOf(blockedPolicy)}); an agent cannot read them before buying${note}`,
-      evidence,
-    );
-  }
-  if (interstitial.length > 0) {
-    return warn(
-      `${interstitial.length} page(s) redirected to a consent or region interstitial instead of their content`,
+    return pass(
+      `no block or challenge on ${what}; ${blockedPolicy.length} policy page(s) refused the scanner (${describe(blockedPolicy)}), which B4.6 reports${unfetched}`,
       evidence,
     );
   }
   return pass(
-    `${gate.length + policy.length} pages fetched without a block, challenge or interstitial`,
+    `no block, challenge or interstitial on ${what} and ${policy.length} policy page(s)${unfetched}`,
     evidence,
   );
 });
@@ -519,7 +541,8 @@ const BLOCKED_ASSET_SAMPLE = 10;
  * checkout preload script on every product page under /checkouts/). A product page
  * renders without them, so they are recorded, not judged.
  */
-const TRANSACTIONAL_ASSET = /\/(checkouts?|cart|accounts?|admin|orders)(\/|$)/i;
+const TRANSACTIONAL_ASSET =
+  /\/(checkouts?|carts?|shoppingcart|basket|bag|accounts?|admin|orders?|warenkorb|kasse|panier)(\/|$)/i;
 
 export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fetcher }) => {
   const sampled = await productPages(target, fetcher);

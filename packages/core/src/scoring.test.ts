@@ -1,5 +1,5 @@
 import type { CheckResult } from '@agentic-readiness/catalog';
-import { catalog, getProfile, type Profile } from '@agentic-readiness/catalog';
+import { catalog, checksForProfile, getProfile, type Profile } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
 import { computeLevel, computeScores, scoreDimension, scoreGroup } from './scoring.js';
@@ -152,5 +152,31 @@ describe('computeScores', () => {
       ingestion: 100,
       commerce: null,
     });
+  });
+});
+
+describe('next_gate and profiles', () => {
+  it('lists only gate alternatives the profile includes', () => {
+    const profile = getProfile('other-store');
+    if (!profile) throw new Error('profile missing');
+    const ids = new Set(checksForProfile(profile).map((check) => check.id));
+    const results: CheckResult[] = catalog.checks.map((check) => ({
+      id: check.id,
+      group: check.group,
+      title: check.title,
+      weight: check.weight,
+      verdict: !ids.has(check.id)
+        ? 'skip'
+        : ['A1.3', 'B1.5', 'B1.8'].includes(check.id)
+          ? 'fail'
+          : 'pass',
+      applies: ids.has(check.id),
+      ...(ids.has(check.id) ? {} : { skip_reason: 'not_applicable' as const }),
+      evidence: {},
+    }));
+    const level = computeLevel(results, catalog, profile);
+    expect(level.value).toBe(1);
+    expect(level.next_gate).toEqual(['A1.3', 'B1.8', 'B1.5']);
+    expect(level.next_gate).not.toContain('B1.2');
   });
 });

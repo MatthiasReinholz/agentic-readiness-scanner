@@ -122,11 +122,12 @@ export function parseSitemap(xml: string): ParsedSitemap {
  */
 const PRODUCT_SITEMAP_NAME_PATTERNS: readonly RegExp[] = [
   /^wp-sitemap-posts-product-\d+\.xml$/i,
-  /^(?:products?|produkte?|produits?|productos?)[-_]?sitemap/i,
-  /^sitemap[-_]?(?:products?|produkte?|produits?|productos?)/i,
+  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)[-_]?(?:sitemap)?[-_.]/i,
+  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)[-_]?sitemap/i,
+  /^sitemap[-_]?(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)/i,
 ];
 const PRODUCT_URL_PATTERN =
-  /\/(product|products|produkt|produkte|produit|producto|item|p)\/[^/?#]+/i;
+  /\/(product|products|produkt|produkte|produit|produits|producto|productos|prodotto|prodotti|artikel|item|items|pd|pdp|dp|sku|goods|p)\/[^/?#]+/i;
 
 function fileNameOf(url: string): string {
   const withoutQuery = url.split(/[?#]/, 1)[0] ?? '';

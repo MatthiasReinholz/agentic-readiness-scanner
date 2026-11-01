@@ -4,7 +4,9 @@ import { asString, extractJsonLd, hasValue, organizationNodes } from '../../pars
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { SEARCH_CRAWLERS } from '../a2/index.js';
-import { looksLikeProductPage, pathOf } from '../shared.js';
+import { describeFailure, looksLikeProductPage, pathOf } from '../shared.js';
+import { looksLikeProductUrl } from '../../parsers/sitemap.js';
+import { isListingPath } from '../../target/resolver.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
 /**
@@ -87,18 +89,28 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
     terms: termsUrl ?? null,
   };
   let found = 0;
+  const problems: string[] = [];
   for (const [kind, url] of [
     ['privacy', privacyUrl],
     ['terms', termsUrl],
   ] as const) {
-    if (!url) continue;
+    if (!url) {
+      problems.push(`no ${kind === 'privacy' ? 'privacy policy' : 'terms'} link on the home page`);
+      continue;
+    }
     const response = await fetcher.fetch(url);
     evidence[`${kind}_status`] = response.status;
     if (response.status === 200) found += 1;
+    else
+      problems.push(
+        `the ${kind === 'privacy' ? 'privacy policy' : 'terms'} link ${url} answered ${describeFailure(response)}`,
+      );
   }
-  if (found === 2) return pass('privacy policy and terms pages found', evidence);
-  if (found === 1) return warn('only one of privacy policy and terms was found', evidence);
-  return fail('neither privacy policy nor terms page found', evidence);
+  const detail = problems.length > 0 ? ` (${problems.join('; ')})` : '';
+  if (found === 2) return pass('privacy policy and terms pages found and readable', evidence);
+  if (found === 1)
+    return warn(`only one of privacy policy and terms is readable${detail}`, evidence);
+  return fail(`neither privacy policy nor terms page is readable${detail}`, evidence);
 });
 
 /** Organization properties that say where the merchant is or how to reach it. */
@@ -225,8 +237,12 @@ export const merchantIdentity = defineCheck('B4.4', async ({ target, fetcher }) 
   return fail('no Organization JSON-LD and no imprint page with a postal address', evidence());
 });
 
-/** Link text or path that points at a contact form or help desk. Literal alternatives only. */
-const CONTACT_LINK = /contact|kontakt|contatt|contacto|support|help/i;
+/**
+ * Link text or path that points at a contact form or help desk, as whole words so that
+ * "high-support-sports-bras" or a "Help me choose" product guide do not count.
+ */
+const CONTACT_LINK =
+  /\b(contacts?|contact[- ]us|contactez|kontakt|contatt[io]|contacto|support|help|hilfe|aide|ayuda|customer[- ]service|kundenservice|kundendienst|service client|servizio clienti|faq)\b/i;
 
 export const contactChannel = defineCheck('B4.5', ({ target }) => {
   const mailto = new Set<string>();
@@ -254,7 +270,12 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
     url.hash = '';
     if (url.href === `${target.origin}/`) continue;
-    if (!CONTACT_LINK.test(`${anchor.text} ${url.pathname}`)) continue;
+    // Product and listing pages are never the contact channel, whatever their slug says.
+    if (looksLikeProductUrl(url.href) || isListingPath(url.pathname)) continue;
+    const label = anchor.text.split(/\s+/).filter(Boolean);
+    const labelMatches = CONTACT_LINK.test(anchor.text) && label.length <= 5;
+    const pathMatches = CONTACT_LINK.test(url.pathname.split('/').filter(Boolean).pop() ?? '');
+    if (!labelMatches && !pathMatches) continue;
     (url.origin === target.origin ? sameOrigin : crossOrigin).add(url.href);
   }
   // The resolver already picked a contact page from the same links; keep it in evidence.
@@ -269,14 +290,17 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     contact_pages: [...sameOrigin],
     cross_origin: [...crossOrigin],
   };
+  const first = (set: Set<string>): string => [...set][0] ?? '';
   const channels = [
     ...(mailto.size > 0 ? [`${mailto.size} mailto: address(es)`] : []),
     ...(tel.size > 0 ? [`${tel.size} tel: number(s)`] : []),
-    ...(sameOrigin.size > 0 ? [`${sameOrigin.size} contact page(s)`] : []),
+    ...(sameOrigin.size > 0
+      ? [`${sameOrigin.size} contact page(s) such as ${pathOf(first(sameOrigin))}`]
+      : []),
   ];
-  if (channels.length > 0) return pass(`home page links ${channels.join(', ')}`, evidence);
+  if (channels.length > 0) return pass(`the home page links ${channels.join(', ')}`, evidence);
   if (crossOrigin.size > 0) {
-    return warn(`only a contact link on another origin: ${[...crossOrigin][0] ?? ''}`, evidence);
+    return warn(`only a contact link on another origin: ${first(crossOrigin)}`, evidence);
   }
   return fail('no mailto:, tel: or contact page link on the home page', evidence);
 });
@@ -347,7 +371,7 @@ export const policyPagesAgentReadable = defineCheck(
         readable += 1;
         // Reachable for every fetcher, but kept out of the indexes that ground AI answers.
         if (noindex) limited.push(`${kind}: noindex`);
-      } else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
+      } else if (response.status !== 200) problems.push(`${kind}: ${describeFailure(response)}`);
       else if (words <= MIN_POLICY_WORDS) problems.push(`${kind}: ${words} words`);
       else problems.push(`${kind}: blocks ${blocked.join(', ')}`);
     }

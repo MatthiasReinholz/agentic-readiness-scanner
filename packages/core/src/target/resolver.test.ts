@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { HtmlDocument } from '../parsers/html.js';
 import type { FetchedResponse } from '../http/types.js';
 import { mapFetcher } from '../testing/index.js';
-import { detectPlatform, findPolicyLinks, policyLinkScore, resolveTarget } from './resolver.js';
+import {
+  chooseListing,
+  detectPlatform,
+  findPolicyLinks,
+  hasStoreSignals,
+  isListingPath,
+  policyLinkScore,
+  resolveTarget,
+} from './resolver.js';
 
 function response(body: string): FetchedResponse {
   return {
@@ -196,5 +204,91 @@ describe('findPolicyLinks ranking', () => {
     expect(policyLinkScore(anchor('Shipping'), '/pages/about', 'shipping')).toBe(4);
     expect(policyLinkScore(anchor('About us'), '/shipping/', 'shipping')).toBe(1);
     expect(policyLinkScore(anchor('About us'), '/about/', 'shipping')).toBe(0);
+  });
+});
+
+describe('resolveTarget on a refused home page', () => {
+  const pages = (status: number, headers: Record<string, string>, body: string) => ({
+    budget: 40,
+    requestCount: 0,
+    fetch: (url: string) =>
+      Promise.resolve({
+        url,
+        finalUrl: url,
+        status: url.endsWith('/robots.txt') ? 200 : status,
+        headers: url.endsWith('/robots.txt') ? {} : headers,
+        body: url.endsWith('/robots.txt') ? 'User-agent: *\nAllow: /\n' : body,
+        bytes: body.length,
+        truncated: false,
+        redirects: 0,
+        durationMs: 1,
+        fromCache: false,
+      }),
+  });
+
+  it('records the refusal and its vendor instead of throwing, and assumes a store', async () => {
+    const target = await resolveTarget(
+      'https://www.shop.example/',
+      pages(
+        403,
+        { server: 'AkamaiGHost' },
+        '<html><body>Access Denied Reference #18.1f6c.1</body></html>',
+      ),
+    );
+    expect(target.blocked).toEqual({ status: 403, vendor: 'Akamai', challenge: false });
+    expect(target.platform).toBe('unknown');
+    expect(target.profile.id).toBe('other-store');
+    expect(target.sampled.products).toEqual([]);
+    expect(target.warnings[0]).toMatch(
+      /home page refused the scanner's honest request \(HTTP 403, Akamai\)/,
+    );
+  });
+
+  it('recognises a challenge page served with 429', async () => {
+    const target = await resolveTarget(
+      'https://www.shop.example/',
+      pages(429, { 'x-vercel-mitigated': 'challenge' }, '<html><body>Verifying</body></html>'),
+    );
+    expect(target.blocked).toEqual({ status: 429, vendor: 'Vercel', challenge: true });
+  });
+
+  it('still throws when there is no site to scan', async () => {
+    await expect(
+      resolveTarget('https://www.shop.example/', pages(404, {}, 'nope')),
+    ).rejects.toThrow(/HTTP 404/);
+    await expect(
+      resolveTarget('https://www.shop.example/', pages(503, {}, 'down')),
+    ).rejects.toThrow(/HTTP 503/);
+  });
+});
+
+describe('store signals and listing choice', () => {
+  it('recognises a German store without platform markers or product URL patterns', () => {
+    const body =
+      '<html><body><a href="/de/yamaha_p_525.htm">Yamaha P-525</a><button>In den Warenkorb</button><a href="/de/warenkorb">Warenkorb</a></body></html>';
+    expect(hasStoreSignals(new HtmlDocument(body), body)).toBe(true);
+    const blog = '<html><body><article>Hello</article></body></html>';
+    expect(hasStoreSignals(new HtmlDocument(blog), blog)).toBe(false);
+    const jsonld =
+      '<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"X"}</script></head><body></body></html>';
+    expect(hasStoreSignals(new HtmlDocument(jsonld), jsonld)).toBe(true);
+  });
+
+  it('prefers a concrete collection over a product page or a bare shop index', () => {
+    expect(
+      chooseListing([
+        'https://shop.example/products/colour-me-merry',
+        'https://shop.example/collections/eyes',
+        'https://shop.example/collections/eyes',
+        'https://shop.example/collections/lips',
+        'https://shop.example/shop/',
+      ]),
+    ).toBe('https://shop.example/collections/eyes');
+    expect(chooseListing(['https://shop.example/products/a', 'https://shop.example/about'])).toBe(
+      undefined,
+    );
+    expect(chooseListing(['https://shop.example/shop/'])).toBe('https://shop.example/shop/');
+    expect(isListingPath('/us/en/cat/products-products/')).toBe(true);
+    expect(isListingPath('/products-feed.xml')).toBe(false);
   });
 });

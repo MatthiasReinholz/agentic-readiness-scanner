@@ -28,6 +28,15 @@ export interface SitemapSummary {
  * The resolved store: everything checks share. Built once by resolveTarget and passed
  * read-only to every check. Page bodies are not stored here; the fetcher caches them.
  */
+/** How the home page refused the scanner, when it did; the rest of the scan is then moot. */
+export interface HomeBlocked {
+  status: number;
+  /** The bot-management product the response names, when recognisable. */
+  vendor: string | null;
+  /** True when the response is a challenge page (JavaScript or CAPTCHA) rather than a plain refusal. */
+  challenge: boolean;
+}
+
 export interface Target {
   inputUrl: string;
   origin: string;
@@ -41,4 +50,10 @@ export interface Target {
   sitemap: SitemapSummary | null;
   sampled: SampledPages;
   warnings: string[];
+  /**
+   * Set when the home page answered 401, 402, 403, 406, 429 or 451 to the scanner's honest
+   * request: the site is up but refuses unverified clients. Checks that read the home page
+   * or sampled pages are skipped by the runner; A2.4 reports the refusal.
+   */
+  blocked?: HomeBlocked;
 }

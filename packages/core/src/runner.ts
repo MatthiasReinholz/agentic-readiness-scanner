@@ -55,6 +55,19 @@ function unmetRequirement(definition: CheckDefinition, target: Target): Requirem
   return null;
 }
 
+/** Checks that read only robots.txt, the sitemap or the refusal itself. */
+const RUNS_WHEN_HOME_BLOCKED: ReadonlySet<string> = new Set([
+  'A1.1',
+  'A1.2',
+  'A1.3',
+  'A1.7',
+  'A2.1',
+  'A2.2',
+  'A2.3',
+  'A2.4',
+  'A2.5',
+]);
+
 const UNMET_MESSAGES: Record<Requirement, string> = {
   woocommerce: 'requires WooCommerce, which was not detected',
   shopify: 'requires Shopify, which was not detected',
@@ -94,6 +107,18 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   let budgetExhausted = false;
 
   for (const definition of orderByDependencies(catalog.checks)) {
+    // A home page that refused the scanner leaves nothing to read: only robots.txt, the
+    // sitemap and the refusal itself can be judged. Everything else would report the
+    // absence of things the scanner never saw.
+    if (target.blocked && !RUNS_WHEN_HOME_BLOCKED.has(definition.id)) {
+      outcomes.set(definition.id, {
+        verdict: 'skip',
+        skipReason: 'dependency_failed',
+        message: `not evaluated: the home page refused the scanner (HTTP ${target.blocked.status}); see A2.4`,
+        evidence: { dependency: 'A2.4' },
+      });
+      continue;
+    }
     const unmet = applicable.has(definition.id) ? unmetRequirement(definition, target) : null;
     if (!applicable.has(definition.id) || unmet) {
       outcomes.set(definition.id, {

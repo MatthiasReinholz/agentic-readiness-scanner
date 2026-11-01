@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { defineCheck, fail, pass, skip, type Check } from './checks/types.js';
 import { BudgetExhaustedError } from './http/types.js';
+import { builtInChecks } from './checks/registry.js';
 import { runChecks } from './runner.js';
 import { defined, mapFetcher, targetFor } from './testing/index.js';
 
@@ -117,5 +118,19 @@ describe('runChecks', () => {
     expect(result('A1.1').fix).toBeDefined();
     expect(result('A1.2').fix).toBeUndefined();
     expect(outcomes.get('A1.2')?.verdict).toBe('pass');
+  });
+});
+
+describe('runChecks on a refused home page', () => {
+  it('evaluates only robots.txt, the sitemap and the refusal, and skips the rest', async () => {
+    const target = { ...targetFor(), blocked: { status: 403, vendor: 'Akamai', challenge: false } };
+    const { results } = await runChecks({ target, fetcher: mapFetcher({}), checks: builtInChecks });
+    const byId = new Map(results.map((r) => [r.id, r]));
+    expect(byId.get('A1.1')?.skip_reason).not.toBe('dependency_failed');
+    const skipped = byId.get('B2.1');
+    expect(skipped?.verdict).toBe('skip');
+    expect(skipped?.skip_reason).toBe('dependency_failed');
+    expect(skipped?.message).toMatch(/home page refused the scanner \(HTTP 403\); see A2.4/);
+    expect(byId.get('A3.2')?.message).toMatch(/see A2.4/);
   });
 });
