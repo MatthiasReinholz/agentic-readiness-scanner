@@ -8,6 +8,8 @@ export interface SitemapEntry {
 
 export interface ParsedSitemap {
   kind: 'index' | 'urlset' | 'invalid';
+  /** True when the XML was cut off (a file larger than the scanner reads) and the complete entries before the cut were salvaged. */
+  partial?: boolean;
   /** Child sitemap URLs when kind is index. */
   sitemaps: string[];
   /** Page URLs when kind is urlset: the loc of every entry, for callers that need only URLs. */
@@ -75,18 +77,54 @@ export function isW3cDatetime(value: string): boolean {
   );
 }
 
+/**
+ * Salvages the complete <url> entries of a urlset whose XML was cut off: large platforms
+ * publish sitemaps of 50,000 entries that run past the 2 MB the scanner reads, and the
+ * entries before the cut are still what a crawler sees first.
+ */
+function salvageTruncatedUrlset(xml: string): ParsedSitemap | null {
+  if (!/<urlset[\s>]/i.test(xml.slice(0, 2000))) return null;
+  const entries: SitemapEntry[] = [];
+  for (const block of xml.matchAll(/<url>([\s\S]*?)<\/url>/gi)) {
+    const body = block[1] ?? '';
+    const loc = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(body)?.[1];
+    if (!loc) continue;
+    const lastmod = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/i.exec(body)?.[1];
+    entries.push(lastmod === undefined ? { loc } : { loc, lastmod });
+  }
+  if (entries.length === 0) return null;
+  return {
+    kind: 'urlset',
+    partial: true,
+    sitemaps: [],
+    urls: entries.map((entry) => entry.loc),
+    entries,
+  };
+}
+
+/** A urlset whose closing tag is missing was cut off, however leniently the parser read it. */
+function looksTruncated(xml: string): boolean {
+  return /<urlset[\s>]/i.test(xml.slice(0, 2000)) && !/<\/urlset>\s*$/i.test(xml.slice(-400));
+}
+
 export function parseSitemap(xml: string): ParsedSitemap {
+  if (looksTruncated(xml)) {
+    const salvaged = salvageTruncatedUrlset(xml);
+    if (salvaged) return salvaged;
+  }
   let document: unknown;
   try {
     document = parser.parse(xml);
   } catch (error) {
-    return {
-      kind: 'invalid',
-      sitemaps: [],
-      urls: [],
-      entries: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return (
+      salvageTruncatedUrlset(xml) ?? {
+        kind: 'invalid',
+        sitemaps: [],
+        urls: [],
+        entries: [],
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
   }
   if (!document || typeof document !== 'object') {
     return { kind: 'invalid', sitemaps: [], urls: [], entries: [], error: 'not an XML document' };

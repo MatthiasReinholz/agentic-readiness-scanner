@@ -6,6 +6,7 @@ import { mapFetcher } from '../testing/index.js';
 import {
   chooseListing,
   detectPlatform,
+  discoverProductsBySampling,
   findPolicyLinks,
   hasStoreSignals,
   isListingPath,
@@ -306,5 +307,38 @@ describe('isShopifyServed', () => {
       }),
     ).toBe(true);
     expect(isShopifyServed({ ...base, headers: { server: 'CloudFront' } })).toBe(false);
+  });
+});
+
+describe('discoverProductsBySampling', () => {
+  it('fetches a few linked pages and keeps the ones that are product pages', async () => {
+    const product =
+      '<html><body><h1>Yamaha P-525</h1><button class="add-to-cart">In den Warenkorb</button></body></html>';
+    const fetcher = mapFetcher({
+      'https://shop.example/de/yamaha_p_525.htm': product,
+      'https://shop.example/de/focusrite_2i2.htm': product,
+      'https://shop.example/de/helpdesk_shipping.html': '<html><body>Versandkosten</body></html>',
+    });
+    const warnings: string[] = [];
+    const found = await discoverProductsBySampling(
+      [
+        'https://shop.example/',
+        'https://shop.example/de/helpdesk_shipping.html',
+        'https://shop.example/de/compinfo_imprint.html',
+        'https://shop.example/de/yamaha_p_525.htm',
+        'https://shop.example/de/focusrite_2i2.htm',
+        'https://shop.example/blog/post/',
+      ],
+      'shop.example',
+      fetcher,
+      2,
+      warnings,
+    );
+    expect(found.sort()).toEqual([
+      'https://shop.example/de/focusrite_2i2.htm',
+      'https://shop.example/de/yamaha_p_525.htm',
+    ]);
+    expect(warnings[0]).toMatch(/2 product page\(s\) were found by fetching/);
+    expect(fetcher.requestCount).toBeLessThanOrEqual(4);
   });
 });

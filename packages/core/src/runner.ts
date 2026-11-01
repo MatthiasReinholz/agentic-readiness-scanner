@@ -55,18 +55,17 @@ function unmetRequirement(definition: CheckDefinition, target: Target): Requirem
   return null;
 }
 
-/** Checks that read only robots.txt, the sitemap or the refusal itself. */
-const RUNS_WHEN_HOME_BLOCKED: ReadonlySet<string> = new Set([
-  'A1.1',
-  'A1.2',
-  'A1.3',
-  'A1.7',
-  'A2.1',
-  'A2.2',
-  'A2.3',
-  'A2.4',
-  'A2.5',
-]);
+/** Checks that read only robots.txt (when it parsed), the sitemap (when one answered) or the refusal itself. */
+const ROBOTS_CHECKS: ReadonlySet<string> = new Set(['A2.1', 'A2.2', 'A2.3', 'A2.5']);
+const SITEMAP_CHECKS: ReadonlySet<string> = new Set(['A1.2', 'A1.3', 'A1.7']);
+
+function runsWhenHomeBlocked(id: string, target: Target): boolean {
+  if (id === 'A1.1' || id === 'A2.4') return true;
+  // "every crawler may read the page" would be false comfort when robots.txt was refused too.
+  if (ROBOTS_CHECKS.has(id)) return target.robots !== null;
+  if (SITEMAP_CHECKS.has(id)) return target.sitemap !== null;
+  return false;
+}
 
 const UNMET_MESSAGES: Record<Requirement, string> = {
   woocommerce: 'requires WooCommerce, which was not detected',
@@ -110,7 +109,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     // A home page that refused the scanner leaves nothing to read: only robots.txt, the
     // sitemap and the refusal itself can be judged. Everything else would report the
     // absence of things the scanner never saw.
-    if (target.blocked && !RUNS_WHEN_HOME_BLOCKED.has(definition.id)) {
+    if (target.blocked && !runsWhenHomeBlocked(definition.id, target)) {
       outcomes.set(definition.id, {
         verdict: 'skip',
         skipReason: 'dependency_failed',

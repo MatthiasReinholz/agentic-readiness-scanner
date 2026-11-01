@@ -235,7 +235,8 @@ export class BudgetedFetcher implements Fetcher {
   private readonly maxBodyBytes: number;
   private readonly maxRedirects: number;
   private readonly userAgent: string;
-  private readonly minIntervalMs: number;
+  /** Current politeness interval; starts at the option and grows after a 429 (see backOff). */
+  private intervalMs: number;
   private readonly cache = new Map<string, Promise<FetchedResponse>>();
   private readonly failed: FetchFailure[] = [];
   /** Requests run one at a time, so the pacing interval holds even for concurrent callers. */
@@ -250,11 +251,24 @@ export class BudgetedFetcher implements Fetcher {
     this.maxBodyBytes = options.maxBodyBytes ?? 2 * 1024 * 1024;
     this.maxRedirects = options.maxRedirects ?? 5;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
-    this.minIntervalMs = options.minIntervalMs ?? 150;
+    this.intervalMs = options.minIntervalMs ?? 150;
   }
 
   get requestCount(): number {
     return this.sent;
+  }
+
+  /** The politeness interval in force now; grows after the store answers 429. */
+  get currentIntervalMs(): number {
+    return this.intervalMs;
+  }
+
+  /**
+   * A 429 means the store wants fewer requests: the interval grows to a second, then to
+   * four, for the rest of the scan. Backing off is the honest answer to being told so.
+   */
+  private backOff(): void {
+    this.intervalMs = this.intervalMs < 1000 ? 1000 : Math.min(this.intervalMs * 4, 4000);
   }
 
   /** Requests that ended without a response after the retry, and every final 429. */
@@ -291,7 +305,7 @@ export class BudgetedFetcher implements Fetcher {
     if (this.sent >= this.budget) {
       throw new BudgetExhaustedError(this.budget);
     }
-    const wait = this.lastSentAt + this.minIntervalMs - Date.now();
+    const wait = this.lastSentAt + this.intervalMs - Date.now();
     if (wait > 0) await sleep(wait);
     this.sent += 1;
     this.lastSentAt = Date.now();
@@ -339,6 +353,7 @@ export class BudgetedFetcher implements Fetcher {
       }
 
       if (response.status === 429) {
+        this.backOff();
         const after = response.headers.get('retry-after');
         this.failed.push({
           url,

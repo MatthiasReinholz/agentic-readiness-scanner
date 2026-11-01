@@ -453,3 +453,20 @@ describe('charset handling', () => {
     expect(decoderFor(null).encoding).toBe('utf-8');
   });
 });
+
+describe('backing off after a 429', () => {
+  it('raises the politeness interval for the rest of the scan', async () => {
+    const fetcher = new BudgetedFetcher({
+      minIntervalMs: 0,
+      fetch: () =>
+        Promise.resolve(
+          new Response('slow down', { status: 429, headers: { 'retry-after': '0' } }),
+        ),
+    });
+    expect(fetcher.currentIntervalMs).toBe(0);
+    await fetcher.fetch('https://shop.example/a');
+    expect(fetcher.currentIntervalMs).toBe(1000);
+    await fetcher.fetch('https://shop.example/b');
+    expect(fetcher.currentIntervalMs).toBe(4000);
+  });
+});

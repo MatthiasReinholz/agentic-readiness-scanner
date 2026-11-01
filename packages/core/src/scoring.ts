@@ -100,6 +100,11 @@ export function computeLevel(
   profile?: Profile,
 ): LevelResult {
   const byId = new Map(results.map((result) => [result.id, result]));
+  const platformBound = new Set(
+    catalog.checks
+      .filter((check) => check.requires.some((req) => req === 'woocommerce' || req === 'shopify'))
+      .map((check) => check.id),
+  );
   const maxLevel = profile?.max_level ?? 5;
   const inProfile = profile
     ? new Set(checksForProfile(profile, catalog).map((definition) => definition.id))
@@ -123,6 +128,9 @@ export function computeLevel(
         .filter((gate) => !gateSatisfied(gate, byId, inProfile))
         .flatMap((gate) => [...gate])
         .filter((id) => (inProfile ? inProfile.has(id) : true))
+        // A platform the target does not run (a Shopify-only check on another platform) is
+        // not something the owner can act on either; a missing product sample is.
+        .filter((id) => !(platformBound.has(id) && byId.get(id)?.skip_reason === 'not_applicable'))
     : [];
   return { value: reached.value, name: reached.name, next_gate: [...new Set(nextGate)] };
 }

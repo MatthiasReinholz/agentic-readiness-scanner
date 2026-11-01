@@ -94,3 +94,25 @@ describe('product sitemap names from large platforms', () => {
     expect(looksLikeProductSitemap('https://a.example/production-notes.xml')).toBe(false);
   });
 });
+
+describe('truncated sitemaps', () => {
+  it('salvages the complete entries of a urlset cut off mid-file', () => {
+    const head =
+      '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    const entries = Array.from(
+      { length: 3 },
+      (_, i) =>
+        `<url><loc>https://a.example/p/${i}/</loc><lastmod>2026-10-0${i + 1}</lastmod></url>`,
+    ).join('');
+    const parsed = parseSitemap(`${head}${entries}<url><loc>https://a.example/p/cut`);
+    expect(parsed.kind).toBe('urlset');
+    expect(parsed.partial).toBe(true);
+    expect(parsed.urls).toEqual([
+      'https://a.example/p/0/',
+      'https://a.example/p/1/',
+      'https://a.example/p/2/',
+    ]);
+    expect(parsed.entries[0]).toEqual({ loc: 'https://a.example/p/0/', lastmod: '2026-10-01' });
+    expect(parseSitemap('<html>not a sitemap').kind).toBe('invalid');
+  });
+});

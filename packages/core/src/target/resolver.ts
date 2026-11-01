@@ -12,6 +12,7 @@ import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument, type Anchor } from '../parsers/html.js';
 import { extractJsonLd, hasType } from '../parsers/jsonld.js';
+import { looksLikeProductPage } from '../parsers/product-page.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
 import {
   looksLikeProductSitemap,
@@ -400,6 +401,11 @@ async function discoverSitemap(
           continue;
         }
         const childParsed = parseSitemap(childResponse.body);
+        if (childParsed.partial) {
+          warnings.push(
+            `child sitemap ${childUrl} is larger than the 2 MB the scanner reads; its first ${childParsed.entries.length} entries were used`,
+          );
+        }
         if (childParsed.kind !== 'urlset') {
           // Silent drops hid gzip files and 2 MB cut-offs from every report.
           const why =
@@ -430,6 +436,62 @@ async function discoverSitemap(
     return summary;
   }
   return null;
+}
+
+/** Paths that are never product pages, whatever the slug: content, help, legal, listings, assets. */
+const NON_PRODUCT_PATH =
+  /\/(blog|news|magazin|magazine|journal|stories|help|helpdesk|support|faq|faqs|info|compinfo|about|about-us|contact|kontakt|impressum|imprint|legal|privacy|terms|agb|cart|checkout|account|login|search|tag|tags|author|page|pages|policies|collections?|cat|category|categories|kategorie|kategorien|wp-content|wp-json|feed|sitemap|sitemaps|static|assets|media|images?|js|css)(\/|$|\.)/i;
+/** Linked pages fetched at most while looking for product pages without a URL pattern. */
+const PRODUCT_PROBE_LIMIT = 4;
+
+/**
+ * Finds product pages by content when no URL matched a product pattern: a deterministic
+ * sample of linked pages (home-page links first, then sitemap entries) is fetched and a
+ * page is kept when it carries Product JSON-LD or an add-to-cart control. Bounded by
+ * PRODUCT_PROBE_LIMIT requests; the fetcher caches the pages for the checks.
+ */
+export async function discoverProductsBySampling(
+  candidates: readonly string[],
+  hostname: string,
+  fetcher: Fetcher,
+  sampleSize: number,
+  warnings: string[],
+): Promise<string[]> {
+  const pool: string[] = [];
+  const seen = new Set<string>();
+  for (const href of candidates) {
+    let url: URL;
+    try {
+      url = new URL(href);
+    } catch {
+      continue;
+    }
+    const path = url.pathname;
+    if (path === '/' || seen.has(url.href)) continue;
+    if (NON_PRODUCT_PATH.test(path) || ACCOUNT_AREA_PATTERN.test(path) || isListingPath(path))
+      continue;
+    const deep = path.split('/').filter(Boolean).length >= 2 || /\.html?$/i.test(path);
+    if (!deep) continue;
+    seen.add(url.href);
+    pool.push(url.href);
+  }
+  const tried = sample(pool, hostname, PRODUCT_PROBE_LIMIT);
+  const found: string[] = [];
+  for (const url of tried) {
+    const response = await fetcher.fetch(url);
+    if (response.status === 200 && looksLikeProductPage(new HtmlDocument(response.body))) {
+      found.push(url);
+      if (found.length >= sampleSize) break;
+    }
+  }
+  if (tried.length > 0) {
+    warnings.push(
+      found.length > 0
+        ? `no URL matched a product URL pattern; ${found.length} product page(s) were found by fetching ${tried.length} linked page(s)`
+        : `no URL matched a product URL pattern and none of ${tried.length} sampled linked page(s) is a product page`,
+    );
+  }
+  return found;
 }
 
 export function selectProfile(
@@ -522,13 +584,28 @@ export async function resolveTarget(
     sitemap && sitemap.productUrls.length > 0
       ? sitemap.productUrls
       : anchorUrls.filter(looksLikeProductUrl);
-  const products = sample(productCandidates, hostname, sampleSize);
+  let products = sample(productCandidates, hostname, sampleSize);
+  const listing = chooseListing(anchorUrls);
+  if (
+    products.length === 0 &&
+    !blocked &&
+    (listing !== undefined || hasStoreSignals(homeDoc, home.body))
+  ) {
+    // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
+    // still a store; a few linked pages are fetched and kept when they are product pages.
+    products = await discoverProductsBySampling(
+      [...anchorUrls, ...(sitemap?.urls ?? [])],
+      hostname,
+      fetcher,
+      sampleSize,
+      warnings,
+    );
+  }
   if (products.length === 0) {
     warnings.push(
       'no product URLs found in sitemap or homepage links; product checks will not apply',
     );
   }
-  const listing = chooseListing(anchorUrls);
   const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
   const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
   if (platform === 'shopify') {
