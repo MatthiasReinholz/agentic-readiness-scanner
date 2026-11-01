@@ -9,7 +9,7 @@ import { builtInChecks } from './checks/registry.js';
 import type { Check } from './checks/types.js';
 import { BudgetedFetcher, type FetchLike } from './http/budgeted-fetcher.js';
 import { RobotsGatedFetcher } from './http/robots-gate.js';
-import type { Fetcher } from './http/types.js';
+import type { FetchFailure, Fetcher } from './http/types.js';
 import { runChecks } from './runner.js';
 import { computeLevel, computeScores } from './scoring.js';
 import { resolveTarget } from './target/resolver.js';
@@ -22,6 +22,8 @@ export interface ScanOptions {
   budget?: number;
   timeoutMs?: number;
   userAgent?: string;
+  /** Minimum time between two network requests; see BudgetedFetcherOptions. */
+  minIntervalMs?: number;
   /** Profile id override. */
   profile?: string;
   sampleSize?: number;
@@ -45,6 +47,7 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
       ...(options.budget !== undefined ? { budget: options.budget } : {}),
       ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),
       ...(options.userAgent !== undefined ? { userAgent: options.userAgent } : {}),
+      ...(options.minIntervalMs !== undefined ? { minIntervalMs: options.minIntervalMs } : {}),
     });
   // Every fetch after robots.txt is parsed honours the store's rules for the scanner.
   const fetcher = new RobotsGatedFetcher(inner);
@@ -82,9 +85,30 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
       ...target.warnings,
       ...(fetcher.blocked.length > 0
         ? [
-            `robots.txt disallows ${fetcher.blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${fetcher.blocked.slice(0, 5).join(', ')}${fetcher.blocked.length > 5 ? ', …' : ''}`,
+            `robots.txt disallows ${fetcher.blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${listSome(fetcher.blocked)}`,
           ]
         : []),
+      ...failureWarnings(fetcher.failures),
     ],
   };
+}
+
+function listSome(urls: readonly string[], limit = 5): string {
+  return `${urls.slice(0, limit).join(', ')}${urls.length > limit ? ', …' : ''}`;
+}
+
+/**
+ * One warning per request that did not succeed, and one summary when the store rate
+ * limited the scan, so a report never stays silent about verdicts taken from a 429 or
+ * from an empty response.
+ */
+function failureWarnings(failures: readonly FetchFailure[]): string[] {
+  const warnings = failures.map((failure) => `request failed: ${failure.url} (${failure.reason})`);
+  const rateLimited = [...new Set(failures.filter((f) => f.status === 429).map((f) => f.url))];
+  if (rateLimited.length > 0) {
+    warnings.push(
+      `the store answered 429 Too Many Requests on ${rateLimited.length} URL(s); verdicts for those pages reflect the rate limit, not the page: ${listSome(rateLimited)}`,
+    );
+  }
+  return warnings;
 }
