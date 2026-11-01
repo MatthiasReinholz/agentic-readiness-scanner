@@ -190,11 +190,21 @@ export const mpnWhenGtinAbsent = defineCheck('B3.4', async (context) => {
       `${counts.neither} of ${considered} product(s) without a GTIN carry neither mpn nor brand`,
       evidence,
     );
-  if (counts.one > 0)
+  if (counts.one > 0) {
+    const entries = Object.values(perPage).filter((page) => page.status === 'one');
+    const missingMpn = entries.filter((page) => page.mpn === null).length;
+    const missingBrand = entries.length - missingMpn;
+    const missing = [
+      missingMpn > 0 ? `${missingMpn} carry a brand but no mpn` : '',
+      missingBrand > 0 ? `${missingBrand} carry an mpn but no brand` : '',
+    ]
+      .filter(Boolean)
+      .join(' and ');
     return warn(
-      `${counts.one} of ${considered} product(s) without a GTIN carry only one of mpn and brand`,
+      `${counts.one} of ${considered} product(s) without a GTIN are only half identified: ${missing}`,
       evidence,
     );
+  }
   return pass(`all ${considered} product(s) without a GTIN carry mpn and brand`, evidence);
 });
 

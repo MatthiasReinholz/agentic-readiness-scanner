@@ -11,7 +11,7 @@ import {
   variantNodes,
   variantsOf,
 } from '../../parsers/jsonld.js';
-import { permalinkKey, productPages, storeApiProductsByPermalink } from '../shared.js';
+import { ADD_TO_CART, permalinkKey, productPages, storeApiProductsByPermalink } from '../shared.js';
 import {
   type CheckOutcome,
   defineCheck,
@@ -294,15 +294,22 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
   });
   if (counts.fail > 0)
     return outcome('fail', `${counts.fail} of ${considered} product(s) have no usable image`);
-  if (counts.warn > 0)
+  if (counts.warn > 0) {
+    const problems = [
+      ...new Set(
+        Object.values(perPage)
+          .filter((page) => page.verdict === 'warn')
+          .flatMap((page) => page.issues),
+      ),
+    ];
     return outcome(
       'warn',
-      `${counts.warn} of ${considered} product image(s) lack alt text or ${MIN_LONGEST_SIDE} px resolution`,
+      `${counts.warn} of ${considered} product image(s) need attention: ${problems.join('; ')}`,
     );
+  }
   return outcome('pass', `all ${considered} product image(s) resolve with alt text`);
 });
 
-const ADD_TO_CART = /add[-_ ]?to[-_ ]?cart|single_add_to_cart_button|buy now/i;
 const OUT_OF_STOCK_TEXT = /out of stock|sold out|ausverkauft|nicht vorrätig|épuisé|agotado/i;
 const IN_STOCK_VALUES = new Set(['instock', 'limitedavailability', 'onlineonly', 'instoreonly']);
 const OUT_OF_STOCK_VALUES = new Set(['outofstock', 'soldout', 'discontinued']);

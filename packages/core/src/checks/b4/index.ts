@@ -4,7 +4,7 @@ import { asString, extractJsonLd, hasValue, organizationNodes } from '../../pars
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { SEARCH_CRAWLERS } from '../a2/index.js';
-import { pathOf } from '../shared.js';
+import { looksLikeProductPage, pathOf } from '../shared.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
 /**
@@ -34,10 +34,17 @@ export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher })
       candidates: target.sampled.policies,
     });
   const response = await fetcher.fetch(url);
-  const words = new HtmlDocument(response.body).wordCount();
-  const evidence = { url, status: response.status, words };
+  const doc = new HtmlDocument(response.body);
+  const words = doc.wordCount();
+  const productPage = response.status === 200 && looksLikeProductPage(doc);
+  const evidence = { url, status: response.status, words, product_page: productPage };
   if (response.status !== 200)
     return fail(`return policy page returned HTTP ${response.status}`, evidence);
+  if (productPage)
+    return fail(
+      `the only link that mentions returns leads to a product page (${url}), not to a return policy`,
+      evidence,
+    );
   if (words <= 100) return warn(`return policy page is short (${words} words)`, evidence);
   return pass(`return policy at ${url} (${words} words)`, evidence);
 });
@@ -52,14 +59,21 @@ export const shippingPolicyFound = defineCheck('B4.2', async ({ target, fetcher 
   const doc = new HtmlDocument(response.body);
   const text = doc.text();
   const mentionsDetails = hasShippingDetails(text);
+  const productPage = response.status === 200 && looksLikeProductPage(doc);
   const evidence = {
     url,
     status: response.status,
     words: doc.wordCount(),
     mentions_costs_regions_or_times: mentionsDetails,
+    product_page: productPage,
   };
   if (response.status !== 200)
     return fail(`shipping policy page returned HTTP ${response.status}`, evidence);
+  if (productPage)
+    return fail(
+      `the only link that mentions shipping leads to a product page (${url}), not to a shipping policy`,
+      evidence,
+    );
   if (!mentionsDetails)
     return warn('shipping page does not mention regions, costs or delivery times', evidence);
   return pass(`shipping policy at ${url}`, evidence);
@@ -273,71 +287,83 @@ const NOINDEX = /\bnoindex\b/i;
 /** More words than a stub or an app shell; the policy checks themselves set their own bars. */
 const MIN_POLICY_WORDS = 100;
 
-export const policyPagesAgentReadable = defineCheck('B4.6', async ({ target, fetcher }) => {
-  const found = READABLE_POLICY_KINDS.flatMap((kind) => {
-    const url = target.sampled.policies[kind];
-    return url ? [{ kind, url }] : [];
-  });
-  if (found.length === 0) {
-    return skip('not_applicable', 'no policy page found on the home page');
-  }
-  const pages: Record<
-    string,
-    {
-      url: string;
-      status: number;
-      words: number;
-      noindex: boolean;
-      blocked_agents: string[];
-      readable: boolean;
+/** The policy check that vouches for each kind; a kind it rejected as a product page is not a policy page here either. */
+const POLICY_CHECK_FOR_KIND: Partial<Record<(typeof READABLE_POLICY_KINDS)[number], string>> = {
+  returns: 'B4.1',
+  shipping: 'B4.2',
+};
+
+export const policyPagesAgentReadable = defineCheck(
+  'B4.6',
+  async ({ target, fetcher, outcomes }) => {
+    const found = READABLE_POLICY_KINDS.flatMap((kind) => {
+      const url = target.sampled.policies[kind];
+      if (!url) return [];
+      const vouching = POLICY_CHECK_FOR_KIND[kind];
+      if (vouching && outcomes.get(vouching)?.evidence.product_page === true) return [];
+      return [{ kind, url }];
+    });
+    if (found.length === 0) {
+      return skip('not_applicable', 'no policy page found on the home page');
     }
-  > = {};
-  const problems: string[] = [];
-  const limited: string[] = [];
-  let readable = 0;
-  for (const { kind, url } of found) {
-    const response = await fetcher.fetch(url);
-    const doc = new HtmlDocument(response.body);
-    const words = doc.wordCount();
-    const directives = `${response.headers['x-robots-tag'] ?? ''} ${doc.meta('robots') ?? ''}`;
-    const noindex = NOINDEX.test(directives);
-    // The target's robots.txt only speaks for its own origin.
-    const robots = new URL(url).origin === target.origin ? target.robots : null;
-    const path = pathOf(url);
-    const blocked = robots
-      ? SEARCH_CRAWLERS.map((crawler) => crawler.token).filter(
-          (agent) => !isAllowed(robots, agent, path),
-        )
-      : [];
-    const ok = response.status === 200 && words > MIN_POLICY_WORDS && blocked.length === 0;
-    pages[kind] = {
-      url,
-      status: response.status,
-      words,
-      noindex,
-      blocked_agents: blocked,
-      readable: ok,
-    };
-    if (ok) {
-      readable += 1;
-      // Reachable for every fetcher, but kept out of the indexes that ground AI answers.
-      if (noindex) limited.push(`${kind}: noindex`);
-    } else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
-    else if (words <= MIN_POLICY_WORDS) problems.push(`${kind}: ${words} words`);
-    else problems.push(`${kind}: blocks ${blocked.join(', ')}`);
-  }
-  const total = found.length;
-  const notes = [
-    ...problems,
-    ...limited.map((item) => `${item}, reachable but excluded from indexes`),
-  ];
-  const message = `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
-    notes.length > 0 ? ` (${notes.join('; ')})` : ''
-  }`;
-  const evidence = { pages, readable, total, problems, limited };
-  if (readable === total && limited.length > 0) return warn(message, evidence);
-  return outcomeForRatio(readable, total, message, evidence, 0);
-});
+    const pages: Record<
+      string,
+      {
+        url: string;
+        status: number;
+        words: number;
+        noindex: boolean;
+        blocked_agents: string[];
+        readable: boolean;
+      }
+    > = {};
+    const problems: string[] = [];
+    const limited: string[] = [];
+    let readable = 0;
+    for (const { kind, url } of found) {
+      const response = await fetcher.fetch(url);
+      const doc = new HtmlDocument(response.body);
+      const words = doc.wordCount();
+      const directives = `${response.headers['x-robots-tag'] ?? ''} ${doc.meta('robots') ?? ''}`;
+      const noindex = NOINDEX.test(directives);
+      // The target's robots.txt only speaks for its own origin.
+      const robots = new URL(url).origin === target.origin ? target.robots : null;
+      const path = pathOf(url);
+      const blocked = robots
+        ? SEARCH_CRAWLERS.map((crawler) => crawler.token).filter(
+            (agent) => !isAllowed(robots, agent, path),
+          )
+        : [];
+      const ok = response.status === 200 && words > MIN_POLICY_WORDS && blocked.length === 0;
+      pages[kind] = {
+        url,
+        status: response.status,
+        words,
+        noindex,
+        blocked_agents: blocked,
+        readable: ok,
+      };
+      if (ok) {
+        readable += 1;
+        // Reachable for every fetcher, but kept out of the indexes that ground AI answers.
+        if (noindex) limited.push(`${kind}: noindex`);
+      } else if (response.status !== 200) problems.push(`${kind}: HTTP ${response.status}`);
+      else if (words <= MIN_POLICY_WORDS) problems.push(`${kind}: ${words} words`);
+      else problems.push(`${kind}: blocks ${blocked.join(', ')}`);
+    }
+    const total = found.length;
+    const notes = [
+      ...problems,
+      ...limited.map((item) => `${item}, reachable but excluded from indexes`),
+    ];
+    const message = `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
+      notes.length > 0 ? ` (${notes.join('; ')})` : ''
+    }`;
+    const evidence = { pages, readable, total, problems, limited };
+    if (readable === total && limited.length > 0) return warn(message, evidence);
+    return outcomeForRatio(readable, total, message, evidence, 0);
+  },
+);
 
 export const securityTxt = defineCheck('B4.7', async ({ target, fetcher }) => {
   const url = `${target.origin}/.well-known/security.txt`;
@@ -347,8 +373,9 @@ export const securityTxt = defineCheck('B4.7', async ({ target, fetcher }) => {
     status: response.status,
     content_type: contentType(response),
   };
+  // Optional and not an agent-readiness signal: absence is nothing to evaluate.
   if (response.status !== 200 || /<html|<!doctype/i.test(response.body.slice(0, 500))) {
-    return fail('no security.txt', evidence);
+    return skip('not_applicable', 'no security.txt; optional', evidence);
   }
   const parsed = parseSecurityTxt(response.body);
   evidence.contacts = parsed.contacts;

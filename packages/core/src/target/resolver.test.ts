@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HtmlDocument } from '../parsers/html.js';
 import type { FetchedResponse } from '../http/types.js';
 import { mapFetcher } from '../testing/index.js';
-import { detectPlatform, findPolicyLinks, resolveTarget } from './resolver.js';
+import { detectPlatform, findPolicyLinks, policyLinkScore, resolveTarget } from './resolver.js';
 
 function response(body: string): FetchedResponse {
   return {
@@ -159,5 +159,42 @@ describe('Shopify policy page fallback', () => {
     expect(fetcher.log.map((entry) => entry.url)).not.toContain(
       'https://boots.example/policies/privacy-policy',
     );
+  });
+});
+
+describe('findPolicyLinks ranking', () => {
+  it('prefers a footer policy label over a product whose name carries the keyword', () => {
+    const doc = new HtmlDocument(`<html><body>
+      <nav><a href="/woocommerce-shipping/">WooCommerce Shipping</a><a href="/products/returns-manager/">Returns Manager</a></nav>
+      <footer><a href="/shipping-policy/">Shipping &amp; Returns</a><a href="/refund-policy/">Refund policy</a></footer>
+    </body></html>`);
+    expect(findPolicyLinks(doc, 'https://shop.example')).toMatchObject({
+      shipping: 'https://shop.example/shipping-policy/',
+      returns: 'https://shop.example/refund-policy/',
+    });
+  });
+
+  it('never picks product or listing URLs, and still falls back to a body link when nothing better exists', () => {
+    const doc = new HtmlDocument(`<html><body>
+      <a href="/products/free-delivery-kit/">Free delivery kit</a>
+      <a href="/collections/returns/">Returns collection</a>
+      <p>See our <a href="/help/delivery">delivery information</a>.</p>
+    </body></html>`);
+    expect(findPolicyLinks(doc, 'https://shop.example')).toEqual({
+      shipping: 'https://shop.example/help/delivery',
+    });
+  });
+
+  it('scores the label, the footer and the path', () => {
+    const anchor = (text: string, inFooter = false) => ({ href: '/x', text, inFooter });
+    expect(
+      policyLinkScore(anchor('Shipping & returns', true), '/shipping-policy/', 'shipping'),
+    ).toBe(7);
+    expect(
+      policyLinkScore(anchor('WooCommerce Shipping', true), '/woocommerce-shipping/', 'shipping'),
+    ).toBe(6);
+    expect(policyLinkScore(anchor('Shipping'), '/pages/about', 'shipping')).toBe(4);
+    expect(policyLinkScore(anchor('About us'), '/shipping/', 'shipping')).toBe(1);
+    expect(policyLinkScore(anchor('About us'), '/about/', 'shipping')).toBe(0);
   });
 });

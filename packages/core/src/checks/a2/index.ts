@@ -491,9 +491,11 @@ export const usagePreferenceSignalsParse = defineCheck('A2.3', async ({ target, 
     malformed: malformed.length,
     tdmrep: { url: tdmrepUrl, status: tdmrep.status, outcome: tdmrepOutcome },
   };
+  // An optional vocabulary nobody declared is nothing to evaluate, not a pass.
   if (signals.length === 0) {
-    return pass(
-      'no usage-preference signal declared (Content-Signal, Content-Usage, RSL or TDMRep); nothing to parse',
+    return skip(
+      'not_applicable',
+      'no usage-preference signal declared (Content-Signal, Content-Usage, RSL or TDMRep); optional',
       evidence,
     );
   }

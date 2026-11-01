@@ -8,6 +8,8 @@ import { parseDocument } from 'htmlparser2';
 export interface Anchor {
   href: string;
   text: string;
+  /** True inside a footer landmark, or an element whose id or class names a footer. */
+  inFooter: boolean;
 }
 
 export interface LinkTag {
@@ -30,6 +32,23 @@ export interface Control {
 }
 
 const NON_CONTENT_TAGS = new Set(['script', 'style', 'template', 'noscript', 'svg']);
+
+function isFooter(element: Element): boolean {
+  if (element.name === 'footer') return true;
+  if ((getAttributeValue(element, 'role') ?? '').toLowerCase() === 'contentinfo') return true;
+  return /footer|colophon/i.test(
+    `${getAttributeValue(element, 'id') ?? ''} ${getAttributeValue(element, 'class') ?? ''}`,
+  );
+}
+
+function hasFooterAncestor(element: Element): boolean {
+  let node: AnyNode | null = element.parent;
+  while (node) {
+    if (isTag(node) && isFooter(node)) return true;
+    node = node.parent;
+  }
+  return false;
+}
 
 function hasRelToken(rel: string, token: string): boolean {
   return rel.toLowerCase().split(/\s+/).includes(token);
@@ -109,7 +128,11 @@ export class HtmlDocument {
     for (const element of this.elements('a')) {
       const href = getAttributeValue(element, 'href');
       if (!href) continue;
-      result.push({ href, text: textContent(element).replace(/\s+/g, ' ').trim() });
+      result.push({
+        href,
+        text: textContent(element).replace(/\s+/g, ' ').trim(),
+        inFooter: hasFooterAncestor(element),
+      });
     }
     return result;
   }

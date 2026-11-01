@@ -9,7 +9,7 @@ import {
 import { isRobotsAware } from '../http/robots-gate.js';
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
-import { HtmlDocument } from '../parsers/html.js';
+import { HtmlDocument, type Anchor } from '../parsers/html.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
 import {
   looksLikeProductSitemap,
@@ -109,30 +109,84 @@ function resolveSameOrigin(href: string, origin: string, base: string = origin):
 }
 
 /**
- * Policy pages by link text or path. Same-origin links win; a cross-origin link (a
- * privacy policy hosted by the parent company, say) is kept as a fallback because an
- * agent would follow it too.
+ * Words that belong in a policy link's label besides a kind's own keywords, in the
+ * languages the kind patterns cover. A label made of these and the kind's keywords
+ * ("Shipping & returns", "Versand und Lieferung") outranks one that carries a name or
+ * product ("WooCommerce Shipping", "Delivery Pro subscription").
+ */
+const POLICY_LABEL_WORDS =
+  /^(?:policy|policies|information|info|page|faq|faqs|and|&|or|of|the|our|your|us|me|here|more|read|see|view|help|center|centre|customer|service|support|exchanges?|free|options?|rates?|costs?|times?|days?|legal|notice|notices|statement|general|sales?|shop|online|store|about|de|la|le|les|des|und|et|y|e|i|o|di|del|della|zeiten|kosten|bedingungen|hinweis|hinweise|rechtliche|rechtliches|über|uns|nous|chi|siamo|sobre|nosotros|aviso|mentions|légales)$/i;
+
+function isPolicyWord(token: string): boolean {
+  if (POLICY_LABEL_WORDS.test(token)) return true;
+  return Object.values(POLICY_PATTERNS).some((pattern) => pattern.test(token));
+}
+
+function lastSegment(pathname: string): string {
+  const segments = pathname.split('/').filter(Boolean);
+  return (segments[segments.length - 1] ?? '').replace(/\.[a-z0-9]{1,5}$/i, '');
+}
+
+/**
+ * How strongly an anchor looks like the policy link of a kind: 0 when neither its label
+ * nor the last path segment names the kind; otherwise a label match counts most and more
+ * when every word in the label belongs to a policy label, a footer position counts next,
+ * a matching path segment last. "Shipping & returns" in the footer at /shipping-policy
+ * scores 7; a product named "WooCommerce Shipping" in the same footer scores 5.
+ */
+export function policyLinkScore(anchor: Anchor, pathname: string, kind: PolicyKind): number {
+  const pattern = POLICY_PATTERNS[kind];
+  const text = anchor.text;
+  const labelMatches = pattern.test(text);
+  const pathMatches = pattern.test(lastSegment(pathname));
+  if (!labelMatches && !pathMatches) return 0;
+  let score = 0;
+  if (labelMatches) {
+    const tokens = text
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}&]+/u)
+      .filter(Boolean);
+    const known = tokens.filter(isPolicyWord).length;
+    score += 2 + 2 * (tokens.length > 0 ? known / tokens.length : 0);
+  }
+  if (anchor.inFooter) score += 2;
+  if (pathMatches) score += 1;
+  return score;
+}
+
+/**
+ * Policy pages by link label or path, the best-scoring candidate per kind. Same-origin
+ * links win; a cross-origin link (a privacy policy hosted by the parent company, say) is
+ * kept as a fallback because an agent would follow it too. Product pages, listings and
+ * account areas are never policy pages, whatever their label says.
  */
 export function findPolicyLinks(
   doc: HtmlDocument,
   origin: string,
   base: string = origin,
 ): Partial<Record<PolicyKind, string>> {
-  const sameOrigin: Partial<Record<PolicyKind, string>> = {};
-  const crossOrigin: Partial<Record<PolicyKind, string>> = {};
+  type Best = Partial<Record<PolicyKind, { url: string; score: number }>>;
+  const sameOrigin: Best = {};
+  const crossOrigin: Best = {};
   for (const anchor of doc.anchors()) {
     const url = resolveHttpUrl(anchor.href, base);
     if (!url || url.href === `${origin}/`) continue;
     if (ACCOUNT_AREA_PATTERN.test(url.pathname)) continue;
-    const haystack = `${anchor.text} ${url.pathname}`;
+    if (looksLikeProductUrl(url.href) || LISTING_PATTERN.test(url.pathname)) continue;
     const bucket = url.origin === origin ? sameOrigin : crossOrigin;
-    for (const [kind, pattern] of Object.entries(POLICY_PATTERNS) as [PolicyKind, RegExp][]) {
-      if (!bucket[kind] && pattern.test(haystack)) {
-        bucket[kind] = url.href;
-      }
+    for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
+      const score = policyLinkScore(anchor, url.pathname, kind);
+      if (score === 0) continue;
+      const current = bucket[kind];
+      if (!current || score > current.score) bucket[kind] = { url: url.href, score };
     }
   }
-  return { ...crossOrigin, ...sameOrigin };
+  const result: Partial<Record<PolicyKind, string>> = {};
+  for (const kind of Object.keys(POLICY_PATTERNS) as PolicyKind[]) {
+    const best = sameOrigin[kind] ?? crossOrigin[kind];
+    if (best) result[kind] = best.url;
+  }
+  return result;
 }
 
 /**

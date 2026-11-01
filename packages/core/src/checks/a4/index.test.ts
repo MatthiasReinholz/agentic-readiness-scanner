@@ -636,10 +636,11 @@ describe('A4.6 WebMCP tool declarations', () => {
     });
   });
 
-  it('passes with an informational message when nothing is declared', async () => {
+  it('skips as not applicable when nothing is declared', async () => {
     const outcome = await runCheck(webMcpToolDeclarations, targetFor(), mapFetcher({}));
-    expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('no WebMCP declarations (informational)');
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('not_applicable');
+    expect(outcome.message).toBe('no WebMCP declarations; optional');
     expect(outcome.evidence).toMatchObject({
       pages_scanned: 1,
       declarative_tools: 0,

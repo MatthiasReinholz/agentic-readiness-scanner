@@ -532,8 +532,9 @@ export const webMcpToolDeclarations = defineCheck('A4.6', async ({ target, fetch
     scripts_with_model_context: scripts,
     pages_with_declarations: pagesWithDeclarations,
   };
+  // An origin-trial API nobody adopted is nothing to evaluate, not a pass.
   if (tools === 0 && scripts === 0) {
-    return pass('no WebMCP declarations (informational)', evidence);
+    return skip('not_applicable', 'no WebMCP declarations; optional', evidence);
   }
   const parts: string[] = [];
   if (tools > 0) parts.push(`${tools} declarative tool(s): ${[...names].slice(0, 10).join(', ')}`);

@@ -1,6 +1,26 @@
 import type { Fetcher } from '../http/types.js';
 import { HtmlDocument } from '../parsers/html.js';
+import { extractJsonLd, productNodes } from '../parsers/jsonld.js';
 import type { Target } from '../target/types.js';
+
+/** Controls whose name, class, id, value or text say they add the item to the cart. */
+export const ADD_TO_CART = /add[-_ ]?to[-_ ]?cart|single_add_to_cart_button|buy now/i;
+
+/**
+ * True when a document is a product page: it carries Product JSON-LD or an add-to-cart
+ * control. Used to reject a product that was linked with a policy word in its name
+ * ("WooCommerce Shipping") when the scan looked for a policy page.
+ */
+export function looksLikeProductPage(doc: HtmlDocument): boolean {
+  if (productNodes(extractJsonLd(doc).nodes).length > 0) return true;
+  return doc
+    .controls()
+    .some((control) =>
+      ADD_TO_CART.test(
+        `${control.name ?? ''} ${control.className ?? ''} ${control.id ?? ''} ${control.value ?? ''} ${control.text}`,
+      ),
+    );
+}
 
 export interface ProductPage {
   url: string;

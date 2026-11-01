@@ -316,7 +316,13 @@ const FEED_LINK_TYPES = new Set([
 const SYNDICATION_TYPES = new Set(['application/rss+xml', 'application/atom+xml']);
 const FEED_LINK_HINT = /product|feed|merchant|google|shopping/i;
 const LLMS_FEED_HINT = /feed|products\.(?:xml|csv|json)|merchant|google-shopping/i;
-const FEED_URL_HINT = /feed/i;
+/**
+ * A sitemap entry that may be a feed: a feed path or file, a Merchant Center or shopping
+ * export, or a products file in a data format. A product page whose slug happens to
+ * contain "feed" is not a candidate.
+ */
+const FEED_URL_HINT =
+  /\/feeds?(?:[/.?]|$)|[^/]*feed[^/]*\.(?:xml|csv|tsv|json|txt)(?:[?#]|$)|merchant|google[-_]?shopping|\/products?\.(?:xml|csv|tsv|json)(?:[?#]|$)/i;
 /** Candidates fetched before giving up; the first qualifying one wins. */
 const MAX_FEED_FETCHES = 2;
 const SAMPLE_ITEMS = 3;

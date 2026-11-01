@@ -18,6 +18,15 @@ import {
 import { scoreGroup } from '../scoring.js';
 import { htmlDocument, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
+  countSkips,
+  groupIsOptional,
+  prioritize,
+  TIER_LABEL,
+  type Priorities,
+  type Priority,
+  type Tier,
+} from './priorities.js';
+import {
   countVerdicts,
   escapeHtml,
   failedResults,
@@ -123,6 +132,91 @@ function renderCheck(result: ScanResult, item: CheckResult, options: HtmlReportO
   return `<li class="grid grid-cols-[auto_1fr] items-start gap-3.5 px-4 py-3.5 sm:grid-cols-[auto_1fr_auto] sm:px-5" id="${escapeHtml(item.id)}"><div class="pt-px">${VERDICT_BADGE[item.verdict]}</div><div class="min-w-0"><div class="font-semibold"><code class="${codeInline} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}${skip}</div>${item.message ? `<div class="mt-1 text-[0.93rem] text-muted-foreground">${escapeHtml(item.message)}</div>` : ''}${fix}${evidence}</div><div class="col-start-2 whitespace-nowrap text-xs text-muted-foreground sm:col-auto sm:pt-1">weight ${item.weight === 'info' ? 'info' : String(item.weight)}</div></li>`;
 }
 
+const TIER_BADGE: Record<Tier, string> = {
+  blocking: `<span class="${badge({ variant: 'destructive' })}">blocking</span>`,
+  expected: `<span class="${badge({ variant: 'warning' })}">expected</span>`,
+  nice_to_have: `<span class="${badge({ variant: 'outline' })}">nice to have</span>`,
+  informational: `<span class="${badge({ variant: 'outline' })}">informational</span>`,
+};
+
+function priorityTagsHtml(priority: Priority): string {
+  const tags = [TIER_BADGE[priority.tier]];
+  if (priority.unlocks !== null)
+    tags.push(
+      `<span class="${badge({ variant: 'default' })}">unlocks Level ${priority.unlocks}</span>`,
+    );
+  if (priority.mechanical)
+    tags.push(`<span class="${badge({ variant: 'secondary' })}">mechanical fix</span>`);
+  return tags.join('');
+}
+
+function priorityItemHtml(priority: Priority): string {
+  const item = priority.result;
+  const message = item.message
+    ? `<div class="mt-1 text-sm text-muted-foreground">${escapeHtml(item.message)}</div>`
+    : '';
+  const fix = item.fix
+    ? `<div class="mt-1 text-sm">${escapeHtml(item.fix.summary)} <a class="font-semibold text-primary hover:underline" href="#${escapeHtml(item.id)}">Details</a></div>`
+    : '';
+  return `<li class="py-3"><div class="flex flex-wrap items-center gap-1.5"><a class="font-semibold hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${priorityTagsHtml(priority)}</div>${message}${fix}</li>`;
+}
+
+function compactPriorityHtml(priority: Priority): string {
+  const item = priority.result;
+  const tags = [
+    priority.unlocks !== null ? `unlocks Level ${priority.unlocks}` : '',
+    priority.mechanical ? 'mechanical fix' : '',
+  ].filter(Boolean);
+  return `<li><a class="hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} mr-1">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${tags.length > 0 ? ` <span class="text-muted-foreground">(${escapeHtml(tags.join(', '))})</span>` : ''}</li>`;
+}
+
+/** The "what to do" card: next-gate and blocking findings in full, the rest as compact lists. */
+function renderPriorities(priorities: Priorities): string {
+  const total =
+    priorities.first.length +
+    priorities.next.length +
+    priorities.optional.length +
+    priorities.informational.length;
+  if (total === 0)
+    return `<section class="${card} mt-8 p-6" id="priorities"><h2 class="text-lg font-semibold tracking-tight">Nothing to fix</h2><p class="mt-1.5 text-sm text-muted-foreground">Every check that applied to this site passed.</p></section>`;
+  const block = (title: string, note: string, body: string): string =>
+    `<div class="mt-6 first:mt-0"><h3 class="text-base font-semibold tracking-tight">${title}</h3><p class="mt-0.5 text-sm text-muted-foreground">${note}</p>${body}</div>`;
+  const parts: string[] = [];
+  if (priorities.first.length > 0)
+    parts.push(
+      block(
+        'Fix first',
+        'What stands between the store and the next level, then everything else that blocks agents.',
+        `<ol class="mt-2 divide-y divide-border">${priorities.first.map(priorityItemHtml).join('')}</ol>`,
+      ),
+    );
+  if (priorities.next.length > 0)
+    parts.push(
+      block(
+        'Fix next',
+        'Expected by the channels and crawlers behind AI answers; each costs points.',
+        `<ol class="mt-2 divide-y divide-border">${priorities.next.map(priorityItemHtml).join('')}</ol>`,
+      ),
+    );
+  if (priorities.optional.length > 0)
+    parts.push(
+      block(
+        'Nice to have',
+        'Conventions and optional protocols with no documented consumer that requires them. Low weight; adopt them when they fit.',
+        `<ul class="mt-2 list-disc space-y-1 pl-5 text-sm">${priorities.optional.map(compactPriorityHtml).join('')}</ul>`,
+      ),
+    );
+  if (priorities.informational.length > 0)
+    parts.push(
+      block(
+        'Informational',
+        'Reported, never scored.',
+        `<ul class="mt-2 list-disc space-y-1 pl-5 text-sm">${priorities.informational.map(compactPriorityHtml).join('')}</ul>`,
+      ),
+    );
+  return `<section class="${card} mt-8 p-6" id="priorities"><h2 class="text-lg font-semibold tracking-tight">What to do</h2>${parts.join('')}</section>`;
+}
+
 function renderGroup(
   result: ScanResult,
   group: GroupedResults,
@@ -140,15 +234,27 @@ function renderGroup(
   ]
     .filter(Boolean)
     .join('');
+  // A group made only of nice-to-have and informational checks is scored like any other,
+  // but a zero there is not a red flag: nothing in it is required by any consumer.
+  const optional = groupIsOptional(group.results);
+  const tone = optional ? 'text-muted-foreground' : score === null ? '' : scoreTone(score);
   const scoreMarkup =
     score === null
       ? `<div class="col-start-2 flex items-baseline gap-2 sm:col-auto sm:block sm:min-w-16 sm:text-right" data-group-score><b class="block text-2xl font-extrabold leading-none text-muted-foreground">–</b><span class="text-[0.72rem] uppercase tracking-wider text-muted-foreground">not applicable</span></div>`
-      : `<div class="col-start-2 flex items-baseline gap-2 sm:col-auto sm:block sm:min-w-16 sm:text-right" data-group-score><b class="block text-2xl font-extrabold leading-none ${scoreTone(score)}">${score}</b><span class="text-[0.72rem] uppercase tracking-wider text-muted-foreground">of 100</span></div>`;
-  return `<details class="group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="text-base font-semibold tracking-tight">${escapeHtml(group.id)} · ${escapeHtml(group.title)}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
+      : `<div class="col-start-2 flex items-baseline gap-2 sm:col-auto sm:block sm:min-w-16 sm:text-right" data-group-score><b class="block text-2xl font-extrabold leading-none ${tone}">${score}</b><span class="text-[0.72rem] uppercase tracking-wider text-muted-foreground">of 100</span></div>`;
+  const optionalTag = optional
+    ? `<span class="${badge({ variant: 'outline' })}" data-group-optional>nice to have</span>`
+    : '';
+  return `<details class="group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">${escapeHtml(group.id)} · ${escapeHtml(group.title)}${optionalTag}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
 }
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
   const counts = countVerdicts(result);
+  const skips = countSkips(result);
+  const priorities = prioritize(result);
+  const openCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
+    .filter((tier) => priorities.counts[tier] > 0)
+    .map((tier) => `${priorities.counts[tier]} ${TIER_LABEL[tier]}`);
   const prompts = failedResults(result)
     .map((item) => promptFor(result, item, options.reportUrl))
     .filter((prompt): prompt is string => prompt !== null)
@@ -170,14 +276,15 @@ ${links.length > 0 ? `<p class="text-sm text-muted-foreground">${links.join(' ·
 </header>
 <section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr] sm:items-center">
 <div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${result.level.value}</div>
-<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5 text-muted-foreground">${escapeHtml(gate)}</p>` : ''}</div>
+<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5 text-muted-foreground">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm text-muted-foreground">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold text-primary hover:underline" href="#priorities">What to do</a></p>` : ''}</div>
 </section>
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
-<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2"><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div></div>
+<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2"><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${skips.not_applicable > 0 ? `${skips.not_applicable} did not apply to this site` : ''}${skips.not_applicable > 0 && skips.unanswered > 0 ? ' · ' : ''}${skips.unanswered > 0 ? `${skips.unanswered} could not run` : ''}</div></div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
+${renderPriorities(priorities)}
 ${options.afterScoresHtml ?? ''}
 <div class="mb-3 mt-10 flex items-center justify-between gap-4"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
 <div class="space-y-3">${sections}</div>

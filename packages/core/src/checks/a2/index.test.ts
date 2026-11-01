@@ -456,13 +456,14 @@ describe('A2.3 usage-preference signals parse', () => {
   }
   const signalsOf = (evidence: Record<string, unknown>): Signal[] => evidence.signals as Signal[];
 
-  it('passes when nothing is declared, treating an HTML tdmrep.json as a soft 404', async () => {
+  it('skips when nothing is declared, treating an HTML tdmrep.json as a soft 404', async () => {
     const none = await runCheck(
       usagePreferenceSignalsParse,
       targetFor({ robots: 'User-agent: *\nAllow: /\n' }),
       mapFetcher({}),
     );
-    expect(none.verdict).toBe('pass');
+    expect(none.verdict).toBe('skip');
+    expect(none.skipReason).toBe('not_applicable');
     expect(none.message).toMatch(/no usage-preference signal declared/);
     expect(none.evidence).toMatchObject({
       declared: 0,
@@ -474,7 +475,7 @@ describe('A2.3 usage-preference signals parse', () => {
       targetFor(),
       mapFetcher({ [tdmrepUrl]: '<!doctype html><html><body>Not found</body></html>' }),
     );
-    expect(soft.verdict).toBe('pass');
+    expect(soft.verdict).toBe('skip');
     expect(soft.evidence).toMatchObject({ declared: 0, tdmrep: { outcome: 'soft_404' } });
   });
 
