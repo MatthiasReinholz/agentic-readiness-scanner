@@ -249,7 +249,7 @@ describe('scan of a store whose home page refuses the scanner', () => {
     expect(byId.get('A1.1')?.verdict).toBe('warn');
     expect(byId.get('B2.1')?.skip_reason).toBe('dependency_failed');
     expect(byId.get('B4.1')?.message).toMatch(/see A2.4/);
-    expect(result.warnings.some((w) => /HTTP 403, Akamai/.test(w))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('HTTP 403, Akamai'))).toBe(true);
     const markdown = renderMarkdown(result);
     expect(markdown).toContain('## Fix first');
     expect(markdown).toMatch(

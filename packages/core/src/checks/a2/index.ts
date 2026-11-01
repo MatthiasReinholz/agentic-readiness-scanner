@@ -302,7 +302,7 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
       ...base,
       vendor,
       outcome: 'refused',
-      detail: `a block page served as HTTP 200 (${title || 'no title'})${vendor ? ` from ${vendor}` : ''}`,
+      detail: `a block page served as HTTP 200 (${title ?? 'no title'})${vendor ? ` from ${vendor}` : ''}`,
     };
   }
   if (response.redirects > 0) {
