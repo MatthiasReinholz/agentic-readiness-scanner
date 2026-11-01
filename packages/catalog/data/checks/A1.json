@@ -51,7 +51,7 @@
     "group": "A1",
     "title": "Link response headers",
     "question": "Does the site point agents at its machine-readable resources through Link headers?",
-    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version). Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, also accepted as an HTML link element), license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
+    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version), and the <link> elements in the home page's head. Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, and which Hydrogen storefronts declare as <link rel=\"ucp\" href=\"/.well-known/ucp\"> in the head), license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
     "weight": 1,
     "spec": [
       {
@@ -137,7 +137,7 @@
     "group": "A1",
     "title": "Listing pages link to products and further pages",
     "question": "Can a crawler walk from a category page to every product and to the next page with plain links?",
-    "method": "GET the sampled listing page (a shop, collection or category page linked from the home page). Count same-origin anchors to product URLs and look for crawlable pagination: a rel=next link, or anchors whose URL names a page number (/page/2/, ?page=2, ?p=2, ?paged=2). Pass when the page links to products and either paginates with links or shows no pagination at all. Warn when products are listed but the only way to more of them is a button or infinite scroll (Google's crawlers do not click or scroll, and Bing asks for standard anchor links), or when no product link is found in the HTML. Not applicable when no listing page was found.",
+    "method": "GET the sampled listing page (a collection or category page linked from the home page, the most-linked concrete one; never a product page). Count same-origin anchors to product URLs and look for crawlable pagination: a rel=next link, or anchors whose URL names a page number (/page/2/, ?page=2, ?p=2, ?paged=2). Pass when the page links to two or more products and either paginates with links or shows no pagination at all. Warn when products are listed but the only way to more of them is a button or infinite scroll (Google's crawlers do not click or scroll, and Bing asks for standard anchor links), when the page links to exactly one product, or when no product link is found in the HTML. Not applicable when no listing page was found, or when the sampled page is a category index: no product link and three or more links to further category pages.",
     "weight": 1,
     "spec": [
       {
