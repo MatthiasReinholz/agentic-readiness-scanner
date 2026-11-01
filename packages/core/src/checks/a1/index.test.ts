@@ -249,15 +249,87 @@ describe('A1.4 Link response headers', () => {
     target.home.headers.link = '</llms.txt>; rel="llms-txt", </style.css>; rel=preload; as=style';
     const outcome = await runCheck(linkResponseHeaders, target, mapFetcher({}));
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('Link header relation(s) an agent can use: llms-txt');
+    expect(outcome.message).toBe('Link relation(s) an agent can use: llms-txt');
     expect(outcome.evidence).toMatchObject({
       pages: ['https://shop.example/'],
       usable: 1,
       links: [
-        { href: 'https://shop.example/llms.txt', rel: ['llms-txt'], type: null, usable: true },
+        {
+          href: 'https://shop.example/llms.txt',
+          rel: ['llms-txt'],
+          type: null,
+          usable: true,
+          source: 'header',
+        },
         { href: 'https://shop.example/style.css', rel: ['preload'], usable: false },
       ],
     });
+  });
+
+  it('reads the ucp relation from a multi-member header whose member carries a version parameter', async () => {
+    const target = targetFor({ platform: 'shopify' });
+    target.home.headers.link =
+      '<https://cdn.shopify.com>; rel="preconnect", </.well-known/ucp>; rel="ucp"; version="2026-08-25", <https://shop.example/products.json>; rel="alternate"; type="application/json"';
+    const outcome = await runCheck(linkResponseHeaders, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('Link relation(s) an agent can use: ucp');
+    expect(outcome.evidence).toMatchObject({
+      usable: 1,
+      links: [
+        { href: 'https://cdn.shopify.com/', rel: ['preconnect'], usable: false },
+        {
+          href: 'https://shop.example/.well-known/ucp',
+          rel: ['ucp'],
+          type: null,
+          usable: true,
+          source: 'header',
+        },
+        { href: 'https://shop.example/products.json', rel: ['alternate'], usable: false },
+      ],
+    });
+  });
+
+  it('accepts a <link rel="ucp"> element in the home page head, parsed from the document', async () => {
+    const target = targetFor({
+      platform: 'shopify',
+      homeHtml:
+        '<!doctype html><html><head><title>Shop</title><link rel="preconnect" href="https://cdn.shopify.com"><link rel="ucp" href="/.well-known/ucp"></head><body><p>&lt;link rel="llms-txt" href="/llms.txt"&gt;</p></body></html>',
+    });
+    const outcome = await runCheck(linkResponseHeaders, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'Link relation(s) an agent can use: ucp (declared as a <link rel="ucp"> element in the home page\'s head, not as a response header)',
+    );
+    expect(outcome.evidence).toEqual({
+      pages: ['https://shop.example/'],
+      usable: 1,
+      links: [
+        {
+          page: 'https://shop.example/',
+          href: 'https://shop.example/.well-known/ucp',
+          rel: ['ucp'],
+          type: null,
+          usable: true,
+          source: 'html',
+        },
+      ],
+    });
+    // Other relations in the head do not count: only the header form is the convention.
+    const other = targetFor({
+      homeHtml:
+        '<!doctype html><html><head><link rel="llms-txt" href="/llms.txt"><link rel="alternate" type="text/markdown" href="/index.md"></head></html>',
+    });
+    expect((await runCheck(linkResponseHeaders, other, mapFetcher({}))).verdict).toBe('fail');
+    // Both forms at once: the header is reported and the head element noted.
+    const both = targetFor({
+      homeHtml: '<!doctype html><html><head><link rel="ucp" href="/.well-known/ucp"></head></html>',
+    });
+    both.home.headers.link = '</.well-known/ucp>; rel="ucp"';
+    const outcome2 = await runCheck(linkResponseHeaders, both, mapFetcher({}));
+    expect(outcome2.message).toBe(
+      "Link relation(s) an agent can use: ucp (ucp also as a <link> element in the home page's head)",
+    );
+    expect(outcome2.evidence).toMatchObject({ usable: 2 });
   });
 
   it('passes on a typed relation sent by the first sampled product page', async () => {
@@ -476,7 +548,7 @@ describe('A1.8 listing pages link to products and further pages', () => {
     expect(outcome.evidence).toMatchObject({ product_links: 0, pagination_links: 1 });
   });
 
-  it('warns when the listing links to only one or two products, giving the count', async () => {
+  it('warns when the listing links to exactly one product; a two-product store passes', async () => {
     const one = await run({
       [listing]: html('<a href="/product/gift-card/">Gift card</a><a href="/about/">About</a>'),
     });
@@ -485,9 +557,16 @@ describe('A1.8 listing pages link to products and further pages', () => {
       'only 1 product link on the listing page (https://shop.example/product/gift-card/), too few for a listing an agent could enumerate the catalog from',
     );
     expect(one.evidence).toMatchObject({ product_links: 1 });
-    const two = await run({ [listing]: html(`${products(2)}<a href="/shop/page/2/">2</a>`) });
-    expect(two.verdict).toBe('warn');
-    expect(two.message).toMatch(/^only 2 product links on the listing page/);
+    const twoPaginated = await run({
+      [listing]: html(`${products(2)}<a href="/shop/page/2/">2</a>`),
+    });
+    expect(twoPaginated.verdict).toBe('pass');
+    expect(twoPaginated.message).toBe(
+      '2 product link(s) and 1 pagination link(s) on the listing page',
+    );
+    const twoPlain = await run({ [listing]: html(products(2)) });
+    expect(twoPlain.verdict).toBe('pass');
+    expect(twoPlain.message).toBe('2 product link(s) on the listing page and no pagination');
   });
 
   it('does not apply when the sampled page is a category index linking to further categories', async () => {

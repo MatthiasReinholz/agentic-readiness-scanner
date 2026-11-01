@@ -4,12 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import type { FetchedResponse, FetchOptions, Fetcher } from '../../http/types.js';
+import { HtmlDocument } from '../../parsers/html.js';
 import { resolveTarget } from '../../target/resolver.js';
 import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/index.js';
 import {
   accessibleMainContent,
   canonicalAndHreflang,
   conditionalRequestsSupported,
+  isHtmlLabelledAsMarkdown,
+  isSignInPage,
   MARKDOWN_ACCEPT,
   markdownCopyOfProductPages,
   markdownNeighbour,
@@ -128,6 +131,85 @@ describe('A3.2 server-rendered product content', () => {
     expect(none.verdict).toBe('skip');
     expect(none.skipReason).toBe('error');
     expect(none.message).toMatch(/no sampled product page could be fetched/);
+  });
+
+  it('fails when a product URL lands on a sign-in or password page', async () => {
+    const passwordPage =
+      '<!doctype html><html><head><title>Opening soon</title></head><body><form action="/password" method="post"><label>Enter store using password</label><input type="password" name="password"><button type="submit">Enter</button></form></body></html>';
+    const shopify = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          body: passwordPage,
+          finalUrl: 'https://shop.example/password',
+          redirects: 1,
+        },
+        [bowl]: productHtml(),
+      }),
+    );
+    expect(shopify.verdict).toBe('fail');
+    expect(shopify.message).toBe(
+      "1 of 2 sampled product URLs redirects to a sign-in or password page (https://shop.example/password); Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts",
+    );
+    expect(shopify.evidence).toMatchObject({
+      sign_in: { [mug]: 'https://shop.example/password' },
+      spec: 'https://support.google.com/merchants/answer/6324416',
+    });
+    // A redirect to an account login page, whatever the body says.
+    const login = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          body: productHtml(),
+          finalUrl: 'https://shop.example/account/login?return_url=%2Fproduct%2Fmug%2F',
+          redirects: 1,
+        },
+      }),
+    );
+    expect(login.verdict).toBe('fail');
+    expect(login.message).toMatch(
+      /^the sampled product URL redirects to a sign-in or password page/,
+    );
+    // A password form with no product content at the product's own address.
+    const wall = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: passwordPage }),
+    );
+    expect(wall.verdict).toBe('fail');
+    expect(wall.evidence).toMatchObject({ sign_in: { [mug]: mug } });
+  });
+
+  it('does not take a product page with a login link or a header login form for a sign-in page', async () => {
+    const withLink = productHtml().replace(
+      '<h1>Mug</h1>',
+      '<a href="/account/login">Log in</a><h1>Mug</h1>',
+    );
+    const withModal = productHtml().replace(
+      '<h1>Mug</h1>',
+      '<form class="header-login"><input type="email"><input type="password" name="pw"></form><h1>Mug</h1><button class="single_add_to_cart_button">Add to cart</button>',
+    );
+    const outcome = await runCheck(
+      serverRenderedProductContent,
+      targetFor({
+        products: [mug, bowl, 'https://shop.example/product/password-journal/'],
+      }),
+      mapFetcher({
+        [mug]: withLink,
+        [bowl]: withModal,
+        'https://shop.example/product/password-journal/': productHtml(),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).not.toHaveProperty('sign_in');
+    expect(isSignInPage(new HtmlDocument(withModal), mug, mug)).toBe(false);
+    expect(
+      isSignInPage(new HtmlDocument(productHtml()), mug, 'https://shop.example/product/mug/?v=1'),
+    ).toBe(false);
   });
 });
 
@@ -891,6 +973,44 @@ describe('A3.1 machine-readable copy of product pages', () => {
     );
   });
 
+  it('fails when a text/markdown response is HTML in disguise', async () => {
+    const negotiated = await run(
+      mapFetcher({
+        [mug]: negotiating('<!doctype html><html><body><h1>Stoneware Mug</h1></body></html>', {
+          Vary: 'Accept',
+        }),
+      }),
+    );
+    expect(negotiated.verdict).toBe('fail');
+    expect(negotiated.message).toBe(
+      'the product page answers Accept: text/markdown with a response labelled text/markdown whose body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML',
+    );
+    expect(negotiated.evidence).toMatchObject({
+      negotiated: { content_type: 'text/markdown', html_body: true },
+      outcome: 'mislabelled',
+    });
+    const neighbour = await run(
+      mapFetcher({
+        [mug]: html(),
+        'https://shop.example/product/mug.md': markdown(
+          '\n  <div class="product">Stoneware Mug</div>',
+        ),
+      }),
+    );
+    expect(neighbour.verdict).toBe('fail');
+    expect(neighbour.message).toBe(
+      'the .md neighbour https://shop.example/product/mug.md is labelled text/markdown but its body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML',
+    );
+    expect(neighbour.evidence).toMatchObject({ md: { html_body: true, names_product: false } });
+    // Real converted Markdown: YAML front matter, then headings; an inline tag later is fine.
+    expect(isHtmlLabelledAsMarkdown('---\ntitle: Stoneware Mug\n---\n\n# Stoneware Mug\n')).toBe(
+      false,
+    );
+    expect(isHtmlLabelledAsMarkdown('# Mug\n\nSee <br> below')).toBe(false);
+    expect(isHtmlLabelledAsMarkdown('Some text\n<!DOCTYPE html>\n<html>')).toBe(true);
+    expect(isHtmlLabelledAsMarkdown('Intro\n<html lang="en">')).toBe(true);
+  });
+
   it('fails when no copy answers text/markdown naming the product, within three requests', async () => {
     const fetcher = mapFetcher({
       [mug]: [...negotiating('# Something else', { Vary: 'Accept' })].map((answer, index) =>
@@ -1065,6 +1185,68 @@ describe('A3.7 product URLs answer directly', () => {
   it('derives the other host variant from the hostname', () => {
     expect(otherHostVariant('shop.example')).toBe('www.shop.example');
     expect(otherHostVariant('www.shop.example')).toBe('shop.example');
+  });
+
+  it('fails on a sitemap entry that answers 404 or 410: a stale sitemap', async () => {
+    const sitemap = {
+      url: `${origin}/sitemap.xml`,
+      kind: 'urlset' as const,
+      childSitemaps: [],
+      fetchedSitemaps: [],
+      urls: [mug, bowl],
+      productUrls: [mug, bowl],
+    };
+    const stale = await runCheck(
+      productUrlsAnswerDirectly,
+      targetFor({ products: [mug, bowl], sitemap }),
+      redirectingFetcher(
+        {
+          [mug]: productHtml(),
+          [bowl]: { status: 404, body: '' },
+          [httpHome]: 'x',
+          [wwwHome]: 'x',
+        },
+        variantsRedirect,
+      ),
+    );
+    expect(stale.verdict).toBe('fail');
+    expect(stale.message).toBe(
+      'the sitemap lists https://shop.example/product/bowl/, which answers HTTP 404; Google and Bing ask for sitemaps that list only live, canonical URLs',
+    );
+    expect(stale.evidence).toMatchObject({ stale_sitemap_entries: [bowl] });
+    const gone = await runCheck(
+      productUrlsAnswerDirectly,
+      targetFor({ products: [mug, bowl], sitemap }),
+      redirectingFetcher(
+        {
+          [mug]: { status: 410, body: '' },
+          [bowl]: { status: 404, body: '' },
+          [httpHome]: 'x',
+          [wwwHome]: 'x',
+        },
+        variantsRedirect,
+      ),
+    );
+    expect(gone.verdict).toBe('fail');
+    expect(gone.message).toBe(
+      'the sitemap lists https://shop.example/product/mug/ and 1 more sampled URL, which answer HTTP 410; Google and Bing ask for sitemaps that list only live, canonical URLs',
+    );
+    // A product URL taken from the home page's links is not a sitemap entry: still a warn.
+    const linked = await runCheck(
+      productUrlsAnswerDirectly,
+      targetFor({ products: [mug, bowl] }),
+      redirectingFetcher(
+        {
+          [mug]: productHtml(),
+          [bowl]: { status: 404, body: '' },
+          [httpHome]: 'x',
+          [wwwHome]: 'x',
+        },
+        variantsRedirect,
+      ),
+    );
+    expect(linked.verdict).toBe('warn');
+    expect(linked.message).toBe('1 of 2 sampled product URLs answers HTTP 404 instead of 200');
   });
 
   it('passes when every product URL answers 200 in place and both host variants redirect to the origin', async () => {
@@ -1572,6 +1754,7 @@ describe('A3.9 conditional requests supported', () => {
     );
     expect(outcome.evidence).toEqual({
       url: mug,
+      content_type: 'text/html',
       etag: '"abc123"',
       last_modified: null,
       conditional_header_sent: 'if-none-match',
@@ -1580,6 +1763,34 @@ describe('A3.9 conditional requests supported', () => {
     expect(fetcher.log.at(-1)?.options.headers).toEqual({ 'if-none-match': '"abc123"' });
     // The plain fetch and the conditional one: the only repeated URL in the scan.
     expect(fetcher.requestCount).toBe(2);
+  });
+
+  it('reads the validators from the HTML response, never from a Markdown copy negotiated earlier', async () => {
+    // Cloudflare's converted Markdown drops ETag and Last-Modified; the HTML has them.
+    const fetcher = mapFetcher({
+      [mug]: [
+        ...withValidator({ ETag: '"html-etag"' }, { 'if-none-match': '"html-etag"' }),
+        {
+          status: 200,
+          headers: { 'content-type': 'text/markdown', vary: 'Accept' },
+          body: '# Mug\n',
+          when: { headers: { accept: 'text/markdown' } },
+        },
+      ],
+    });
+    const target = targetFor({ products: [mug] });
+    const markdownFirst = await runCheck(markdownCopyOfProductPages, target, fetcher);
+    expect(markdownFirst.evidence).toMatchObject({ negotiated: { content_type: 'text/markdown' } });
+    const outcome = await runCheck(conditionalRequestsSupported, target, fetcher);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      content_type: 'text/html',
+      etag: '"html-etag"',
+      conditional_status: 304,
+    });
+    const conditional = fetcher.log.at(-1)?.options.headers ?? {};
+    expect(conditional).toEqual({ 'if-none-match': '"html-etag"' });
+    expect(Object.keys(conditional).map((name) => name.toLowerCase())).not.toContain('accept');
   });
 
   it('judges the first sampled product page that answered, and says the first one did not', async () => {
