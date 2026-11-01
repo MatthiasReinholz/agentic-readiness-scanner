@@ -6,7 +6,7 @@ The scanner answers that question for any public store URL. It reads public sign
 
 It is built WordPress-first, so it knows what a WooCommerce store exposes by default, and every check also runs against any other platform because every check reads public HTTP surfaces.
 
-> Status: **0.2.0 released** (2026-10-31), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)); `main` carries catalog 0.3.0 with 64 checks, every one implemented, after a second audit of the conventional technical SEO that AI answers inherit ([the technical SEO audit](docs/audits/2026-11-01-technical-seo-audit.md)); the recorded WooCommerce store reaches Level 5. The npm packages are not published yet. See [Roadmap](#roadmap).
+> Status: **0.4.0 released** (2026-11-01), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)) and against the conventional technical SEO that AI answers inherit ([the technical SEO audit](docs/audits/2026-11-01-technical-seo-audit.md)); `main` carries catalog 0.4.0 after a third audit that read reports as a store owner does and scanned fifteen real stores ([the report and accuracy audit](docs/audits/2026-11-01-report-and-accuracy-audit.md)): reports lead with what to do, and a page the scanner did not read is never scored. The recorded WooCommerce store reaches Level 5. The npm packages are not published yet. See [Roadmap](#roadmap).
 
 ## What it checks
 
@@ -17,7 +17,7 @@ It is built WordPress-first, so it knows what a WooCommerce store exposes by def
 | Agentic ingestion | A1 Discoverability · A2 Bot access control · A3 Content accessibility · A4 Protocol discovery                                               |
 | Agentic commerce  | B1 Catalog exposure · B2 Product structured data · B3 Product identity · B4 Merchant trust and policies · B5 Checkout and payment protocols |
 
-Scores are 0 to 100 per dimension. The level (0 Not reachable to 5 Transactable) is gated, not averaged: a store holds a level only when every blocking check of that level passes. The report leads with the level and the one thing standing between the store and the next one. Details: [docs/scoring.md](docs/scoring.md).
+Scores are 0 to 100 per dimension. The level (0 Not reachable to 5 Transactable) is gated, not averaged: a store holds a level only when every blocking check of that level passes. The report leads with the level, the checks standing between the store and the next one, and an ordered list of what to fix first, next and when it fits (weight 3 blocking, 2 expected, 1 nice to have); a check the scanner could not answer is skipped, never failed. Details: [docs/scoring.md](docs/scoring.md).
 
 ## Use it
 
