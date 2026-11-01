@@ -66,6 +66,7 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
     ([, p]) => p.meta_refresh_seconds !== null && p.meta_refresh_seconds <= REFRESH_REDIRECT_SECONDS,
   );
   const subject = sampled === 'home' ? 'the home page' : `${judged} sampled product page(s)`;
+  const plural = sampled !== 'home';
   if (refreshing.length > 0) {
     return fail(
       `${refreshing.length} of ${subject} redirect with a meta refresh of ${refreshing[0]![1].meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content`,
@@ -101,7 +102,7 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
     return warn(`of ${subject}, ${parts.join(' and ')}`, evidence);
   }
   return pass(
-    `${subject} start with the HTML doctype, declare their encoding and keep title, canonical and directives inside a valid head`,
+    `${subject} ${plural ? 'start' : 'starts'} with the HTML doctype, ${plural ? 'declare their' : 'declares its'} encoding and ${plural ? 'keep' : 'keeps'} title, canonical and directives inside a valid head`,
     evidence,
   );
 });

@@ -38,9 +38,7 @@
     "question": "Does the sitemap list product pages?",
     "method": "Pass when the sitemap index contains a product sitemap (WooCommerce: product-sitemap.xml or wp-sitemap-posts-product-*.xml) or the URL set contains URLs matching product path patterns.",
     "weight": 2,
-    "depends_on": [
-      "A1.2"
-    ],
+    "depends_on": ["A1.2"],
     "spec": [
       {
         "title": "Sitemaps XML format",
@@ -95,9 +93,7 @@
     "question": "Does llms.txt lead an agent to the catalog as data?",
     "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap or the shop index. Fail when it links only to prose pages. Skipped when there is no llms.txt.",
     "weight": 1,
-    "depends_on": [
-      "A1.5"
-    ],
+    "depends_on": ["A1.5"],
     "spec": [
       {
         "title": "llms.txt proposal",
@@ -112,9 +108,7 @@
     "question": "Can an agent tell from the sitemap what changed and when?",
     "method": "Read <lastmod> in the sitemaps fetched. Pass when at least 80 percent of entries carry a valid W3C datetime and the values differ from one another; warn when fewer entries carry one, or when every value is identical (a timestamp generated at request time, which crawlers learn to ignore); fail when none carry one. Bing names lastmod a key signal for how fast changes reach its AI answers; Google uses it when it is consistently accurate.",
     "weight": 1,
-    "depends_on": [
-      "A1.2"
-    ],
+    "depends_on": ["A1.2"],
     "spec": [
       {
         "title": "Sitemaps protocol",

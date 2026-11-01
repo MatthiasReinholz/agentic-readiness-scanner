@@ -6,9 +6,7 @@
     "question": "Has the site made a decision about AI training crawlers, whatever it is?",
     "method": "Pass when robots.txt states a training decision in any form: a group for the shared token __usage_ai-training (the IETF draft Google, Microsoft and OpenAI have committed to), groups naming the documented training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, meta-externalagent, Amazonbot, CCBot, Bytespider, MistralAI-Training), or a Content-Signal or Content-Usage line that sets ai-train or train-ai. Allowing and disallowing count the same: blocking training is a licensing decision and never loses points. Warn when nothing is stated. The evidence lists the effective verdict per token.",
     "weight": 1,
-    "depends_on": [
-      "A1.1"
-    ],
+    "depends_on": ["A1.1"],
     "spec": [
       {
         "title": "RFC 9309 Robots Exclusion Protocol",
@@ -39,9 +37,7 @@
     "question": "Do the crawlers that feed AI answers get in?",
     "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the crawlers that build the indexes behind AI answers: Googlebot and Bingbot (Google AI Overviews and AI Mode, Microsoft Copilot and ChatGPT search, Claude search via Brave), Applebot, Storebot-Google, OAI-SearchBot, Claude-SearchBot, PerplexityBot, Amzn-SearchBot, DuckAssistBot, MistralAI-Index and meta-webindexer. Fail when Googlebot or Bingbot is disallowed or when two or more of the others are; warn when exactly one is; pass otherwise. The evidence shows the effective rule per crawler.",
     "weight": 3,
-    "depends_on": [
-      "A1.1"
-    ],
+    "depends_on": ["A1.1"],
     "spec": [
       {
         "title": "RFC 9309 Robots Exclusion Protocol",
@@ -96,9 +92,7 @@
     "question": "Are the machine-readable usage preferences the site declares well-formed?",
     "method": "Informational. Collect every usage-preference signal found: Content-Signal lines in robots.txt, Content-Usage rules in robots.txt and the Content-Usage response header, an RSL License line in robots.txt or a Link relation of type application/rsl+xml, and TDM reservations (/.well-known/tdmrep.json, tdm-reservation header or meta tag). Pass when every signal present is syntactically valid, or when none is declared; warn when one is malformed. The three vocabularies share no tokens and are never mapped onto each other, and no crawler operator documents honouring Content-Signal, so this is reported and never scored.",
     "weight": "info",
-    "depends_on": [
-      "A1.1"
-    ],
+    "depends_on": ["A1.1"],
     "spec": [
       {
         "title": "Content Signals Policy",
@@ -151,9 +145,7 @@
     "question": "When a person asks an assistant about this site, may the assistant fetch the page?",
     "method": "Evaluate robots.txt against the sampled product path for the fetchers assistants use at the moment a person asks: ChatGPT-User, Claude-User, Perplexity-User, Google-Agent, meta-externalfetcher, Amzn-User and MistralAI-User. Fail when any is disallowed. Most operators document that these fetch regardless of robots.txt because a person requested the page (Anthropic honours it), so a Disallow mostly records intent; the weight is low for that reason.",
     "weight": 1,
-    "depends_on": [
-      "A1.1"
-    ],
+    "depends_on": ["A1.1"],
     "spec": [
       {
         "title": "OpenAI crawler documentation",
@@ -192,9 +184,7 @@
     "question": "Do the pages stay eligible for a snippet, which is what AI answers are built from?",
     "method": "Read the robots meta tag, the Bingbot meta tag and the X-Robots-Tag header of each sampled product page. Fail on noindex, on nosnippet or max-snippet:0 (Google documents that these keep the content out of AI Overviews and AI Mode, and Apple generates no web answer from such a page), and when data-nosnippet wraps half or more of the page text. Warn on Bing's noarchive or nocache (the page is kept out of Copilot answers or reduced to URL, title and snippet), on Bing's ai-grounding:disallow or disallowextended (honoured from 2027), and on isAccessibleForFree:false (Apple does not use the page as AI context). Record noai and noimageai as declared preferences without a verdict, since no documented answer engine reads them.",
     "weight": 3,
-    "requires": [
-      "products"
-    ],
+    "requires": ["products"],
     "spec": [
       {
         "title": "Google: AI features and your website",

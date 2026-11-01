@@ -6,6 +6,7 @@ import {
   robotsTxtExists,
   sitemapLastmodPlausible,
   sitemapReachable,
+  listingLinksProductsAndPages,
 } from './a1/index.js';
 import {
   honestFetchNotBlocked,
@@ -14,6 +15,7 @@ import {
   trainingPolicyStated,
   usagePreferenceSignalsParse,
   userFetchersAllowed,
+  renderResourcesNotBlocked,
 } from './a2/index.js';
 import {
   accessibleMainContent,
@@ -88,12 +90,14 @@ export const builtInChecks: readonly Check[] = [
   llmsTxtPresent,
   llmsTxtLinksToCatalog,
   sitemapLastmodPlausible,
+  listingLinksProductsAndPages,
   trainingPolicyStated,
   searchCrawlersAllowed,
   usagePreferenceSignalsParse,
   honestFetchNotBlocked,
   userFetchersAllowed,
   noAnswerExclusionDirectives,
+  renderResourcesNotBlocked,
   markdownCopyOfProductPages,
   serverRenderedProductContent,
   pageWeightAndResponseTime,

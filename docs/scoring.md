@@ -18,14 +18,14 @@ Levels are gates. A level holds only when every gate of that level is satisfied,
 
 Requirements make this explicit in the catalog: a check may require `woocommerce` or `shopify` (the platform was detected) or `products` (product pages were found). Profiles declare the requirements they can never meet; the runner evaluates the rest per target and reports unmet ones as `not_applicable` with the reason.
 
-| Level | Name                  | Gate                                                   |
-| ----- | --------------------- | ------------------------------------------------------ |
-| 0     | Not reachable         | default                                                |
-| 1     | Crawlable             | A1.1, A2.2, A2.4, A3.2                                 |
+| Level | Name                  | Gate                                                         |
+| ----- | --------------------- | ------------------------------------------------------------ |
+| 0     | Not reachable         | default                                                      |
+| 1     | Crawlable             | A1.1, A2.2, A2.4, A3.2                                       |
 | 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5), A2.6, B2.1, B2.2 |
-| 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3       |
-| 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                     |
-| 5     | Transactable          | Level 4 and (B5.1 or B5.3)                             |
+| 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3             |
+| 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                           |
+| 5     | Transactable          | Level 4 and (B5.1 or B5.3)                                   |
 
 Each profile declares a maximum level: content sites stop at 1. The report leads with the level and `next_gate`, the ids standing between the store and the next level.
 

@@ -9,53 +9,21 @@
     "value": 1,
     "name": "Crawlable",
     "description": "robots.txt parses, the search and assistant crawlers may read product pages, an honestly identified agent is not challenged, and product content is in the HTML.",
-    "gates": [
-      [
-        "A1.1"
-      ],
-      [
-        "A2.2"
-      ],
-      [
-        "A2.4"
-      ],
-      [
-        "A3.2"
-      ]
-    ]
+    "gates": [["A1.1"], ["A2.2"], ["A2.4"], ["A3.2"]]
   },
   {
     "value": 2,
     "name": "Readable catalog",
     "description": "Level 1, and the catalog is enumerable (product sitemap, platform API or public feed), product pages stay eligible for snippets, and they carry Product JSON-LD with a complete Offer.",
     "gates": [
-      [
-        "A1.1"
-      ],
-      [
-        "A2.2"
-      ],
-      [
-        "A2.4"
-      ],
-      [
-        "A3.2"
-      ],
-      [
-        "A1.3",
-        "B1.2",
-        "B1.8",
-        "B1.5"
-      ],
-      [
-        "A2.6"
-      ],
-      [
-        "B2.1"
-      ],
-      [
-        "B2.2"
-      ]
+      ["A1.1"],
+      ["A2.2"],
+      ["A2.4"],
+      ["A3.2"],
+      ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
+      ["B2.1"],
+      ["B2.2"]
     ]
   },
   {
@@ -63,44 +31,17 @@
     "name": "Identifiable products",
     "description": "Level 2, and products carry a GTIN (valid) or brand plus MPN, and the brand as an entity.",
     "gates": [
-      [
-        "A1.1"
-      ],
-      [
-        "A2.2"
-      ],
-      [
-        "A2.4"
-      ],
-      [
-        "A3.2"
-      ],
-      [
-        "A1.3",
-        "B1.2",
-        "B1.8",
-        "B1.5"
-      ],
-      [
-        "A2.6"
-      ],
-      [
-        "B2.1"
-      ],
-      [
-        "B2.2"
-      ],
-      [
-        "B3.1",
-        "B3.4"
-      ],
-      [
-        "B3.2",
-        "B3.4"
-      ],
-      [
-        "B3.3"
-      ]
+      ["A1.1"],
+      ["A2.2"],
+      ["A2.4"],
+      ["A3.2"],
+      ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1", "B3.4"],
+      ["B3.2", "B3.4"],
+      ["B3.3"]
     ]
   },
   {
@@ -108,56 +49,21 @@
     "name": "Trusted merchant",
     "description": "Level 3, and the return, shipping, privacy and terms pages plus a contact channel are findable.",
     "gates": [
-      [
-        "A1.1"
-      ],
-      [
-        "A2.2"
-      ],
-      [
-        "A2.4"
-      ],
-      [
-        "A3.2"
-      ],
-      [
-        "A1.3",
-        "B1.2",
-        "B1.8",
-        "B1.5"
-      ],
-      [
-        "A2.6"
-      ],
-      [
-        "B2.1"
-      ],
-      [
-        "B2.2"
-      ],
-      [
-        "B3.1",
-        "B3.4"
-      ],
-      [
-        "B3.2",
-        "B3.4"
-      ],
-      [
-        "B3.3"
-      ],
-      [
-        "B4.1"
-      ],
-      [
-        "B4.2"
-      ],
-      [
-        "B4.3"
-      ],
-      [
-        "B4.5"
-      ]
+      ["A1.1"],
+      ["A2.2"],
+      ["A2.4"],
+      ["A3.2"],
+      ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1", "B3.4"],
+      ["B3.2", "B3.4"],
+      ["B3.3"],
+      ["B4.1"],
+      ["B4.2"],
+      ["B4.3"],
+      ["B4.5"]
     ]
   },
   {
@@ -165,60 +71,22 @@
     "name": "Transactable",
     "description": "Level 4, and a UCP profile or an ACP discovery document advertises a checkout protocol. Transactable means the public prerequisites are in place, not that a checkout was exercised.",
     "gates": [
-      [
-        "A1.1"
-      ],
-      [
-        "A2.2"
-      ],
-      [
-        "A2.4"
-      ],
-      [
-        "A3.2"
-      ],
-      [
-        "A1.3",
-        "B1.2",
-        "B1.8",
-        "B1.5"
-      ],
-      [
-        "A2.6"
-      ],
-      [
-        "B2.1"
-      ],
-      [
-        "B2.2"
-      ],
-      [
-        "B3.1",
-        "B3.4"
-      ],
-      [
-        "B3.2",
-        "B3.4"
-      ],
-      [
-        "B3.3"
-      ],
-      [
-        "B4.1"
-      ],
-      [
-        "B4.2"
-      ],
-      [
-        "B4.3"
-      ],
-      [
-        "B4.5"
-      ],
-      [
-        "B5.1",
-        "B5.3"
-      ]
+      ["A1.1"],
+      ["A2.2"],
+      ["A2.4"],
+      ["A3.2"],
+      ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B3.1", "B3.4"],
+      ["B3.2", "B3.4"],
+      ["B3.3"],
+      ["B4.1"],
+      ["B4.2"],
+      ["B4.3"],
+      ["B4.5"],
+      ["B5.1", "B5.3"]
     ]
   }
 ]
