@@ -213,7 +213,7 @@
     "group": "A2",
     "title": "Render resources not blocked by robots.txt",
     "question": "May the crawlers that render pages fetch the scripts and stylesheets the page needs?",
-    "method": "Collect the same-origin script and stylesheet URLs of the sampled product pages (the home page when none were sampled) and evaluate each path against robots.txt for Googlebot and Bingbot. Fail when any is disallowed for Googlebot: Google does not render JavaScript from blocked files, Applebot follows Googlebot rules and cannot render with blocked resources, and Bing excludes content it cannot render from grounding. Warn when only Bingbot is blocked. Cross-origin assets are outside this file and are not judged. Not applicable when the page loads no same-origin scripts or stylesheets.",
+    "method": "Collect the same-origin script and stylesheet URLs of the sampled product pages (the home page when none were sampled) and evaluate each path against robots.txt for Googlebot and Bingbot. Fail when any is disallowed for Googlebot: Google does not render JavaScript from blocked files, Applebot follows Googlebot rules and cannot render with blocked resources, and Bing excludes content it cannot render from grounding. Warn when only Bingbot is blocked. Cross-origin assets are outside this file and are not judged, and neither are scripts under cart, checkout, account, order or admin paths: platforms disallow those areas on purpose (Shopify ships a checkout preload script on every product page) and a product page renders without them. Not applicable when the page loads no same-origin scripts or stylesheets.",
     "weight": 1,
     "spec": [
       {

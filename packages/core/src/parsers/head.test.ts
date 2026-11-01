@@ -43,6 +43,6 @@ describe('scanHead', () => {
     expect(scan.metaRefreshSeconds).toBe(0);
     expect(scan.metaRefreshUrl).toBe('https://s.example/new/');
     expect(scanHead('<meta http-equiv="refresh" content="30">').metaRefreshSeconds).toBeNull();
-    expect(scanHead("<meta http-equiv=refresh content=\"5;URL='/x'\">").metaRefreshUrl).toBe('/x');
+    expect(scanHead('<meta http-equiv=refresh content="5;URL=\'/x\'">').metaRefreshUrl).toBe('/x');
   });
 });

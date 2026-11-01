@@ -139,7 +139,7 @@ export class HtmlDocument {
   lang(): string | null {
     const html = this.elements('html')[0];
     const lang = (html ? getAttributeValue(html, 'lang') : undefined)?.trim();
-    return lang ? lang : null;
+    return lang === undefined || lang === '' ? null : lang;
   }
 
   /** `src` of every external script, in document order (unresolved). */

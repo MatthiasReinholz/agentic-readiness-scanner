@@ -42,7 +42,7 @@ export interface HeadScan {
 
 function refreshContent(content: string): { seconds: number; url: string } | null {
   const match = /^\s*(\d+(?:\.\d+)?)\s*(?:[;,]\s*(?:url\s*=\s*)?['"]?([^'"\s]+))?/i.exec(content);
-  if (!match || !match[1]) return null;
+  if (!match?.[1]) return null;
   const seconds = Number(match[1]);
   if (!Number.isFinite(seconds)) return null;
   return { seconds, url: match[2] ?? '' };
@@ -121,7 +121,7 @@ export function scanHead(html: string): HeadScan {
           }
           if (equiv === 'refresh' && result.metaRefreshSeconds === null) {
             const refresh = refreshContent(content);
-            if (refresh && refresh.url) {
+            if (refresh?.url) {
               result.metaRefreshSeconds = refresh.seconds;
               result.metaRefreshUrl = refresh.url;
             }

@@ -272,6 +272,25 @@ describe('A2.7 render resources not blocked by robots.txt', () => {
       mapFetcher({ [product]: html }),
     );
 
+  it('does not judge scripts under cart, checkout or account paths that platforms block on purpose', async () => {
+    const page =
+      '<!doctype html><html><head><script src="/checkouts/internal/preloads.js?locale=en"></script><script src="/cdn/shop/t/1/assets/theme.js"></script></head><body><main>Boot</main></body></html>';
+    const outcome = await runCheck(
+      renderResourcesNotBlocked,
+      targetFor({
+        products: ['https://shop.example/products/boot'],
+        robots: 'User-agent: *\nDisallow: /checkouts/\nDisallow: /cart\n',
+      }),
+      mapFetcher({ 'https://shop.example/products/boot': page }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      assets_checked: 1,
+      ignored_transactional: ['/checkouts/internal/preloads.js?locale=en'],
+      blocked_googlebot: [],
+    });
+  });
+
   it('fails when robots.txt disallows a same-origin asset for Googlebot, counting cross-origin assets out', async () => {
     const outcome = await run('User-agent: *\nDisallow: /assets/\n');
     expect(outcome.verdict).toBe('fail');

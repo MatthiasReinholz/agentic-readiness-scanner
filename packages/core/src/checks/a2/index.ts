@@ -512,6 +512,13 @@ const RENDER_ASSET_LIMIT = 50;
 /** Blocked asset paths kept in evidence per crawler. */
 const BLOCKED_ASSET_SAMPLE = 10;
 
+/**
+ * Assets under the transactional areas a platform disallows on purpose (Shopify ships a
+ * checkout preload script on every product page under /checkouts/). A product page
+ * renders without them, so they are recorded, not judged.
+ */
+const TRANSACTIONAL_ASSET = /\/(checkouts?|cart|accounts?|admin|orders)(\/|$)/i;
+
 export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fetcher }) => {
   const sampled = await productPages(target, fetcher);
   const sources =
@@ -519,6 +526,7 @@ export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fe
       ? sampled.map((page) => ({ url: page.url, doc: page.doc }))
       : [{ url: target.home.finalUrl, doc: target.homeDoc }];
   const assets = new Set<string>();
+  const ignored = new Set<string>();
   for (const source of sources) {
     for (const href of [...source.doc.externalScripts(), ...source.doc.stylesheets()]) {
       if (assets.size >= RENDER_ASSET_LIMIT) break;
@@ -526,6 +534,10 @@ export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fe
         const url = new URL(href, source.url);
         // Cross-origin assets are outside this robots.txt and are not judged.
         if (url.origin !== target.origin) continue;
+        if (TRANSACTIONAL_ASSET.test(url.pathname)) {
+          ignored.add(url.pathname + url.search);
+          continue;
+        }
         assets.add(url.pathname + url.search);
       } catch {
         // an unparsable src or href cannot be fetched by anyone; nothing to evaluate
@@ -535,6 +547,7 @@ export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fe
   const evidence: Record<string, unknown> = {
     pages: sources.map((source) => source.url),
     assets_checked: assets.size,
+    ignored_transactional: [...ignored].slice(0, BLOCKED_ASSET_SAMPLE),
     blocked_googlebot: [],
     blocked_bingbot: [],
   };

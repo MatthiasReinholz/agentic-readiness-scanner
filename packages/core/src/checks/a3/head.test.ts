@@ -38,7 +38,8 @@ describe('A3.11 document head is well-formed', () => {
       documentHeadWellFormed,
       targetFor({ products: [url] }),
       mapFetcher({
-        [url]: '<!doctype html><html><head><meta http-equiv="refresh" content="0;url=/new/"></head></html>',
+        [url]:
+          '<!doctype html><html><head><meta http-equiv="refresh" content="0;url=/new/"></head></html>',
       }),
     );
     expect(refresh.verdict).toBe('fail');
@@ -65,7 +66,11 @@ describe('A3.11 document head is well-formed', () => {
   });
 
   it('judges the home page when no products were sampled and skips without a body', async () => {
-    const home = await runCheck(documentHeadWellFormed, targetFor({ homeHtml: good }), mapFetcher({}));
+    const home = await runCheck(
+      documentHeadWellFormed,
+      targetFor({ homeHtml: good }),
+      mapFetcher({}),
+    );
     expect(home.verdict).toBe('pass');
     expect(home.evidence).toMatchObject({ sampled: 'home' });
     const missing = await runCheck(

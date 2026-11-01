@@ -24,6 +24,10 @@ import {
   pageWeightAndResponseTime,
   serverRenderedProductContent,
   unknownUrlsAnswer404,
+  productUrlsAnswerDirectly,
+  titleAndDescriptionPresent,
+  conditionalRequestsSupported,
+  mobileViewportDeclared,
 } from './a3/index.js';
 import { documentHeadWellFormed } from './a3/head.js';
 import {
@@ -104,6 +108,10 @@ export const builtInChecks: readonly Check[] = [
   canonicalAndHreflang,
   accessibleMainContent,
   unknownUrlsAnswer404,
+  productUrlsAnswerDirectly,
+  titleAndDescriptionPresent,
+  conditionalRequestsSupported,
+  mobileViewportDeclared,
   documentHeadWellFormed,
   mcpServerDiscoverable,
   apiCatalogPublished,

@@ -19,7 +19,8 @@ interface PageHead {
 
 function contentTypeOf(response: FetchedResponse): string | null {
   const value = response.headers['content-type'];
-  return value ? value.split(';')[0]!.trim().toLowerCase() : null;
+  const type = value?.split(';')[0]?.trim().toLowerCase();
+  return type === undefined || type === '' ? null : type;
 }
 
 function describe(response: FetchedResponse): PageHead {
@@ -63,18 +64,20 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
   const entries = Object.entries(pages);
   const misplaced = entries.filter(([, p]) => p.misplaced.length > 0);
   const refreshing = entries.filter(
-    ([, p]) => p.meta_refresh_seconds !== null && p.meta_refresh_seconds <= REFRESH_REDIRECT_SECONDS,
+    ([, p]) =>
+      p.meta_refresh_seconds !== null && p.meta_refresh_seconds <= REFRESH_REDIRECT_SECONDS,
   );
   const subject = sampled === 'home' ? 'the home page' : `${judged} sampled product page(s)`;
   const plural = sampled !== 'home';
-  if (refreshing.length > 0) {
+  const firstRefresh = refreshing[0]?.[1];
+  if (firstRefresh) {
     return fail(
-      `${refreshing.length} of ${subject} redirect with a meta refresh of ${refreshing[0]![1].meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content`,
+      `${refreshing.length} of ${subject} redirect with a meta refresh of ${firstRefresh.meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content`,
       evidence,
     );
   }
-  if (misplaced.length > 0) {
-    const [, first] = misplaced[0]!;
+  const first = misplaced[0]?.[1];
+  if (first) {
     const what = [...new Set(first.misplaced.map((m) => m.split(' ')[0]))].join(', ');
     const culprit = first.invalid_head_element
       ? ` (the head is ended by ${first.invalid_head_element})`
@@ -85,20 +88,25 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
     );
   }
   const notHtml = entries.filter(
-    ([, p]) => p.content_type !== null && !/^(text\/html|application\/xhtml\+xml)$/.test(p.content_type),
+    ([, p]) =>
+      p.content_type !== null && !/^(text\/html|application\/xhtml\+xml)$/.test(p.content_type),
   );
-  if (notHtml.length > 0) {
+  const firstNotHtml = notHtml[0]?.[1];
+  if (firstNotHtml) {
     return warn(
-      `${notHtml.length} of ${subject} are served as ${notHtml[0]![1].content_type} instead of text/html`,
+      `${notHtml.length} of ${subject} are served as ${firstNotHtml.content_type} instead of text/html`,
       evidence,
     );
   }
   const noDoctype = entries.filter(([, p]) => p.doctype !== 'html').length;
-  const noCharset = entries.filter(([, p]) => p.charset === 'none' || p.charset === 'late_meta').length;
+  const noCharset = entries.filter(
+    ([, p]) => p.charset === 'none' || p.charset === 'late_meta',
+  ).length;
   if (noDoctype > 0 || noCharset > 0) {
     const parts: string[] = [];
     if (noDoctype > 0) parts.push(`${noDoctype} lack the HTML doctype`);
-    if (noCharset > 0) parts.push(`${noCharset} declare no character encoding within the first 1024 bytes`);
+    if (noCharset > 0)
+      parts.push(`${noCharset} declare no character encoding within the first 1024 bytes`);
     return warn(`of ${subject}, ${parts.join(' and ')}`, evidence);
   }
   return pass(
