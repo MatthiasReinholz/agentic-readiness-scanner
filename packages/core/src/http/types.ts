@@ -81,6 +81,18 @@ export class RateLimitedError extends BudgetExhaustedError {
   }
 }
 
+/**
+ * The scan's wall-clock budget is used up: a hosted scan must answer within the platform's
+ * request limit, so the remaining checks are skipped with this reason rather than lost
+ * with the whole report.
+ */
+export class DeadlineExhaustedError extends BudgetExhaustedError {
+  constructor(public readonly deadlineMs: number) {
+    super(0, `the scan's time budget of ${Math.round(deadlineMs / 1000)} s was used up`);
+    this.name = 'DeadlineExhaustedError';
+  }
+}
+
 export class BlockedUrlError extends Error {
   constructor(url: string, reason: string) {
     super(`Refusing to fetch ${url}: ${reason}`);

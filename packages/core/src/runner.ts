@@ -183,7 +183,8 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     } catch (error) {
       if (error instanceof BudgetExhaustedError) {
         budgetExhausted = true;
-        if (error.name === 'RateLimitedError') stopReason = `not run: ${error.message}`;
+        if (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError')
+          stopReason = `not run: ${error.message} before this check`;
         outcomes.set(definition.id, {
           verdict: 'skip',
           skipReason: 'budget_exhausted',
