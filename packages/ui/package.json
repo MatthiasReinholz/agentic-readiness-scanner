@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/ui",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The visual system shared by the HTML report and the hosted app: design tokens, the compiled Tailwind stylesheet and the component class recipes.",
   "license": "GPL-3.0-or-later",
   "repository": {
