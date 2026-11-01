@@ -23,6 +23,9 @@ export interface FixtureManifestEntry {
   method?: 'GET' | 'HEAD' | 'OPTIONS' | 'POST';
   /** Request headers (lower-case names) whose values must contain the text for this answer to apply. */
   request_headers?: Record<string, string>;
+  /** The URL that answered after redirects; the fixture then reports that many `redirects`. */
+  final_url?: string;
+  redirects?: number;
 }
 
 export interface FixtureManifest {
@@ -60,6 +63,8 @@ export function loadFixtureDirectory(directory: string): LoadedFixture {
       headers: entry.headers ?? {},
       body,
       ...(when ? { when } : {}),
+      ...(entry.final_url ? { finalUrl: entry.final_url } : {}),
+      ...(entry.redirects !== undefined ? { redirects: entry.redirects } : {}),
     });
   }
   return { origin: manifest.origin, description: manifest.description ?? '', responses };

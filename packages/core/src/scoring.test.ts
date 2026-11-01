@@ -56,6 +56,7 @@ describe('computeLevel', () => {
       'B1.2',
       'B1.8',
       'B1.5',
+      'A2.6',
       'B2.1',
       'B2.2',
     ]);
@@ -68,6 +69,7 @@ describe('computeLevel', () => {
       result('A2.4', 'pass'),
       result('A3.2', 'pass'),
       result('B1.5', 'pass'),
+      result('A2.6', 'pass'),
       result('B2.1', 'pass'),
       result('B2.2', 'pass'),
     ];

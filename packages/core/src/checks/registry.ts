@@ -6,6 +6,7 @@ import {
   robotsTxtExists,
   sitemapLastmodPlausible,
   sitemapReachable,
+  listingLinksProductsAndPages,
 } from './a1/index.js';
 import {
   honestFetchNotBlocked,
@@ -14,6 +15,7 @@ import {
   trainingPolicyStated,
   usagePreferenceSignalsParse,
   userFetchersAllowed,
+  renderResourcesNotBlocked,
 } from './a2/index.js';
 import {
   accessibleMainContent,
@@ -22,7 +24,12 @@ import {
   pageWeightAndResponseTime,
   serverRenderedProductContent,
   unknownUrlsAnswer404,
+  productUrlsAnswerDirectly,
+  titleAndDescriptionPresent,
+  conditionalRequestsSupported,
+  mobileViewportDeclared,
 } from './a3/index.js';
+import { documentHeadWellFormed } from './a3/head.js';
 import {
   a2aAgentCard,
   apiCatalogPublished,
@@ -87,18 +94,25 @@ export const builtInChecks: readonly Check[] = [
   llmsTxtPresent,
   llmsTxtLinksToCatalog,
   sitemapLastmodPlausible,
+  listingLinksProductsAndPages,
   trainingPolicyStated,
   searchCrawlersAllowed,
   usagePreferenceSignalsParse,
   honestFetchNotBlocked,
   userFetchersAllowed,
   noAnswerExclusionDirectives,
+  renderResourcesNotBlocked,
   markdownCopyOfProductPages,
   serverRenderedProductContent,
   pageWeightAndResponseTime,
   canonicalAndHreflang,
   accessibleMainContent,
   unknownUrlsAnswer404,
+  productUrlsAnswerDirectly,
+  titleAndDescriptionPresent,
+  conditionalRequestsSupported,
+  mobileViewportDeclared,
+  documentHeadWellFormed,
   mcpServerDiscoverable,
   apiCatalogPublished,
   oauthDiscoveryForMcp,

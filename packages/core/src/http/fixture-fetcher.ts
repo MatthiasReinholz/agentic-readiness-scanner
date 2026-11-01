@@ -18,6 +18,10 @@ export interface FixtureResponse {
    * is the default for its URL.
    */
   when?: { method?: HttpMethod; headers?: Record<string, string> };
+  /** The URL that answered after redirects, when the recorded request was redirected. */
+  finalUrl?: string;
+  /** Redirect hops the recorded request took; 0 when omitted. */
+  redirects?: number;
 }
 
 export interface FixtureFetcherOptions {
@@ -112,13 +116,13 @@ export class FixtureFetcher implements Fetcher {
       headers[name.toLowerCase()] = value;
     return Promise.resolve({
       url,
-      finalUrl: key,
+      finalUrl: recorded?.finalUrl ?? key,
       status: recorded?.status ?? 404,
       headers,
       body: method === 'HEAD' ? '' : body,
       bytes: new TextEncoder().encode(body).byteLength,
       truncated: false,
-      redirects: 0,
+      redirects: recorded?.redirects ?? 0,
       durationMs: 1,
       fromCache,
     });

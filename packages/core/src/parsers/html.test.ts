@@ -169,6 +169,20 @@ describe('HtmlDocument', () => {
     expect(doc.productImage(base)).toBeNull();
   });
 
+  it('reads the root lang, external scripts, stylesheets and headings', () => {
+    const doc = new HtmlDocument(`<!doctype html><html lang=" de-DE "><head>
+      <link rel="preload stylesheet" href="/theme.css"><link rel="icon" href="/favicon.ico">
+      <script src="/app.js"></script><script src=""></script><script>inline()</script>
+      </head><body><h1> Stoneware <em>Mug</em> </h1><h2>Details</h2><h1>Second</h1></body></html>`);
+    expect(doc.lang()).toBe('de-DE');
+    expect(doc.externalScripts()).toEqual(['/app.js']);
+    expect(doc.stylesheets()).toEqual(['/theme.css']);
+    expect(doc.headings(1)).toEqual(['Stoneware Mug', 'Second']);
+    expect(doc.headings(2)).toEqual(['Details']);
+    expect(new HtmlDocument('<html><body></body></html>').lang()).toBeNull();
+    expect(new HtmlDocument('<html lang=""><body></body></html>').lang()).toBeNull();
+  });
+
   it('returns the text of inline scripts only', () => {
     const page = new HtmlDocument(`
       <script src="/app.js">ignored</script>

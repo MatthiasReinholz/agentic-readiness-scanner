@@ -181,30 +181,52 @@
     "id": "A2.6",
     "group": "A2",
     "title": "No directives that keep product pages out of AI answers",
-    "question": "Do page-level directives withdraw the product from AI answers?",
-    "method": "Read meta robots, meta bingbot and X-Robots-Tag on sampled product pages and look for data-nosnippet around the main content. Fail on noindex. Warn on nosnippet or max-snippet:0 (Google says these also exclude the page from AI Overviews and AI Mode), on a data-nosnippet attribute wrapping the main content, on Bing noarchive, nocache or ai-grounding:disallow (Copilot answers), and on isAccessibleForFree:false in the page JSON-LD (Apple Intelligence). noai and noimageai are recorded as a declared preference that no major crawler documents honouring, not as a restriction.",
-    "weight": 2,
+    "question": "Do the pages stay eligible for a snippet, which is what AI answers are built from?",
+    "method": "Read the robots meta tag, the Bingbot meta tag and the X-Robots-Tag header of each sampled product page. Fail on noindex, on nosnippet or max-snippet:0 (Google documents that these keep the content out of AI Overviews and AI Mode, and Apple generates no web answer from such a page), and when data-nosnippet wraps half or more of the page text. Warn on Bing's noarchive or nocache (the page is kept out of Copilot answers or reduced to URL, title and snippet), on Bing's ai-grounding:disallow or disallowextended (honoured from 2027), and on isAccessibleForFree:false (Apple does not use the page as AI context). Record noai and noimageai as declared preferences without a verdict, since no documented answer engine reads them.",
+    "weight": 3,
     "requires": ["products"],
     "spec": [
-      {
-        "title": "Robots meta tag and X-Robots-Tag",
-        "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
-      },
       {
         "title": "Google: AI features and your website",
         "url": "https://developers.google.com/search/docs/appearance/ai-features"
       },
       {
-        "title": "Robots meta tags and attributes that Bing supports",
+        "title": "Google: robots meta tag, data-nosnippet and X-Robots-Tag",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+      },
+      {
+        "title": "Bing: robots meta tags and attributes Bing supports",
         "url": "https://www.bing.com/webmasters/help/robots-meta-tags-and-attributes-that-bing-supports-5198d240"
       },
       {
-        "title": "Bing: clearer preferences for training and grounding",
+        "title": "Bing: clearer preferences for training and grounding (ai-grounding)",
         "url": "https://blogs.bing.com/search/2026/10/your-content-your-choice-clearer-preferences-for-training-and-grounding/"
       },
       {
-        "title": "About Applebot",
+        "title": "Apple: About Applebot",
         "url": "https://support.apple.com/en-us/119829"
+      }
+    ]
+  },
+  {
+    "id": "A2.7",
+    "group": "A2",
+    "title": "Render resources not blocked by robots.txt",
+    "question": "May the crawlers that render pages fetch the scripts and stylesheets the page needs?",
+    "method": "Collect the same-origin script and stylesheet URLs of the sampled product pages (the home page when none were sampled) and evaluate each path against robots.txt for Googlebot and Bingbot. Fail when any is disallowed for Googlebot: Google does not render JavaScript from blocked files, Applebot follows Googlebot rules and cannot render with blocked resources, and Bing excludes content it cannot render from grounding. Warn when only Bingbot is blocked. Cross-origin assets are outside this file and are not judged, and neither are scripts under cart, checkout, account, order or admin paths: platforms disallow those areas on purpose (Shopify ships a checkout preload script on every product page) and a product page renders without them. Not applicable when the page loads no same-origin scripts or stylesheets.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: JavaScript SEO basics",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
+      },
+      {
+        "title": "Apple: About Applebot",
+        "url": "https://support.apple.com/en-us/119829"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
       }
     ]
   }

@@ -14,13 +14,14 @@
   {
     "value": 2,
     "name": "Readable catalog",
-    "description": "Level 1, and the catalog is enumerable (product sitemap, platform API or public feed) with Product JSON-LD and a complete Offer on product pages.",
+    "description": "Level 1, and the catalog is enumerable (product sitemap, platform API or public feed), product pages stay eligible for snippets, and they carry Product JSON-LD with a complete Offer.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
       ["A2.4"],
       ["A3.2"],
       ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
       ["B2.1"],
       ["B2.2"]
     ]
@@ -35,6 +36,7 @@
       ["A2.4"],
       ["A3.2"],
       ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
       ["B2.1"],
       ["B2.2"],
       ["B3.1", "B3.4"],
@@ -52,6 +54,7 @@
       ["A2.4"],
       ["A3.2"],
       ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
       ["B2.1"],
       ["B2.2"],
       ["B3.1", "B3.4"],
@@ -73,6 +76,7 @@
       ["A2.4"],
       ["A3.2"],
       ["A1.3", "B1.2", "B1.8", "B1.5"],
+      ["A2.6"],
       ["B2.1"],
       ["B2.2"],
       ["B3.1", "B3.4"],

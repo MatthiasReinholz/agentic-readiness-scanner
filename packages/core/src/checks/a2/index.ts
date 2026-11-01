@@ -138,10 +138,29 @@ export const userFetchersAllowed = defineCheck('A2.5', ({ target }) => {
 });
 
 const NOINDEX = /\bnoindex\b/i;
-/** Google: also excludes the page from AI Overviews and AI Mode. */
-const GOOGLE_LIMIT = /\bnosnippet\b|max-snippet:\s*0\b/i;
-/** Bing: keeps the page out of Copilot answers (noarchive, nocache) or out of grounding. */
-const BING_LIMIT = /\bnoarchive\b|\bnocache\b|ai-grounding:\s*disallow/i;
+/**
+ * Google documents that these keep the page out of AI Overviews and AI Mode, and Apple
+ * generates no web answer from such a page. Named individually so the message can say
+ * which one was found.
+ */
+const GOOGLE_LIMITS: readonly { name: string; pattern: RegExp }[] = [
+  { name: 'nosnippet', pattern: /\bnosnippet\b/i },
+  { name: 'max-snippet:0', pattern: /max-snippet:\s*0\b/i },
+];
+/**
+ * Bing: noarchive and nocache keep the page out of Copilot answers or reduce it to URL,
+ * title and snippet; ai-grounding:disallow and disallowextended opt out of grounding.
+ * The directive may arrive in the Bingbot meta tag or in an X-Robots-Tag header whose
+ * value is prefixed with the crawler name (`X-Robots-Tag: bingbot: ai-grounding:disallow`);
+ * the patterns match inside either form.
+ */
+const BING_LIMITS: readonly { name: string; pattern: RegExp }[] = [
+  { name: 'noarchive', pattern: /\bnoarchive\b/i },
+  { name: 'nocache', pattern: /\bnocache\b/i },
+  { name: 'ai-grounding:disallowextended', pattern: /ai-grounding:\s*disallowextended\b/i },
+  { name: 'ai-grounding:disallow', pattern: /ai-grounding:\s*disallow\b/i },
+];
+const BINGBOT_HEADER_PREFIX = /(^|,)\s*bingbot\s*:/i;
 /** A declared preference without a documented consumer among major crawlers. */
 const DECLARED_ONLY = /\bnoai\b|\bnoimageai\b/i;
 /** A data-nosnippet element covering this share of the page text counts as wrapping it. */
@@ -149,6 +168,8 @@ const NOSNIPPET_COVERAGE = 0.5;
 
 interface PageDirectives {
   header: string | null;
+  /** True when the X-Robots-Tag header scopes a value to Bingbot with a `bingbot:` prefix. */
+  header_for_bingbot: boolean;
   meta: string | null;
   bingbot: string | null;
   nosnippet_coverage: number;
@@ -162,7 +183,8 @@ export const noAnswerExclusionDirectives = defineCheck('A2.6', async ({ target, 
     return skip('not_applicable', 'no product pages sampled');
   }
   const perPage: Record<string, PageDirectives> = {};
-  let blocking = 0;
+  const blocking: string[] = [];
+  const blockingDirectives = new Set<string>();
   const limiting: string[] = [];
   for (const page of pages) {
     const response = await fetcher.fetch(page.url);
@@ -186,26 +208,41 @@ export const noAnswerExclusionDirectives = defineCheck('A2.6', async ({ target, 
       : [];
     perPage[page.url] = {
       header,
+      header_for_bingbot: header !== null && BINGBOT_HEADER_PREFIX.test(header),
       meta,
       bingbot,
       nosnippet_coverage: Number(coverage.toFixed(2)),
       not_accessible_for_free: notFree,
       declared_preferences: declared,
     };
-    if (NOINDEX.test(directives)) {
-      blocking += 1;
+    const blocks: string[] = [];
+    if (NOINDEX.test(directives)) blocks.push('noindex');
+    for (const limit of GOOGLE_LIMITS) {
+      if (limit.pattern.test(directives)) blocks.push(limit.name);
+    }
+    if (coverage >= NOSNIPPET_COVERAGE) blocks.push('data-nosnippet around the main content');
+    if (blocks.length > 0) {
+      blocking.push(`${page.url}: ${blocks.join(', ')}`);
+      for (const block of blocks) blockingDirectives.add(block);
       continue;
     }
     const reasons: string[] = [];
-    if (GOOGLE_LIMIT.test(directives)) reasons.push('nosnippet (Google AI Overviews and AI Mode)');
-    if (coverage >= NOSNIPPET_COVERAGE) reasons.push('data-nosnippet around the main content');
-    if (BING_LIMIT.test(directives))
-      reasons.push('Bing noarchive, nocache or ai-grounding:disallow');
+    const bing = BING_LIMITS.find((limit) => limit.pattern.test(directives));
+    if (bing) reasons.push(`Bing ${bing.name}`);
     if (notFree) reasons.push('isAccessibleForFree:false (Apple Intelligence)');
     if (reasons.length > 0) limiting.push(`${page.url}: ${reasons.join(', ')}`);
   }
-  const evidence = { pages: perPage, limiting };
-  if (blocking > 0) return fail(`${blocking} sampled product page(s) carry noindex`, evidence);
+  const evidence = { pages: perPage, blocking, limiting };
+  if (blocking.length > 0) {
+    const named = [...blockingDirectives].join(', ');
+    const consequence = blockingDirectives.has('noindex')
+      ? 'the page leaves the search index that Google AI Overviews and AI Mode and Apple web answers are built on'
+      : 'Google documents that this keeps the page out of AI Overviews and AI Mode, and Apple generates no web answer from it';
+    return fail(
+      `${blocking.length} sampled product page(s) carry ${named}; ${consequence}`,
+      evidence,
+    );
+  }
   if (limiting.length > 0) {
     return warn(
       `${limiting.length} sampled product page(s) carry directives that keep them out of AI answers`,
@@ -468,4 +505,90 @@ export const usagePreferenceSignalsParse = defineCheck('A2.3', async ({ target, 
     );
   }
   return pass(`${signals.length} usage-preference signal(s) declared and well-formed`, evidence);
+});
+
+/** Same-origin scripts and stylesheets evaluated at most, across the sampled pages. */
+const RENDER_ASSET_LIMIT = 50;
+/** Blocked asset paths kept in evidence per crawler. */
+const BLOCKED_ASSET_SAMPLE = 10;
+
+/**
+ * Assets under the transactional areas a platform disallows on purpose (Shopify ships a
+ * checkout preload script on every product page under /checkouts/). A product page
+ * renders without them, so they are recorded, not judged.
+ */
+const TRANSACTIONAL_ASSET = /\/(checkouts?|cart|accounts?|admin|orders)(\/|$)/i;
+
+export const renderResourcesNotBlocked = defineCheck('A2.7', async ({ target, fetcher }) => {
+  const sampled = await productPages(target, fetcher);
+  const sources =
+    sampled.length > 0
+      ? sampled.map((page) => ({ url: page.url, doc: page.doc }))
+      : [{ url: target.home.finalUrl, doc: target.homeDoc }];
+  const assets = new Set<string>();
+  const ignored = new Set<string>();
+  for (const source of sources) {
+    for (const href of [...source.doc.externalScripts(), ...source.doc.stylesheets()]) {
+      if (assets.size >= RENDER_ASSET_LIMIT) break;
+      try {
+        const url = new URL(href, source.url);
+        // Cross-origin assets are outside this robots.txt and are not judged.
+        if (url.origin !== target.origin) continue;
+        if (TRANSACTIONAL_ASSET.test(url.pathname)) {
+          ignored.add(url.pathname + url.search);
+          continue;
+        }
+        assets.add(url.pathname + url.search);
+      } catch {
+        // an unparsable src or href cannot be fetched by anyone; nothing to evaluate
+      }
+    }
+  }
+  const evidence: Record<string, unknown> = {
+    pages: sources.map((source) => source.url),
+    assets_checked: assets.size,
+    ignored_transactional: [...ignored].slice(0, BLOCKED_ASSET_SAMPLE),
+    blocked_googlebot: [],
+    blocked_bingbot: [],
+  };
+  if (assets.size === 0) {
+    return skip(
+      'not_applicable',
+      'the sampled pages load no same-origin scripts or stylesheets',
+      evidence,
+    );
+  }
+  const robots = target.robots;
+  if (!robots) {
+    return pass(
+      `robots.txt is absent or unparsable, so none of the ${assets.size} same-origin scripts and stylesheets is blocked`,
+      evidence,
+    );
+  }
+  const blockedGooglebot: string[] = [];
+  const blockedBingbot: string[] = [];
+  for (const path of assets) {
+    if (!isAllowed(robots, 'Googlebot', path)) blockedGooglebot.push(path);
+    if (!isAllowed(robots, 'Bingbot', path)) blockedBingbot.push(path);
+  }
+  evidence.blocked_googlebot = blockedGooglebot.slice(0, BLOCKED_ASSET_SAMPLE);
+  evidence.blocked_bingbot = blockedBingbot.slice(0, BLOCKED_ASSET_SAMPLE);
+  evidence.blocked_googlebot_count = blockedGooglebot.length;
+  evidence.blocked_bingbot_count = blockedBingbot.length;
+  if (blockedGooglebot.length > 0) {
+    return fail(
+      `${blockedGooglebot.length} of ${assets.size} same-origin scripts and stylesheets are disallowed for Googlebot in robots.txt; Google, Applebot and Bing cannot render the page with them`,
+      evidence,
+    );
+  }
+  if (blockedBingbot.length > 0) {
+    return warn(
+      `${blockedBingbot.length} of ${assets.size} same-origin scripts and stylesheets are disallowed for Bingbot in robots.txt; Bing leaves content it cannot render out of grounding`,
+      evidence,
+    );
+  }
+  return pass(
+    `all ${assets.size} same-origin scripts and stylesheets may be fetched by Googlebot and Bingbot`,
+    evidence,
+  );
 });

@@ -9,3 +9,4 @@ export * from './security-txt.js';
 export * from './price.js';
 export * from './feed.js';
 export * from './usage-preferences.js';
+export * from './head.js';

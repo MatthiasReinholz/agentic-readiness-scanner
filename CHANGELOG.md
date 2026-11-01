@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Catalog 0.3.0 and scoring 0.3.0** after an audit of the conventional technical SEO that AI answer products inherit from the indexes they run on ([docs/audits/2026-11-01-technical-seo-audit.md](docs/audits/2026-11-01-technical-seo-audit.md), [decision 0011](docs/decisions/0011-technical-seo-scope.md)). New checks: A1.8 listing pages link to products and further pages, A2.7 render resources not blocked by robots.txt, A3.7 product URLs answer directly over HTTPS (with http:// and host-variant consolidation), A3.8 title and description on every page, A3.9 conditional requests supported, A3.10 mobile viewport declared, A3.11 document head is well-formed (metadata after a head-breaking element, meta refresh, doctype, charset).
+- A position-aware head scanner (`parsers/head.ts`) and HTML parser helpers for the root `lang`, external scripts, stylesheets and headings; fixtures can now record redirected requests (`final_url`, `redirects`).
+
+### Changed
+
+- A2.6 fails on `nosnippet`, `max-snippet:0` and `data-nosnippet` around the main content (Google builds AI Overviews and AI Mode from snippet-eligible pages only; Apple generates no web answer without one), recognises Bing's `ai-grounding:disallowextended` and the `Bingbot:`-prefixed header form, has weight 3 and gates Level 2.
+- A3.3 fails at Googlebot's 2 MB document cutoff instead of warning; A3.4 judges canonical correctness (HTML and Link header, absolute, single, same origin, HTTPS, self-referencing) instead of presence.
+- The recorded stores carry viewport tags, ETags with 304 answers, host-variant redirects and a listing page with pagination.
+
 ## [0.3.0] - 2026-11-01
 
 ### Added
