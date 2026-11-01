@@ -1,6 +1,7 @@
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
-import { scanHead, type HeadScan } from '../../parsers/head.js';
+import { scanHead, type HeadScan, type MetadataKind } from '../../parsers/head.js';
 import type { FetchedResponse } from '../../http/types.js';
+import { everyJudgedPage, judgedPages, sampledProductPages } from './index.js';
 
 /** A meta refresh this quick is a redirect, not a page (Google treats 0 s as permanent). */
 const REFRESH_REDIRECT_SECONDS = 5;
@@ -23,7 +24,7 @@ function contentTypeOf(response: FetchedResponse): string | null {
   return type === undefined || type === '' ? null : type;
 }
 
-function describe(response: FetchedResponse): PageHead {
+function describe(response: FetchedResponse): { head: PageHead; scan: HeadScan } {
   const scan = scanHead(response.body);
   const header = response.headers['content-type'] ?? '';
   const charset: PageHead['charset'] = /charset\s*=\s*[a-z0-9_:.()-]{2,}/i.test(header)
@@ -33,7 +34,7 @@ function describe(response: FetchedResponse): PageHead {
       : scan.charsetOffset < CHARSET_WINDOW
         ? 'meta'
         : 'late_meta';
-  return {
+  const head: PageHead = {
     status: response.status,
     content_type: contentTypeOf(response),
     doctype: scan.doctype,
@@ -42,48 +43,105 @@ function describe(response: FetchedResponse): PageHead {
       ? `<${scan.invalidHeadElement.tag}> at byte ${scan.invalidHeadElement.offset}`
       : null,
     misplaced: scan.misplaced.map(
-      (m) => `${m.kind} ${m.where === 'body' ? 'in the body' : 'after the invalid element'}`,
+      (m) =>
+        `${m.kind} ${m.where === 'body' ? 'in the body' : 'after the invalid element'} at byte ${m.offset}`,
     ),
     meta_refresh_seconds: scan.metaRefreshSeconds,
   };
+  return { head, scan };
+}
+
+/** How a message names each piece of metadata, without an article. */
+const METADATA_NAMES: Record<MetadataKind, string> = {
+  title: '<title>',
+  canonical: 'rel=canonical',
+  robots: 'robots meta tag',
+  description: 'meta description',
+  hreflang: 'hreflang alternates',
+};
+
+/** "a", "a and b", "a, b and c". */
+function listOf(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1] ?? ''}`;
+}
+
+function withArticle(tag: string): string {
+  return `${/^[aeiou]/i.test(tag) ? 'an' : 'a'} <${tag}>`;
+}
+
+/**
+ * What sits where on one page: "<title> sits in the body, after an <iframe> at byte
+ * 24457", "<title> and rel=canonical sit after a <div> at byte 318 that ends the head".
+ */
+export function misplacedPhrase(scan: HeadScan): string {
+  const kinds = [...new Set(scan.misplaced.map((m) => m.kind))];
+  const what = listOf(kinds.map((kind) => METADATA_NAMES[kind]));
+  const plural = kinds.length > 1 || kinds[0] === 'hreflang';
+  const culprit = scan.invalidHeadElement;
+  const after = culprit ? `after ${withArticle(culprit.tag)} at byte ${culprit.offset}` : null;
+  const where = scan.misplaced.some((m) => m.where === 'body')
+    ? `in the body${after ? `, ${after}` : ''}`
+    : after
+      ? `${after} that ends the head`
+      : 'outside the head';
+  return `${what} ${plural ? 'sit' : 'sits'} ${where}`;
 }
 
 export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetcher }) => {
-  const urls = target.sampled.products.length > 0 ? target.sampled.products : [target.home.url];
   const sampled = target.sampled.products.length > 0 ? 'products' : 'home';
-  const pages: Record<string, PageHead> = {};
-  let judged = 0;
-  for (const url of urls) {
-    const response = sampled === 'home' ? target.home : await fetcher.fetch(url);
-    if (response.status !== 200 || response.body.trim() === '') continue;
-    pages[url] = describe(response);
-    judged += 1;
+  const responses: FetchedResponse[] = [];
+  let failed: Record<string, { status: number; failure: string }> = {};
+  let note = '';
+  if (sampled === 'home') {
+    responses.push(target.home);
+  } else {
+    const judged = await sampledProductPages(target, fetcher);
+    if (judged.unavailable) return judged.unavailable;
+    ({ failed, note } = judged);
+    // Only pages that answered are scanned; the fetcher has their bodies cached.
+    for (const page of judged.pages) responses.push(await fetcher.fetch(page.url));
   }
-  const evidence = { sampled, pages, total: judged };
-  if (judged === 0) return skip('not_applicable', 'no page answered 200 with a body');
+  const pages: Record<string, PageHead> = {};
+  const scans = new Map<string, HeadScan>();
+  for (const response of responses) {
+    if (response.status < 200 || response.status >= 300 || response.body.trim() === '') continue;
+    const { head, scan } = describe(response);
+    pages[response.url] = head;
+    scans.set(response.url, scan);
+  }
+  const judged = scans.size;
+  const evidence = { sampled, pages, total: judged, failed };
+  if (judged === 0) {
+    return skip(
+      'not_applicable',
+      `${sampled === 'home' ? 'the home page' : 'no sampled product page'} answered with ${sampled === 'home' ? 'no' : 'a'} body${note}`,
+      evidence,
+    );
+  }
   const entries = Object.entries(pages);
-  const misplaced = entries.filter(([, p]) => p.misplaced.length > 0);
   const refreshing = entries.filter(
     ([, p]) =>
       p.meta_refresh_seconds !== null && p.meta_refresh_seconds <= REFRESH_REDIRECT_SECONDS,
   );
-  const subject = sampled === 'home' ? 'the home page' : `${judged} sampled product page(s)`;
-  const plural = sampled !== 'home';
   const firstRefresh = refreshing[0]?.[1];
   if (firstRefresh) {
+    const { phrase, plural } = judgedPages(sampled, refreshing.length, judged);
     return fail(
-      `${refreshing.length} of ${subject} redirect with a meta refresh of ${firstRefresh.meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content`,
+      `${phrase} redirect${plural ? '' : 's'} with a meta refresh of ${firstRefresh.meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content${note}`,
       evidence,
     );
   }
-  const first = misplaced[0]?.[1];
-  if (first) {
-    const what = [...new Set(first.misplaced.map((m) => m.split(' ')[0]))].join(', ');
-    const culprit = first.invalid_head_element
-      ? ` (the head is ended by ${first.invalid_head_element})`
-      : '';
+  const misplaced = entries.filter(([, p]) => p.misplaced.length > 0);
+  const firstMisplaced = misplaced[0];
+  const firstScan = firstMisplaced ? scans.get(firstMisplaced[0]) : undefined;
+  if (firstScan) {
+    const { phrase } = judgedPages(sampled, misplaced.length, judged);
+    const where = misplacedPhrase(firstScan);
     return fail(
-      `on ${misplaced.length} of ${subject} the ${what} sit where crawlers do not read them${culprit}`,
+      sampled === 'home'
+        ? `the home page's ${where}, where crawlers do not read it${note}`
+        : `on ${phrase} the ${where}, where crawlers do not read it${note}`,
       evidence,
     );
   }
@@ -93,8 +151,9 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
   );
   const firstNotHtml = notHtml[0]?.[1];
   if (firstNotHtml) {
+    const { phrase, plural } = judgedPages(sampled, notHtml.length, judged);
     return warn(
-      `${notHtml.length} of ${subject} are served as ${firstNotHtml.content_type} instead of text/html`,
+      `${phrase} ${plural ? 'are' : 'is'} served as ${firstNotHtml.content_type} instead of text/html${note}`,
       evidence,
     );
   }
@@ -104,13 +163,20 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
   ).length;
   if (noDoctype > 0 || noCharset > 0) {
     const parts: string[] = [];
-    if (noDoctype > 0) parts.push(`${noDoctype} lack the HTML doctype`);
-    if (noCharset > 0)
-      parts.push(`${noCharset} declare no character encoding within the first 1024 bytes`);
-    return warn(`of ${subject}, ${parts.join(' and ')}`, evidence);
+    if (noDoctype > 0) {
+      const { phrase, plural } = judgedPages(sampled, noDoctype, judged);
+      parts.push(`${phrase} lack${plural ? '' : 's'} the HTML doctype`);
+    }
+    if (noCharset > 0) {
+      const { phrase, plural } = judgedPages(sampled, noCharset, judged);
+      parts.push(
+        `${phrase} declare${plural ? '' : 's'} no character encoding within the first 1024 bytes`,
+      );
+    }
+    return warn(`${parts.join(' and ')}${note}`, evidence);
   }
   return pass(
-    `${subject} ${plural ? 'start' : 'starts'} with the HTML doctype, ${plural ? 'declare their' : 'declares its'} encoding and ${plural ? 'keep' : 'keeps'} title, canonical and directives inside a valid head`,
+    `${everyJudgedPage(sampled, judged)} starts with the HTML doctype, declares its encoding and keeps title, canonical and directives inside a valid head${note}`,
     evidence,
   );
 });

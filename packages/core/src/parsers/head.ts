@@ -18,6 +18,9 @@ const HEAD_ELEMENTS = new Set([
   'template',
 ]);
 
+/** Elements that open a foreign (SVG or MathML) subtree; see scanHead. */
+const FOREIGN_ELEMENTS = new Set(['svg', 'math']);
+
 export type MetadataKind = 'title' | 'canonical' | 'robots' | 'description' | 'hreflang';
 
 export interface MisplacedMetadata {
@@ -61,10 +64,15 @@ export function scanHead(html: string): HeadScan {
   // With scripting on, noscript content in the head is text to a browser and to Google's
   // renderer, so elements inside it neither end the head nor count as metadata.
   let noscriptDepth = 0;
+  // Inside <svg> and <math> the elements belong to another namespace: an inline icon's
+  // <title> is its accessible name, not the document title, and nothing in there is head
+  // metadata. The <svg> or <math> element itself still ends a head it appears in.
+  let foreignDepth = 0;
   const parser = new Parser(
     {
       onclosetag(name) {
         if (name === 'noscript' && noscriptDepth > 0) noscriptDepth -= 1;
+        if (FOREIGN_ELEMENTS.has(name) && foreignDepth > 0) foreignDepth -= 1;
       },
       onprocessinginstruction(name, data) {
         if (name.toLowerCase() === '!doctype' && result.doctype === 'none') {
@@ -82,6 +90,10 @@ export function scanHead(html: string): HeadScan {
           return;
         }
         if (noscriptDepth > 0) return;
+        if (foreignDepth > 0) {
+          if (FOREIGN_ELEMENTS.has(name)) foreignDepth += 1;
+          return;
+        }
         if (name === 'html') return;
         if (name === 'head') {
           if (region === 'before') region = 'head';
@@ -94,6 +106,10 @@ export function scanHead(html: string): HeadScan {
         if (region === 'before') region = 'head'; // implicit head
         if (region === 'head' && !HEAD_ELEMENTS.has(name) && result.invalidHeadElement === null) {
           result.invalidHeadElement = { tag: name, offset };
+        }
+        if (FOREIGN_ELEMENTS.has(name)) {
+          foreignDepth += 1;
+          return;
         }
         const where: MisplacedMetadata['where'] | null =
           region === 'body' ? 'body' : result.invalidHeadElement !== null ? 'after_invalid' : null;

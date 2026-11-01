@@ -19,6 +19,7 @@ import {
   probeUrlFor,
   productUrlsAnswerDirectly,
   readViewport,
+  registrableDomain,
   serverRenderedProductContent,
   titleAndDescriptionPresent,
   unknownUrlsAnswer404,
@@ -102,6 +103,32 @@ describe('A3.2 server-rendered product content', () => {
     );
     expect(fromClass.verdict).toBe('pass');
   });
+
+  it('never scores a page that could not be fetched as empty, and says one was not read', async () => {
+    const outcome = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: productHtml(), [bowl]: { status: 503, body: '' } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      '1 of 1 sampled product page(s) carry title, price and description in raw HTML; 1 sampled product page could not be fetched (HTTP 503)',
+    );
+    expect(outcome.evidence).toMatchObject({
+      complete: 1,
+      total: 1,
+      failed: { [bowl]: { status: 503, failure: 'HTTP 503' } },
+    });
+    expect(Object.keys(outcome.evidence.pages as object)).toEqual([mug]);
+    const none = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: { status: 0 }, [bowl]: { status: 429, body: 'slow down' } }),
+    );
+    expect(none.verdict).toBe('skip');
+    expect(none.skipReason).toBe('error');
+    expect(none.message).toMatch(/no sampled product page could be fetched/);
+  });
 });
 
 /** The inner fetcher's answers with a fixed response time, to exercise the time limits. */
@@ -146,35 +173,51 @@ describe('A3.3 page weight and response time', () => {
   it('measures the home page when no product pages were sampled, and says so', async () => {
     const outcome = await runCheck(pageWeightAndResponseTime, targetFor(), mapFetcher({}));
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toMatch(/home page \(no product pages sampled\)/);
+    expect(outcome.message).toMatch(/^the home page is under 1 MB and answered in under 3 s/);
     expect(outcome.evidence).toMatchObject({
       sampled: 'home',
       pages: { 'https://shop.example/': { status: 200 } },
     });
   });
 
-  it('warns on a page between 1 MB and 2 MB', async () => {
+  it('warns on a page between 1 MB and 2 MB, naming the page and the size condition', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug, bowl] }),
       mapFetcher({ [mug]: productHtml(), [bowl]: pageOfBytes(1_200_000) }),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toMatch(
-      /is 1 MB or more or took 3 s or more to answer \(largest 1200 KB/,
+    expect(outcome.message).toBe(
+      `the sampled product page ${bowl} is 1200 KB of HTML, 1 MB or more`,
     );
     expect(outcome.evidence).toMatchObject({ largest_bytes: 1_200_085 });
+    const home = await runCheck(
+      pageWeightAndResponseTime,
+      targetFor({ homeHtml: pageOfBytes(1_100_000) }),
+      mapFetcher({}),
+    );
+    expect(home.message).toBe('the home page is 1100 KB of HTML, 1 MB or more');
   });
 
-  it('warns on a response time of 3 s or more, however slow', async () => {
+  it('warns on a response time of 3 s or more, however slow, naming the time condition', async () => {
     const outcome = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug] }),
       slowFetcher(mapFetcher({ [mug]: productHtml() }), 4_000),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toMatch(/slowest response time 4000 ms/);
+    expect(outcome.message).toBe(
+      `the sampled product page ${mug} took 4000 ms to answer, 3 s or more`,
+    );
     expect(outcome.evidence).toMatchObject({ pages: { [mug]: { response_ms: 4_000 } } });
+    const both = await runCheck(
+      pageWeightAndResponseTime,
+      targetFor({ products: [mug] }),
+      slowFetcher(mapFetcher({ [mug]: pageOfBytes(1_500_000) }), 3_000),
+    );
+    expect(both.message).toBe(
+      `the sampled product page ${mug} is 1500 KB of HTML, 1 MB or more and the sampled product page ${mug} took 3000 ms to answer, 3 s or more`,
+    );
     // Response time is a crawl-health hint: it never fails the page on its own.
     const verySlow = await runCheck(
       pageWeightAndResponseTime,
@@ -192,7 +235,9 @@ describe('A3.3 page weight and response time', () => {
       mapFetcher({ [mug]: pageOfBytes(2_100_000) }),
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toMatch(/reaches the 2 MB cutoff .* \(largest 2100 KB/);
+    expect(outcome.message).toBe(
+      `the sampled product page ${mug} reaches the 2 MB cutoff after which Googlebot reads nothing (2100 KB), so anything placed late in the HTML is not indexed`,
+    );
     const exactly = await runCheck(
       pageWeightAndResponseTime,
       targetFor({ products: [mug] }),
@@ -215,11 +260,25 @@ describe('A3.3 page weight and response time', () => {
       truncating,
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toMatch(/2 MB cutoff/);
+    expect(outcome.message).toMatch(/2 MB cutoff .* read before the scanner stopped/);
     expect(outcome.evidence).toMatchObject({
       truncated: true,
       pages: { [mug]: { truncated: true } },
     });
+  });
+
+  it('measures only the pages that answered, and says which did not', async () => {
+    const outcome = await runCheck(
+      pageWeightAndResponseTime,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: productHtml(), [bowl]: { status: 0 } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'the sampled product page is under 1 MB and answered in under 3 s (largest 1 KB, slowest response time 1 ms); 1 sampled product page could not be fetched (no response)',
+    );
+    expect(outcome.evidence).toMatchObject({ failed: { [bowl]: { status: 0 } } });
+    expect(Object.keys(outcome.evidence.pages as object)).toEqual([mug]);
   });
 });
 
@@ -483,6 +542,33 @@ describe('A3.4 canonical and hreflang', () => {
     });
   });
 
+  it('never scores a page that could not be fetched as missing its canonical', async () => {
+    const outcome = await runCheck(
+      canonicalAndHreflang,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: withHead(canonical(mug)),
+        [bowl]: { status: 404, body: '<html></html>' },
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'rel=canonical on the sampled product page is absolute and names the page itself; 1 sampled product page could not be fetched (HTTP 404)',
+    );
+    expect(outcome.evidence).toMatchObject({
+      total: 1,
+      missing: 0,
+      failed: { [bowl]: { status: 404 } },
+    });
+    const none = await runCheck(
+      canonicalAndHreflang,
+      targetFor({ products: [bowl] }),
+      mapFetcher({ [bowl]: { status: 503 } }),
+    );
+    expect(none.verdict).toBe('skip');
+    expect(none.skipReason).toBe('error');
+  });
+
   it('passes with complete hreflang alternates on every page', async () => {
     const head = (url: string) =>
       canonical(url) +
@@ -521,7 +607,7 @@ describe('A3.5 accessible main content', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'main landmark present on every sampled product page with no overlay markup before it',
+      'main landmark present on every sampled product page with no cookie or consent banner before it',
     );
     expect(outcome.evidence).toMatchObject({
       sampled: 'products',
@@ -542,11 +628,20 @@ describe('A3.5 accessible main content', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toMatch(/home page \(no product pages sampled\)/);
+    expect(outcome.message).toBe(
+      'main landmark present on the home page with no cookie or consent banner before it',
+    );
     expect(outcome.evidence).toMatchObject({
       sampled: 'home',
       pages: { 'https://shop.example/': { main_landmark: true } },
     });
+    const missing = await runCheck(
+      accessibleMainContent,
+      targetFor({ homeHtml: withBody('<div>Shop</div>') }),
+      mapFetcher({}),
+    );
+    expect(missing.verdict).toBe('warn');
+    expect(missing.message).toBe('the home page has no main landmark');
   });
 
   it('warns when a page has no main landmark', async () => {
@@ -556,14 +651,26 @@ describe('A3.5 accessible main content', () => {
       mapFetcher({ [mug]: withBody('<main>Mug</main>'), [bowl]: withBody('<div>Bowl</div>') }),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toBe('1 of 2 sampled product page(s) have no main landmark');
+    expect(outcome.message).toBe('1 of 2 sampled product pages has no main landmark');
     expect(outcome.evidence).toMatchObject({
       missing_main: 1,
       pages: { [bowl]: { main_landmark: false, overlay_before_main: null } },
     });
+    const both = await runCheck(
+      accessibleMainContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: withBody('<div>Mug</div>'), [bowl]: withBody('<div>Bowl</div>') }),
+    );
+    expect(both.message).toBe('2 of 2 sampled product pages have no main landmark');
+    const one = await runCheck(
+      accessibleMainContent,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withBody('<div>Mug</div>') }),
+    );
+    expect(one.message).toBe('the sampled product page has no main landmark');
   });
 
-  it('warns when an overlay-like element precedes or wraps the main landmark', async () => {
+  it('warns when a cookie or consent banner precedes or wraps the main landmark, naming it', async () => {
     const byClass = await runCheck(
       accessibleMainContent,
       targetFor({ products: [mug] }),
@@ -573,7 +680,7 @@ describe('A3.5 accessible main content', () => {
     );
     expect(byClass.verdict).toBe('warn');
     expect(byClass.message).toBe(
-      'an overlay-like element precedes the main landmark on 1 of 1 sampled product page(s)',
+      'a cookie or consent banner (div#cc.cc-banner.cookie-consent) precedes the main landmark on the sampled product page',
     );
     expect(byClass.evidence).toMatchObject({
       overlaid: 1,
@@ -581,24 +688,62 @@ describe('A3.5 accessible main content', () => {
         [mug]: { main_landmark: true, overlay_before_main: 'div#cc.cc-banner.cookie-consent' },
       },
     });
-    const byRole = await runCheck(
+    const cmp = await runCheck(
       accessibleMainContent,
-      targetFor({ products: [mug] }),
+      targetFor({ products: [mug, bowl] }),
       mapFetcher({
-        [mug]: withBody('<div role="dialog" aria-modal="true"></div><main>Mug</main>'),
+        [mug]: withBody('<div id="usercentrics-cmp-ui"></div><main>Mug</main>'),
+        [bowl]: withBody('<div id="gdpr-wrapper"><main>Bowl</main></div>'),
       }),
     );
-    expect(byRole.verdict).toBe('warn');
-    expect(byRole.evidence).toMatchObject({ pages: { [mug]: { overlay_before_main: 'div' } } });
-    const wrapping = await runCheck(
-      accessibleMainContent,
-      targetFor({ products: [mug] }),
-      mapFetcher({ [mug]: withBody('<div id="modal-root"><main>Mug</main></div>') }),
+    expect(cmp.verdict).toBe('warn');
+    expect(cmp.message).toBe(
+      'a cookie or consent banner (div#usercentrics-cmp-ui) precedes the main landmark on 2 of 2 sampled product pages',
     );
-    expect(wrapping.verdict).toBe('warn');
-    expect(wrapping.evidence).toMatchObject({
-      pages: { [mug]: { overlay_before_main: 'div#modal-root' } },
+    expect(cmp.evidence).toMatchObject({
+      pages: { [bowl]: { overlay_before_main: 'div#gdpr-wrapper' } },
     });
+    const home = await runCheck(
+      accessibleMainContent,
+      targetFor({ homeHtml: withBody('<aside class="privacy-banner"></aside><main>Shop</main>') }),
+      mapFetcher({}),
+    );
+    expect(home.message).toBe(
+      'a cookie or consent banner (aside.privacy-banner) precedes the main landmark on the home page',
+    );
+  });
+
+  it('does not count cart drawers, closed pickers, header wrappers or plain dialogs as consent overlays', async () => {
+    const outcome = await runCheck(
+      accessibleMainContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({
+        [mug]: withBody(
+          '<div id="CartDrawer-Overlay" class="cart-drawer__overlay"></div><div class="hnf-modal-wrapper--close hnf-localisation-picker-modal"></div><main>Mug</main>',
+        ),
+        [bowl]: withBody(
+          '<div class="header-popup-container"></div><div role="dialog" aria-modal="true">Newsletter</div><div id="modal-root"><main>Bowl</main></div><div class="compare"></div>',
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      overlaid: 0,
+      pages: { [mug]: { overlay_before_main: null }, [bowl]: { overlay_before_main: null } },
+    });
+  });
+
+  it('never scores a page that could not be fetched as lacking a landmark', async () => {
+    const outcome = await runCheck(
+      accessibleMainContent,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: withBody('<main>Mug</main>'), [bowl]: { status: 429, body: '' } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'main landmark present on the sampled product page with no cookie or consent banner before it; 1 sampled product page could not be fetched (HTTP 429)',
+    );
+    expect(outcome.evidence).toMatchObject({ total: 1, failed: { [bowl]: { status: 429 } } });
   });
 
   it('ignores scripts and styles named after consent tools', async () => {
@@ -859,6 +1004,30 @@ describe('A3.6 unknown URLs answer 404', () => {
     const outcome = await run({ status: 0 });
     expect(outcome.verdict).toBe('skip');
     expect(outcome.skipReason).toBe('error');
+    expect(outcome.message).toBe(
+      'the 404 handling could not be judged because the probe request failed (no response)',
+    );
+  });
+
+  it('skips when the probe was rate limited or met a gateway error: a 429 is not a soft 404', async () => {
+    const throttled = await run({
+      status: 429,
+      headers: { 'content-type': 'text/html' },
+      body: '<!doctype html><html><body>Too many requests</body></html>',
+    });
+    expect(throttled.verdict).toBe('skip');
+    expect(throttled.skipReason).toBe('error');
+    expect(throttled.message).toBe(
+      'the 404 handling could not be judged because the probe request was rate limited (HTTP 429)',
+    );
+    const down = await run({ status: 503, body: '' });
+    expect(down.verdict).toBe('skip');
+    expect(down.message).toBe(
+      'the 404 handling could not be judged because the probe request failed (HTTP 503)',
+    );
+    // A 500 is the server's own answer to the path and is still judged.
+    const broken = await run({ status: 500, body: '' });
+    expect(broken.verdict).toBe('warn');
   });
 });
 
@@ -926,6 +1095,8 @@ describe('A3.7 product URLs answer directly', () => {
           final_url: `${origin}/`,
           redirects: 1,
           lands_on_origin: true,
+          inconclusive: false,
+          redirects_to_host: null,
         },
         other_host: { url: wwwHome, lands_on_origin: true, unreachable: false },
       },
@@ -941,16 +1112,67 @@ describe('A3.7 product URLs answer directly', () => {
       redirectingFetcher({ [httpHome]: 'x', [wwwHome]: 'x' }, variantsRedirect),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toMatch(
-      /^the home page \(no product pages sampled\) answers 200 at its own address/,
+    expect(outcome.message).toBe(
+      'the home page answers 200 at its own address and http://shop.example/ and https://www.shop.example/ redirect to https://shop.example',
     );
     expect(outcome.evidence).toMatchObject({
       sampled: 'home',
+      landing_redirect: false,
       products: { [`${origin}/`]: { status: 200, redirects: 0 } },
     });
   });
 
-  it('does not hold an unreachable host variant against the shop', async () => {
+  it('does not count a single redirect from / to a locale or landing path against the home page', async () => {
+    const target = targetFor();
+    target.home = { ...target.home, finalUrl: `${origin}/en-US/`, redirects: 1 };
+    const locale = await runCheck(
+      productUrlsAnswerDirectly,
+      target,
+      redirectingFetcher({ [httpHome]: 'x', [wwwHome]: 'x' }, variantsRedirect),
+    );
+    expect(locale.verdict).toBe('pass');
+    expect(locale.message).toBe(
+      'the home page answers 200 at https://shop.example/en-US/ after a redirect from https://shop.example/, the locale or landing redirect every visitor gets, which is not a finding, and http://shop.example/ and https://www.shop.example/ redirect to https://shop.example',
+    );
+    expect(locale.evidence).toMatchObject({ landing_redirect: true, redirected: 1 });
+    // The input URL named the apex; the hop to www is the resolver's, the next one the landing redirect.
+    const normalized = targetFor({ origin: 'https://www.shop.example' });
+    normalized.home = {
+      ...normalized.home,
+      url: 'https://shop.example/',
+      finalUrl: 'https://www.shop.example/de/index.html',
+      redirects: 2,
+    };
+    const twoHops = await runCheck(
+      productUrlsAnswerDirectly,
+      normalized,
+      redirectingFetcher(
+        { 'http://www.shop.example/': 'x', 'https://shop.example/': 'x' },
+        {
+          'http://www.shop.example/': { finalUrl: 'https://www.shop.example/', redirects: 1 },
+          'https://shop.example/': { finalUrl: 'https://www.shop.example/', redirects: 1 },
+        },
+      ),
+    );
+    expect(twoHops.verdict).toBe('pass');
+    expect(twoHops.message).toMatch(
+      /^the home page answers 200 at https:\/\/www\.shop\.example\/de\/index\.html after a redirect from https:\/\/shop\.example\//,
+    );
+    // A chain beyond that is still a finding, and names both ends.
+    const chain = targetFor();
+    chain.home = { ...chain.home, finalUrl: `${origin}/en-US/home/`, redirects: 2 };
+    const long = await runCheck(
+      productUrlsAnswerDirectly,
+      chain,
+      redirectingFetcher({ [httpHome]: 'x', [wwwHome]: 'x' }, variantsRedirect),
+    );
+    expect(long.verdict).toBe('warn');
+    expect(long.message).toBe(
+      'the home page redirects through up to 2 hops before answering (https://shop.example/ → https://shop.example/en-US/home/), so the sitemap or link should name the final URL',
+    );
+  });
+
+  it('does not hold an unreachable or throttled host variant against the shop, and says it is inconclusive', async () => {
     const outcome = await runCheck(
       productUrlsAnswerDirectly,
       targetFor({ products: [mug] }),
@@ -961,14 +1183,38 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'every sampled product URL answers 200 at its own address and http://shop.example/ redirects to https://shop.example (https://www.shop.example/ did not answer)',
+      'the sampled product URL answers 200 at its own address and http://shop.example/ redirects to https://shop.example (https://www.shop.example/ did not answer: no response, so that variant is inconclusive)',
     );
     expect(outcome.evidence).toMatchObject({
-      variants: { other_host: { status: 0, unreachable: true, lands_on_origin: false } },
+      variants: {
+        other_host: { status: 0, unreachable: true, inconclusive: true, lands_on_origin: false },
+      },
+    });
+    const throttled = await runCheck(
+      productUrlsAnswerDirectly,
+      targetFor({ products: [mug] }),
+      redirectingFetcher(
+        {
+          [mug]: productHtml(),
+          [httpHome]: { status: 429, body: 'slow down' },
+          [wwwHome]: { status: 503, body: '' },
+        },
+        {},
+      ),
+    );
+    expect(throttled.verdict).toBe('pass');
+    expect(throttled.message).toBe(
+      'the sampled product URL answers 200 at its own address (http://shop.example/ answered HTTP 429 and https://www.shop.example/ answered HTTP 503, so those variants are inconclusive)',
+    );
+    expect(throttled.evidence).toMatchObject({
+      variants: {
+        http: { status: 429, unreachable: false, inconclusive: true },
+        other_host: { status: 503, inconclusive: true },
+      },
     });
   });
 
-  it('fails when a product URL redirects from https to http', async () => {
+  it('fails when a product URL redirects from https to http, naming from and to', async () => {
     const outcome = await runCheck(
       productUrlsAnswerDirectly,
       targetFor({ products: [mug, bowl] }),
@@ -981,7 +1227,9 @@ describe('A3.7 product URLs answer directly', () => {
       ),
     );
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toBe('1 of 2 sampled product URL(s) redirect from https:// to http://');
+    expect(outcome.message).toBe(
+      '1 of 2 sampled product URLs redirects from https:// to http:// (https://shop.example/product/bowl/ → http://shop.example/product/bowl/)',
+    );
     expect(outcome.evidence).toMatchObject({
       products: { [bowl]: { final_url: 'http://shop.example/product/bowl/', redirects: 1 } },
     });
@@ -1001,14 +1249,14 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe(
-      '1 of 1 sampled product URL(s) redirect more times than the scanner follows (Google stops at ten hops)',
+      'the sampled product URL redirects more times than the scanner follows (Google stops at ten hops), starting from https://shop.example/product/mug/',
     );
     expect(outcome.evidence).toMatchObject({
       products: { [mug]: { status: 0, redirects: 5, error: 'Error: more than 5 redirects' } },
     });
   });
 
-  it('warns when a product URL redirects, naming the count and the longest chain', async () => {
+  it('warns when a product URL redirects, naming the count, the longest chain and an example', async () => {
     const oneHop = await runCheck(
       productUrlsAnswerDirectly,
       targetFor({ products: [mug, bowl] }),
@@ -1019,7 +1267,7 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(oneHop.verdict).toBe('warn');
     expect(oneHop.message).toBe(
-      '1 of 2 sampled product URL(s) redirect before answering, so the sitemap or link should name the final URL',
+      '1 of 2 sampled product URLs redirects before answering (https://shop.example/product/mug/ → https://shop.example/p/mug/), so the sitemap or link should name the final URL',
     );
     expect(oneHop.evidence).toMatchObject({ redirected: 1, longest_chain: 1 });
     const twoHops = await runCheck(
@@ -1032,7 +1280,7 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(twoHops.verdict).toBe('warn');
     expect(twoHops.message).toBe(
-      '1 of 1 sampled product URL(s) redirect through up to 2 hops before answering, so the sitemap or link should name the final URL',
+      'the sampled product URL redirects through up to 2 hops before answering (https://shop.example/product/mug/ → https://shop.example/p/mug/), so the sitemap or link should name the final URL',
     );
     expect(twoHops.evidence).toMatchObject({ longest_chain: 2 });
   });
@@ -1047,7 +1295,7 @@ describe('A3.7 product URLs answer directly', () => {
       ),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toBe('1 of 2 sampled product URL(s) answer HTTP 404 instead of 200');
+    expect(outcome.message).toBe('1 of 2 sampled product URLs answers HTTP 404 instead of 200');
   });
 
   it('warns when a host variant serves its own content or does not lead to the origin', async () => {
@@ -1064,7 +1312,14 @@ describe('A3.7 product URLs answer directly', () => {
       'https://www.shop.example/ answers 200 with its own content instead of redirecting to https://shop.example, so the index holds duplicates',
     );
     expect(ownContent.evidence).toMatchObject({
-      variants: { other_host: { status: 200, final_url: wwwHome, lands_on_origin: false } },
+      variants: {
+        other_host: {
+          status: 200,
+          final_url: wwwHome,
+          lands_on_origin: false,
+          redirects_to_host: null,
+        },
+      },
     });
     const elsewhere = await runCheck(
       productUrlsAnswerDirectly,
@@ -1079,8 +1334,59 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(elsewhere.verdict).toBe('warn');
     expect(elsewhere.message).toBe(
-      'http://shop.example/ answers HTTP 404 at https://parked.example/ instead of redirecting to https://shop.example',
+      'http://shop.example/ redirects to https://parked.example/, a host outside shop.example, instead of to https://shop.example',
     );
+    const notFound = await runCheck(
+      productUrlsAnswerDirectly,
+      targetFor({ products: [mug] }),
+      redirectingFetcher(
+        { [mug]: productHtml(), [httpHome]: { status: 404 }, [wwwHome]: 'x' },
+        { [wwwHome]: variantsRedirect[wwwHome] },
+      ),
+    );
+    expect(notFound.message).toBe(
+      'http://shop.example/ answers HTTP 404 instead of redirecting to https://shop.example',
+    );
+  });
+
+  it('describes a variant that redirects to a sister host as consolidation elsewhere', async () => {
+    const target = targetFor({ origin: 'https://www.gymshark.example' });
+    const apex = 'https://gymshark.example/';
+    const http = 'http://www.gymshark.example/';
+    const outcome = await runCheck(
+      productUrlsAnswerDirectly,
+      target,
+      redirectingFetcher(
+        { [http]: 'x', [apex]: '<html>checkout</html>' },
+        {
+          [http]: { finalUrl: 'https://www.gymshark.example/', redirects: 1 },
+          [apex]: { finalUrl: 'https://us.checkout.gymshark.example/', redirects: 1 },
+        },
+      ),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      'https://gymshark.example/ redirects to https://us.checkout.gymshark.example/, another host of gymshark.example, instead of to https://www.gymshark.example, so the site is consolidated elsewhere and the index holds two hosts',
+    );
+    expect(outcome.evidence).toMatchObject({
+      variants: {
+        other_host: {
+          status: 200,
+          redirects_to_host: 'us.checkout.gymshark.example',
+          same_registrable_domain: true,
+          lands_on_origin: false,
+        },
+      },
+    });
+  });
+
+  it('approximates the registrable domain without a suffix list', () => {
+    expect(registrableDomain('us.checkout.gymshark.com')).toBe('gymshark.com');
+    expect(registrableDomain('www.shop.example')).toBe('shop.example');
+    expect(registrableDomain('shop.example')).toBe('shop.example');
+    expect(registrableDomain('www.shop.co.uk')).toBe('shop.co.uk');
+    expect(registrableDomain('shop.com.au')).toBe('shop.com.au');
+    expect(registrableDomain('WWW.Shop.DE')).toBe('shop.de');
   });
 
   it('skips with reason error when no product URL answered at all', async () => {
@@ -1218,7 +1524,7 @@ describe('A3.8 title and description present', () => {
     });
   });
 
-  it('records but does not judge pages that did not answer 2xx', async () => {
+  it('records but does not judge pages that did not answer 2xx, and says which product pages failed', async () => {
     const outcome = await runCheck(
       titleAndDescriptionPresent,
       targetFor({ homeHtml: page('Example Ceramics'), listing, products: [mug, bowl] }),
@@ -1229,6 +1535,9 @@ describe('A3.8 title and description present', () => {
       }),
     );
     expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 2 sampled page(s) carry a distinct title and a meta description; 1 sampled product page could not be fetched (HTTP 404)',
+    );
     expect(outcome.evidence).toMatchObject({
       total: 2,
       unavailable: { [listing]: 0, [bowl]: 404 },
@@ -1268,9 +1577,33 @@ describe('A3.9 conditional requests supported', () => {
       conditional_header_sent: 'if-none-match',
       conditional_status: 304,
     });
-    expect(fetcher.log[1]?.options.headers).toEqual({ 'if-none-match': '"abc123"' });
+    expect(fetcher.log.at(-1)?.options.headers).toEqual({ 'if-none-match': '"abc123"' });
     // The plain fetch and the conditional one: the only repeated URL in the scan.
     expect(fetcher.requestCount).toBe(2);
+  });
+
+  it('judges the first sampled product page that answered, and says the first one did not', async () => {
+    const fetcher = mapFetcher({
+      [mug]: { status: 503, body: '' },
+      [bowl]: withValidator({ ETag: '"bowl"' }, { 'if-none-match': '"bowl"' }),
+    });
+    const outcome = await runCheck(
+      conditionalRequestsSupported,
+      targetFor({ products: [mug, bowl] }),
+      fetcher,
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'the product page answers 304 Not Modified to a conditional request with its ETag; the first sampled product page could not be fetched (HTTP 503), so the next one was judged',
+    );
+    expect(outcome.evidence).toMatchObject({ url: bowl, etag: '"bowl"' });
+    const none = await runCheck(
+      conditionalRequestsSupported,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: { status: 0 } }),
+    );
+    expect(none.verdict).toBe('skip');
+    expect(none.skipReason).toBe('error');
   });
 
   it('falls back to If-Modified-Since when only Last-Modified is sent', async () => {
@@ -1290,7 +1623,7 @@ describe('A3.9 conditional requests supported', () => {
       last_modified: stamp,
       conditional_header_sent: 'if-modified-since',
     });
-    expect(fetcher.log[1]?.options.headers).toEqual({ 'if-modified-since': stamp });
+    expect(fetcher.log.at(-1)?.options.headers).toEqual({ 'if-modified-since': stamp });
   });
 
   it('warns when the validator is ignored and the conditional request answers 200', async () => {
@@ -1301,8 +1634,20 @@ describe('A3.9 conditional requests supported', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'the product page sends a ETag but answers 200 to a request that repeats it, so the validator is ignored',
+      'the product page sends an ETag but answers 200 to a request that repeats it, so the validator is ignored',
     );
+    const lastModified = await runCheck(
+      conditionalRequestsSupported,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: {
+          status: 200,
+          headers: { 'last-modified': 'Fri, 30 Oct 2026 09:00:00 GMT' },
+          body: html,
+        },
+      }),
+    );
+    expect(lastModified.message).toMatch(/^the product page sends a Last-Modified but answers 200/);
     expect(outcome.evidence).toMatchObject({ etag: 'W/"x"', conditional_status: 200 });
   });
 
@@ -1347,7 +1692,9 @@ describe('A3.9 conditional requests supported', () => {
       }),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toMatch(/^the home page \(no product pages sampled\) answers 304/);
+    expect(outcome.message).toBe(
+      'the home page answers 304 Not Modified to a conditional request with its ETag',
+    );
     expect(outcome.evidence).toMatchObject({ url: 'https://shop.example/', etag: '"home"' });
   });
 
@@ -1435,18 +1782,14 @@ describe('A3.10 mobile viewport declared', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe(
-      'the home page (no product pages sampled) declares width=device-width',
-    );
+    expect(outcome.message).toBe('the home page declares width=device-width');
     const missing = await runCheck(
       mobileViewportDeclared,
       targetFor({ homeHtml: withViewport(null) }),
       mapFetcher({}),
     );
     expect(missing.verdict).toBe('warn');
-    expect(missing.message).toBe(
-      'the home page (no product pages sampled) declares no meta viewport',
-    );
+    expect(missing.message).toBe('the home page declares no meta viewport');
   });
 
   it('warns when a page lacks the viewport tag', async () => {
@@ -1456,10 +1799,27 @@ describe('A3.10 mobile viewport declared', () => {
       mapFetcher({ [mug]: withViewport('width=device-width'), [bowl]: withViewport(null) }),
     );
     expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toBe('1 of 2 sampled product page(s) declare no meta viewport');
+    expect(outcome.message).toBe('1 of 2 sampled product pages declares no meta viewport');
     expect(outcome.evidence).toMatchObject({
       missing: 1,
       pages: { [bowl]: { viewport: null, device_width: false } },
+    });
+  });
+
+  it('never scores a page that could not be fetched as lacking a viewport', async () => {
+    const outcome = await runCheck(
+      mobileViewportDeclared,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: withViewport('width=device-width'), [bowl]: { status: 502, body: '' } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'the sampled product page declares width=device-width; 1 sampled product page could not be fetched (HTTP 502)',
+    );
+    expect(outcome.evidence).toMatchObject({
+      total: 1,
+      missing: 0,
+      failed: { [bowl]: { status: 502 } },
     });
   });
 
@@ -1471,7 +1831,7 @@ describe('A3.10 mobile viewport declared', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 1 sampled product page(s) declare a viewport without width=device-width',
+      'the sampled product page declares a viewport without width=device-width',
     );
     expect(outcome.evidence).toMatchObject({
       fixed_width: 1,
@@ -1490,7 +1850,7 @@ describe('A3.10 mobile viewport declared', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '2 of 2 sampled product page(s) declare a viewport that forbids zooming (user-scalable=no or maximum-scale below 1)',
+      '2 of 2 sampled product pages declare a viewport that forbids zooming (user-scalable=no or maximum-scale below 1)',
     );
     expect(outcome.evidence).toMatchObject({
       zoom_blocked: 2,

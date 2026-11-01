@@ -4,7 +4,7 @@ import { hasLinkRelation, parseLinkHeader } from '../../parsers/link-header.js';
 import { parseLlmsTxt } from '../../parsers/llms-txt.js';
 import { probeMcpEndpoint } from '../mcp.js';
 import type { Target } from '../../target/types.js';
-import { productPages } from '../shared.js';
+import { describeFailure, productPages } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn, type CheckOutcome, type Evidence } from '../types.js';
 
 type JsonRecord = Record<string, unknown>;
@@ -219,6 +219,8 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
 // A4.2 API catalog
 
 const LINKSET_TYPE = 'application/linkset+json';
+/** Statuses that say nothing about the resource: throttling or a gateway failure. */
+const API_CATALOG_TRANSIENT = new Set([429, 502, 503, 504]);
 
 interface LinksetSummary {
   entries: number;
@@ -262,6 +264,16 @@ export const apiCatalogPublished = defineCheck('A4.2', async ({ target, fetcher 
   const response = await fetcher.fetch(url);
   const type = contentType(response);
   const evidence: Evidence = { url, status: response.status, content_type: type };
+  // A throttled or failed request says nothing about whether a catalog is published;
+  // a 404 or 410 does, and stays a fail below.
+  if (response.status === 0 || API_CATALOG_TRANSIENT.has(response.status)) {
+    const why = response.status === 429 ? 'was rate limited' : 'failed';
+    return skip(
+      'error',
+      `the API catalog could not be judged because the request ${why} (${describeFailure(response)})`,
+      evidence,
+    );
+  }
   if (response.status !== 200) {
     return fail(`api-catalog returned HTTP ${response.status}`, evidence);
   }

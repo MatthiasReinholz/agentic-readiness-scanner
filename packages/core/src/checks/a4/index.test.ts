@@ -265,11 +265,37 @@ describe('A4.2 API catalog', () => {
     });
   });
 
-  it('fails on 404', async () => {
+  it('fails on 404 and 410: the catalog is absent', async () => {
     const outcome = await run();
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe('api-catalog returned HTTP 404');
     expect(outcome.evidence).toEqual({ url, status: 404, content_type: '' });
+    const gone = await run({ status: 410, body: '' });
+    expect(gone.verdict).toBe('fail');
+    expect(gone.message).toBe('api-catalog returned HTTP 410');
+  });
+
+  it('skips with reason error when the request was throttled or failed', async () => {
+    const throttled = await run({ status: 429, body: 'slow down' });
+    expect(throttled.verdict).toBe('skip');
+    expect(throttled.skipReason).toBe('error');
+    expect(throttled.message).toBe(
+      'the API catalog could not be judged because the request was rate limited (HTTP 429)',
+    );
+    const down = await run({ status: 503, body: '' });
+    expect(down.verdict).toBe('skip');
+    expect(down.message).toBe(
+      'the API catalog could not be judged because the request failed (HTTP 503)',
+    );
+    const dead = await run({ status: 0 });
+    expect(dead.verdict).toBe('skip');
+    expect(dead.skipReason).toBe('error');
+    expect(dead.message).toMatch(
+      /^the API catalog could not be judged because the request failed \(/,
+    );
+    // A 403 or 500 is the server's answer about the resource and stays a fail.
+    const forbidden = await run({ status: 403, body: '' });
+    expect(forbidden.verdict).toBe('fail');
   });
 
   it('fails on HTML', async () => {

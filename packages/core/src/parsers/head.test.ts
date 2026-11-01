@@ -45,4 +45,22 @@ describe('scanHead', () => {
     expect(scanHead('<meta http-equiv="refresh" content="30">').metaRefreshSeconds).toBeNull();
     expect(scanHead('<meta http-equiv=refresh content="5;URL=\'/x\'">').metaRefreshUrl).toBe('/x');
   });
+
+  it('ignores the title and metadata inside inline SVG and MathML, but not around them', () => {
+    const icons =
+      '<!doctype html><html><head><meta charset="utf-8"><title>Mug</title></head><body><a href="/"><svg viewBox="0 0 10 10"><title>Home</title><desc>Icon</desc><g><svg><title>Nested</title></svg><path d="M0 0"/></g></svg></a><math><mi>x</mi><title>Formula</title></math><p>x</p></body></html>';
+    expect(scanHead(icons).misplaced).toEqual([]);
+    expect(scanHead(icons).invalidHeadElement).toBeNull();
+    const misplaced =
+      '<!doctype html><html><head><meta charset="utf-8"></head><body><svg><title>Icon</title></svg><title>Mug</title></body></html>';
+    expect(scanHead(misplaced).misplaced).toEqual([
+      { kind: 'title', offset: misplaced.indexOf('<title>Mug'), where: 'body' },
+    ]);
+    // An <svg> inside the head is not a head element: it ends the head like any other.
+    const inHead = '<html><head><svg><title>Icon</title></svg><title>Mug</title></head></html>';
+    expect(scanHead(inHead).invalidHeadElement).toEqual({ tag: 'svg', offset: 12 });
+    expect(scanHead(inHead).misplaced).toEqual([
+      { kind: 'title', offset: inHead.indexOf('<title>Mug'), where: 'after_invalid' },
+    ]);
+  });
 });

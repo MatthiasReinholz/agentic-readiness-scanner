@@ -4,6 +4,7 @@ import { parseLinkHeader, type LinkValue } from '../../parsers/link-header.js';
 import { isWellFormedLlmsTxt, parseLlmsTxt } from '../../parsers/llms-txt.js';
 import { isW3cDatetime, looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { LASTMOD_SAMPLE_LIMIT } from '../../target/types.js';
+import { pathOf } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
 export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
@@ -68,10 +69,14 @@ export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
 export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
   const sitemap = target.sitemap;
   const productSitemaps = sitemap?.childSitemaps.filter((url) => /product/i.test(url)) ?? [];
+  const sitemapsRead = sitemap ? [sitemap.url, ...sitemap.fetchedSitemaps] : [];
   const evidence = {
     product_sitemaps: productSitemaps,
     product_urls: sitemap?.productUrls.length ?? 0,
     sample: sitemap?.productUrls.slice(0, 5) ?? [],
+    sitemaps_read: sitemapsRead,
+    entries_read: sitemap?.urls.length ?? 0,
+    child_sitemaps: sitemap?.childSitemaps.length ?? 0,
   };
   if ((sitemap?.productUrls.length ?? 0) > 0) {
     return pass(`${sitemap?.productUrls.length ?? 0} product URL(s) in sitemap`, evidence);
@@ -82,7 +87,19 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
       evidence,
     );
   }
-  return fail('no product URLs or product sitemap found', evidence);
+  if (!sitemap) {
+    return fail('no sitemap was read, so no product URL could be found in one', evidence);
+  }
+  const count = sitemapsRead.length;
+  const entries = sitemap.urls.length;
+  const named =
+    sitemap.childSitemaps.length > 0
+      ? ` and none of the ${sitemap.childSitemaps.length} sitemap name(s) in the index looks like a product sitemap`
+      : '';
+  return fail(
+    `no product URL found: ${count} sitemap${count === 1 ? '' : 's'} read, starting with ${sitemap.url}; none of ${entries === 0 ? 'their entries (there are none)' : `their ${entries} entries`} matches a product URL pattern${named}`,
+    evidence,
+  );
 });
 
 export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) => {
@@ -121,18 +138,31 @@ export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) =>
 
 const CATALOG_LINK_PATTERN =
   /feed|wc\/store|products?\.(xml|json|csv)|sitemap.*product|product.*sitemap|\/shop\/?$|\/products?\/?$|catalog/i;
+/**
+ * The UCP business profile and the UCP MCP endpoint, which Shopify's generated llms.txt
+ * ("Agent Instructions") links: an agent reaches the catalog as data through either.
+ */
+const UCP_LINK_PATTERN = /\/\.well-known\/ucp\b|\/api\/ucp\/mcp\b/i;
 
 export const llmsTxtLinksToCatalog = defineCheck('A1.6', async ({ target, fetcher }) => {
   const response = await fetcher.fetch(`${target.origin}/llms.txt`);
   const parsed = parseLlmsTxt(response.body);
-  const catalogLinks = parsed.links.filter((link) =>
-    CATALOG_LINK_PATTERN.test(`${link.text} ${link.url}`),
+  const ucpLinks = parsed.links.filter((link) => UCP_LINK_PATTERN.test(link.url));
+  const catalogLinks = parsed.links.filter(
+    (link) => CATALOG_LINK_PATTERN.test(`${link.text} ${link.url}`) || ucpLinks.includes(link),
   );
-  const evidence = { catalog_links: catalogLinks.map((link) => link.url) };
+  const evidence = {
+    catalog_links: catalogLinks.map((link) => link.url),
+    ucp_links: ucpLinks.map((link) => link.url),
+  };
   if (catalogLinks.length > 0) {
-    return pass(`${catalogLinks.length} catalog link(s) in llms.txt`, evidence);
+    const ucp =
+      ucpLinks.length > 0
+        ? `, including the UCP ${ucpLinks.some((link) => /\/mcp\b/i.test(link.url)) ? 'MCP endpoint' : 'profile'} through which an agent reads the catalog as data`
+        : '';
+    return pass(`${catalogLinks.length} catalog link(s) in llms.txt${ucp}`, evidence);
   }
-  return fail('llms.txt has no link to a feed, Store API or product index', evidence);
+  return fail('llms.txt has no link to a feed, Store API, product index or UCP endpoint', evidence);
 });
 
 /** Relations an agent can act on whatever the media type. */
@@ -266,6 +296,16 @@ const PAGINATION_URL = /\/page\/\d+\/?$|[?&](page|p|paged|pg)=\d+/i;
 const LOAD_MORE = /load more|show more|mehr laden|infinite|load-more|loadmore/i;
 /** Load-more controls kept in evidence. */
 const LOAD_MORE_SAMPLE = 5;
+/**
+ * A URL that names a further listing or category page (/cat/chairs/, /collections/mugs,
+ * /product-category/bowls/): what a category index links to instead of products.
+ */
+const CATEGORY_URL =
+  /\/(shop|store|collections?|product-category|categor(?:y|ies|ie|ia)|cat|kategorien?|c)\/[^/?#]+/i;
+/** Product links below which a page reads as a landing page rather than a listing. */
+const LISTING_MIN_PRODUCTS = 3;
+/** Category links from which a page without product links reads as a category index. */
+const CATEGORY_INDEX_MIN_LINKS = 3;
 
 /** The anchor URL resolved against the page, without its fragment, or null when off-origin or unparsable. */
 function sameOriginUrl(href: string, base: string, origin: string): string | null {
@@ -308,6 +348,10 @@ export const listingLinksProductsAndPages = defineCheck('A1.8', async ({ target,
   const productLinks = [...urls].filter(
     (url) => looksLikeProductUrl(url) && !PAGINATION_URL.test(url),
   );
+  const categoryLinks = [...urls].filter(
+    (url) =>
+      !looksLikeProductUrl(url) && !PAGINATION_URL.test(url) && CATEGORY_URL.test(pathOf(url)),
+  );
   const relNext = doc.links().some((link) => link.rel.split(/\s+/).includes('next'));
   const loadMore: string[] = [];
   for (const control of doc.controls()) {
@@ -326,15 +370,30 @@ export const listingLinksProductsAndPages = defineCheck('A1.8', async ({ target,
   }
   Object.assign(evidence, {
     product_links: productLinks.length,
+    category_links: categoryLinks.length,
     pagination_links: paginationLinks.length,
     rel_next: relNext,
     load_more_controls: loadMore.slice(0, LOAD_MORE_SAMPLE),
     product_sample: productLinks.slice(0, 5),
+    category_sample: categoryLinks.slice(0, 5),
     pagination_sample: paginationLinks.slice(0, 3),
   });
+  if (productLinks.length === 0 && categoryLinks.length >= CATEGORY_INDEX_MIN_LINKS) {
+    return skip(
+      'not_applicable',
+      `the sampled page ${listing} is a category index that links to ${categoryLinks.length} further category pages and to no product, not a product listing, so pagination was not judged`,
+      evidence,
+    );
+  }
   if (productLinks.length === 0) {
     return warn(
       'no product link is in the server-rendered HTML of the listing page; crawlers that do not run scripts find no products there',
+      evidence,
+    );
+  }
+  if (productLinks.length < LISTING_MIN_PRODUCTS) {
+    return warn(
+      `only ${productLinks.length} product link${productLinks.length === 1 ? '' : 's'} on the listing page (${productLinks.join(', ')}), too few for a listing an agent could enumerate the catalog from`,
       evidence,
     );
   }
