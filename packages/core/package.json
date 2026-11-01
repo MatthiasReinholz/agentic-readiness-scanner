@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "The scanning engine: fetcher, target resolution, parsers, checks, runner, scoring and reporters. Web-standard APIs only, so it runs in workers, Node and tests alike.",
   "license": "GPL-3.0-or-later",
   "repository": {

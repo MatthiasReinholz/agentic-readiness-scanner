@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
 ### Added
 
 - A wall-clock budget per scan (`ScanOptions.deadlineMs`, hosted default `SCAN_DEADLINE_MS` = 24 s under the platform's 30 s request limit): once it is used up the remaining checks are skipped with that reason and the report is still produced, instead of the platform answering with an error for a slow store.
