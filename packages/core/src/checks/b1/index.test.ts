@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { Fetcher, FetchOptions } from '../../http/types.js';
 import type { SitemapSummary } from '../../target/types.js';
 import {
   fixtureFetcher,
@@ -86,6 +87,28 @@ describe('B1.3 Store API not rate-limited for reads', () => {
     );
     expect(network.verdict).toBe('fail');
     expect(network.message).toMatch(/no response/);
+  });
+
+  it("warns when a read succeeded only on the fetcher's retry after a 429 or 503", async () => {
+    const inner = reads();
+    const retried: Fetcher = {
+      get requestCount() {
+        return inner.requestCount;
+      },
+      budget: inner.budget,
+      fetch: async (url: string, options?: FetchOptions) => {
+        const response = await inner.fetch(url, options);
+        return url === urls[1] ? { ...response, retried: true } : response;
+      },
+    };
+    const outcome = await runCheck(storeApiNotRateLimited, targetFor(), retried);
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `Store API throttled a sequential read once (${urls[1] ?? ''} answered 429 or 503 first and recovered on retry after Retry-After)`,
+    );
+    expect(outcome.evidence).toMatchObject({
+      requests: [{ status: 200 }, { status: 200, retried: true }, { status: 200 }],
+    });
   });
 
   it('warns when a Retry-After or RateLimit-Retry-After header appears on a 200', async () => {
@@ -502,6 +525,71 @@ describe('B1.5 public product feed discoverable', () => {
       source: 'robots.txt',
       candidates: [csvUrl, sitemapFeed],
     });
+  });
+
+  it('recognises an OpenAI-format feed by item_id or sku, url or link and image_url or image_link', async () => {
+    const csvUrl = `${origin}/feed/openai.csv`;
+    const csv = await runCheck(
+      productFeedDiscoverable,
+      targetFor({ robots: `# Product feed: ${csvUrl}\nUser-agent: *\nAllow: /\n` }),
+      mapFetcher({
+        [csvUrl]: {
+          status: 200,
+          headers: { 'content-type': 'text/csv' },
+          body: 'item_id,title,description,url,image_url,price,availability,seller_name\nMUG-1,Mug,Stoneware,https://shop.example/product/mug/,https://shop.example/mug.jpg,24.00 EUR,in_stock,Example\n',
+        },
+      }),
+    );
+    expect(csv.verdict).toBe('pass');
+    expect(csv.message).toBe(
+      `product feed at ${csvUrl} (csv, OpenAI feed columns, 1 item(s) read)`,
+    );
+    expect(csv.evidence).toMatchObject({
+      format: 'csv',
+      dialect: 'openai',
+      columns: { id: 'item_id', title: 'title', url: 'url', price: 'price', image: 'image_url' },
+    });
+    const jsonUrl = `${origin}/feed/openai.json`;
+    const json = await runCheck(
+      productFeedDiscoverable,
+      targetFor({ robots: `# Product feed: ${jsonUrl}\nUser-agent: *\nAllow: /\n` }),
+      mapFetcher({
+        [jsonUrl]: {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            items: [
+              {
+                sku: 'MUG-1',
+                title: 'Mug',
+                link: 'https://shop.example/product/mug/',
+                image_link: 'https://shop.example/mug.jpg',
+                price: '24.00 EUR',
+              },
+            ],
+          }),
+        },
+      }),
+    );
+    expect(json.verdict).toBe('pass');
+    expect(json.evidence).toMatchObject({
+      dialect: 'openai',
+      columns: { id: 'sku', url: 'link', image: 'image_link' },
+    });
+    // A Google-style tabular feed is still recognised and labelled as such.
+    const googleCsv = `${origin}/feed/google.csv`;
+    const google = await runCheck(
+      productFeedDiscoverable,
+      targetFor({ robots: `# Merchant feed: ${googleCsv}\nUser-agent: *\nAllow: /\n` }),
+      mapFetcher({
+        [googleCsv]: {
+          status: 200,
+          headers: { 'content-type': 'text/csv' },
+          body: 'id,title,link,price\n1,Mug,https://shop.example/product/mug/,24.00 EUR\n',
+        },
+      }),
+    );
+    expect(google.evidence).toMatchObject({ dialect: 'google-tabular' });
   });
 
   it('fails when nothing announces a feed', async () => {

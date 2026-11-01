@@ -4,7 +4,7 @@
     "group": "A4",
     "title": "MCP server discoverable",
     "question": "Can an agent find an MCP server for this site through a documented route?",
-    "method": "Look for a server card through the routes the MCP Server Card extension and the AI Catalog proposal describe: entries of type application/mcp-server-card+json in /.well-known/ai-catalog.json, a card at <endpoint>/server-card for an endpoint linked from llms.txt or a Link header, and the community path /.well-known/mcp/server-card.json. Pass when a card parses with a name and an endpoint URL; warn when only the community path answers (it is not in the specification); fail when none does. No host probes these files yet (agents are given MCP URLs by hand or through registries), hence the low weight.",
+    "method": "Look for a server card through the routes the MCP Server Card extension and the AI Catalog proposal describe: entries of type application/mcp-server-card+json in /.well-known/ai-catalog.json, a card at <endpoint>/server-card for an endpoint linked from llms.txt or a Link header, and the community paths /.well-known/mcp/server-card (the path the extension's discovery document names) and the older /.well-known/mcp/server-card.json. Pass when a card parses with a name and an endpoint URL; warn when only a community path answers (neither is in the specification), saying which; fail when none does. When a card URL is refused or challenged (401, 403, 429, a bot-management challenge) or fails transiently, the check is inconclusive and names the refusal rather than reporting a missing card. The extension is not an accepted MCP extension and no host probes these files yet (agents are given MCP URLs by hand or through registries), hence the low weight.",
     "weight": 1,
     "spec": [
       {
@@ -30,7 +30,7 @@
     "group": "A4",
     "title": "API catalog",
     "question": "Does the site publish an API catalog linkset?",
-    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json document (or a linkset parseable as JSON) with at least one item. Fail otherwise.",
+    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json document (or a linkset parseable as JSON) with at least one item. Fail otherwise, including on 404 or 410. Skipped when the request was rate limited or failed (429, a gateway error or no response). No answer engine documents reading it: a convention.",
     "weight": 1,
     "spec": [
       {
@@ -67,7 +67,7 @@
     "group": "A4",
     "title": "MCP endpoint reachable",
     "question": "Does the advertised MCP endpoint answer like an MCP server?",
-    "method": "POST a JSON-RPC server/discover request (the read-only method the 2026-07-28 specification makes mandatory) to the endpoint from the server card, with the 2026-07-28 headers. Pass when the answer is a JSON-RPC message, result or error, whatever the status (a 2025 server answers \"method not found\", which proves the transport), or an event stream, or 401 with a WWW-Authenticate header (an authorized server). Fail on 404, 5xx, an HTML page, or any answer without a JSON-RPC body. This is the only request the scanner sends with a body; it creates nothing on the server.",
+    "method": "POST a JSON-RPC server/discover request (the read-only method the 2026-07-28 specification makes mandatory) to the endpoint from the server card, with the 2026-07-28 headers. Pass when the answer is a JSON-RPC message, whatever the status: a result, or the errors the Streamable HTTP transport prescribes (404 with -32601 from an older server that does not implement server/discover, 400 with -32020 on a header mismatch), or an event stream, or 401 with a WWW-Authenticate header (an authorized server). Fail on a 404 or other error without a JSON-RPC body, on 5xx, on 405, or on an HTML page. A 429, a gateway error or no response is inconclusive and skipped. This is the only request the scanner sends with a body; it creates nothing on the server.",
     "weight": 1,
     "depends_on": ["A4.1"],
     "spec": [
@@ -86,7 +86,7 @@
     "group": "A4",
     "title": "A2A agent card",
     "question": "Does the site publish a valid A2A agent card?",
-    "method": "GET /.well-known/agent-card.json. Pass on JSON with the eight fields A2A 1.0 requires: name, description, supportedInterfaces, version, capabilities, defaultInputModes, defaultOutputModes and skills. Warn when a card is found only at the pre-0.3 path /.well-known/agent.json or lacks some fields. Fail when none is found.",
+    "method": "GET /.well-known/agent-card.json. Pass on JSON with the eight fields A2A 1.0 requires: name, description, supportedInterfaces, version, capabilities, defaultInputModes, defaultOutputModes and skills. Warn when a card lacks some fields, or is found only at the pre-0.3 path /.well-known/agent.json; JSON at that path counts as an A2A card only when it carries name, description, url or supportedInterfaces, version, capabilities and skills, because the path is also used by other agent-discovery drafts. Fail when none is found. No shopping agent documents reading agent cards from stores: a convention.",
     "weight": 1,
     "spec": [
       {
@@ -100,7 +100,7 @@
     "group": "A4",
     "title": "WebMCP tool declarations",
     "question": "Does the site declare in-page tools for browser agents?",
-    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; a plain pass when not, because the API is a Chrome origin trial and a W3C community draft with no shipping consumer. Reported, never scored.",
+    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; not applicable when the page declares none. The API is a W3C community draft with origin trials in Chrome and Edge and one shipping consumer (ChatGPT's site tools in its desktop browser); no shopping agent documents calling it on arbitrary stores, so this is reported and never scored.",
     "weight": "info",
     "spec": [
       {

@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { HtmlDocument } from './html.js';
 import {
+  allOffersOf,
   asDimension,
   asString,
   brandOf,
   extractJsonLd,
   gtinOf,
+  gtinsOf,
   hasType,
   hasValue,
   imageOf,
   isOrganizationType,
+  looksLikeGtin,
+  mpnOf,
   nodesOf,
   offersOf,
   organizationNodes,
@@ -17,6 +21,27 @@ import {
   variantNodes,
   variantsOf,
 } from './jsonld.js';
+
+/** A ProductGroup as Shopify emits it: identifiers and offers on the hasVariant Products only. */
+const SHOPIFY_GROUP = {
+  '@type': 'ProductGroup',
+  name: 'Leggings',
+  hasVariant: [
+    {
+      '@type': 'Product',
+      sku: 'VSL-1',
+      gtin13: '4006381333931',
+      mpn: 'VSL-001',
+      offers: { '@type': 'Offer', price: '40.00', priceCurrency: 'USD' },
+    },
+    {
+      '@type': 'Product',
+      sku: 'VSL-2',
+      gtin: 'FG006780',
+      offers: [{ '@type': 'Offer', price: '42.00', priceCurrency: 'USD' }, { '@type': 'Demand' }],
+    },
+  ],
+};
 
 function docWith(...scripts: string[]): HtmlDocument {
   return new HtmlDocument(
@@ -129,6 +154,56 @@ describe('asString and gtinOf', () => {
     expect(gtinOf({ gtin: '', gtin12: 12345678905 })).toBe('12345678905');
     expect(gtinOf({ gtin8: '96385074', gtin14: '1' })).toBe('96385074');
     expect(gtinOf({ sku: 'MUG' })).toBeNull();
+  });
+});
+
+describe('looksLikeGtin', () => {
+  it('accepts 8, 12, 13 or 14 digits with spaces or hyphens removed and nothing else', () => {
+    expect(looksLikeGtin('4006381333931')).toBe(true);
+    expect(looksLikeGtin('4006 3813 3393 1')).toBe(true);
+    expect(looksLikeGtin('0-4006381-33393-9')).toBe(true);
+    expect(looksLikeGtin('96385074')).toBe(true);
+    expect(looksLikeGtin('123456789012')).toBe(true);
+    expect(looksLikeGtin('FG006780')).toBe(false);
+    expect(looksLikeGtin('40063813339')).toBe(false);
+    expect(looksLikeGtin('4006381333931 ')).toBe(true);
+    expect(looksLikeGtin('')).toBe(false);
+  });
+});
+
+describe('variant-aware readers', () => {
+  it('collects the offers of the product and of every variant', () => {
+    expect(allOffersOf(SHOPIFY_GROUP).map((offer) => offer.price)).toEqual(['40.00', '42.00']);
+    expect(
+      allOffersOf({ '@type': 'Product', offers: { '@type': 'Offer', price: '1' } }),
+    ).toHaveLength(1);
+    expect(allOffersOf({ '@type': 'Product' })).toEqual([]);
+  });
+
+  it('splits gtin values on the product and variants by shape and counts the variants', () => {
+    expect(gtinsOf(SHOPIFY_GROUP)).toEqual({
+      gtins: ['4006381333931'],
+      invalid_format: ['FG006780'],
+      variants_with_gtin: 1,
+    });
+    expect(gtinsOf({ '@type': 'Product', gtin13: '4006381333931', gtin: '4006381333931' })).toEqual(
+      { gtins: ['4006381333931'], invalid_format: [], variants_with_gtin: 0 },
+    );
+    expect(gtinsOf({ '@type': 'Product' })).toEqual({
+      gtins: [],
+      invalid_format: [],
+      variants_with_gtin: 0,
+    });
+  });
+
+  it('reads the mpn from the product or its first variant that has one', () => {
+    expect(mpnOf(SHOPIFY_GROUP)).toBe('VSL-001');
+    expect(mpnOf({ '@type': 'Product', mpn: ' M-1 ' })).toBe('M-1');
+    expect(mpnOf({ '@type': 'ProductGroup', hasVariant: [{ '@type': 'Product' }] })).toBeNull();
+  });
+
+  it('keeps productNodes to the top level, so variants are read once through the group', () => {
+    expect(productNodes([SHOPIFY_GROUP])).toHaveLength(1);
   });
 });
 

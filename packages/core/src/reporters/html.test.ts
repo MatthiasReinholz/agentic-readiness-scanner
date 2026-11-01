@@ -32,6 +32,16 @@ describe('HTML report', () => {
     expect(html).toContain('## Why you are receiving this');
     expect(html).toContain('Full report: https://scanner.example/r/0123456789abcdef');
     expect(html).toContain('data-copy="all-prompts"');
+    // The priorities card comes before the sections and links into them.
+    expect(html.indexOf('id="priorities"')).toBeLessThan(html.indexOf('id="expand-all"'));
+    // A content site at its maximum level has no gate to unlock, so the card opens with "Fix next".
+    expect(html).toContain('What to do');
+    expect(html).toContain('Fix next');
+    expect(html).toMatch(/href="#A\d\.\d+"/);
+    // Protocol discovery is nice to have only, so its zero is muted and tagged.
+    expect(html).toMatch(/data-group="A4"[\s\S]*?data-group-optional/);
+    expect(html).toContain('did not apply to this site');
+    expect(html).toContain('What this scan did and did not do');
   });
 
   it('accepts host-app slots', async () => {
@@ -62,9 +72,18 @@ describe('Markdown report', () => {
       fetcher: fixtureFetcher(fixture('content-site')),
     });
     const markdown = renderMarkdown(result, { reportUrl: 'https://scanner.example/r/x' });
-    expect(markdown).toMatch(/^## A1\. Discoverability \(\d+\/100\)$/m);
-    expect(markdown).toContain('## B1. Catalog exposure (not applicable)');
-    expect(markdown).toContain('Brief for a coding agent');
-    expect(markdown).toContain('## How to work');
+    expect(markdown).toMatch(/^### A1\. Discoverability \(\d+\/100\)$/m);
+    expect(markdown).toContain('### B1. Catalog exposure (not applicable)');
+    // Findings are tiered and the working rules appear once, at the end.
+    expect(markdown).toMatch(/^- Open findings: .*(blocking|expected|nice to have)/m);
+    expect(markdown).toContain('## Fix next');
+    expect(markdown).toContain('## Nice to have');
+    expect(markdown.indexOf('## Fix next')).toBeLessThan(markdown.indexOf('## Results by section'));
+    expect(markdown).toContain('**Task for a coding agent.**');
+    expect(markdown.match(/## Working rules for coding agents/g)?.length).toBe(1);
+    expect(markdown).not.toContain('## How to work');
+    expect(markdown).toContain('Full report: https://scanner.example/r/x');
+    expect(markdown).toContain('## What this scan did and did not do');
+    expect(markdown).toMatch(/without running JavaScript, signing in/);
   });
 });

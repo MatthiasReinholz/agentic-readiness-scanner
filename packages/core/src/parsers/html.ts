@@ -8,6 +8,8 @@ import { parseDocument } from 'htmlparser2';
 export interface Anchor {
   href: string;
   text: string;
+  /** True inside a footer landmark, or an element whose id or class names a footer. */
+  inFooter: boolean;
 }
 
 export interface LinkTag {
@@ -30,6 +32,23 @@ export interface Control {
 }
 
 const NON_CONTENT_TAGS = new Set(['script', 'style', 'template', 'noscript', 'svg']);
+
+function isFooter(element: Element): boolean {
+  if (element.name === 'footer') return true;
+  if ((getAttributeValue(element, 'role') ?? '').toLowerCase() === 'contentinfo') return true;
+  return /footer|colophon/i.test(
+    `${getAttributeValue(element, 'id') ?? ''} ${getAttributeValue(element, 'class') ?? ''}`,
+  );
+}
+
+function hasFooterAncestor(element: Element): boolean {
+  let node: AnyNode | null = element.parent;
+  while (node) {
+    if (isTag(node) && isFooter(node)) return true;
+    node = node.parent;
+  }
+  return false;
+}
 
 function hasRelToken(rel: string, token: string): boolean {
   return rel.toLowerCase().split(/\s+/).includes(token);
@@ -109,7 +128,11 @@ export class HtmlDocument {
     for (const element of this.elements('a')) {
       const href = getAttributeValue(element, 'href');
       if (!href) continue;
-      result.push({ href, text: textContent(element).replace(/\s+/g, ' ').trim() });
+      result.push({
+        href,
+        text: textContent(element).replace(/\s+/g, ' ').trim(),
+        inFooter: hasFooterAncestor(element),
+      });
     }
     return result;
   }
@@ -277,17 +300,21 @@ export class HtmlDocument {
   }
 
   /**
-   * The rendered product image: the img whose src resolves to `preferredUrl`, else the
-   * first img in the WooCommerce gallery or carrying the wp-post-image class. Lazy-loaded
-   * images are read from data-src when src is absent. Null when neither is found.
+   * The rendered product image: the img that renders `preferredUrl`, else the first img in
+   * the WooCommerce gallery or carrying the wp-post-image class. An img renders the URL
+   * when it appears in its src, data-src, srcset or data-srcset, or in a source of the
+   * enclosing picture, compared without query parameters and size suffixes (Shopify's
+   * `&width=1080`, `_1080x` and `_large`, WordPress's `-300x200`). Among several matches
+   * one with alt text wins; one-pixel and aria-hidden helper images are ignored. Null when
+   * nothing is found.
    */
   productImage(base: string, preferredUrl: string | null = null): ImageTag | null {
     const images = this.elements('img');
     const toTag = (element: Element): ImageTag => {
-      const src = getAttributeValue(element, 'src') ?? getAttributeValue(element, 'data-src') ?? '';
+      const src = imageCandidates(element, base)[0] ?? '';
       const alt = getAttributeValue(element, 'alt');
       return {
-        src: resolveUrl(src, base) ?? src,
+        src,
         alt: alt === undefined ? null : alt.trim(),
         width: pixels(getAttributeValue(element, 'width')),
         height: pixels(getAttributeValue(element, 'height')),
@@ -297,8 +324,16 @@ export class HtmlDocument {
     };
     const wanted = preferredUrl === null ? null : resolveUrl(preferredUrl, base);
     if (wanted !== null) {
-      const match = images.map(toTag).find((tag) => tag.src === wanted);
-      if (match) return match;
+      const key = imageKey(wanted);
+      const matches = images.filter(
+        (element) =>
+          !isHelperImage(element) &&
+          imageCandidates(element, base).some((candidate) => imageKey(candidate) === key),
+      );
+      const match =
+        matches.find((element) => (getAttributeValue(element, 'alt') ?? '').trim() !== '') ??
+        matches[0];
+      if (match) return toTag(match);
     }
     const gallery = findAll(
       (element) =>
@@ -313,6 +348,69 @@ export class HtmlDocument {
     }
     const featured = this.find('img', 'class', /(?:^|\s)wp-post-image(?:\s|$)/)[0];
     return featured ? toTag(featured) : null;
+  }
+}
+
+/** The URLs in a srcset: the first token of each comma-separated candidate. */
+function srcsetUrls(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .slice(0, 20_000)
+    .split(/,\s+|,(?=\s*(?:https?:)?\/\/)/)
+    .map((candidate) => candidate.trim().split(/\s+/)[0] ?? '')
+    .filter((url) => url !== '');
+}
+
+/**
+ * Every URL an img may render, resolved against the page: src, data-src, its srcset and
+ * data-srcset, and the srcset of each source in an enclosing picture.
+ */
+function imageCandidates(element: Element, base: string): string[] {
+  const raw: string[] = [];
+  for (const name of ['src', 'data-src']) {
+    const value = getAttributeValue(element, name);
+    if (value) raw.push(value);
+  }
+  raw.push(...srcsetUrls(getAttributeValue(element, 'srcset')));
+  raw.push(...srcsetUrls(getAttributeValue(element, 'data-srcset')));
+  const parent = element.parent;
+  if (parent && isTag(parent) && parent.name === 'picture') {
+    for (const source of getElementsByTagName('source', parent, false)) {
+      raw.push(...srcsetUrls(getAttributeValue(source, 'srcset')));
+      raw.push(...srcsetUrls(getAttributeValue(source, 'data-srcset')));
+    }
+  }
+  const resolved: string[] = [];
+  for (const value of raw) {
+    const url = resolveUrl(value, base);
+    if (url !== null && !resolved.includes(url)) resolved.push(url);
+  }
+  return resolved;
+}
+
+/** A tracking pixel, spacer or decorative duplicate: one pixel wide or high, or aria-hidden. */
+function isHelperImage(element: Element): boolean {
+  return (
+    pixels(getAttributeValue(element, 'width')) === 1 ||
+    pixels(getAttributeValue(element, 'height')) === 1 ||
+    (getAttributeValue(element, 'aria-hidden') ?? '').trim().toLowerCase() === 'true'
+  );
+}
+
+/** Shopify (_1080x, _x1080, _1080x1080, _large, _crop_center, @2x) and WordPress (-300x200) size suffixes. */
+const SIZE_SUFFIX =
+  /(?:_(?:\d{1,5}x\d{0,5}|x\d{1,5}|pico|icon|thumb|small|compact|medium|large|grande|original|master)(?:_crop_[a-z]{1,10})?(?:@[23]x)?|-\d{1,5}x\d{1,5})(?=\.[a-z0-9]{2,5}$)/i;
+
+/**
+ * The identity of an image independent of the rendered size: host and path without query
+ * parameters (Shopify's `?v=...&width=...`) and without a size suffix in the file name.
+ */
+function imageKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.host.toLowerCase()}${parsed.pathname.replace(SIZE_SUFFIX, '')}`;
+  } catch {
+    return url;
   }
 }
 

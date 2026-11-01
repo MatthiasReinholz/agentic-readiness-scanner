@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { ScanResultSchema } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
+import type { FetchFailure, FetchOptions, FetchedResponse, Fetcher } from './http/types.js';
 import { renderBadge, renderHtml, renderMarkdown } from './reporters/index.js';
 import { scan } from './scan.js';
 import { fixtureFetcher } from './testing/index.js';
@@ -160,5 +161,99 @@ describe('scan of an unreachable target', () => {
     await expect(
       scan('https://nowhere.example/', { fetcher: fixtureFetcher(join(fixtures, 'content-site')) }),
     ).rejects.toThrow(/not reachable/);
+  });
+});
+
+describe('scan warnings about requests that did not succeed', () => {
+  /** The fixture fetcher with the failure list a live BudgetedFetcher would have kept. */
+  function withFailures(failures: FetchFailure[]): Fetcher {
+    const inner = fixtureFetcher(join(fixtures, 'good-woocommerce'));
+    return {
+      fetch: (url: string, options?: FetchOptions): Promise<FetchedResponse> =>
+        inner.fetch(url, options),
+      get requestCount() {
+        return inner.requestCount;
+      },
+      budget: inner.budget,
+      failures,
+    };
+  }
+
+  it('names every failed request and summarises rate limiting', async () => {
+    const result = await scan('ceramics.example', {
+      fetcher: withFailures([
+        {
+          url: 'https://ceramics.example/product/vase/',
+          status: 0,
+          reason: 'TypeError: fetch failed (read ECONNRESET)',
+        },
+        {
+          url: 'https://ceramics.example/llms.txt',
+          status: 429,
+          reason: 'HTTP 429, Retry-After: 30',
+        },
+      ]),
+      now: fixedNow,
+    });
+    expect(result.warnings).toContain(
+      'request failed: https://ceramics.example/product/vase/ (TypeError: fetch failed (read ECONNRESET))',
+    );
+    expect(result.warnings).toContain(
+      'request failed: https://ceramics.example/llms.txt (HTTP 429, Retry-After: 30)',
+    );
+    expect(result.warnings.filter((warning) => warning.includes('429 Too Many Requests'))).toEqual([
+      'the store answered 429 Too Many Requests on 1 URL(s); verdicts for those pages reflect the rate limit, not the page: https://ceramics.example/llms.txt',
+    ]);
+    expect(ScanResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it('adds nothing when every request succeeded', async () => {
+    const result = await scan('ceramics.example', { fetcher: withFailures([]), now: fixedNow });
+    expect(result.warnings.some((warning) => warning.startsWith('request failed'))).toBe(false);
+  });
+});
+
+describe('scan of a store whose home page refuses the scanner', () => {
+  it('produces a Level 0 report that names the vendor and evaluates nothing it could not read', async () => {
+    const { renderMarkdown } = await import('./reporters/markdown.js');
+    const body =
+      '<html><head><title>Access Denied</title></head><body>Reference #18.1f6cdead.1700000000.1a2b3c</body></html>';
+    const fetcher = {
+      budget: 40,
+      requestCount: 0,
+      fetch: (url: string) => {
+        fetcher.requestCount += 1;
+        return Promise.resolve({
+          url,
+          finalUrl: url,
+          status: 403,
+          headers: { server: 'AkamaiGHost', 'content-type': 'text/html' },
+          body,
+          bytes: body.length,
+          truncated: false,
+          redirects: 0,
+          durationMs: 1,
+          fromCache: false,
+        });
+      },
+    };
+    const result = await scan('https://www.blocked.example/', { fetcher });
+    expect(result.level.value).toBe(0);
+    expect(result.target.platform).toBe('unknown');
+    const byId = new Map(result.results.map((item) => [item.id, item]));
+    expect(byId.get('A2.4')?.verdict).toBe('fail');
+    expect(byId.get('A2.4')?.message).toMatch(
+      /the home page and robots.txt refused an honestly identified client \(HTTP 403 from Akamai bot management\)/,
+    );
+    // A 403 on robots.txt means no restrictions to Google, so A1.1 warns rather than fails.
+    expect(byId.get('A1.1')?.verdict).toBe('warn');
+    expect(byId.get('B2.1')?.skip_reason).toBe('dependency_failed');
+    expect(byId.get('B4.1')?.message).toMatch(/see A2.4/);
+    expect(result.warnings.some((w) => w.includes('HTTP 403, Akamai'))).toBe(true);
+    const markdown = renderMarkdown(result);
+    expect(markdown).toContain('## Fix first');
+    expect(markdown).toMatch(
+      /1\. \*\*A2\.4 No block or challenge on an honest fetch\*\* — blocking · unlocks Level 1/,
+    );
   });
 });

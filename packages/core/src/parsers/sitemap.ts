@@ -8,6 +8,8 @@ export interface SitemapEntry {
 
 export interface ParsedSitemap {
   kind: 'index' | 'urlset' | 'invalid';
+  /** True when the XML was cut off (a file larger than the scanner reads) and the complete entries before the cut were salvaged. */
+  partial?: boolean;
   /** Child sitemap URLs when kind is index. */
   sitemaps: string[];
   /** Page URLs when kind is urlset: the loc of every entry, for callers that need only URLs. */
@@ -75,18 +77,63 @@ export function isW3cDatetime(value: string): boolean {
   );
 }
 
+/**
+ * Salvages the complete <url> entries of a urlset whose XML was cut off: large platforms
+ * publish sitemaps of 50,000 entries that run past the 2 MB the scanner reads, and the
+ * entries before the cut are still what a crawler sees first.
+ */
+function salvageTruncatedUrlset(xml: string): ParsedSitemap | null {
+  if (!/<urlset[\s>]/i.test(xml.slice(0, 2000))) return null;
+  const entries: SitemapEntry[] = [];
+  // Split on the opening tag and cut each piece at its closing tag with indexOf, so the
+  // scan stays linear whatever the file contains; the piece without a closing tag is the
+  // cut-off entry and is dropped.
+  const lower = xml.toLowerCase();
+  let from = lower.indexOf('<url>');
+  while (from !== -1) {
+    const start = from + '<url>'.length;
+    const close = lower.indexOf('</url>', start);
+    if (close === -1) break;
+    const body = xml.slice(start, close);
+    from = lower.indexOf('<url>', close);
+    const loc = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(body)?.[1];
+    if (!loc) continue;
+    const lastmod = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/i.exec(body)?.[1];
+    entries.push(lastmod === undefined ? { loc } : { loc, lastmod });
+  }
+  if (entries.length === 0) return null;
+  return {
+    kind: 'urlset',
+    partial: true,
+    sitemaps: [],
+    urls: entries.map((entry) => entry.loc),
+    entries,
+  };
+}
+
+/** A urlset whose closing tag is missing was cut off, however leniently the parser read it. */
+function looksTruncated(xml: string): boolean {
+  return /<urlset[\s>]/i.test(xml.slice(0, 2000)) && !/<\/urlset>\s*$/i.test(xml.slice(-400));
+}
+
 export function parseSitemap(xml: string): ParsedSitemap {
+  if (looksTruncated(xml)) {
+    const salvaged = salvageTruncatedUrlset(xml);
+    if (salvaged) return salvaged;
+  }
   let document: unknown;
   try {
     document = parser.parse(xml);
   } catch (error) {
-    return {
-      kind: 'invalid',
-      sitemaps: [],
-      urls: [],
-      entries: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return (
+      salvageTruncatedUrlset(xml) ?? {
+        kind: 'invalid',
+        sitemaps: [],
+        urls: [],
+        entries: [],
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
   }
   if (!document || typeof document !== 'object') {
     return { kind: 'invalid', sitemaps: [], urls: [], entries: [], error: 'not an XML document' };
@@ -122,11 +169,12 @@ export function parseSitemap(xml: string): ParsedSitemap {
  */
 const PRODUCT_SITEMAP_NAME_PATTERNS: readonly RegExp[] = [
   /^wp-sitemap-posts-product-\d+\.xml$/i,
-  /^(?:products?|produkte?|produits?|productos?)[-_]?sitemap/i,
-  /^sitemap[-_]?(?:products?|produkte?|produits?|productos?)/i,
+  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)(?:[-_](?:[a-z]{2}(?:[-_][a-z]{2})?|\d+)(?:[-_.]|$)|\.xml$)/i,
+  /^(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)[-_]?sitemap/i,
+  /^sitemap[-_]?(?:products?|prod|produkte?|produits?|productos?|prodotti|artikel|items?|pdp|sku)/i,
 ];
 const PRODUCT_URL_PATTERN =
-  /\/(product|products|produkt|produkte|produit|producto|item|p)\/[^/?#]+/i;
+  /\/(product|products|produkt|produkte|produit|produits|producto|productos|prodotto|prodotti|artikel|item|items|pd|pdp|dp|sku|goods|p)\/[^/?#]+/i;
 
 function fileNameOf(url: string): string {
   const withoutQuery = url.split(/[?#]/, 1)[0] ?? '';

@@ -378,8 +378,15 @@ describe('A2.4 no block or challenge on an honest fetch', () => {
     );
     expect(header.verdict).toBe('fail');
     expect(header.evidence).toMatchObject({
-      pages: { [url]: { outcome: 'challenged', detail: 'cf-mitigated: challenge' } },
+      pages: {
+        [url]: {
+          outcome: 'challenged',
+          detail: 'a Cloudflare challenge (HTTP 403)',
+          vendor: 'Cloudflare',
+        },
+      },
     });
+    expect(header.message).toMatch(/1 product page\(s\) answered .* with a Cloudflare challenge/);
     const page = await runCheck(
       honestFetchNotBlocked,
       targetFor({ products: [url] }),
@@ -392,16 +399,21 @@ describe('A2.4 no block or challenge on an honest fetch', () => {
     expect(page.message).toMatch(/challenge/);
   });
 
-  it('warns, not fails, when only a policy page is refused', async () => {
+  it('passes with a note, not fails, when only a policy page is refused', async () => {
     const contact = 'https://shop.example/my-account/contact-support/';
     const outcome = await runCheck(
       honestFetchNotBlocked,
       targetFor({ products: [url], policies: { contact } }),
       mapFetcher({ [url]: html, [contact]: { status: 403, body: 'Forbidden' } }),
     );
-    expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toMatch(/home page and product pages answered/);
-    expect(outcome.message).toMatch(/1 policy page\(s\) refused or challenged/);
+    // The store stays reachable; B4.6 reports what the refused policy page costs.
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(
+      /no block or challenge on the home page, robots.txt, 1 product page\(s\)/,
+    );
+    expect(outcome.message).toMatch(
+      /1 policy page\(s\) refused the scanner \(HTTP 403\), which B4.6 reports/,
+    );
     expect(outcome.evidence).toMatchObject({
       refused: [contact],
       blocked_policy_pages: [contact],
@@ -416,7 +428,9 @@ describe('A2.4 no block or challenge on an honest fetch', () => {
       }),
     );
     expect(both.verdict).toBe('fail');
-    expect(both.message).toMatch(/1 page\(s\) refused/);
+    expect(both.message).toMatch(
+      /^1 product page\(s\) refused an honestly identified client \(HTTP 403\)/,
+    );
   });
 
   it('warns when a page redirects to a consent interstitial and ignores network errors', async () => {
@@ -456,13 +470,14 @@ describe('A2.3 usage-preference signals parse', () => {
   }
   const signalsOf = (evidence: Record<string, unknown>): Signal[] => evidence.signals as Signal[];
 
-  it('passes when nothing is declared, treating an HTML tdmrep.json as a soft 404', async () => {
+  it('skips when nothing is declared, treating an HTML tdmrep.json as a soft 404', async () => {
     const none = await runCheck(
       usagePreferenceSignalsParse,
       targetFor({ robots: 'User-agent: *\nAllow: /\n' }),
       mapFetcher({}),
     );
-    expect(none.verdict).toBe('pass');
+    expect(none.verdict).toBe('skip');
+    expect(none.skipReason).toBe('not_applicable');
     expect(none.message).toMatch(/no usage-preference signal declared/);
     expect(none.evidence).toMatchObject({
       declared: 0,
@@ -474,7 +489,7 @@ describe('A2.3 usage-preference signals parse', () => {
       targetFor(),
       mapFetcher({ [tdmrepUrl]: '<!doctype html><html><body>Not found</body></html>' }),
     );
-    expect(soft.verdict).toBe('pass');
+    expect(soft.verdict).toBe('skip');
     expect(soft.evidence).toMatchObject({ declared: 0, tdmrep: { outcome: 'soft_404' } });
   });
 
@@ -560,7 +575,7 @@ describe('A2.3 usage-preference signals parse', () => {
         field: 'robots.txt Content-Signal',
         value: 'train-ai=n',
         valid: false,
-        problem: 'unknown signal "train-ai" (ai-train, search, ai-input)',
+        problem: 'unknown signal "train-ai" (ai-train, search, ai-input, use)',
       },
       {
         field: 'robots.txt License',

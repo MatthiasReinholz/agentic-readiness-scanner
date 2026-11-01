@@ -27,6 +27,7 @@ export function checksForProfile(profile: Profile, source: Catalog = catalog): C
   return source.checks.filter((check) => {
     const group = source.groups.find((candidate) => candidate.id === check.group);
     if (!group || !profile.dimensions.includes(group.dimension)) return false;
+    if (profile.excluded_checks.includes(check.id)) return false;
     return !check.requires.some((requirement) =>
       profile.unsatisfied_requirements.includes(requirement),
     );

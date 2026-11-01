@@ -1,4 +1,5 @@
 import type { Element } from 'domhandler';
+import { registrableDomain } from '../../http/domain.js';
 
 import { contentType, isOk, type FetchedResponse, type FetchOptions } from '../../http/types.js';
 import { attribute, HtmlDocument } from '../../parsers/html.js';
@@ -6,7 +7,15 @@ import { extractJsonLd, offersOf, productNodes, asString } from '../../parsers/j
 import { hasPriceText } from '../../parsers/price.js';
 import { hasLinkRelation, mediaTypeOf, parseLinkHeader } from '../../parsers/link-header.js';
 import { fnv1a32 } from '../../target/sampling.js';
-import { productPages } from '../shared.js';
+import type { Fetcher } from '../../http/types.js';
+import type { Target } from '../../target/types.js';
+import {
+  describeFailure,
+  looksLikeProductPage,
+  pathOf,
+  readableProductPages,
+  type ProductPage,
+} from '../shared.js';
 import {
   defineCheck,
   fail,
@@ -20,15 +29,159 @@ import {
 /** The price-text pattern lives in parsers/price.ts; re-exported for the pattern tests. */
 export { hasPriceText };
 
-export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
-  const pages = await productPages(target, fetcher);
-  if (pages.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
+/**
+ * Statuses that say nothing about the resource: the server throttled the scanner or a
+ * gateway failed. A probe that meets one is inconclusive, never a verdict.
+ */
+export const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
+
+export function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
+  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
+}
+
+export interface SampledProductPages {
+  /** The sampled product pages that answered 2xx: the ones a check may judge. */
+  pages: ProductPage[];
+  /** The outcome to return when none can be judged; null when `pages` is not empty. */
+  unavailable: CheckOutcome | null;
+  /** Sampled pages that could not be read, with the status and the reason, by URL. */
+  failed: Record<string, { status: number; failure: string }>;
+  /** Appended to a message: '', or '; 1 sampled product page could not be fetched (HTTP 503)'. */
+  note: string;
+}
+
+/**
+ * The sampled product pages a content check judges, plus what it says about the ones it
+ * could not read. A page that answered 0, 4xx or 5xx is recorded and named, never scored
+ * as empty, malformed or missing.
+ */
+export async function sampledProductPages(
+  target: Target,
+  fetcher: Fetcher,
+): Promise<SampledProductPages> {
+  const { pages, unavailable } = await readableProductPages(target, fetcher);
+  const readable = new Set(pages.map((page) => page.url));
+  const failed: SampledProductPages['failed'] = {};
+  for (const url of target.sampled.products) {
+    if (readable.has(url)) continue;
+    // Cached by the fetcher: readableProductPages fetched it a moment ago.
+    const response = await fetcher.fetch(url);
+    failed[url] = { status: response.status, failure: describeFailure(response) };
   }
+  const count = Object.keys(failed).length;
+  const reasons = [...new Set(Object.values(failed).map((entry) => entry.failure))].join(', ');
+  const note =
+    count === 0
+      ? ''
+      : `; ${count} sampled product ${count === 1 ? 'page' : 'pages'} could not be fetched (${reasons})`;
+  return { pages, unavailable, failed, note };
+}
+
+/**
+ * The pages a check judged, as a sentence subject: "the home page" when no product pages
+ * were sampled, "the sampled product page" for a sample of one, else "2 of 3 sampled
+ * product pages". `plural` says which verb form follows.
+ */
+export function judgedPages(
+  sampled: 'home' | 'products',
+  count: number,
+  total: number,
+): { phrase: string; plural: boolean } {
+  if (sampled === 'home') return { phrase: 'the home page', plural: false };
+  if (total === 1) return { phrase: 'the sampled product page', plural: false };
+  return { phrase: `${count} of ${total} sampled product pages`, plural: count !== 1 };
+}
+
+/** "every sampled product page", "the sampled product page" or "the home page". */
+export function everyJudgedPage(sampled: 'home' | 'products', total: number): string {
+  if (sampled === 'home') return 'the home page';
+  return total === 1 ? 'the sampled product page' : 'every sampled product page';
+}
+
+/**
+ * The pages a check that falls back to the home page judges: the readable sampled product
+ * pages, or the home page when none were sampled. `unavailable` is set when product pages
+ * were sampled but none could be read.
+ */
+async function judgedDocuments(
+  target: Target,
+  fetcher: Fetcher,
+): Promise<{
+  sampled: 'home' | 'products';
+  docs: { url: string; doc: HtmlDocument }[];
+  unavailable: CheckOutcome | null;
+  failed: SampledProductPages['failed'];
+  note: string;
+}> {
+  if (target.sampled.products.length === 0) {
+    return {
+      sampled: 'home',
+      docs: [{ url: target.home.finalUrl, doc: target.homeDoc }],
+      unavailable: null,
+      failed: {},
+      note: '',
+    };
+  }
+  const { pages, unavailable, failed, note } = await sampledProductPages(target, fetcher);
+  return { sampled: 'products', docs: pages, unavailable, failed, note };
+}
+
+/**
+ * The path of a sign-in, registration or storefront password page a product URL may be
+ * redirected to (Shopify's /password, WooCommerce's /my-account/, generic /login).
+ * Tested against the final URL only when the product URL redirected: a product named
+ * "Password Journal" at its own address is a product.
+ */
+const SIGN_IN_PATH = /login|signin|sign-in|password|account\/login|my-account/i;
+const SIGN_IN_SPEC = 'https://support.google.com/merchants/answer/6324416';
+
+/**
+ * True when what answered a product URL is a sign-in or password page rather than the
+ * product: the URL was redirected to a sign-in path, or the document is a password form
+ * with no product content at all. A product page that merely links to the account area,
+ * or carries a login form in its header next to the product, is a product page.
+ */
+export function isSignInPage(doc: HtmlDocument, requestedUrl: string, finalUrl: string): boolean {
+  const redirected = finalUrl !== '' && finalUrl !== requestedUrl;
+  if (redirected && SIGN_IN_PATH.test(pathOf(finalUrl))) return true;
+  const passwordForm = doc
+    .controls()
+    .some((control) => control.tag === 'input' && control.type?.toLowerCase() === 'password');
+  return passwordForm && !looksLikeProductPage(doc);
+}
+
+export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
+  const { pages, unavailable, failed, note } = await sampledProductPages(target, fetcher);
+  if (unavailable) return unavailable;
   const perPage: Record<
     string,
     { title: boolean; price: boolean; description: boolean; words: number }
   > = {};
+  // A product URL that lands on a sign-in or password page has no product content to
+  // judge: Google's landing-page rules forbid requiring registration or sign-in, and
+  // Shopify's password page makes a store ineligible for agentic storefronts.
+  const signIn: Record<string, string> = {};
+  for (const page of pages) {
+    const response = await fetcher.fetch(page.url);
+    if (isSignInPage(page.doc, page.url, response.finalUrl)) {
+      signIn[page.url] = response.finalUrl || page.url;
+    }
+  }
+  const firstSignIn = Object.entries(signIn)[0];
+  if (firstSignIn) {
+    const { phrase, plural } = judgedPages('products', Object.keys(signIn).length, pages.length);
+    return fail(
+      `${phrase.replace('page', 'URL')} ${plural ? 'redirect' : 'redirects'} to a sign-in or password page (${firstSignIn[1]}); Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts${note}`,
+      {
+        pages: perPage,
+        complete: 0,
+        total: pages.length,
+        failed,
+        sign_in: signIn,
+        spec: SIGN_IN_SPEC,
+      },
+    );
+  }
   let complete = 0;
   for (const page of pages) {
     const { nodes } = extractJsonLd(page.doc);
@@ -53,8 +206,8 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
   return outcomeForRatio(
     complete,
     pages.length,
-    `${complete} of ${pages.length} sampled product page(s) carry title, price and description in raw HTML`,
-    { pages: perPage, complete, total: pages.length },
+    `${complete} of ${pages.length} sampled product page(s) carry title, price and description in raw HTML${note}`,
+    { pages: perPage, complete, total: pages.length, failed },
     0,
   );
 });
@@ -78,8 +231,14 @@ export const pageWeightAndResponseTime = defineCheck('A3.3', async ({ target, fe
   // skipping a check every store can answer.
   const sampled = target.sampled.products.length > 0 ? 'products' : 'home';
   const responses: FetchedResponse[] = [];
+  let failed: SampledProductPages['failed'] = {};
+  let note = '';
   if (sampled === 'products') {
-    for (const url of target.sampled.products) responses.push(await fetcher.fetch(url));
+    const judged = await sampledProductPages(target, fetcher);
+    if (judged.unavailable) return judged.unavailable;
+    ({ failed, note } = judged);
+    // Only pages that answered are measured; the fetcher has them cached.
+    for (const page of judged.pages) responses.push(await fetcher.fetch(page.url));
   } else {
     responses.push(target.home);
   }
@@ -87,9 +246,9 @@ export const pageWeightAndResponseTime = defineCheck('A3.3', async ({ target, fe
     string,
     { status: number; bytes: number; response_ms: number; truncated: boolean }
   > = {};
-  let largest = 0;
-  let slowest = 0;
-  let truncated = false;
+  let largest: FetchedResponse | null = null;
+  let slowest: FetchedResponse | null = null;
+  let truncated: FetchedResponse | null = null;
   for (const response of responses) {
     perPage[response.url] = {
       status: response.status,
@@ -97,33 +256,42 @@ export const pageWeightAndResponseTime = defineCheck('A3.3', async ({ target, fe
       response_ms: response.durationMs,
       truncated: response.truncated,
     };
-    largest = Math.max(largest, response.bytes);
-    slowest = Math.max(slowest, response.durationMs);
-    truncated ||= response.truncated;
+    if (largest === null || response.bytes > largest.bytes) largest = response;
+    if (slowest === null || response.durationMs > slowest.durationMs) slowest = response;
+    if (response.truncated) truncated ??= response;
   }
   const evidence = {
     sampled,
     pages: perPage,
-    largest_bytes: largest,
-    slowest_response_ms: slowest,
+    largest_bytes: largest?.bytes ?? 0,
+    slowest_response_ms: slowest?.durationMs ?? 0,
     // A truncated body means the fetcher stopped reading; its size is a lower bound.
-    truncated,
+    truncated: truncated !== null,
     thresholds: { pass: PAGE_WEIGHT_PASS, fail: PAGE_WEIGHT_FAIL },
+    failed,
   };
-  const subject =
-    sampled === 'home' ? 'the home page (no product pages sampled)' : 'a sampled product page';
-  const measured = `largest ${kilobytes(largest)}, slowest response time ${slowest} ms`;
-  if (largest >= PAGE_WEIGHT_FAIL.bytes || truncated) {
+  const name = (response: FetchedResponse) =>
+    sampled === 'home' ? 'the home page' : `the sampled product page ${response.url}`;
+  const cutoff =
+    truncated ?? (largest !== null && largest.bytes >= PAGE_WEIGHT_FAIL.bytes ? largest : null);
+  if (cutoff !== null) {
     return fail(
-      `${subject} reaches the 2 MB cutoff after which Googlebot reads nothing, so anything placed late in the HTML is not indexed (${measured})`,
+      `${name(cutoff)} reaches the 2 MB cutoff after which Googlebot reads nothing (${kilobytes(cutoff.bytes)}${cutoff.truncated ? ' read before the scanner stopped' : ''}), so anything placed late in the HTML is not indexed${note}`,
       evidence,
     );
   }
-  if (largest >= PAGE_WEIGHT_PASS.bytes || slowest >= PAGE_WEIGHT_PASS.ms) {
-    return warn(`${subject} is 1 MB or more or took 3 s or more to answer (${measured})`, evidence);
+  const reasons: string[] = [];
+  if (largest !== null && largest.bytes >= PAGE_WEIGHT_PASS.bytes) {
+    reasons.push(`${name(largest)} is ${kilobytes(largest.bytes)} of HTML, 1 MB or more`);
+  }
+  if (slowest !== null && slowest.durationMs >= PAGE_WEIGHT_PASS.ms) {
+    reasons.push(`${name(slowest)} took ${slowest.durationMs} ms to answer, 3 s or more`);
+  }
+  if (reasons.length > 0) {
+    return warn(`${reasons.join(' and ')}${note}`, evidence);
   }
   return pass(
-    `${sampled === 'home' ? subject : 'every sampled product page'} is under 1 MB and answered in under 3 s (${measured})`,
+    `${everyJudgedPage(sampled, responses.length)} is under 1 MB and answered in under 3 s (largest ${kilobytes(largest?.bytes ?? 0)}, slowest response time ${slowest?.durationMs ?? 0} ms)${note}`,
     evidence,
   );
 });
@@ -216,9 +384,8 @@ function canonicalIssue(
 }
 
 export const canonicalAndHreflang = defineCheck('A3.4', async ({ target, fetcher }) => {
-  if (target.sampled.products.length === 0) {
-    return skip('not_applicable', 'no product pages sampled');
-  }
+  const { pages: readable, unavailable, failed, note } = await sampledProductPages(target, fetcher);
+  if (unavailable) return unavailable;
   const perPage: Record<string, CanonicalPage> = {};
   const issues: Record<CanonicalIssue, number> = {
     missing: 0,
@@ -233,9 +400,9 @@ export const canonicalAndHreflang = defineCheck('A3.4', async ({ target, fetcher
   let thinHreflang = 0;
   const languages = new Set<string>();
   const targetHost = new URL(target.origin).host;
-  for (const url of target.sampled.products) {
+  for (const { url, doc } of readable) {
+    // Cached: the headers and the final URL of the page sampledProductPages read.
     const response = await fetcher.fetch(url);
-    const doc = new HtmlDocument(response.body);
     const pageUrl = response.finalUrl || url;
     const links = doc.links();
     const htmlCanonicals = links
@@ -284,7 +451,7 @@ export const canonicalAndHreflang = defineCheck('A3.4', async ({ target, fetcher
       relative_alternates: relativeHere,
     };
   }
-  const total = target.sampled.products.length;
+  const total = readable.length;
   const evidence = {
     pages: perPage,
     total,
@@ -293,76 +460,81 @@ export const canonicalAndHreflang = defineCheck('A3.4', async ({ target, fetcher
     hreflang_pages: withHreflang,
     relative_alternates: relativeAlternates,
     languages: [...languages].sort(),
+    failed,
   };
   const pages = (count: number) => `${count} of ${total} sampled product page(s)`;
   if (issues.missing > 0) {
     return fail(
-      `${pages(issues.missing)} carry no rel=canonical in the HTML or the Link header`,
+      `${pages(issues.missing)} carry no rel=canonical in the HTML or the Link header${note}`,
       evidence,
     );
   }
   if (issues.conflicting > 0) {
     return warn(
-      `${pages(issues.conflicting)} carry several or conflicting rel=canonical values, so the index picks one itself`,
+      `${pages(issues.conflicting)} carry several or conflicting rel=canonical values, so the index picks one itself${note}`,
       evidence,
     );
   }
   if (issues.relative > 0) {
     return warn(
-      `rel=canonical on ${pages(issues.relative)} is a relative URL instead of an absolute one`,
+      `rel=canonical on ${pages(issues.relative)} is a relative URL instead of an absolute one${note}`,
       evidence,
     );
   }
   if (issues.other_origin > 0) {
     return warn(
-      `rel=canonical on ${pages(issues.other_origin)} points to another origin`,
+      `rel=canonical on ${pages(issues.other_origin)} points to another origin${note}`,
       evidence,
     );
   }
   if (issues.http_downgrade > 0) {
     return warn(
-      `rel=canonical on ${pages(issues.http_downgrade)} names http:// while the page is served over https://`,
+      `rel=canonical on ${pages(issues.http_downgrade)} names http:// while the page is served over https://${note}`,
       evidence,
     );
   }
   if (issues.not_self > 0) {
     const example = Object.values(perPage).find((page) => !page.self_referencing);
     return warn(
-      `rel=canonical on ${pages(issues.not_self)} names a different URL, so the sampled page is a duplicate of ${example?.canonical ?? 'another URL'} and that one is what gets indexed`,
+      `rel=canonical on ${pages(issues.not_self)} names a different URL, so the sampled page is a duplicate of ${example?.canonical ?? 'another URL'} and that one is what gets indexed${note}`,
       evidence,
     );
   }
   if (withHreflang > 0 && withHreflang < total) {
     return warn(
-      `hreflang alternates on ${withHreflang} of ${total} sampled product page(s) only`,
+      `hreflang alternates on ${withHreflang} of ${total} sampled product page(s) only${note}`,
       evidence,
     );
   }
   if (relativeAlternates > 0) {
     return warn(
-      `${relativeAlternates} hreflang alternate(s) use a relative URL instead of an absolute one`,
+      `${relativeAlternates} hreflang alternate(s) use a relative URL instead of an absolute one${note}`,
       evidence,
     );
   }
   if (thinHreflang > 0) {
     return warn(
-      `hreflang alternates on ${thinHreflang} page(s) name fewer than two languages and no x-default`,
+      `hreflang alternates on ${thinHreflang} page(s) name fewer than two languages and no x-default${note}`,
       evidence,
     );
   }
   const hreflangNote =
     withHreflang > 0 ? ` with hreflang alternates for ${[...languages].sort().join(', ')}` : '';
   return pass(
-    `rel=canonical on every sampled product page is absolute and names the page itself${hreflangNote}`,
+    `rel=canonical on ${everyJudgedPage('products', total)} is absolute and names the page itself${hreflangNote}${note}`,
     evidence,
   );
 });
 
 /**
- * Consent banners, modals and overlays as themes name them. Class and id values are
- * matched against literal alternatives only, so the test stays linear.
+ * Cookie and consent banners as themes and consent platforms name them: cookie, consent,
+ * gdpr, privacy-banner and cmp (consent management platform, as a token). Generic words
+ * such as modal, overlay or popup are not matched: a cart drawer's backdrop, a closed
+ * country picker or a header wrapper carries them too and is not a consent overlay.
+ * Class and id values are matched against literal alternatives only, so the test stays
+ * linear.
  */
-const OVERLAY_NAME = /cookie|consent|gdpr|modal|overlay|popup/i;
+const OVERLAY_NAME = /cookie|consent|gdpr|privacy-banner|(?:^|[^a-z0-9])cmp(?![a-z])/i;
 /** Tags that render nothing: a `<script id="cookie-consent">` is not an overlay. */
 const NON_OVERLAY_TAGS = new Set([
   'script',
@@ -376,8 +548,6 @@ const NON_OVERLAY_TAGS = new Set([
 
 export function looksLikeOverlay(element: Element): boolean {
   if (NON_OVERLAY_TAGS.has(element.name)) return false;
-  if (attribute(element, 'role')?.toLowerCase() === 'dialog') return true;
-  if (attribute(element, 'aria-modal')?.toLowerCase() === 'true') return true;
   return OVERLAY_NAME.test(
     `${attribute(element, 'class') ?? ''} ${attribute(element, 'id') ?? ''}`,
   );
@@ -394,42 +564,41 @@ function describe(element: Element): string {
 }
 
 export const accessibleMainContent = defineCheck('A3.5', async ({ target, fetcher }) => {
-  const sampled = target.sampled.products.length > 0 ? 'products' : 'home';
-  const docs: { url: string; doc: HtmlDocument }[] =
-    sampled === 'products'
-      ? await productPages(target, fetcher)
-      : [{ url: target.home.finalUrl, doc: target.homeDoc }];
+  const { sampled, docs, unavailable, failed, note } = await judgedDocuments(target, fetcher);
+  if (unavailable) return unavailable;
   const perPage: Record<string, { main_landmark: boolean; overlay_before_main: string | null }> =
     {};
   let missing = 0;
   let overlaid = 0;
+  let firstOverlay: string | null = null;
   for (const { url, doc } of docs) {
     const main = doc.mainLandmark();
     const overlay = doc.firstElement(looksLikeOverlay);
     const overlayBefore = main !== null && overlay !== null && doc.precedes(overlay, main);
-    perPage[url] = {
-      main_landmark: main !== null,
-      overlay_before_main: overlayBefore && overlay ? describe(overlay) : null,
-    };
+    const described = overlayBefore && overlay ? describe(overlay) : null;
+    perPage[url] = { main_landmark: main !== null, overlay_before_main: described };
     if (main === null) missing += 1;
-    if (overlayBefore) overlaid += 1;
+    if (described !== null) {
+      overlaid += 1;
+      firstOverlay ??= described;
+    }
   }
   const total = docs.length;
-  const evidence = { sampled, pages: perPage, total, missing_main: missing, overlaid };
-  const pageWord =
-    sampled === 'home' ? 'home page (no product pages sampled)' : 'sampled product page(s)';
+  const evidence = { sampled, pages: perPage, total, missing_main: missing, overlaid, failed };
   // Weight 1 and a heuristic: a missing or overlaid landmark warns, never fails.
   if (missing > 0) {
-    return warn(`${missing} of ${total} ${pageWord} have no main landmark`, evidence);
+    const { phrase, plural } = judgedPages(sampled, missing, total);
+    return warn(`${phrase} ${plural ? 'have' : 'has'} no main landmark${note}`, evidence);
   }
-  if (overlaid > 0) {
+  if (overlaid > 0 && firstOverlay !== null) {
+    const { phrase } = judgedPages(sampled, overlaid, total);
     return warn(
-      `an overlay-like element precedes the main landmark on ${overlaid} of ${total} ${pageWord}`,
+      `a cookie or consent banner (${firstOverlay}) precedes the main landmark on ${phrase}${note}`,
       evidence,
     );
   }
   return pass(
-    `main landmark present on ${sampled === 'home' ? 'the home page (no product pages sampled)' : 'every sampled product page'} with no overlay markup before it`,
+    `main landmark present on ${everyJudgedPage(sampled, total)} with no cookie or consent banner before it${note}`,
     evidence,
   );
 });
@@ -485,6 +654,16 @@ function isMarkdown(response: FetchedResponse): boolean {
   return response.status === 200 && contentType(response) === 'text/markdown';
 }
 
+/**
+ * True when a body labelled text/markdown is HTML: it opens with a tag, or carries a
+ * doctype or <html> near the top. Real converted Markdown (Cloudflare's Markdown for
+ * Agents, for one) starts with YAML front matter or a heading and never with a tag.
+ */
+export function isHtmlLabelledAsMarkdown(body: string): boolean {
+  const head = body.slice(0, 2000);
+  return head.trimStart().startsWith('<') || /<!doctype\s|<html[\s>]/i.test(head);
+}
+
 export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, fetcher }) => {
   const url = target.sampled.products[0];
   if (url === undefined) {
@@ -510,11 +689,19 @@ export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, f
       content_type: contentType(negotiated),
       vary: negotiated.headers.vary ?? null,
       names_product: isMarkdown(negotiated) ? namesPage(negotiated.body, names) : null,
+      html_body: isMarkdown(negotiated) ? isHtmlLabelledAsMarkdown(negotiated.body) : null,
     },
     alternate: null,
     md: null,
     outcome: 'none',
   };
+  if (isMarkdown(negotiated) && isHtmlLabelledAsMarkdown(negotiated.body)) {
+    evidence.outcome = 'mislabelled';
+    return fail(
+      'the product page answers Accept: text/markdown with a response labelled text/markdown whose body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML',
+      evidence,
+    );
+  }
   if (isMarkdown(negotiated) && namesPage(negotiated.body, names)) {
     evidence.outcome = 'negotiated';
     if (!variesOnAccept(negotiated)) {
@@ -538,13 +725,22 @@ export const markdownCopyOfProductPages = defineCheck('A3.1', async ({ target, f
     }
     const response = await get(probeUrl);
     const markdown = isMarkdown(response);
-    const named = markdown && namesPage(response.body, names);
+    const mislabelled = markdown && isHtmlLabelledAsMarkdown(response.body);
+    const named = markdown && !mislabelled && namesPage(response.body, names);
     evidence[label] = {
       url: probeUrl,
       status: response.status,
       content_type: contentType(response),
       names_product: markdown ? named : null,
+      html_body: markdown ? mislabelled : null,
     };
+    if (mislabelled) {
+      evidence.outcome = 'mislabelled';
+      return fail(
+        `${label === 'alternate' ? 'the Markdown alternate' : 'the .md neighbour'} ${probeUrl} is labelled text/markdown but its body is HTML (it opens with a tag), so agents asking for Markdown get mislabelled HTML`,
+        evidence,
+      );
+    }
     if (!named) return null;
     evidence.outcome = label;
     return pass(
@@ -594,10 +790,12 @@ export const unknownUrlsAnswer404 = defineCheck('A3.6', async ({ target, fetcher
     final_url: response.finalUrl,
     content_type: type,
   };
-  if (response.status === 0) {
+  // A throttled or failed probe says nothing about 404 handling: a 429 is not a soft 404.
+  if (isTransient(response)) {
+    const why = response.status === 429 ? 'was rate limited' : 'failed';
     return skip(
       'error',
-      `the probe URL could not be fetched: ${response.error ?? 'no response'}`,
+      `the 404 handling could not be judged because the probe request ${why} (${describeFailure(response)})`,
       evidence,
     );
   }
@@ -639,6 +837,22 @@ function originOf(url: string): string | null {
   }
 }
 
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The registrable domain of a host, approximated without a public suffix list: the last
+ * two labels, or the last three when the second-level label is a conventional division
+ * of a two-letter country code (co.uk, com.au, co.jp). Enough to tell a sister host of
+ * the same site (us.checkout.gymshark.com for gymshark.com) from an unrelated one.
+ */
+export { registrableDomain } from '../../http/domain.js';
+
 interface HostVariant {
   url: string;
   status: number;
@@ -646,8 +860,29 @@ interface HostVariant {
   redirects: number;
   /** True when nothing answered (DNS, TLS or network error): recorded, never judged. */
   unreachable: boolean;
+  /** True when the answer says nothing about consolidation: no answer, a 429 or a gateway error. */
+  inconclusive: boolean;
   lands_on_origin: boolean;
+  /** The host the variant redirected to when that is neither its own host nor the origin's. */
+  redirects_to_host: string | null;
+  /** True when that other host shares the origin's registrable domain. */
+  same_registrable_domain: boolean;
   error?: string;
+}
+
+/** "the home page", "the sampled product URL" or "2 of 3 sampled product URLs", with the verb form. */
+function judgedUrls(
+  sampled: 'home' | 'products',
+  count: number,
+  total: number,
+): { phrase: string; plural: boolean } {
+  if (sampled === 'home') return { phrase: 'the home page', plural: false };
+  if (total === 1) return { phrase: 'the sampled product URL', plural: false };
+  return { phrase: `${count} of ${total} sampled product URLs`, plural: count !== 1 };
+}
+
+function hop(response: FetchedResponse): string {
+  return `${response.url} → ${response.finalUrl}`;
 }
 
 export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fetcher }) => {
@@ -662,13 +897,24 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     string,
     { status: number; redirects: number; final_url: string; error?: string }
   > = {};
-  let downgraded = 0;
-  let tooMany = 0;
-  let redirected = 0;
+  const counts = {
+    downgraded: 0,
+    tooMany: 0,
+    stale: 0,
+    redirected: 0,
+    unreachable: 0,
+    wrongStatus: 0,
+  };
+  const examples: Partial<Record<keyof typeof counts, FetchedResponse>> = {};
+  const record = (key: keyof typeof counts, response: FetchedResponse) => {
+    counts[key] += 1;
+    examples[key] ??= response;
+  };
+  // Sampled URLs the sitemap listed: one of them answering 404 or 410 is a stale entry,
+  // which Google and Bing both ask publishers to remove promptly.
+  const fromSitemap = new Set(target.sitemap?.productUrls ?? []);
+  const staleEntries: string[] = [];
   let longest = 0;
-  let unreachable = 0;
-  let wrongStatus: number | null = null;
-  let wrongStatusCount = 0;
   for (const response of responses) {
     products[response.url] = {
       status: response.status,
@@ -678,30 +924,64 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     };
     if (response.status === 0) {
       // The fetcher gives up after its redirect limit with status 0 and an error naming it.
-      if (/redirects/i.test(response.error ?? '')) tooMany += 1;
-      else unreachable += 1;
+      record(/redirects/i.test(response.error ?? '') ? 'tooMany' : 'unreachable', response);
       continue;
     }
-    if (/^https:/i.test(response.url) && /^http:/i.test(response.finalUrl)) downgraded += 1;
+    if (/^https:/i.test(response.url) && /^http:/i.test(response.finalUrl))
+      record('downgraded', response);
+    if (
+      sampled === 'products' &&
+      fromSitemap.has(response.url) &&
+      (response.status === 404 || response.status === 410)
+    ) {
+      record('stale', response);
+      staleEntries.push(response.url);
+      continue;
+    }
     if (response.redirects > 0) {
-      redirected += 1;
+      record('redirected', response);
       longest = Math.max(longest, response.redirects);
     } else if (response.status !== 200) {
-      wrongStatus ??= response.status;
-      wrongStatusCount += 1;
+      record('wrongStatus', response);
     }
   }
+  // When the home page stands in for product URLs, the resolver followed the input URL to
+  // the origin it scans: a hop that changed the host (apex to www) is input normalization,
+  // and one more hop from / to a locale or landing path (/en-US/, /de/index.html) is how
+  // the site greets every visitor, not a published URL that moved. Neither is a finding.
+  const home = sampled === 'home' ? responses[0] : undefined;
+  const landingRedirect =
+    home !== undefined &&
+    home.redirects > 0 &&
+    home.status !== 0 &&
+    originOf(home.finalUrl) === target.origin &&
+    home.redirects - (hostOf(home.url) !== hostOf(home.finalUrl) ? 1 : 0) <= 1;
 
+  const originDomain = registrableDomain(target.hostname);
   const probeVariant = async (url: string): Promise<HostVariant> => {
     const response = await fetcher.fetch(url);
     const reachable = response.status !== 0;
+    const landsOnOrigin = reachable && originOf(response.finalUrl) === target.origin;
+    const finalHost = hostOf(response.finalUrl);
+    const redirectsToHost =
+      reachable &&
+      !landsOnOrigin &&
+      response.redirects > 0 &&
+      finalHost !== null &&
+      finalHost !== hostOf(url)
+        ? finalHost
+        : null;
     return {
       url,
       status: response.status,
       final_url: response.finalUrl,
       redirects: response.redirects,
       unreachable: !reachable,
-      lands_on_origin: reachable && originOf(response.finalUrl) === target.origin,
+      inconclusive: !landsOnOrigin && redirectsToHost === null && isTransient(response),
+      lands_on_origin: landsOnOrigin,
+      redirects_to_host: redirectsToHost,
+      same_registrable_domain:
+        redirectsToHost !== null && registrableDomain(redirectsToHost) === originDomain,
       ...(response.error !== undefined ? { error: response.error } : {}),
     };
   };
@@ -715,64 +995,107 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
     origin: target.origin,
     products,
     variants: { http: httpVariant, other_host: otherHost },
-    redirected,
+    redirected: counts.redirected,
     longest_chain: longest,
-    unreachable,
+    unreachable: counts.unreachable,
+    landing_redirect: landingRedirect,
+    stale_sitemap_entries: staleEntries,
   };
-  const subject =
-    sampled === 'home' ? 'the home page (no product pages sampled)' : 'every sampled product URL';
-  const urls = (count: number) =>
-    sampled === 'home' ? subject : `${count} of ${total} sampled product URL(s)`;
-  const verb = sampled === 'home' ? 's' : '';
-  if (downgraded > 0) {
-    return fail(`${urls(downgraded)} redirect${verb} from https:// to http://`, evidence);
-  }
-  if (tooMany > 0) {
+  const subject = (count: number) => judgedUrls(sampled, count, total);
+  const s = (plural: boolean) => (plural ? '' : 's');
+  if (counts.downgraded > 0 && examples.downgraded) {
+    const { phrase, plural } = subject(counts.downgraded);
     return fail(
-      `${urls(tooMany)} redirect${verb} more times than the scanner follows (Google stops at ten hops)`,
+      `${phrase} redirect${s(plural)} from https:// to http:// (${hop(examples.downgraded)})`,
       evidence,
     );
   }
-  if (unreachable === total) {
-    return skip('error', `${subject} could not be fetched`, evidence);
+  if (counts.tooMany > 0 && examples.tooMany) {
+    const { phrase, plural } = subject(counts.tooMany);
+    return fail(
+      `${phrase} redirect${s(plural)} more times than the scanner follows (Google stops at ten hops), starting from ${examples.tooMany.url}`,
+      evidence,
+    );
   }
-  if (redirected > 0) {
+  if (counts.stale > 0 && examples.stale) {
+    const more =
+      counts.stale > 1
+        ? ` and ${counts.stale - 1} more sampled URL${counts.stale > 2 ? 's' : ''}`
+        : '';
+    return fail(
+      `the sitemap lists ${examples.stale.url}${more}, which answer${counts.stale > 1 ? '' : 's'} HTTP ${examples.stale.status}; Google and Bing ask for sitemaps that list only live, canonical URLs`,
+      evidence,
+    );
+  }
+  if (counts.unreachable === total) {
+    return skip('error', `${subject(total).phrase} could not be fetched`, evidence);
+  }
+  if (counts.redirected > 0 && examples.redirected && !landingRedirect) {
+    const { phrase, plural } = subject(counts.redirected);
     const chain = longest > 1 ? ` through up to ${longest} hops` : '';
     return warn(
-      `${urls(redirected)} redirect${verb}${chain} before answering, so the sitemap or link should name the final URL`,
+      `${phrase} redirect${s(plural)}${chain} before answering (${hop(examples.redirected)}), so the sitemap or link should name the final URL`,
       evidence,
     );
   }
-  if (wrongStatusCount > 0 && wrongStatus !== null) {
+  if (counts.wrongStatus > 0 && examples.wrongStatus) {
+    const { phrase, plural } = subject(counts.wrongStatus);
     return warn(
-      `${urls(wrongStatusCount)} answer${verb} HTTP ${wrongStatus} instead of 200`,
+      `${phrase} answer${s(plural)} HTTP ${examples.wrongStatus.status} instead of 200`,
       evidence,
     );
   }
   for (const variant of variants) {
-    if (variant.unreachable || variant.lands_on_origin) continue;
+    if (variant.inconclusive || variant.lands_on_origin) continue;
+    if (variant.redirects_to_host !== null) {
+      return warn(
+        variant.same_registrable_domain
+          ? `${variant.url} redirects to ${variant.final_url}, another host of ${originDomain}, instead of to ${target.origin}, so the site is consolidated elsewhere and the index holds two hosts`
+          : `${variant.url} redirects to ${variant.final_url}, a host outside ${originDomain}, instead of to ${target.origin}`,
+        evidence,
+      );
+    }
+    const at = variant.final_url !== variant.url ? ` at ${variant.final_url}` : '';
     if (variant.status === 200) {
       return warn(
-        `${variant.url} answers 200 with its own content instead of redirecting to ${target.origin}, so the index holds duplicates`,
+        `${variant.url} answers 200 with its own content${at} instead of redirecting to ${target.origin}, so the index holds duplicates`,
         evidence,
       );
     }
     return warn(
-      `${variant.url} answers HTTP ${variant.status} at ${variant.final_url} instead of redirecting to ${target.origin}`,
+      `${variant.url} answers HTTP ${variant.status}${at} instead of redirecting to ${target.origin}`,
       evidence,
     );
   }
   const redirecting = variants.filter((variant) => variant.lands_on_origin);
-  const silent = variants.filter((variant) => variant.unreachable);
+  const inconclusive = variants.filter((variant) => variant.inconclusive);
   const redirectNote =
     redirecting.length > 0
       ? ` and ${redirecting.map((variant) => variant.url).join(' and ')} redirect${redirecting.length === 1 ? 's' : ''} to ${target.origin}`
       : '';
-  const silentNote =
-    silent.length > 0
-      ? ` (${silent.map((variant) => variant.url).join(' and ')} did not answer)`
+  const inconclusiveNote =
+    inconclusive.length > 0
+      ? ` (${inconclusive
+          .map((variant) =>
+            variant.status === 0
+              ? `${variant.url} did not answer: ${variant.error ?? 'no response'}`
+              : `${variant.url} answered HTTP ${variant.status}`,
+          )
+          .join(
+            ' and ',
+          )}, so ${inconclusive.length === 1 ? 'that variant is' : 'those variants are'} inconclusive)`
       : '';
-  return pass(`${subject} answers 200 at its own address${redirectNote}${silentNote}`, evidence);
+  const answered =
+    landingRedirect && home !== undefined
+      ? `answers 200 at ${home.finalUrl} after a redirect from ${home.url}, the locale or landing redirect every visitor gets, which is not a finding,`
+      : 'answers 200 at its own address';
+  const every =
+    sampled === 'home'
+      ? 'the home page'
+      : total === 1
+        ? 'the sampled product URL'
+        : 'every sampled product URL';
+  return pass(`${every} ${answered}${redirectNote}${inconclusiveNote}`, evidence);
 });
 
 /** Titles shorter than this cannot identify a page in a citation. */
@@ -809,13 +1132,11 @@ export const titleAndDescriptionPresent = defineCheck('A3.8', async ({ target, f
       unavailable[target.sampled.listing] = response.status;
     }
   }
-  for (const page of await productPages(target, fetcher)) {
-    if (page.status >= 200 && page.status < 300) {
-      docs.push({ url: page.url, kind: 'product', doc: page.doc });
-    } else {
-      unavailable[page.url] = page.status;
-    }
-  }
+  // The home page and the listing are always judged, so a sample with no readable
+  // product page is recorded here rather than returned as a skip.
+  const { pages, failed, note } = await sampledProductPages(target, fetcher);
+  for (const page of pages) docs.push({ url: page.url, kind: 'product', doc: page.doc });
+  for (const [url, entry] of Object.entries(failed)) unavailable[url] = entry.status;
   const perPage: Record<string, TitledPage> = {};
   const byTitle = new Map<string, string[]>();
   let untitled = 0;
@@ -855,42 +1176,68 @@ export const titleAndDescriptionPresent = defineCheck('A3.8', async ({ target, f
     duplicates,
     unavailable,
   };
-  const pages = (count: number) => `${count} of ${total} sampled page(s)`;
+  const pageCount = (count: number) => `${count} of ${total} sampled page(s)`;
   if (untitled > 0) {
-    return fail(`${pages(untitled)} have no title element or an empty one`, evidence);
+    return fail(`${pageCount(untitled)} have no title element or an empty one${note}`, evidence);
   }
   if (duplicates.length > 0) {
     return warn(
-      `${duplicates.length} title(s) are shared by several sampled pages, starting with "${duplicates[0] ?? ''}"`,
+      `${duplicates.length} title(s) are shared by several sampled pages, starting with "${duplicates[0] ?? ''}"${note}`,
       evidence,
     );
   }
   if (short > 0) {
     return warn(
-      `${pages(short)} have a title shorter than ${TITLE_MIN_LENGTH} characters`,
+      `${pageCount(short)} have a title shorter than ${TITLE_MIN_LENGTH} characters${note}`,
       evidence,
     );
   }
   if (undescribed > 0) {
-    return warn(`${pages(undescribed)} have no meta description or an empty one`, evidence);
+    return warn(
+      `${pageCount(undescribed)} have no meta description or an empty one${note}`,
+      evidence,
+    );
   }
   return pass(
-    `all ${total} sampled page(s) carry a distinct title and a meta description`,
+    `all ${total} sampled page(s) carry a distinct title and a meta description${note}`,
     evidence,
   );
 });
 
 export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target, fetcher }) => {
-  const productUrl = target.sampled.products[0];
-  // The home page response is on the target already; the product page is cached by now.
-  const response = productUrl === undefined ? target.home : await fetcher.fetch(productUrl);
-  const url = productUrl ?? target.sampled.home;
-  const what =
-    productUrl === undefined ? 'the home page (no product pages sampled)' : 'the product page';
+  let response: FetchedResponse;
+  let url: string;
+  let what: string;
+  let note = '';
+  if (target.sampled.products.length === 0) {
+    // The home page response is on the target already.
+    response = target.home;
+    url = target.sampled.home;
+    what = 'the home page';
+  } else {
+    // The first sampled product page that answered; a page that did not is named, not judged.
+    const judged = await sampledProductPages(target, fetcher);
+    const first = judged.pages[0];
+    if (judged.unavailable || first === undefined) {
+      return judged.unavailable ?? skip('error', 'no sampled product page could be fetched');
+    }
+    url = first.url;
+    // The plain HTML response: no Accept: text/markdown, so this is never the Markdown
+    // copy A3.1 negotiated (a converted Markdown response drops ETag and Last-Modified,
+    // and the fetcher caches the two requests separately by their headers).
+    response = await fetcher.fetch(url);
+    what = 'the product page';
+    const skipped = target.sampled.products.filter((candidate) => candidate !== url);
+    const skippedFailure = skipped.map((candidate) => judged.failed[candidate]).find(Boolean);
+    if (skippedFailure && target.sampled.products[0] !== url) {
+      note = `; the first sampled product page could not be fetched (${skippedFailure.failure}), so the next one was judged`;
+    }
+  }
   const etag = response.headers.etag ?? null;
   const lastModified = response.headers['last-modified'] ?? null;
   const evidence: Record<string, unknown> = {
     url,
+    content_type: contentType(response),
     etag,
     last_modified: lastModified,
     conditional_header_sent: null,
@@ -905,12 +1252,12 @@ export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target,
   }
   if (etag === null && lastModified === null) {
     return warn(
-      `${what} sends no ETag or Last-Modified header, so a crawler must download it again to see whether it changed`,
+      `${what} sends no ETag or Last-Modified header, so a crawler must download it again to see whether it changed${note}`,
       evidence,
     );
   }
   const header = etag !== null ? 'if-none-match' : 'if-modified-since';
-  const validator = etag !== null ? 'ETag' : 'Last-Modified';
+  const validator = etag !== null ? 'an ETag' : 'a Last-Modified';
   evidence.conditional_header_sent = header;
   const conditional = await fetcher.fetch(url, {
     headers: { [header]: etag ?? lastModified ?? '' },
@@ -925,18 +1272,18 @@ export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target,
   }
   if (conditional.status === 304) {
     return pass(
-      `${what} answers 304 Not Modified to a conditional request with its ${validator}`,
+      `${what} answers 304 Not Modified to a conditional request with its ${validator.split(' ')[1] ?? validator}${note}`,
       evidence,
     );
   }
   if (conditional.status === 200) {
     return warn(
-      `${what} sends a ${validator} but answers 200 to a request that repeats it, so the validator is ignored`,
+      `${what} sends ${validator} but answers 200 to a request that repeats it, so the validator is ignored${note}`,
       evidence,
     );
   }
   return warn(
-    `${what} answers HTTP ${conditional.status} instead of 304 to a conditional request with its ${validator}`,
+    `${what} answers HTTP ${conditional.status} instead of 304 to a conditional request with its ${validator.split(' ')[1] ?? validator}${note}`,
     evidence,
   );
 });
@@ -968,11 +1315,8 @@ export function readViewport(content: string | null): ViewportReading {
 }
 
 export const mobileViewportDeclared = defineCheck('A3.10', async ({ target, fetcher }) => {
-  const sampled = target.sampled.products.length > 0 ? 'products' : 'home';
-  const docs: { url: string; doc: HtmlDocument }[] =
-    sampled === 'products'
-      ? await productPages(target, fetcher)
-      : [{ url: target.sampled.home, doc: target.homeDoc }];
+  const { sampled, docs, unavailable, failed, note } = await judgedDocuments(target, fetcher);
+  if (unavailable) return unavailable;
   const perPage: Record<string, ViewportReading> = {};
   let missing = 0;
   let fixed = 0;
@@ -992,25 +1336,23 @@ export const mobileViewportDeclared = defineCheck('A3.10', async ({ target, fetc
     missing,
     fixed_width: fixed,
     zoom_blocked: zoomBlocked,
+    failed,
   };
-  const pages = (count: number) =>
-    sampled === 'home'
-      ? 'the home page (no product pages sampled) declares'
-      : `${count} of ${total} sampled product page(s) declare`;
+  const declares = (count: number) => {
+    const { phrase, plural } = judgedPages(sampled, count, total);
+    return `${phrase} declare${plural ? '' : 's'}`;
+  };
   if (missing > 0) {
-    return warn(`${pages(missing)} no meta viewport`, evidence);
+    return warn(`${declares(missing)} no meta viewport${note}`, evidence);
   }
   if (fixed > 0) {
-    return warn(`${pages(fixed)} a viewport without width=device-width`, evidence);
+    return warn(`${declares(fixed)} a viewport without width=device-width${note}`, evidence);
   }
   if (zoomBlocked > 0) {
     return warn(
-      `${pages(zoomBlocked)} a viewport that forbids zooming (user-scalable=no or maximum-scale below 1)`,
+      `${declares(zoomBlocked)} a viewport that forbids zooming (user-scalable=no or maximum-scale below 1)${note}`,
       evidence,
     );
   }
-  return pass(
-    `${sampled === 'home' ? 'the home page (no product pages sampled)' : 'every sampled product page'} declares width=device-width`,
-    evidence,
-  );
+  return pass(`${everyJudgedPage(sampled, total)} declares width=device-width${note}`, evidence);
 });

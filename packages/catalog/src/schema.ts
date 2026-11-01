@@ -105,6 +105,11 @@ export const ProfileSchema = z.object({
   dimensions: z.array(DimensionSchema).min(1),
   /** Platform requirements that are NOT satisfied in this profile; tagged checks drop out. */
   unsatisfied_requirements: z.array(RequirementSchema).default([]),
+  /**
+   * Checks that never apply to this profile although their requirements are met: a
+   * content site is not asked for product URLs in its sitemap.
+   */
+  excluded_checks: z.array(z.string().regex(CHECK_ID_PATTERN)).default([]),
   /** Highest level this profile can reach. Levels above need commerce checks. */
   max_level: z.number().int().min(0).max(5).default(5),
 });
@@ -194,6 +199,9 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
   for (const profile of catalog.profiles) {
     if (profileIds.has(profile.id)) problems.push(`duplicate profile id ${profile.id}`);
     profileIds.add(profile.id);
+    for (const id of profile.excluded_checks) {
+      if (!checkIds.has(id)) problems.push(`profile ${profile.id}: excludes unknown check ${id}`);
+    }
   }
 
   return problems;

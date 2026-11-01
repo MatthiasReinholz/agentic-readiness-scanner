@@ -58,7 +58,9 @@ export function renderChecksDoc(catalog: Catalog): string {
         (check) =>
           !profile.dimensions.includes(
             catalog.groups.find((group) => group.id === check.group)?.dimension ?? 'ingestion',
-          ) || check.requires.some((req) => profile.unsatisfied_requirements.includes(req)),
+          ) ||
+          check.requires.some((req) => profile.unsatisfied_requirements.includes(req)) ||
+          profile.excluded_checks.includes(check.id),
       )
       .map((check) => check.id);
     const applies =

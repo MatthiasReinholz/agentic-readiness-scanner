@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { parseCliArguments } from './args.js';
+import { describeScanError } from './commands/scan.js';
 import { main } from './index.js';
 
 const fixture = join(
@@ -68,6 +69,23 @@ describe('parseCliArguments', () => {
 
   it('defaults to help', () => {
     expect(parseCliArguments([])).toEqual({ command: 'help' });
+  });
+});
+
+describe('describeScanError', () => {
+  it('follows the cause chain down to the transport code', () => {
+    const cause = Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' });
+    expect(describeScanError(new TypeError('fetch failed', { cause }))).toBe(
+      'scan failed: fetch failed: read ECONNRESET',
+    );
+    const silent = Object.assign(new Error(''), { code: 'UND_ERR_SOCKET' });
+    expect(
+      describeScanError(new Error('outer', { cause: new Error('mid', { cause: silent }) })),
+    ).toBe('scan failed: outer: mid: UND_ERR_SOCKET');
+    expect(describeScanError(new Error('plain', { cause: 'text' }))).toBe(
+      'scan failed: plain: text',
+    );
+    expect(describeScanError('boom')).toBe('scan failed: boom');
   });
 });
 
@@ -170,7 +188,14 @@ describe('main', () => {
   it('returns 2 for an unreachable target', async () => {
     const { code, err } = await run(['scan', 'https://missing.example/', '--fixture', fixture]);
     expect(code).toBe(2);
-    expect(err).toMatch(/not reachable/);
+    expect(err).toMatch(/^scan failed: https:\/\/missing.example\/ is not reachable: /);
+  });
+
+  it('returns 2 with the full reason when the scan throws for any other reason', async () => {
+    // The URL policy refuses a loopback target before any request is made.
+    const { code, err } = await run(['scan', 'http://127.0.0.1/']);
+    expect(code).toBe(2);
+    expect(err).toMatch(/^scan failed: Refusing to fetch http:\/\/127\.0\.0\.1\//);
   });
 
   it('returns 1 with the reason for a bad profile or an unknown option', async () => {

@@ -33,7 +33,22 @@
               "shippingDetails": {
                 "@type": "OfferShippingDetails",
                 "shippingRate": { "@type": "MonetaryAmount", "value": "6.90", "currency": "EUR" },
-                "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "DE" }
+                "shippingDestination": { "@type": "DefinedRegion", "addressCountry": "DE" },
+                "deliveryTime": {
+                  "@type": "ShippingDeliveryTime",
+                  "handlingTime": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 0,
+                    "maxValue": 2,
+                    "unitCode": "DAY"
+                  },
+                  "transitTime": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 1,
+                    "maxValue": 3,
+                    "unitCode": "DAY"
+                  }
+                }
               },
               "hasMerchantReturnPolicy": {
                 "@type": "MerchantReturnPolicy",

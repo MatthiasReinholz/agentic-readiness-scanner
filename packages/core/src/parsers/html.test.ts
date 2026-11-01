@@ -56,7 +56,9 @@ describe('HtmlDocument', () => {
   });
 
   it('lists anchors with href and whitespace-normalised text', () => {
-    expect(doc.anchors()).toEqual([{ href: '/returns/', text: 'Returns and refunds' }]);
+    expect(doc.anchors()).toEqual([
+      { href: '/returns/', text: 'Returns and refunds', inFooter: false },
+    ]);
   });
 
   it('splits body classes and finds scripts by type', () => {
@@ -225,5 +227,48 @@ describe('HtmlDocument controls and link titles', () => {
       { tag: 'input', type: 'submit', value: 'Buy now', text: '' },
     ]);
     expect(new HtmlDocument('<p>none</p>').controls()).toEqual([]);
+  });
+});
+
+describe('HtmlDocument.productImage on Shopify-style markup', () => {
+  const base = 'https://shop.example/products/leggings';
+  const cdn = 'https://cdn.shopify.com/s/files/1/0001/products/leggings.jpg';
+
+  it('matches the image rendered at another size through width parameters and srcset', () => {
+    const page = new HtmlDocument(`
+      <img src="${cdn}?v=1&width=1080" alt="Leggings" width="1080" height="1350"
+           srcset="${cdn}?v=1&width=352 352w, ${cdn}?v=1&width=1080 1080w">`);
+    expect(page.productImage(base, `${cdn}?v=1`)?.alt).toBe('Leggings');
+    const lazy = new HtmlDocument(
+      `<img data-srcset="//cdn.shopify.com/s/files/1/0001/products/leggings_{width}x.jpg?v=1 1x, ${cdn}?v=1&width=600 600w" alt="Lazy">`,
+    );
+    expect(lazy.productImage(base, `${cdn}?v=1`)?.alt).toBe('Lazy');
+  });
+
+  it('matches size suffixes in the file name and sources of an enclosing picture', () => {
+    const page = new HtmlDocument(`
+      <picture>
+        <source media="(min-width: 750px)" srcset="//cdn.shopify.com/s/files/1/0001/products/leggings_1080x.jpg 1x, //cdn.shopify.com/s/files/1/0001/products/leggings_1080x@2x.jpg 2x">
+        <img src="//cdn.shopify.com/s/files/1/0001/products/leggings_600x600_crop_center.jpg" alt="In picture">
+      </picture>
+      <img src="/wp-content/uploads/mug-300x200.jpg" alt="WordPress thumb">`);
+    expect(page.productImage(base, cdn)?.alt).toBe('In picture');
+    expect(page.productImage(base, 'https://shop.example/wp-content/uploads/mug.jpg')?.alt).toBe(
+      'WordPress thumb',
+    );
+    expect(page.productImage(base, 'https://cdn.example/other.jpg')).toBeNull();
+  });
+
+  it('prefers a match with alt text and ignores one-pixel and aria-hidden helpers', () => {
+    const page = new HtmlDocument(`
+      <img src="${cdn}" width="1" height="1" alt="Pixel">
+      <img src="${cdn}" aria-hidden="true" alt="Hidden slide">
+      <img src="${cdn}" alt="">
+      <img src="${cdn}" alt="Real">`);
+    expect(page.productImage(base, cdn)?.alt).toBe('Real');
+    const onlyEmpty = new HtmlDocument(`<img src="${cdn}" alt=""><img src="${cdn}">`);
+    expect(onlyEmpty.productImage(base, cdn)?.alt).toBe('');
+    const onlyHelpers = new HtmlDocument(`<img src="${cdn}" width="1" height="1" alt="Pixel">`);
+    expect(onlyHelpers.productImage(base, cdn)).toBeNull();
   });
 });

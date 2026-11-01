@@ -1,9 +1,11 @@
 import { elementText, HtmlDocument } from '../../parsers/html.js';
-import { storeApiUrl } from '../shared.js';
+import { blockedByRobots, describeFailure, storeApiUrl } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 import { contentType } from '../../http/types.js';
-import { probeMcpEndpoint } from '../mcp.js';
+import { describeRefusal, isChallengePage, REFUSAL_STATUSES } from '../../http/bot-management.js';
+import { type McpProbe, probeMcpEndpoint } from '../mcp.js';
 import { isRecord, looksLikeHtml, nonEmptyString, parseJson, recordEntries } from '../json.js';
+import { HEADLESS_SHOPIFY } from '../b1/shopify.js';
 
 /** The Store API cart object, as far as this check dereferences it. */
 interface StoreApiCart {
@@ -150,7 +152,10 @@ export const guestCheckoutAndCartApi = defineCheck('B5.7', async ({ target, fetc
 const UCP_VERSION = /^\d{4}-\d{2}-\d{2}$/;
 const UCP_SHOPPING_SERVICE = 'dev.ucp.shopping';
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
-const UCP_TRANSPORTS = new Set(['rest', 'mcp', 'a2a']);
+/** The transport enum of the service binding; Shopify declares `embedded`. */
+const UCP_TRANSPORTS = new Set(['rest', 'mcp', 'a2a', 'embedded']);
+/** The release that renamed the top-level `signing_keys` array to `keys`. */
+const UCP_KEYS_RENAME_VERSION = '2026-08-25';
 const HEADER_LIMIT = 4_000;
 
 interface UcpProfile {
@@ -192,14 +197,13 @@ export function allowsSharedCaching(cacheControl: string | null): boolean {
   return maxAge !== null && Number(maxAge[1]) >= 60;
 }
 
-function hasKeys(root: unknown, ucp: Record<string, unknown>): boolean {
-  const candidates = [
-    isRecord(root) ? root.keys : undefined,
-    isRecord(root) ? root.signing_keys : undefined,
-    ucp.keys,
-    ucp.signing_keys,
-  ];
-  return candidates.some((value) => Array.isArray(value) && value.length > 0);
+/** Which key array the profile carries: `keys` (2026-08-25 and later), the older `signing_keys`, or none. */
+function keysField(root: unknown, ucp: Record<string, unknown>): 'keys' | 'signing_keys' | null {
+  const has = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
+  if (has(isRecord(root) ? root.keys : undefined) || has(ucp.keys)) return 'keys';
+  if (has(isRecord(root) ? root.signing_keys : undefined) || has(ucp.signing_keys))
+    return 'signing_keys';
+  return null;
 }
 
 export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }) => {
@@ -216,6 +220,14 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
   };
   if (response.status === 404) {
     return fail('no UCP business profile at /.well-known/ucp (HTTP 404)', evidence);
+  }
+  // A refusal is not an absence: the profile may be there, but an agent cannot read it.
+  if (REFUSAL_STATUSES.has(response.status) || isChallengePage(response)) {
+    evidence.refused = describeRefusal(response);
+    return fail(
+      `/.well-known/ucp was refused (${describeRefusal(response)}): whether a profile exists cannot be told, and an agent cannot read it either`,
+      evidence,
+    );
   }
   if (response.status !== 200) {
     return fail(`/.well-known/ucp returned HTTP ${response.status}`, evidence);
@@ -235,18 +247,27 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
   const serviceIds = Object.keys(profile.services);
   const capabilityIds = profile.capabilities ? Object.keys(profile.capabilities) : [];
   const handlerIds = Object.keys(profile.payment_handlers);
+  const keys = keysField(root, profile.raw);
   Object.assign(evidence, {
     version: profile.version,
     services: serviceIds,
     capabilities: capabilityIds,
     payment_handlers: handlerIds,
-    keys_present: hasKeys(root, profile.raw),
+    keys_present: keys !== null,
+    keys_field: keys,
     profile: profile.raw,
   });
 
   const warnings: string[] = [];
   if (response.redirects > 0) {
     warnings.push(`it was served through ${response.redirects} redirect(s)`);
+  }
+  // Dates compare as strings in YYYY-MM-DD form. 2026-04-08 profiles are not flagged on
+  // the version alone: Google's guides still target that release.
+  if (keys === 'signing_keys' && profile.version >= UCP_KEYS_RENAME_VERSION) {
+    warnings.push(
+      `it carries signing_keys but no keys, although the ${UCP_KEYS_RENAME_VERSION} release replaced signing_keys with keys`,
+    );
   }
   if (type !== 'application/json') {
     warnings.push(`the content type is ${type || 'missing'}, not application/json`);
@@ -261,9 +282,9 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
   return pass(summary, evidence);
 });
 
-/** A payment handler entry an agent can act on: it names what it is and which spec it follows. */
+/** A payment handler entry an agent can act on: UCP requires id and version; spec is optional. */
 function isDeclaredHandler(entry: Record<string, unknown>): boolean {
-  return nonEmptyString(entry.id) && nonEmptyString(entry.version) && nonEmptyString(entry.spec);
+  return nonEmptyString(entry.id) && nonEmptyString(entry.version);
 }
 
 export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcomes }) => {
@@ -285,9 +306,21 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
 
   const handlers = isRecord(profile.payment_handlers) ? profile.payment_handlers : {};
   const handlerIds: string[] = [];
+  let handlersWithoutSpec = 0;
+  // A handler in a test or sandbox environment is declared, not live; the message says so.
+  const handlerLabels: string[] = [];
   for (const [key, value] of Object.entries(handlers)) {
     for (const entry of recordEntries(value)) {
-      if (isDeclaredHandler(entry)) handlerIds.push(typeof entry.id === 'string' ? entry.id : key);
+      if (!isDeclaredHandler(entry)) continue;
+      const id = typeof entry.id === 'string' ? entry.id : key;
+      handlerIds.push(id);
+      const environment = typeof entry.environment === 'string' ? entry.environment : null;
+      handlerLabels.push(
+        environment && environment.toLowerCase() !== 'production'
+          ? `${id} (environment: ${environment})`
+          : id,
+      );
+      if (!nonEmptyString(entry.spec)) handlersWithoutSpec += 1;
     }
   }
 
@@ -296,11 +329,17 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
     checkout_capability: capabilityDeclared,
     shopping_transports: transports,
     handlers: handlerIds,
+    handlers_without_spec: handlersWithoutSpec,
     endpoint: null,
     endpoint_status: null,
+    endpoint_error: null,
   };
 
+  // The REST base URL is probed for reachability only. A REST base has no GET resource of
+  // its own, so 404 (ikea.com) or 405 there is the normal answer, not a finding; only a
+  // host that does not answer or a 5xx says the agent would fail there.
   let endpointNote = '';
+  let endpointProblem = '';
   const restEntry = shoppingEntries.find(
     (entry) =>
       typeof entry.transport === 'string' &&
@@ -308,27 +347,38 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
       nonEmptyString(entry.endpoint),
   );
   if (restEntry && typeof restEntry.endpoint === 'string') {
-    evidence.endpoint = restEntry.endpoint;
-    const response = await fetcher.fetch(restEntry.endpoint);
+    const endpoint = restEntry.endpoint;
+    evidence.endpoint = endpoint;
+    const response = await fetcher.fetch(endpoint);
     evidence.endpoint_status = response.status;
-    if (response.status === 404 || response.status >= 500) {
-      endpointNote = ` (endpoint answered HTTP ${response.status})`;
+    evidence.endpoint_error = response.error ?? null;
+    if (blockedByRobots(response)) {
+      endpointNote = ` (the REST endpoint ${endpoint} was not requested: ${describeFailure(response)})`;
+    } else if (response.status === 0) {
+      endpointProblem = `the REST endpoint ${endpoint} could not be reached (${describeFailure(response)})`;
+    } else if (response.status >= 500) {
+      endpointProblem = `the REST endpoint ${endpoint} answered ${describeFailure(response)}`;
+    } else {
+      endpointNote = ` (the REST endpoint ${endpoint} answered HTTP ${response.status})`;
     }
   }
 
   if (checkout && handlerIds.length > 0) {
-    const message = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerIds.join(', ')}${endpointNote}`;
-    return endpointNote ? warn(message, evidence) : pass(message, evidence);
+    const summary = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerLabels.join(', ')}`;
+    return endpointProblem
+      ? warn(`${summary}, but ${endpointProblem}`, evidence)
+      : pass(`${summary}${endpointNote}`, evidence);
   }
+  if (endpointProblem) endpointNote = `; ${endpointProblem}`;
   if (checkout) {
     return warn(
-      `UCP profile declares checkout but no payment handler with id, version and spec${endpointNote}`,
+      `UCP profile declares checkout but no payment handler with id and version${endpointNote}`,
       evidence,
     );
   }
   if (handlerIds.length > 0) {
     return warn(
-      `UCP profile declares ${handlerIds.length} payment handler(s) but no checkout capability or shopping service${endpointNote}`,
+      `UCP profile declares ${handlerIds.length} payment handler(s) but no checkout capability or shopping service with a rest, mcp, a2a or embedded transport${endpointNote}`,
       evidence,
     );
   }
@@ -369,12 +419,20 @@ export const acpDiscoveryDocument = defineCheck('B5.3', async ({ target, fetcher
   const transports = Array.isArray(root.transports)
     ? root.transports.filter((item): item is string => typeof item === 'string')
     : null;
-  const capabilities = isRecord(root.capabilities) ? root.capabilities : {};
+  const capabilities = isRecord(root.capabilities) ? root.capabilities : null;
   Object.assign(evidence, {
-    protocol: { name: protocol.name ?? null, version: protocol.version ?? null },
+    protocol: {
+      name: protocol.name ?? null,
+      version: protocol.version ?? null,
+      // The discovery RFC requires both; recorded so a reader can see what the store claims.
+      supported_versions: Array.isArray(protocol.supported_versions)
+        ? protocol.supported_versions
+        : null,
+    },
     api_base_url: typeof root.api_base_url === 'string' ? root.api_base_url : null,
     transports,
-    services: Array.isArray(capabilities.services) ? capabilities.services : null,
+    capabilities,
+    services: Array.isArray(capabilities?.services) ? capabilities.services : null,
   });
 
   const missing: string[] = [];
@@ -388,42 +446,98 @@ export const acpDiscoveryDocument = defineCheck('B5.3', async ({ target, fetcher
     return fail(`ACP discovery document is missing ${missing.join(', ')}`, evidence);
   }
   return pass(
-    `ACP ${String(protocol.version)} discovery document with a REST API at ${String(root.api_base_url)}`,
+    `ACP ${String(protocol.version)} discovery document with a REST API at ${String(root.api_base_url)} (the document is a merged proposal in the ACP repository; OpenAI does not document probing it)`,
     evidence,
   );
 });
 
-/** The OpenAI/ACP feed fields that name the seller and its return and legal terms. */
-type FieldPresence = Record<
-  | 'seller_name'
-  | 'seller_url'
-  | 'return_policy'
-  | 'return_deadline_in_days'
-  | 'return_window'
-  | 'seller_privacy_policy'
-  | 'seller_tos',
-  boolean
->;
+/**
+ * The OpenAI product feed specification: nine required fields, the optional return fields,
+ * the seller policy fields that checkout requires, and the eligibility flags. Each entry
+ * lists the field and the aliases a feed may use for it.
+ */
+const OPENAI_REQUIRED: Record<string, readonly string[]> = {
+  item_id: ['item_id', 'id', 'sku'],
+  title: ['title'],
+  description: ['description'],
+  url: ['url', 'link'],
+  brand: ['brand'],
+  seller_name: ['seller_name'],
+  image_url: ['image_url', 'image_link'],
+  availability: ['availability'],
+  price: ['price'],
+};
+const OPENAI_RETURN: Record<string, readonly string[]> = {
+  return_policy: ['return_policy'],
+  return_deadline_in_days: ['return_deadline_in_days', 'return_window'],
+};
+const OPENAI_CHECKOUT_POLICY: Record<string, readonly string[]> = {
+  seller_privacy_policy: ['seller_privacy_policy'],
+  seller_tos: ['seller_tos'],
+};
+const OPENAI_FLAGS: Record<string, readonly string[]> = {
+  is_eligible_search: ['is_eligible_search', 'enable_search'],
+  is_eligible_checkout: ['is_eligible_checkout', 'enable_checkout'],
+};
 const FEED_SAMPLE = 5;
 const FEED_BODY_LIMIT = 200_000;
 const FEED_LINE_LIMIT = 50;
 
-function presenceOf(item: Record<string, unknown>): FieldPresence {
-  return {
-    seller_name: present(item.seller_name),
-    seller_url: present(item.seller_url),
-    return_policy: present(item.return_policy),
-    return_deadline_in_days: present(item.return_deadline_in_days),
-    return_window: present(item.return_window),
-    seller_privacy_policy: present(item.seller_privacy_policy),
-    seller_tos: present(item.seller_tos),
-  };
+interface FeedItemFields {
+  /** Required fields that are absent, by their canonical name. */
+  missing_required: string[];
+  missing_return: string[];
+  missing_checkout_policy: string[];
+  /** The eligibility flags as written (true, false or null when absent). */
+  flags: Record<string, boolean | null>;
+  /** Every field read, by canonical name, true when present under any alias. */
+  fields: Record<string, boolean>;
 }
 
 function present(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   if (typeof value === 'string') return value.trim().length > 0;
   return typeof value === 'number' || typeof value === 'boolean' || typeof value === 'object';
+}
+
+function presentUnderAlias(item: Record<string, unknown>, aliases: readonly string[]): boolean {
+  return aliases.some((alias) => present(item[alias]));
+}
+
+function flagOf(item: Record<string, unknown>, aliases: readonly string[]): boolean | null {
+  for (const alias of aliases) {
+    const value = item[alias];
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string' && /^(true|false|yes|no|1|0)$/i.test(value.trim()))
+      return /^(true|yes|1)$/i.test(value.trim());
+  }
+  return null;
+}
+
+function missingOf(
+  item: Record<string, unknown>,
+  group: Record<string, readonly string[]>,
+): string[] {
+  return Object.entries(group)
+    .filter(([, aliases]) => !presentUnderAlias(item, aliases))
+    .map(([name]) => name);
+}
+
+function fieldsOf(item: Record<string, unknown>): FeedItemFields {
+  const fields: Record<string, boolean> = {};
+  for (const group of [OPENAI_REQUIRED, OPENAI_RETURN, OPENAI_CHECKOUT_POLICY]) {
+    for (const [name, aliases] of Object.entries(group))
+      fields[name] = presentUnderAlias(item, aliases);
+  }
+  return {
+    missing_required: missingOf(item, OPENAI_REQUIRED),
+    missing_return: missingOf(item, OPENAI_RETURN),
+    missing_checkout_policy: missingOf(item, OPENAI_CHECKOUT_POLICY),
+    flags: Object.fromEntries(
+      Object.entries(OPENAI_FLAGS).map(([name, aliases]) => [name, flagOf(item, aliases)]),
+    ),
+    fields,
+  };
 }
 
 /** One CSV row, honouring double quotes; a single linear pass over the line. */
@@ -547,30 +661,49 @@ export const acpFeedFields = defineCheck('B5.4', async ({ fetcher, outcomes }) =
     return skip('error', `the feed at ${feedUrl} has no items to sample`, evidence);
   }
 
-  const fields = sample.map(presenceOf);
+  const items_ = sample.map(fieldsOf);
+  const countMissing = (pick: (item: FeedItemFields) => string[]): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    for (const item of items_)
+      for (const name of pick(item)) counts[name] = (counts[name] ?? 0) + 1;
+    return counts;
+  };
+  const missingRequired = countMissing((item) => item.missing_required);
+  const missingReturn = countMissing((item) => item.missing_return);
+  // The seller policy fields are required for checkout; an item that opts out of checkout
+  // with is_eligible_checkout false (or enable_checkout false) does not need them.
+  const missingCheckout = countMissing((item) =>
+    item.flags.is_eligible_checkout === false ? [] : item.missing_checkout_policy,
+  );
   evidence.items_sampled = sample.length;
-  evidence.fields = fields;
-  const withSeller = fields.filter((item) => item.seller_name).length;
-  const complete = fields.filter(
-    (item) =>
-      item.seller_name &&
-      ((item.return_policy && (item.return_deadline_in_days || item.return_window)) ||
-        (item.seller_privacy_policy && item.seller_tos)),
-  ).length;
-  if (withSeller === 0) {
+  evidence.fields = items_.map((item) => item.fields);
+  evidence.flags = items_.map((item) => item.flags);
+  evidence.missing_required = missingRequired;
+  evidence.missing_return = missingReturn;
+  evidence.missing_checkout_policy = missingCheckout;
+  const describe = (counts: Record<string, number>): string =>
+    Object.entries(counts)
+      .map(([name, count]) => `${name} (${count} of ${sample.length})`)
+      .join(', ');
+  if (Object.keys(missingRequired).length > 0) {
     return fail(
-      `none of ${sample.length} sampled feed item(s) carries seller_name or the return and policy fields`,
+      `sampled feed items lack OpenAI's required fields: ${describe(missingRequired)}`,
       evidence,
     );
   }
-  if (complete === sample.length) {
-    return pass(
-      `${sample.length} sampled feed item(s) carry seller_name with return or seller policy fields`,
+  const gaps: string[] = [];
+  if (Object.keys(missingReturn).length > 0)
+    gaps.push(`the optional return fields ${describe(missingReturn)}`);
+  if (Object.keys(missingCheckout).length > 0)
+    gaps.push(`the seller policy fields checkout requires ${describe(missingCheckout)}`);
+  if (gaps.length > 0) {
+    return warn(
+      `${sample.length} sampled feed item(s) carry the nine required OpenAI fields but lack ${gaps.join(' and ')}`,
       evidence,
     );
   }
-  return warn(
-    `${withSeller} of ${sample.length} sampled feed item(s) carry seller_name, but only ${complete} carry the return or seller policy fields`,
+  return pass(
+    `${sample.length} sampled feed item(s) carry the nine required OpenAI fields, the return fields and the seller policy fields`,
     evidence,
   );
 });
@@ -598,40 +731,61 @@ export const shopifyAgenticStorefront = defineCheck('B5.8', async ({ target, fet
       platform: target.platform,
     });
   }
+  if (target.shopifyHosted === false) {
+    return skip('not_applicable', HEADLESS_SHOPIFY, {
+      platform: target.platform,
+      shopify_hosted: false,
+    });
+  }
   const linkHeader = target.home.headers.link ?? null;
   const linkDeclared = linkHeader !== null && hasUcpLinkRelation(linkHeader);
   const endpoint = `${target.origin}/api/ucp/mcp`;
   const probe = await probeMcpEndpoint(fetcher, endpoint);
-  const response = { status: probe.status };
   const answers = probe.outcome === 'rpc' || probe.outcome === 'auth';
+  // Shopify's stock robots.txt disallows /api/ for every crawler; the scanner honours it,
+  // so on such a store the probe never leaves and the status is 0 with the gate's reason.
+  const notRequested = blockedByRobots({ status: probe.status, error: probe.detail });
   const evidence = {
     link_header: linkHeader,
     link_declared: linkDeclared,
     endpoint,
     endpoint_status: probe.status,
     endpoint_answers: answers,
+    endpoint_requested: !notRequested,
     probe: probe.detail,
   };
   if (linkDeclared && answers) {
     return pass(
-      `agentic storefront active: the homepage links /.well-known/ucp and /api/ucp/mcp answers (HTTP ${response.status})`,
+      `agentic storefront active: the homepage links /.well-known/ucp and /api/ucp/mcp answers (HTTP ${probe.status})`,
+      evidence,
+    );
+  }
+  if (linkDeclared && notRequested) {
+    return warn(
+      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${probe.detail}); the endpoint could not be verified`,
       evidence,
     );
   }
   if (linkDeclared) {
     return warn(
-      `the homepage links /.well-known/ucp but /api/ucp/mcp returned HTTP ${response.status}`,
+      `the homepage links /.well-known/ucp but /api/ucp/mcp ${probeAnswer(probe)}`,
       evidence,
     );
   }
   if (answers) {
     return warn(
-      `/api/ucp/mcp answers (HTTP ${response.status}) but the homepage sends no Link rel="ucp" header`,
+      `/api/ucp/mcp answers (HTTP ${probe.status}) but the homepage sends no Link rel="ucp" header`,
       evidence,
     );
   }
   return fail(
-    `no Link rel="ucp" header on the homepage and /api/ucp/mcp returned HTTP ${response.status}`,
+    `no Link rel="ucp" header on the homepage and /api/ucp/mcp ${probeAnswer(probe)}`,
     evidence,
   );
 });
+
+/** How the MCP endpoint answered, for a message: the status, or the fetcher's reason when there was none. */
+function probeAnswer(probe: McpProbe): string {
+  if (probe.status === 0) return `could not be fetched (${probe.detail})`;
+  return `returned ${describeFailure({ status: probe.status })}`;
+}

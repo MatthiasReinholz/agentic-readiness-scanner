@@ -42,7 +42,7 @@
       ]
     }
   },
-  "signing_keys": [
+  "keys": [
     {
       "kid": "ceramics_2026",
       "kty": "EC",

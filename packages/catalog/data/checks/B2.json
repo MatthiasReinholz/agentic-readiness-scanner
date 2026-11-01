@@ -4,7 +4,7 @@
     "group": "B2",
     "title": "Product JSON-LD on product pages",
     "question": "Do product pages carry schema.org Product markup?",
-    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node; warn when some do; fail when none do.",
+    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node that carries name and image, the properties Google requires besides offers; warn when some pages do or when name or image is missing; fail when none do. Product markup earns rich results, free-listing eligibility and automatic Merchant Center submission on Google and grounding data on Bing; Google's AI Overviews and AI Mode need no particular markup beyond an indexed, snippet-eligible page, and ChatGPT shopping reads feeds and third-party metadata, so the weight rests on the Merchant Center and Bing basis.",
     "weight": 3,
     "spec": [
       {
@@ -12,8 +12,16 @@
         "url": "https://schema.org/Product"
       },
       {
+        "title": "Google merchant listing structured data",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/merchant-listing"
+      },
+      {
         "title": "Google product structured data",
         "url": "https://developers.google.com/search/docs/appearance/structured-data/product"
+      },
+      {
+        "title": "Google Merchant Center: automatic product submission from structured data",
+        "url": "https://support.google.com/merchants/answer/7538732"
       }
     ],
     "requires": ["products"]
@@ -23,7 +31,7 @@
     "group": "B2",
     "title": "Offer with price, currency and availability",
     "question": "Does the markup state what the product costs and whether it is in stock?",
-    "method": "Each Product must carry an Offer (or AggregateOffer) with price, priceCurrency and an availability value that is a schema.org ItemAvailability URL. Pass when all sampled products do.",
+    "method": "Each Product must carry an Offer (or AggregateOffer) with price (or lowPrice), priceCurrency and an availability value that is a schema.org ItemAvailability URL; offers on the hasVariant Products of a ProductGroup count as the product's offers. Pass when every offer found is complete; warn when some are, when a price is 0 or below (merchant listing experiences require a price greater than zero) or when priceValidUntil names a past date (Google says the listing may not display); fail when none is complete. An AggregateOffer passes but is noted: it is eligible for product snippets, not for Google merchant listings, which require an Offer.",
     "weight": 3,
     "depends_on": ["B2.1"],
     "spec": [
@@ -34,6 +42,10 @@
       {
         "title": "schema.org ItemAvailability",
         "url": "https://schema.org/ItemAvailability"
+      },
+      {
+        "title": "Google merchant listing structured data (Offer, price, priceValidUntil)",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/merchant-listing"
       }
     ],
     "requires": ["products"]
@@ -43,7 +55,7 @@
     "group": "B2",
     "title": "Variants modeled",
     "question": "Are variable products exposed as a ProductGroup with variants?",
-    "method": "For products that appear variable (variation form or Store API type variable), expect a ProductGroup with hasVariant or Store API variations. Skip when no variable product was sampled.",
+    "method": "For products that appear variable (variation form, Store API type variable, a ProductGroup with hasVariant, or a Product whose isVariantOf names a ProductGroup), expect a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations. Warn when the variants under hasVariant lack a unique sku or gtin among them, or the ProductGroup lacks name or productGroupID. Skip when no variable product was sampled.",
     "weight": 2,
     "depends_on": ["B2.1"],
     "spec": [
@@ -63,7 +75,7 @@
     "group": "B2",
     "title": "Shipping and return details in markup",
     "question": "Can an agent read shipping cost and return terms from the offer?",
-    "method": "Pass when Offers carry shippingDetails (OfferShippingDetails) and hasMerchantReturnPolicy (MerchantReturnPolicy); warn when only one is present.",
+    "method": "Pass when each product has shipping details (OfferShippingDetails on the Offer or Product, or a ShippingService on an Organization or OnlineStore node of the product page or home page, the place Google now documents for the standard policy) and a MerchantReturnPolicy (on the Offer, Product or that Organization node); warn when only one is present, or when a policy lacks what Google requires: MerchantReturnPolicy needs merchantReturnLink, or applicableCountry and returnPolicyCategory (and merchantReturnDays for a finite window); OfferShippingDetails needs shippingDestination with addressCountry, shippingRate and deliveryTime; ShippingService needs shippingConditions. The missing fields are named.",
     "weight": 2,
     "depends_on": ["B2.2"],
     "spec": [
@@ -74,6 +86,14 @@
       {
         "title": "schema.org MerchantReturnPolicy",
         "url": "https://schema.org/MerchantReturnPolicy"
+      },
+      {
+        "title": "Google: return policy structured data (Organization and Offer level)",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/return-policy"
+      },
+      {
+        "title": "Google: shipping policy structured data (Organization and Offer level)",
+        "url": "https://developers.google.com/search/docs/appearance/structured-data/shipping-policy"
       }
     ],
     "requires": ["products"]
@@ -83,13 +103,17 @@
     "group": "B2",
     "title": "Images with alt text and resolution",
     "question": "Is the primary product image usable by an agent?",
-    "method": "The Product image must resolve, and the rendered img tag must carry alt text. Warn when the image is smaller than 800 px on its longest side (from HTML attributes or a HEAD request).",
+    "method": "The Product image must resolve, and the rendered img tag must carry alt text. The rendered img is matched by URL path with size parameters and size suffixes removed, across src, srcset, data-src, data-srcset and picture sources; one-pixel and aria-hidden images are ignored. Warn when the image is smaller than 500 px on its longest side (Google Merchant Center's minimum for every product from 2027-01-31; 1500 px is recommended and a smaller image is noted), or when the store's robots.txt keeps Googlebot or Googlebot-Image from a same-origin image, since products whose images are blocked stop showing in free listings. A HEAD request that gets no response is inconclusive and is not scored.",
     "weight": 1,
     "depends_on": ["B2.1"],
     "spec": [
       {
         "title": "Google Merchant Center image requirements",
         "url": "https://support.google.com/merchants/answer/6324350"
+      },
+      {
+        "title": "Google Merchant Center: robots.txt and blocked images",
+        "url": "https://support.google.com/merchants/answer/15488560"
       }
     ],
     "requires": ["products"]
@@ -99,7 +123,7 @@
     "group": "B2",
     "title": "Markup matches visible page",
     "question": "Does the structured data say the same thing as the page?",
-    "method": "Compare the JSON-LD price with the rendered price and the availability with the add-to-cart state. Fail on a price mismatch; warn on an availability mismatch.",
+    "method": "Compare the JSON-LD price (including variant offers) with the prices visible in the page text, and the availability with the add-to-cart state. Pass when a markup price is visible; fail when a price block shows other amounts and none matches; warn when the price is not found in readable text, or on an availability mismatch.",
     "weight": 2,
     "depends_on": ["B2.2", "A3.2"],
     "spec": [

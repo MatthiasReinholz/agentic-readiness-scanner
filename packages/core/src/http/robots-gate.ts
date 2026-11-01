@@ -1,5 +1,5 @@
 import { isAllowed, type RobotsTxt } from '../parsers/robots.js';
-import type { FetchOptions, FetchedResponse, Fetcher } from './types.js';
+import type { FetchFailure, FetchOptions, FetchedResponse, Fetcher } from './types.js';
 
 /** The product token the scanner identifies as in robots.txt. */
 export const SCANNER_ROBOTS_TOKEN = 'AgenticReadinessScanner';
@@ -40,7 +40,10 @@ export function isRobotsAware(fetcher: Fetcher): fetcher is Fetcher & RobotsAwar
  * scanner. The resolver installs the parsed robots.txt once it has it; until then
  * nothing is blocked (the first requests are the home page and robots.txt itself).
  * A refused request costs no budget and answers like a failed fetch, so checks treat it
- * as "page not readable", which is exactly what an obedient agent would experience.
+ * as "page not readable", which is exactly what an obedient agent would experience. The
+ * `error` text says plainly that the scanner chose not to fetch, so a check can quote it
+ * instead of reporting "HTTP 0". A refusal is policy, not a failure: it is not in the
+ * inner fetcher's failure list, only in `blocked`.
  */
 export class RobotsGatedFetcher implements Fetcher, RobotsAware {
   private robots: RobotsTxt | null = null;
@@ -60,6 +63,11 @@ export class RobotsGatedFetcher implements Fetcher, RobotsAware {
     return this.inner.budget;
   }
 
+  /** The inner fetcher's failures; refusals are not among them. */
+  get failures(): readonly FetchFailure[] {
+    return this.inner.failures ?? [];
+  }
+
   setRobots(robots: RobotsTxt | null): void {
     this.robots = robots;
   }
@@ -67,11 +75,8 @@ export class RobotsGatedFetcher implements Fetcher, RobotsAware {
   fetch(url: string, options?: FetchOptions): Promise<FetchedResponse> {
     if (this.robots) {
       const parsed = tryParseUrl(url);
-      if (
-        parsed &&
-        !isRobotsExempt(parsed) &&
-        !isAllowed(this.robots, this.token, parsed.pathname + parsed.search)
-      ) {
+      const path = parsed ? parsed.pathname + parsed.search : '';
+      if (parsed && !isRobotsExempt(parsed) && !isAllowed(this.robots, this.token, path)) {
         if (!this.blocked.includes(url)) this.blocked.push(url);
         return Promise.resolve({
           url,
@@ -84,7 +89,7 @@ export class RobotsGatedFetcher implements Fetcher, RobotsAware {
           redirects: 0,
           durationMs: 0,
           fromCache: false,
-          error: `blocked by robots.txt for ${this.token}`,
+          error: `not fetched: robots.txt disallows ${path} for ${this.token}`,
         });
       }
     }

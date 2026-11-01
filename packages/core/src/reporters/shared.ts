@@ -68,3 +68,25 @@ export function countVerdicts(result: ScanResult): Record<CheckResult['verdict']
   for (const item of result.results) counts[item.verdict] += 1;
   return counts;
 }
+
+/**
+ * What the scan looked at and what it cannot see, so a reader never mistakes a sampled,
+ * render-free, unauthenticated scan for a full crawl. Plain sentences shared by every
+ * surface.
+ */
+export function scopeLines(result: ScanResult): string[] {
+  const sampled = result.target.sampled;
+  const policies = Object.entries(sampled.policies);
+  const lines: string[] = [];
+  lines.push(
+    `Pages read: the home page${sampled.listing ? `, the listing page ${sampled.listing}` : ''}${
+      sampled.products.length > 0
+        ? `, ${sampled.products.length} product page(s) (${sampled.products.join(', ')})`
+        : ', no product pages (none were found to sample)'
+    }${policies.length > 0 ? `, and ${policies.length} policy page(s) (${policies.map(([kind, url]) => `${kind}: ${url}`).join('; ')})` : ', and no policy pages'}.`,
+  );
+  lines.push(
+    `Method: ${result.requests} HTTP request(s) as AgenticReadinessScanner, honouring robots.txt, without running JavaScript, signing in, accepting cookies or impersonating any other agent. Content rendered in the browser, prices shown only after sign-in and region-specific variants are outside what this scan can see; a page it could not fetch is reported, never scored.`,
+  );
+  return lines;
+}

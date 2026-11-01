@@ -53,6 +53,29 @@ describe('B4.1 return policy', () => {
   });
 });
 
+describe('B4.1 and B4.2 reject product pages', () => {
+  it('fails clearly when the linked page is a product, not a policy', async () => {
+    const product = `<!doctype html><html><head><title>WooCommerce Shipping</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"WooCommerce Shipping","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script></head><body><main><p>Print USPS labels with free shipping discounts and 2-3 days delivery.</p><button class="single_add_to_cart_button">Add to cart</button></main></body></html>`;
+    const outcome = await runCheck(
+      shippingPolicyFound,
+      targetFor({ policies: { shipping } }),
+      mapFetcher({ [shipping]: product }),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe(
+      `the only link that mentions shipping leads to a product page (${shipping}), not to a shipping policy`,
+    );
+    expect(outcome.evidence).toMatchObject({ product_page: true });
+    const returnsOutcome = await runCheck(
+      returnPolicyFound,
+      targetFor({ policies: { returns } }),
+      mapFetcher({ [returns]: product }),
+    );
+    expect(returnsOutcome.verdict).toBe('fail');
+    expect(returnsOutcome.message).toMatch(/leads to a product page/);
+  });
+});
+
 describe('B4.2 shipping policy', () => {
   it('warns when the page states no costs, regions or times and passes when it does', async () => {
     const vague = await runCheck(
@@ -243,7 +266,7 @@ describe('B4.5 contact channel', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('home page links 1 mailto: address(es)');
+    expect(outcome.message).toBe('the home page links 1 mailto: address(es)');
     expect(outcome.evidence).toEqual({
       mailto: ['hello@shop.example'],
       tel: [],
@@ -273,7 +296,7 @@ describe('B4.5 contact channel', () => {
       mapFetcher({}),
     );
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('home page links 2 contact page(s)');
+    expect(outcome.message).toMatch(/^the home page links 2 contact page\(s\) such as \//);
     expect(outcome.evidence).toMatchObject({
       contact_pages: ['https://shop.example/about-us/', 'https://shop.example/support/'],
     });
@@ -299,7 +322,7 @@ describe('B4.5 contact channel', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'only a contact link on another origin: https://help.other.example/tickets',
+      'only a contact link on another site: https://help.other.example/tickets',
     );
     expect(outcome.evidence).toMatchObject({
       contact_pages: [],
@@ -427,11 +450,12 @@ describe('B4.7 security.txt', () => {
     runCheck(securityTxt, targetFor(), mapFetcher(body === undefined ? {} : { [url]: body }));
   const future = new Date(Date.now() + 90 * 86_400_000).toISOString();
 
-  it('fails when missing or HTML', async () => {
-    expect((await run()).verdict).toBe('fail');
+  it('skips as not applicable when missing or HTML', async () => {
+    expect((await run()).verdict).toBe('skip');
     const html = await run('<!doctype html><html><body>404</body></html>');
-    expect(html.verdict).toBe('fail');
-    expect(html.message).toBe('no security.txt');
+    expect(html.verdict).toBe('skip');
+    expect(html.skipReason).toBe('not_applicable');
+    expect(html.message).toBe('no security.txt; optional');
   });
 
   it('warns without a Contact, without a valid Expires, or when expired', async () => {

@@ -40,6 +40,14 @@ describe('pricesInText', () => {
     expect(pricesInText('Holds 350 ml, 28 cm wide, page 12 of 40')).toEqual([]);
   });
 
+  it('reads written currency codes and more symbols, but only as whole words', () => {
+    expect(pricesInText('299 kr, 1.299,00 kr, PLN 49,99, 120 zł, ₹1,999, R$ 89,90, 25 Rs')).toEqual(
+      [299, 1299, 49.99, 120, 1999, 89.9, 25],
+    );
+    expect(pricesInText('Available in 12 colours, 5 krone sizes, Rsvp by 10')).toEqual([]);
+    expect(pricesInText('SGD 15 or S$15, HK$ 120, AED 55')).toEqual([15, 120, 55]);
+  });
+
   it('stays linear on hostile numeric input', () => {
     const hostile = `${'1'.repeat(200_000)} ${'1,'.repeat(100_000)}`;
     const started = performance.now();
