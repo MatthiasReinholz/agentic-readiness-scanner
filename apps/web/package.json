@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/web",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "The hosted scanner: a Hono app that runs on Spacefast Functions and on a local Node server.",
   "license": "GPL-3.0-or-later",
