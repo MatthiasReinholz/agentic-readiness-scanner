@@ -92,6 +92,19 @@ describe('findPolicyLinks', () => {
     });
   });
 
+  it('skips links into the account, login, cart and checkout areas', () => {
+    const doc = new HtmlDocument(`
+      <a href="/my-account/contact-support/">Contact support</a>
+      <a href="/account/returns/">Start a return</a>
+      <a href="/checkout/?shipping=1">Shipping options</a>
+      <a href="/contact-us/">Contact us</a>
+      <a href="/returns-policy/">Returns policy</a>`);
+    expect(findPolicyLinks(doc, 'https://shop.example')).toEqual({
+      contact: 'https://shop.example/contact-us/',
+      returns: 'https://shop.example/returns-policy/',
+    });
+  });
+
   it('matches localized link text', () => {
     const doc = new HtmlDocument(
       '<a href="/widerrufsbelehrung/">Widerrufsbelehrung</a><a href="/versand/">Versand</a><a href="/impressum/">Impressum</a>',

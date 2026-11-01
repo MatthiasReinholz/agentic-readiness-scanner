@@ -277,22 +277,36 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
 }
 
 export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetcher }) => {
-  const responses: FetchedResponse[] = [target.home, target.robotsResponse];
-  for (const url of target.sampled.products) responses.push(await fetcher.fetch(url));
+  // The pages an agent must reach to use the store at all: home, robots.txt and the
+  // product pages. A refusal there is a block. The policy pages matter too, but one of them
+  // behind a login wall or a stricter rule does not make the store unreachable.
+  const gate: FetchedResponse[] = [target.home, target.robotsResponse];
+  for (const url of target.sampled.products) gate.push(await fetcher.fetch(url));
+  const policy: FetchedResponse[] = [];
   for (const url of Object.values(target.sampled.policies)) {
-    if (url.startsWith(target.origin)) responses.push(await fetcher.fetch(url));
+    if (url.startsWith(target.origin)) policy.push(await fetcher.fetch(url));
   }
   const pages: Record<string, FetchVerdict> = {};
   const refused: string[] = [];
   const challenged: string[] = [];
   const interstitial: string[] = [];
-  for (const response of responses) {
-    const verdict = classifyResponse(response);
-    pages[response.url] = verdict;
-    if (verdict.outcome === 'refused') refused.push(response.url);
-    if (verdict.outcome === 'challenged') challenged.push(response.url);
-    if (verdict.outcome === 'interstitial') interstitial.push(response.url);
+  const policyUrls = new Set<string>();
+  for (const [responses, isPolicy] of [
+    [gate, false],
+    [policy, true],
+  ] as const) {
+    for (const response of responses) {
+      const verdict = classifyResponse(response);
+      pages[response.url] = verdict;
+      if (isPolicy) policyUrls.add(response.url);
+      if (verdict.outcome === 'refused') refused.push(response.url);
+      if (verdict.outcome === 'challenged') challenged.push(response.url);
+      if (verdict.outcome === 'interstitial') interstitial.push(response.url);
+    }
   }
+  const blocked = [...challenged, ...refused];
+  const blockedGate = blocked.filter((url) => !policyUrls.has(url));
+  const blockedPolicy = blocked.filter((url) => policyUrls.has(url));
   const evidence = {
     user_agent:
       'the scanner identifies itself as AgenticReadinessScanner with a documentation URL and never impersonates another agent',
@@ -300,19 +314,28 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     refused,
     challenged,
     interstitial,
+    blocked_policy_pages: blockedPolicy,
   };
   const note =
     ' (verified crawlers fetching from published IP ranges or with signed requests may be treated differently)';
-  if (challenged.length > 0) {
+  const statusesOf = (urls: string[]): string =>
+    [...new Set(urls.map((url) => pages[url]?.status))].join(', ');
+  if (blockedGate.length > 0) {
+    const gateChallenged = blockedGate.filter((url) => challenged.includes(url));
+    if (gateChallenged.length > 0) {
+      return fail(
+        `${gateChallenged.length} page(s) answered with a bot-management challenge${note}`,
+        evidence,
+      );
+    }
     return fail(
-      `${challenged.length} page(s) answered with a bot-management challenge${note}`,
+      `${blockedGate.length} page(s) refused an honestly identified client (HTTP ${statusesOf(blockedGate)})${note}`,
       evidence,
     );
   }
-  if (refused.length > 0) {
-    const statuses = [...new Set(refused.map((url) => pages[url]?.status))].join(', ');
-    return fail(
-      `${refused.length} page(s) refused an honestly identified client (HTTP ${statuses})${note}`,
+  if (blockedPolicy.length > 0) {
+    return warn(
+      `the home page and product pages answered, but ${blockedPolicy.length} policy page(s) refused or challenged an honestly identified client (HTTP ${statusesOf(blockedPolicy)}); an agent cannot read them before buying${note}`,
       evidence,
     );
   }
@@ -323,7 +346,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     );
   }
   return pass(
-    `${responses.length} pages fetched without a block, challenge or interstitial`,
+    `${gate.length + policy.length} pages fetched without a block, challenge or interstitial`,
     evidence,
   );
 });

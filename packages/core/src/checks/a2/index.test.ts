@@ -249,6 +249,33 @@ describe('A2.4 no block or challenge on an honest fetch', () => {
     expect(page.message).toMatch(/challenge/);
   });
 
+  it('warns, not fails, when only a policy page is refused', async () => {
+    const contact = 'https://shop.example/my-account/contact-support/';
+    const outcome = await runCheck(
+      honestFetchNotBlocked,
+      targetFor({ products: [url], policies: { contact } }),
+      mapFetcher({ [url]: html, [contact]: { status: 403, body: 'Forbidden' } }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/home page and product pages answered/);
+    expect(outcome.message).toMatch(/1 policy page\(s\) refused or challenged/);
+    expect(outcome.evidence).toMatchObject({
+      refused: [contact],
+      blocked_policy_pages: [contact],
+      pages: { [url]: { outcome: 'ok' }, [contact]: { outcome: 'refused' } },
+    });
+    const both = await runCheck(
+      honestFetchNotBlocked,
+      targetFor({ products: [url], policies: { contact } }),
+      mapFetcher({
+        [url]: { status: 403, body: 'Forbidden' },
+        [contact]: { status: 403, body: 'Forbidden' },
+      }),
+    );
+    expect(both.verdict).toBe('fail');
+    expect(both.message).toMatch(/1 page\(s\) refused/);
+  });
+
   it('warns when a page redirects to a consent interstitial and ignores network errors', async () => {
     const target = targetFor({ products: [url] });
     const fetcher = mapFetcher({});
