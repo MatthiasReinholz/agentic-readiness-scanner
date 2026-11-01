@@ -1,7 +1,8 @@
 import { contentType } from '../../http/types.js';
+import { attribute, elementText, HtmlDocument } from '../../parsers/html.js';
 import { parseLinkHeader, type LinkValue } from '../../parsers/link-header.js';
 import { isWellFormedLlmsTxt, parseLlmsTxt } from '../../parsers/llms-txt.js';
-import { isW3cDatetime } from '../../parsers/sitemap.js';
+import { isW3cDatetime, looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { LASTMOD_SAMPLE_LIMIT } from '../../target/types.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
@@ -255,6 +256,103 @@ export const sitemapLastmodPlausible = defineCheck('A1.7', ({ target }) => {
   }
   return pass(
     `${valid.length} of ${read} sitemap entries read carry a valid lastmod with ${distinct} distinct value(s)`,
+    evidence,
+  );
+});
+
+/** A URL that names a page number: WordPress /page/2/ or a page, p, paged or pg query parameter. */
+const PAGINATION_URL = /\/page\/\d+\/?$|[?&](page|p|paged|pg)=\d+/i;
+/** Text or class of a control that loads more results without a link a crawler can follow. */
+const LOAD_MORE = /load more|show more|mehr laden|infinite|load-more|loadmore/i;
+/** Load-more controls kept in evidence. */
+const LOAD_MORE_SAMPLE = 5;
+
+/** The anchor URL resolved against the page, without its fragment, or null when off-origin or unparsable. */
+function sameOriginUrl(href: string, base: string, origin: string): string | null {
+  try {
+    const url = new URL(href, base);
+    if (url.origin !== origin) return null;
+    url.hash = '';
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+export const listingLinksProductsAndPages = defineCheck('A1.8', async ({ target, fetcher }) => {
+  const listing = target.sampled.listing;
+  if (listing === undefined) {
+    return skip('not_applicable', 'no listing page was found on the home page');
+  }
+  const response = await fetcher.fetch(listing);
+  const evidence: Record<string, unknown> = { url: listing, status: response.status };
+  if (response.status === 0) {
+    return warn(
+      `the listing page could not be fetched: ${response.error ?? 'no response'}`,
+      evidence,
+    );
+  }
+  if (response.status >= 400) {
+    return warn(`the listing page answered HTTP ${response.status}`, evidence);
+  }
+  const doc = new HtmlDocument(response.body);
+  const base = response.finalUrl || listing;
+  const self = sameOriginUrl(base, base, target.origin);
+  const urls = new Set<string>();
+  for (const anchor of doc.anchors()) {
+    const url = sameOriginUrl(anchor.href, base, target.origin);
+    if (url !== null && url !== self) urls.add(url);
+  }
+  const paginationLinks = [...urls].filter((url) => PAGINATION_URL.test(url));
+  // A page-number URL under /products/ names a page, not a product.
+  const productLinks = [...urls].filter(
+    (url) => looksLikeProductUrl(url) && !PAGINATION_URL.test(url),
+  );
+  const relNext = doc.links().some((link) => link.rel.split(/\s+/).includes('next'));
+  const loadMore: string[] = [];
+  for (const control of doc.controls()) {
+    const label = control.text !== '' ? control.text : (control.value ?? '');
+    if (LOAD_MORE.test(`${label} ${control.className ?? ''} ${control.id ?? ''}`)) {
+      loadMore.push(label !== '' ? label : (control.className ?? control.id ?? control.tag));
+    }
+  }
+  for (const anchor of doc.anchors()) {
+    if (LOAD_MORE.test(anchor.text)) loadMore.push(anchor.text);
+  }
+  for (const element of doc.find('a', 'class', LOAD_MORE)) {
+    const text = elementText(element).replace(/\s+/g, ' ').trim();
+    if (!LOAD_MORE.test(text))
+      loadMore.push(text !== '' ? text : (attribute(element, 'class') ?? 'a'));
+  }
+  Object.assign(evidence, {
+    product_links: productLinks.length,
+    pagination_links: paginationLinks.length,
+    rel_next: relNext,
+    load_more_controls: loadMore.slice(0, LOAD_MORE_SAMPLE),
+    product_sample: productLinks.slice(0, 5),
+    pagination_sample: paginationLinks.slice(0, 3),
+  });
+  if (productLinks.length === 0) {
+    return warn(
+      'no product link is in the server-rendered HTML of the listing page; crawlers that do not run scripts find no products there',
+      evidence,
+    );
+  }
+  const paginates = paginationLinks.length > 0 || relNext;
+  if (paginates) {
+    return pass(
+      `${productLinks.length} product link(s) and ${paginationLinks.length} pagination link(s)${relNext ? ' plus rel=next' : ''} on the listing page`,
+      evidence,
+    );
+  }
+  if (loadMore.length > 0) {
+    return warn(
+      `${productLinks.length} product link(s) on the listing page, but more of them load only through a button or infinite scroll, which Google's crawlers do not click or scroll`,
+      evidence,
+    );
+  }
+  return pass(
+    `${productLinks.length} product link(s) on the listing page and no pagination`,
     evidence,
   );
 });

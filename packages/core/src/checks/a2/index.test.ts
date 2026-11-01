@@ -8,6 +8,7 @@ import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/i
 import {
   honestFetchNotBlocked,
   noAnswerExclusionDirectives,
+  renderResourcesNotBlocked,
   SEARCH_CRAWLERS,
   searchCrawlersAllowed,
   SHARED_TRAINING_TOKEN,
@@ -153,37 +154,87 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
     expect(meta.verdict).toBe('fail');
     expect(meta.evidence).toMatchObject({
       pages: { [url]: { header: null, meta: 'noindex, nofollow', bingbot: null } },
+      blocking: [`${url}: noindex`],
     });
     const header = await run({
       [url]: { status: 200, headers: { 'X-Robots-Tag': 'noindex' }, body: page() },
     });
     expect(header.verdict).toBe('fail');
-    expect(header.message).toBe('1 sampled product page(s) carry noindex');
+    expect(header.message).toMatch(/^1 sampled product page\(s\) carry noindex; /);
+    expect(header.message).toMatch(/AI Overviews and AI Mode/);
   });
 
-  it('warns on Google snippet limits, data-nosnippet around the content, Bing directives and isAccessibleForFree:false', async () => {
-    const google = await run({
+  it('fails on nosnippet, max-snippet:0 and data-nosnippet around the content, naming the directive', async () => {
+    const maxSnippet = await run({
       [url]: page('<meta name="robots" content="max-snippet:0">'),
       [other]: page(),
     });
-    expect(google.verdict).toBe('warn');
-    expect((google.evidence.limiting as string[])[0]).toMatch(/nosnippet \(Google/);
+    expect(maxSnippet.verdict).toBe('fail');
+    expect(maxSnippet.message).toBe(
+      '1 sampled product page(s) carry max-snippet:0; Google documents that this keeps the page out of AI Overviews and AI Mode, and Apple generates no web answer from it',
+    );
+    expect(maxSnippet.evidence).toMatchObject({
+      blocking: [`${url}: max-snippet:0`],
+      limiting: [],
+    });
+    const nosnippet = await run({
+      [url]: { status: 200, headers: { 'X-Robots-Tag': 'nosnippet' }, body: page() },
+    });
+    expect(nosnippet.verdict).toBe('fail');
+    expect(nosnippet.message).toMatch(/carry nosnippet;/);
     const wrapped = await run({
       [url]: page(
         '',
         '<div data-nosnippet><main><h1>Mug</h1><p>A fine mug with many words in it.</p></main></div>',
       ),
     });
-    expect(wrapped.verdict).toBe('warn');
+    expect(wrapped.verdict).toBe('fail');
+    expect(wrapped.message).toMatch(/data-nosnippet around the main content/);
     expect(
       (wrapped.evidence.pages as Record<string, { nosnippet_coverage: number }>)[url]
         ?.nosnippet_coverage,
     ).toBeGreaterThanOrEqual(0.5);
-    const bing = await run({
+  });
+
+  it('warns on Bing noarchive, nocache and ai-grounding in the Bingbot meta tag or a Bingbot-prefixed header', async () => {
+    const grounding = await run({
       [url]: page('<meta name="bingbot" content="ai-grounding:disallow">'),
     });
-    expect(bing.verdict).toBe('warn');
-    expect((bing.evidence.limiting as string[])[0]).toMatch(/Bing/);
+    expect(grounding.verdict).toBe('warn');
+    expect(grounding.evidence).toMatchObject({ limiting: [`${url}: Bing ai-grounding:disallow`] });
+    const extended = await run({
+      [url]: page('<meta name="Bingbot" content="ai-grounding:disallowextended">'),
+    });
+    expect(extended.verdict).toBe('warn');
+    expect(extended.evidence).toMatchObject({
+      limiting: [`${url}: Bing ai-grounding:disallowextended`],
+    });
+    const prefixed = await run({
+      [url]: {
+        status: 200,
+        headers: { 'X-Robots-Tag': 'Bingbot: ai-grounding:disallow' },
+        body: page(),
+      },
+    });
+    expect(prefixed.verdict).toBe('warn');
+    expect(prefixed.evidence).toMatchObject({
+      pages: { [url]: { header: 'Bingbot: ai-grounding:disallow', header_for_bingbot: true } },
+      limiting: [`${url}: Bing ai-grounding:disallow`],
+    });
+    const archive = await run({
+      [url]: page('<meta name="robots" content="noarchive">'),
+      [other]: page('<meta name="bingbot" content="nocache">'),
+    });
+    expect(archive.verdict).toBe('warn');
+    expect(archive.message).toBe(
+      '2 sampled product page(s) carry directives that keep them out of AI answers',
+    );
+    expect(archive.evidence).toMatchObject({
+      limiting: [`${url}: Bing noarchive`, `${other}: Bing nocache`],
+    });
+  });
+
+  it('warns on isAccessibleForFree:false', async () => {
     const apple = await run({
       [url]: page(
         '<script type="application/ld+json">{"@type":"Product","name":"Mug","isAccessibleForFree":false}</script>',
@@ -191,6 +242,7 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
     });
     expect(apple.verdict).toBe('warn');
     expect(apple.evidence).toMatchObject({ pages: { [url]: { not_accessible_for_free: true } } });
+    expect((apple.evidence.limiting as string[])[0]).toMatch(/Apple/);
   });
 
   it('passes on clean pages and records noai as a declared preference only', async () => {
@@ -202,6 +254,78 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
     expect(outcome.evidence).toMatchObject({
       pages: { [url]: { declared_preferences: ['noai'] } },
     });
+  });
+});
+
+describe('A2.7 render resources not blocked by robots.txt', () => {
+  const product = 'https://shop.example/product/mug/';
+  const page = (head: string) =>
+    `<!doctype html><html><head><title>Mug</title>${head}</head><body><h1>Mug</h1></body></html>`;
+  const assets =
+    '<link rel="stylesheet" href="/assets/theme.css"><script src="/assets/app.js?v=3"></script>' +
+    '<script src="https://cdn.example/lib.js"></script><link rel="stylesheet" href="//cdn.example/x.css">' +
+    '<script src="/assets/app.js?v=3"></script><script>inline()</script>';
+  const run = (robots: string | null, html = page(assets)) =>
+    runCheck(
+      renderResourcesNotBlocked,
+      targetFor({ robots, products: [product] }),
+      mapFetcher({ [product]: html }),
+    );
+
+  it('fails when robots.txt disallows a same-origin asset for Googlebot, counting cross-origin assets out', async () => {
+    const outcome = await run('User-agent: *\nDisallow: /assets/\n');
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toBe(
+      '2 of 2 same-origin scripts and stylesheets are disallowed for Googlebot in robots.txt; Google, Applebot and Bing cannot render the page with them',
+    );
+    expect(outcome.evidence).toMatchObject({
+      pages: [product],
+      assets_checked: 2,
+      blocked_googlebot: ['/assets/app.js?v=3', '/assets/theme.css'],
+      blocked_bingbot: ['/assets/app.js?v=3', '/assets/theme.css'],
+    });
+  });
+
+  it('warns when only Bingbot is blocked and passes when both may fetch everything', async () => {
+    const bing = await run('User-agent: Bingbot\nDisallow: /assets/app.js\n');
+    expect(bing.verdict).toBe('warn');
+    expect(bing.message).toMatch(/1 of 2 .* disallowed for Bingbot/);
+    expect(bing.evidence).toMatchObject({
+      blocked_googlebot: [],
+      blocked_bingbot: ['/assets/app.js?v=3'],
+    });
+    const open = await run('User-agent: *\nDisallow: /wp-admin/\nAllow: /assets/\n');
+    expect(open.verdict).toBe('pass');
+    expect(open.message).toBe(
+      'all 2 same-origin scripts and stylesheets may be fetched by Googlebot and Bingbot',
+    );
+  });
+
+  it('passes without a robots.txt, since nothing can be blocked', async () => {
+    const outcome = await run(null);
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/absent or unparsable/);
+    expect(outcome.evidence).toMatchObject({ assets_checked: 2 });
+  });
+
+  it('does not apply when the page loads no same-origin script or stylesheet', async () => {
+    const outcome = await run(
+      'User-agent: *\nDisallow: /assets/\n',
+      page('<script src="https://cdn.example/lib.js"></script>'),
+    );
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('not_applicable');
+    expect(outcome.evidence).toMatchObject({ assets_checked: 0 });
+  });
+
+  it('reads the home page when no product page was sampled', async () => {
+    const outcome = await runCheck(
+      renderResourcesNotBlocked,
+      targetFor({ robots: 'User-agent: *\nDisallow: /assets/\n', homeHtml: page(assets) }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.evidence).toMatchObject({ pages: ['https://shop.example/'] });
   });
 });
 
