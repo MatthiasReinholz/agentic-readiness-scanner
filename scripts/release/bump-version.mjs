@@ -14,6 +14,7 @@ const PACKAGE_FILES = [
   'packages/core/package.json',
   'packages/mcp/package.json',
   'packages/cli/package.json',
+  'packages/ui/package.json',
   'apps/web/package.json',
 ];
 const VERSION_TS = 'packages/core/src/version.ts';

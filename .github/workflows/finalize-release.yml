@@ -76,7 +76,7 @@ jobs:
           cp packages/catalog/dist/catalog.json ".release/catalog-${{ steps.version.outputs.value }}.json"
           cp packages/catalog/dist/schema/scan-result.schema.json ".release/scan-result.schema.json"
           cp packages/catalog/dist/schema/catalog.schema.json ".release/catalog.schema.json"
-          for pkg in catalog core mcp cli; do
+          for pkg in catalog core mcp cli ui; do
             (cd "packages/$pkg" && pnpm pack --pack-destination ../../.release >/dev/null)
           done
           ls -la .release

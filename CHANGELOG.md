@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
 ### Added
 
 - **Catalog 0.2.0 and scoring 0.2.0** after a research audit of every check against the documented crawlers, the current standards and drafts, the published evidence on AI ingestion and every comparable scanner ([docs/audits/2026-10-31-check-audit.md](docs/audits/2026-10-31-check-audit.md)). New checks: A1.7 sitemap lastmod, A2.5 user-triggered fetchers (replacing the misread Web Bot Auth check), A3.6 honest 404s, A4.4 MCP endpoint reachable (replacing the invented Agent Skills index), A4.6 WebMCP declarations (informational), B1.8 Shopify `products.json`, B5.8 Shopify agentic storefront. Retired: B3.6 per-channel identity (folded into B3.1 to B3.4), B5.5 payment-handler signals, B5.6 x402 and AP2 signals. The `shopify` requirement joins `woocommerce` and `products`.
@@ -15,6 +17,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- `@agentic-readiness/ui` is a version surface of the release script and a packed release asset, since `@agentic-readiness/core` depends on it.
 - Crawler tokens are evaluated by class ([packages/core/src/checks/crawlers.ts](packages/core/src/checks/crawlers.ts)): A2.1 passes on any stated training decision and never fails; A2.2 evaluates the eleven search and assistant crawlers with Googlebot and Bingbot as core and is a Level 1 gate together with A2.4; A2.6 adds `data-nosnippet`, Bing's `noarchive`, `nocache` and `ai-grounding:disallow` and Apple's `isAccessibleForFree`, and records `noai` as a preference only; A1.5 skips when llms.txt is absent and requires only the H1 the proposal requires; A3.1 accepts a `.md` twin or a Markdown alternate; A3.3 thresholds follow Googlebot's 2 MB limit; A4.1, A4.3, A4.5, B5.1 to B5.4 follow the current MCP, A2A, UCP and ACP documents; B4.5 is a Level 4 gate; B4.7 is informational. Levels: see [docs/scoring.md](docs/scoring.md).
 - The scanner never impersonates another agent ([decision 0010](docs/decisions/0010-honest-fetch.md)); the security model says so.
 - A2.4 fails only when the home page, robots.txt or a product page is blocked; a blocked policy page alone warns. The resolver no longer picks policy pages from the account, login, cart or checkout areas, which answer with login walls (found on the first live scan after deployment: woocommerce.com linked its support form under `/my-account/`, and the 403 there made a reachable store "Not reachable").
