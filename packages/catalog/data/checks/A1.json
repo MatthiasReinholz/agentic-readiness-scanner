@@ -38,7 +38,9 @@
     "question": "Does the sitemap list product pages?",
     "method": "Pass when the sitemap index contains a product sitemap (WooCommerce: product-sitemap.xml or wp-sitemap-posts-product-*.xml) or the URL set contains URLs matching product path patterns.",
     "weight": 2,
-    "depends_on": ["A1.2"],
+    "depends_on": [
+      "A1.2"
+    ],
     "spec": [
       {
         "title": "Sitemaps XML format",
@@ -93,7 +95,9 @@
     "question": "Does llms.txt lead an agent to the catalog as data?",
     "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap or the shop index. Fail when it links only to prose pages. Skipped when there is no llms.txt.",
     "weight": 1,
-    "depends_on": ["A1.5"],
+    "depends_on": [
+      "A1.5"
+    ],
     "spec": [
       {
         "title": "llms.txt proposal",
@@ -108,7 +112,9 @@
     "question": "Can an agent tell from the sitemap what changed and when?",
     "method": "Read <lastmod> in the sitemaps fetched. Pass when at least 80 percent of entries carry a valid W3C datetime and the values differ from one another; warn when fewer entries carry one, or when every value is identical (a timestamp generated at request time, which crawlers learn to ignore); fail when none carry one. Bing names lastmod a key signal for how fast changes reach its AI answers; Google uses it when it is consistently accurate.",
     "weight": 1,
-    "depends_on": ["A1.2"],
+    "depends_on": [
+      "A1.2"
+    ],
     "spec": [
       {
         "title": "Sitemaps protocol",
@@ -121,6 +127,24 @@
       {
         "title": "Google: build and submit a sitemap",
         "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+      }
+    ]
+  },
+  {
+    "id": "A1.8",
+    "group": "A1",
+    "title": "Listing pages link to products and further pages",
+    "question": "Can a crawler walk from a category page to every product and to the next page with plain links?",
+    "method": "GET the sampled listing page (a shop, collection or category page linked from the home page). Count same-origin anchors to product URLs and look for crawlable pagination: a rel=next link, or anchors whose URL names a page number (/page/2/, ?page=2, ?p=2, ?paged=2). Pass when the page links to products and either paginates with links or shows no pagination at all. Warn when products are listed but the only way to more of them is a button or infinite scroll (Google's crawlers do not click or scroll, and Bing asks for standard anchor links), or when no product link is found in the HTML. Not applicable when no listing page was found.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: Pagination, incremental page loading, and Search",
+        "url": "https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
       }
     ]
   }

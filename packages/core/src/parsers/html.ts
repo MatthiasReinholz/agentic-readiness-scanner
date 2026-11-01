@@ -31,6 +31,10 @@ export interface Control {
 
 const NON_CONTENT_TAGS = new Set(['script', 'style', 'template', 'noscript', 'svg']);
 
+function hasRelToken(rel: string, token: string): boolean {
+  return rel.toLowerCase().split(/\s+/).includes(token);
+}
+
 export class HtmlDocument {
   readonly dom: Document;
 
@@ -129,6 +133,34 @@ export class HtmlDocument {
     for (const element of this.elements('link')) add(getAttributeValue(element, 'href'));
     for (const element of this.elements('img')) add(getAttributeValue(element, 'src'));
     return hosts;
+  }
+
+  /** The `lang` attribute of the root element, or null. */
+  lang(): string | null {
+    const html = this.elements('html')[0];
+    const lang = html ? getAttributeValue(html, 'lang') : undefined;
+    return lang?.trim() || null;
+  }
+
+  /** `src` of every external script, in document order (unresolved). */
+  externalScripts(): string[] {
+    return this.elements('script')
+      .map((element) => getAttributeValue(element, 'src'))
+      .filter((src): src is string => typeof src === 'string' && src.trim() !== '');
+  }
+
+  /** `href` of every `<link rel=stylesheet>`, in document order (unresolved). */
+  stylesheets(): string[] {
+    return this.links()
+      .filter((link) => hasRelToken(link.rel, 'stylesheet'))
+      .map((link) => link.href);
+  }
+
+  /** Trimmed text of every heading of the given level (1 to 6), in document order. */
+  headings(level: number): string[] {
+    return this.elements(`h${level}`).map((element) =>
+      textContent(element).replace(/\s+/g, ' ').trim(),
+    );
   }
 
   bodyClasses(): string[] {

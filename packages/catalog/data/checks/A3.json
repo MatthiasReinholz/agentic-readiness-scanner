@@ -6,7 +6,9 @@
     "question": "Can an agent get a product page as Markdown instead of HTML?",
     "method": "GET a sampled product page with Accept: text/markdown, text/html;q=0.9. Pass when the response is text/markdown and names the product (warn when Vary: Accept is missing, because shared caches then serve Markdown to browsers). Also pass when the HTML links a Markdown alternate (link rel=alternate type=text/markdown) or the page URL with .md appended answers text/markdown. Fail when none applies. Coding agents request Markdown today; search crawlers do not, hence the low weight.",
     "weight": 1,
-    "requires": ["products"],
+    "requires": [
+      "products"
+    ],
     "spec": [
       {
         "title": "RFC 7763 text/markdown media type",
@@ -35,44 +37,56 @@
         "url": "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
       }
     ],
-    "requires": ["products"]
+    "requires": [
+      "products"
+    ]
   },
   {
     "id": "A3.3",
     "group": "A3",
-    "title": "Page weight and response time",
-    "question": "Is a product page small and fast enough to be fetched whole?",
-    "method": "Measure the HTML bytes and the response time of sampled product pages (the home page when none). Pass under 1 MB and 3 seconds; warn under 2 MB and 8 seconds; fail above. Googlebot reads only the first 2 MB of a file; other crawlers publish no limits, so the thresholds are conservative hygiene, not a documented cut-off, and the weight is low.",
+    "title": "Page weight within crawler limits",
+    "question": "Does a product page fit in what crawlers read, and answer quickly enough to be crawled at scale?",
+    "method": "Measure the uncompressed HTML of each sampled product page (the home page when none were sampled). Googlebot reads the first 2 MB of a document, headers included, and ignores every byte after it; the scanner reads the same 2 MB. Fail when a page reaches 2 MB: whatever follows the cutoff, including structured data placed at the end of the body, is not indexed. Warn above 1 MB or when the slowest response took 3 s or more. Pass below 1 MB and 3 s. Response time is a crawl-health hint, not an eligibility rule.",
     "weight": 1,
     "spec": [
       {
-        "title": "Googlebot and the first 2 MB of a file",
+        "title": "Google: Googlebot (file size limits)",
         "url": "https://developers.google.com/search/docs/crawling-indexing/googlebot"
       },
       {
-        "title": "web.dev: Time to First Byte",
-        "url": "https://web.dev/articles/ttfb"
+        "title": "Google Search Central blog: crawler file size limits explained (2026)",
+        "url": "https://developers.google.com/search/blog/2026/03/crawler-blog-post"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
       }
     ]
   },
   {
     "id": "A3.4",
     "group": "A3",
-    "title": "Canonical and hreflang present",
-    "question": "Can an agent tell which URL is the product's canonical one?",
-    "method": "Pass when sampled product pages carry a rel=canonical that resolves to the same origin; warn when hreflang alternates exist for some but not all detected languages.",
+    "title": "Canonical is correct and hreflang is well-formed",
+    "question": "Does each product page name itself as the URL to index, so the index holds the page the agent was sent to?",
+    "method": "Read rel=canonical from the HTML and from the Link response header of each sampled product page. Fail when a page carries none. Warn when a page carries several or conflicting canonicals, a relative canonical, a canonical on another origin or on http while the page is https, or a canonical naming a different URL than the one that answered (the sampled page is then a duplicate and the other URL is what gets indexed; sitemaps should list that one). For hreflang alternates: warn when they appear on some sampled pages only, when an alternate URL is relative, or when a page names fewer than two languages and no x-default. Reciprocity across alternates is not fetched. Pass when every sampled page's canonical is absolute and resolves to the page itself.",
     "weight": 1,
     "spec": [
       {
-        "title": "Google: canonical URLs",
+        "title": "Google: how to specify a canonical with rel=canonical and other methods",
         "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
       },
       {
-        "title": "Google: localized versions",
+        "title": "Google: localized versions of your pages (hreflang)",
         "url": "https://developers.google.com/search/docs/specialty/international/localized-versions"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
       }
     ],
-    "requires": ["products"]
+    "requires": [
+      "products"
+    ]
   },
   {
     "id": "A3.5",
@@ -103,6 +117,98 @@
       {
         "title": "RFC 9110 HTTP Semantics",
         "url": "https://www.rfc-editor.org/rfc/rfc9110"
+      }
+    ]
+  },
+  {
+    "id": "A3.7",
+    "group": "A3",
+    "title": "Product URLs answer directly over HTTPS",
+    "question": "Do the URLs the site publishes answer 200 at that address, and does every variant of the host lead to it?",
+    "method": "For each sampled product URL (taken from the sitemap or the home page), record the redirect hops to the final 200. Pass when every URL answers 200 at its own address. Warn when a published URL redirects (the sitemap or link should name the final URL; Bing asks for canonical URLs in sitemaps, and Google indexes the redirect target, not the listed page), or when the chain is longer than one hop. Fail when a chain exceeds the scanner's five hops (Google stops at ten) or when a redirect leaves HTTPS for HTTP. Then GET the http:// form of the origin and the other host variant (www or apex) and expect a redirect to the canonical origin; warn when either serves its own content or fails, since the index then holds duplicates.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "Google: how to specify a canonical (HTTPS preference, redirects)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls"
+      },
+      {
+        "title": "Google: HTTP status codes, network and DNS errors (redirect hops)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/http-network-errors"
+      },
+      {
+        "title": "Google: build and submit a sitemap",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
+      }
+    ]
+  },
+  {
+    "id": "A3.8",
+    "group": "A3",
+    "title": "Title and description on every page",
+    "question": "Does every page name itself, so a citation has a title and the index has a description?",
+    "method": "Read the <title> element and the meta description of the home page, the sampled listing page and each sampled product page. Fail when any page has no title or an empty one: the title is the one field every answer engine returns with a citation, and Bing ties missing titles to grounding eligibility. Warn when two sampled pages share a title, when a title is shorter than ten characters, or when a page has no meta description or an empty one (Bing names short or missing descriptions as reducing eligibility; Google uses the description for some snippets). Length maxima are not judged: no engine documents one.",
+    "weight": 2,
+    "spec": [
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
+      },
+      {
+        "title": "Google: influencing your title links in search results",
+        "url": "https://developers.google.com/search/docs/appearance/title-link"
+      },
+      {
+        "title": "Google: control your snippets in search results",
+        "url": "https://developers.google.com/search/docs/appearance/snippet"
+      }
+    ]
+  },
+  {
+    "id": "A3.9",
+    "group": "A3",
+    "title": "Conditional requests supported",
+    "question": "Can a crawler ask whether a product page changed instead of downloading it again?",
+    "method": "Read the ETag and Last-Modified headers of the first sampled product page (the home page when none were sampled). When one is present, GET the page again with If-None-Match (or If-Modified-Since) and expect 304. Pass on 304. Warn when the server sends a validator but answers 200 to the conditional request (the validator is decorative), and when it sends no validator at all; Google's crawlers and Bing both name ETags as the way they detect unchanged pages. The second request is the only one in the scan that repeats a URL.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google: overview of Google crawlers (HTTP caching)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers"
+      },
+      {
+        "title": "Bing Webmaster Guidelines (search, Copilot and grounding)",
+        "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
+      },
+      {
+        "title": "RFC 9110 HTTP Semantics (conditional requests)",
+        "url": "https://www.rfc-editor.org/rfc/rfc9110"
+      }
+    ]
+  },
+  {
+    "id": "A3.10",
+    "group": "A3",
+    "title": "Mobile viewport declared",
+    "question": "Does the page declare itself usable on a phone, which is the device Google indexes with?",
+    "method": "Read the meta viewport of each sampled product page (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly; a site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width. Warn when a page has no viewport tag, a fixed pixel width, or a tag that forbids zooming (user-scalable=no or maximum-scale below 1 are recorded). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Google Search Central blog: mobile-first indexing, the last step (2024)",
+        "url": "https://developers.google.com/search/blog/2024/06/mobile-indexing-vlast-final-final.doc"
+      },
+      {
+        "title": "Google: meta tags and attributes that Google supports (viewport)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/special-tags"
+      },
+      {
+        "title": "Google: mobile-first indexing best practices",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/mobile/mobile-sites-mobile-first-indexing"
       }
     ]
   }
