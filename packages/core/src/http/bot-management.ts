@@ -9,9 +9,17 @@ import type { FetchedResponse } from './types.js';
 /** Status codes with which a site refuses a polite client outright. */
 export const REFUSAL_STATUSES: ReadonlySet<number> = new Set([401, 402, 403, 406, 429, 451]);
 
-/** Page titles and phrases that bot-management products put on challenge and denial pages. */
-export const CHALLENGE_PAGE =
-  /just a moment|attention required|access denied|verify you are human|checking your browser|enable javascript and cookies to continue|请稍候|pardon our interruption|request unsuccessful|incapsula incident|perimeterx|datadome|are you a robot|unable to give you access|the request could not be satisfied/i;
+/** Titles and phrases of challenge pages: the client is asked to prove itself. */
+export const CHALLENGE_PHRASES =
+  /just a moment|attention required|verify you are human|checking your browser|enable javascript and cookies to continue|请稍候|pardon our interruption|are you a robot|px-captcha|captcha-delivery\.com|__cf_chl/i;
+/** Titles and phrases of denial pages: the client is turned away without a challenge. */
+export const DENIAL_PHRASES =
+  /access denied|request unsuccessful|incapsula incident|unable to give you access|the request could not be satisfied|request blocked|forbidden/i;
+/** Either kind, for callers that only need to know a page is not the content. */
+export const CHALLENGE_PAGE = new RegExp(
+  `${CHALLENGE_PHRASES.source}|${DENIAL_PHRASES.source}`,
+  'i',
+);
 
 interface VendorFingerprint {
   name: string;
@@ -66,14 +74,18 @@ export function isChallengePage(response: FetchedResponse): boolean {
   if ((response.headers['cf-mitigated'] ?? '').toLowerCase() === 'challenge') return true;
   if ((response.headers['x-vercel-mitigated'] ?? '').toLowerCase() === 'challenge') return true;
   const head = response.body.slice(0, 4000);
-  if (
-    /captcha-delivery\.com|px-captcha|__cf_chl|verify you are human|checking your browser|enable javascript and cookies to continue|just a moment/i.test(
-      head,
-    )
-  )
-    return true;
+  return CHALLENGE_PHRASES.test(head) && response.bytes < 20_000;
+}
+
+/**
+ * True when a page answered 200 but is a denial or challenge page standing in for the
+ * content (a WAF that serves its block page with a success status).
+ */
+export function isBlockPageServedAs200(response: FetchedResponse): boolean {
+  if (response.status !== 200 || response.bytes >= 20_000) return false;
+  const head = response.body.slice(0, 4000);
   const title = /<title[^>]*>([^<]{0,200})/i.exec(head)?.[1]?.trim() ?? '';
-  return CHALLENGE_PAGE.test(title) && response.bytes < 20_000;
+  return CHALLENGE_PAGE.test(title) || CHALLENGE_PHRASES.test(head);
 }
 
 /** One phrase for a refusal: "HTTP 403 from Akamai bot management" or "a DataDome challenge (HTTP 403)". */

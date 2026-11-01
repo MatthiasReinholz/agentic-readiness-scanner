@@ -2,6 +2,7 @@ import type { FetchedResponse } from '../../http/types.js';
 import {
   botManagementVendor,
   describeRefusal,
+  isBlockPageServedAs200,
   isChallengePage,
   REFUSAL_STATUSES,
 } from '../../http/bot-management.js';
@@ -294,6 +295,15 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
   }
   if (REFUSAL_STATUSES.has(response.status)) {
     return { ...base, vendor, outcome: 'refused', detail: describeRefusal(response) };
+  }
+  if (isBlockPageServedAs200(response)) {
+    const title = /<title[^>]*>([^<]{0,200})/i.exec(response.body.slice(0, 4000))?.[1]?.trim();
+    return {
+      ...base,
+      vendor,
+      outcome: 'refused',
+      detail: `a block page served as HTTP 200 (${title || 'no title'})${vendor ? ` from ${vendor}` : ''}`,
+    };
   }
   if (response.redirects > 0) {
     try {
