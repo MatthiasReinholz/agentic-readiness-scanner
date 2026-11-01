@@ -132,7 +132,7 @@ export function hasStoreSignals(doc: HtmlDocument, body: string): boolean {
  * "contact" or "returns" (an account's support form, a returns portal), but it is not the
  * public policy page an agent can read, and it usually answers with a login wall.
  */
-const ACCOUNT_AREA_PATTERN =
+export const ACCOUNT_AREA_PATTERN =
   /\/(my-account|account|accounts|customer|login|log-in|signin|sign-in|wp-login\.php|wp-admin|cart|checkout)(\/|$)/i;
 
 export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Platform {

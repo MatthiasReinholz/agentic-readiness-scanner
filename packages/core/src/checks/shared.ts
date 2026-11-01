@@ -14,13 +14,18 @@ export const ADD_TO_CART = /add[-_ ]?to[-_ ]?cart|single_add_to_cart_button|buy 
  */
 export function looksLikeProductPage(doc: HtmlDocument): boolean {
   if (productNodes(extractJsonLd(doc).nodes).length > 0) return true;
-  return doc
-    .controls()
-    .some((control) =>
-      ADD_TO_CART.test(
-        `${control.name ?? ''} ${control.className ?? ''} ${control.id ?? ''} ${control.value ?? ''} ${control.text}`,
-      ),
-    );
+  if (
+    doc
+      .controls()
+      .some((control) =>
+        ADD_TO_CART.test(
+          `${control.name ?? ''} ${control.className ?? ''} ${control.id ?? ''} ${control.value ?? ''} ${control.text}`,
+        ),
+      )
+  )
+    return true;
+  // A "Buy now" or "Add to cart" link does the same job as a button on marketing pages.
+  return doc.anchors().some((anchor) => ADD_TO_CART.test(anchor.text));
 }
 
 export interface ProductPage {

@@ -68,7 +68,7 @@ describe('prioritize', () => {
     });
     const skips = countSkips(result);
     expect(skips.not_applicable).toBeGreaterThan(0);
-    expect(skips.not_applicable + skips.unanswered).toBe(
+    expect(skips.not_applicable + skips.dependency_failed + skips.unanswered).toBe(
       result.results.filter((r) => r.verdict === 'skip').length,
     );
     expect(groupIsOptional(result.results.filter((r) => r.group === 'A4'))).toBe(true);

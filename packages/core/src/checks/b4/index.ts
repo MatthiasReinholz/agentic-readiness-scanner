@@ -6,7 +6,7 @@ import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { SEARCH_CRAWLERS } from '../a2/index.js';
 import { describeFailure, looksLikeProductPage, pathOf } from '../shared.js';
 import { looksLikeProductUrl } from '../../parsers/sitemap.js';
-import { isListingPath } from '../../target/resolver.js';
+import { ACCOUNT_AREA_PATTERN, isListingPath } from '../../target/resolver.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
 /**
@@ -270,8 +270,10 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
     url.hash = '';
     if (url.href === `${target.origin}/`) continue;
-    // Product and listing pages are never the contact channel, whatever their slug says.
+    // Product and listing pages are never the contact channel, whatever their slug says,
+    // and a support form inside the account area answers with a login wall.
     if (looksLikeProductUrl(url.href) || isListingPath(url.pathname)) continue;
+    if (ACCOUNT_AREA_PATTERN.test(url.pathname)) continue;
     const label = anchor.text.split(/\s+/).filter(Boolean);
     const labelMatches = CONTACT_LINK.test(anchor.text) && label.length <= 5;
     const pathMatches = CONTACT_LINK.test(url.pathname.split('/').filter(Boolean).pop() ?? '');

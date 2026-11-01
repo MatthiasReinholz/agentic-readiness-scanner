@@ -115,15 +115,32 @@ export function prioritize(result: ScanResult, catalog: Catalog = defaultCatalog
  * target (profile, platform, no product pages) and checks that applied but could not be
  * answered (dependency failed, not implemented, budget, error).
  */
-export function countSkips(result: ScanResult): { not_applicable: number; unanswered: number } {
+export function countSkips(result: ScanResult): {
+  not_applicable: number;
+  /** Skipped because a check it depends on did not pass: a consequence, not an inability. */
+  dependency_failed: number;
+  unanswered: number;
+} {
   let notApplicable = 0;
+  let dependencyFailed = 0;
   let unanswered = 0;
   for (const item of result.results) {
     if (item.verdict !== 'skip') continue;
     if (item.skip_reason === 'not_applicable') notApplicable += 1;
+    else if (item.skip_reason === 'dependency_failed') dependencyFailed += 1;
     else unanswered += 1;
   }
-  return { not_applicable: notApplicable, unanswered };
+  return { not_applicable: notApplicable, dependency_failed: dependencyFailed, unanswered };
+}
+
+/** The skip counts as a short phrase list for summary lines. */
+export function skipPhrases(result: ScanResult): string[] {
+  const skips = countSkips(result);
+  return [
+    skips.not_applicable > 0 ? `${skips.not_applicable} did not apply` : '',
+    skips.dependency_failed > 0 ? `${skips.dependency_failed} blocked by a failed check` : '',
+    skips.unanswered > 0 ? `${skips.unanswered} could not run` : '',
+  ].filter(Boolean);
 }
 
 /** True when every applicable check of a group is nice to have or informational. */

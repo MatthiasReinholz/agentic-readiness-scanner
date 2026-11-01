@@ -18,9 +18,9 @@ import {
 import { scoreGroup } from '../scoring.js';
 import { htmlDocument, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
-  countSkips,
   groupIsOptional,
   prioritize,
+  skipPhrases,
   TIER_LABEL,
   type Priorities,
   type Priority,
@@ -251,7 +251,6 @@ function renderGroup(
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
   const counts = countVerdicts(result);
-  const skips = countSkips(result);
   const priorities = prioritize(result);
   const openCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
     .filter((tier) => priorities.counts[tier] > 0)
@@ -282,7 +281,7 @@ ${links.length > 0 ? `<p class="text-sm text-muted-foreground">${links.join(' ·
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
-<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2"><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${skips.not_applicable > 0 ? `${skips.not_applicable} did not apply to this site` : ''}${skips.not_applicable > 0 && skips.unanswered > 0 ? ' · ' : ''}${skips.unanswered > 0 ? `${skips.unanswered} could not run` : ''}</div></div>
+<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2"><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}

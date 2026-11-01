@@ -6,7 +6,7 @@ import {
 } from '@agentic-readiness/catalog';
 
 import { scoreGroup } from '../scoring.js';
-import { countSkips, prioritize, TIER_LABEL, type Priority } from './priorities.js';
+import { prioritize, skipPhrases, TIER_LABEL, type Priority } from './priorities.js';
 import {
   countVerdicts,
   groupResults,
@@ -114,7 +114,6 @@ function fixSection(priority: Priority): string[] {
 export function renderMarkdown(result: ScanResult, options: MarkdownReportOptions = {}): string {
   const lines: string[] = [];
   const counts = countVerdicts(result);
-  const skips = countSkips(result);
   const priorities = prioritize(result);
   const open = [
     ...priorities.first,
@@ -131,12 +130,8 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     `- Commerce score: ${result.scores.commerce === null ? 'not applicable' : `${result.scores.commerce}/100`}`,
   );
   lines.push(`- Platform: ${result.target.platform}, profile: ${result.target.profile}`);
-  const skipText = [
-    skips.not_applicable > 0 ? `${skips.not_applicable} did not apply` : '',
-    skips.unanswered > 0 ? `${skips.unanswered} could not run` : '',
-  ].filter(Boolean);
   lines.push(
-    `- Checks: ${[`${counts.pass} pass`, `${counts.warn} warn`, `${counts.fail} fail`, ...skipText].join(' · ')}`,
+    `- Checks: ${[`${counts.pass} pass`, `${counts.warn} warn`, `${counts.fail} fail`, ...skipPhrases(result)].join(' · ')}`,
   );
   if (open.length > 0) {
     const tierCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
