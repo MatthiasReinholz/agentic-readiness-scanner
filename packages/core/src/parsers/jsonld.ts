@@ -1,3 +1,4 @@
+import { normalizeGtin } from './gtin.js';
 import type { HtmlDocument } from './html.js';
 
 export type JsonLdNode = Record<string, unknown>;
@@ -84,7 +85,11 @@ export function hasValue(node: JsonLdNode, key: string): boolean {
   return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
 }
 
-/** Product and ProductGroup nodes, including variants nested under hasVariant. */
+/**
+ * Top-level Product and ProductGroup nodes. Variants nested under a ProductGroup's
+ * hasVariant are not listed here; read them with `variantNodes`, or use the variant-aware
+ * readers (`allOffersOf`, `gtinsOf`, `mpnOf`) that look at the group and its variants.
+ */
 export function productNodes(nodes: JsonLdNode[]): JsonLdNode[] {
   const result: JsonLdNode[] = [];
   for (const node of nodes) {
@@ -113,6 +118,15 @@ export function offersOf(product: JsonLdNode): JsonLdNode[] {
   return nodesOf(product, 'offers').filter((offer) => hasType(offer, 'Offer', 'AggregateOffer'));
 }
 
+/**
+ * The product's own offers followed by every variant's offers. Shopify's native JSON-LD
+ * emits a ProductGroup whose offers live on the hasVariant Products only, so a reader
+ * that stops at the group sees none.
+ */
+export function allOffersOf(product: JsonLdNode): JsonLdNode[] {
+  return [...offersOf(product), ...variantNodes(product).flatMap(offersOf)];
+}
+
 export function asString(value: unknown): string | null {
   if (typeof value === 'string') return value.trim() || null;
   if (typeof value === 'number') return String(value);
@@ -127,6 +141,57 @@ export function gtinOf(product: JsonLdNode): string | null {
     if (value) return value;
   }
   return null;
+}
+
+/**
+ * True when a value is shaped like a GTIN: 8, 12, 13 or 14 digits once spaces and hyphens
+ * are removed. Says nothing about the check digit (see `isValidGtin`). A model code such
+ * as "FG006780" written into a gtin field is not a GTIN and must not count as one.
+ */
+export function looksLikeGtin(value: string): boolean {
+  return /^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(normalizeGtin(value));
+}
+
+export interface GtinValues {
+  /** Values shaped like a GTIN, on the product first and then its variants, de-duplicated. */
+  gtins: string[];
+  /** Values in a gtin field that are not shaped like a GTIN, de-duplicated. */
+  invalid_format: string[];
+  /** How many variants carry a value shaped like a GTIN. */
+  variants_with_gtin: number;
+}
+
+/** Every gtin* value on the product and its variants, split by whether it is shaped like a GTIN. */
+export function gtinsOf(product: JsonLdNode): GtinValues {
+  const gtins = new Set<string>();
+  const invalid = new Set<string>();
+  const read = (node: JsonLdNode): boolean => {
+    let found = false;
+    for (const key of GTIN_KEYS) {
+      const value = asString(node[key]);
+      if (value === null) continue;
+      if (looksLikeGtin(value)) {
+        gtins.add(value);
+        found = true;
+      } else invalid.add(value);
+    }
+    return found;
+  };
+  read(product);
+  let variantsWithGtin = 0;
+  for (const variant of variantNodes(product)) if (read(variant)) variantsWithGtin += 1;
+  return { gtins: [...gtins], invalid_format: [...invalid], variants_with_gtin: variantsWithGtin };
+}
+
+/** The product's mpn, or the first variant's when the product itself carries none. */
+export function mpnOf(product: JsonLdNode): string | null {
+  return (
+    asString(product.mpn) ??
+    variantNodes(product)
+      .map((variant) => asString(variant.mpn))
+      .find((value) => value !== null) ??
+    null
+  );
 }
 
 /** A positive pixel count from a number or numeric string (ImageObject width, img attributes). */
@@ -188,7 +253,7 @@ export function imageOf(product: JsonLdNode): ImageValue | null {
   };
 }
 
-/** Product nodes listed under hasVariant (a ProductGroup's variants). */
+/** Product nodes listed under hasVariant (a ProductGroup's variants); same as `variantNodes`. */
 export function variantsOf(group: JsonLdNode): JsonLdNode[] {
-  return nodesOf(group, 'hasVariant').filter((node) => hasType(node, 'Product'));
+  return variantNodes(group);
 }

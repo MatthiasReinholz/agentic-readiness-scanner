@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Fetcher, FetchOptions } from '../../http/types.js';
 import { mapFetcher, runCheck, targetFor } from '../../testing/index.js';
 import {
   markupMatchesPage,
@@ -34,6 +35,36 @@ const COMPLETE = {
   priceCurrency: 'EUR',
   availability: 'https://schema.org/InStock',
 };
+
+const SHOPIFY_OFFER = {
+  price: '40.00',
+  priceCurrency: 'USD',
+  availability: 'https://schema.org/InStock',
+};
+
+/**
+ * A ProductGroup modelled on Shopify's native product JSON-LD: offers, gtin13, mpn and sku
+ * live on the hasVariant Products, the group carries only name, brand and image.
+ */
+function shopifyGroup(
+  offers: Record<string, unknown>[] = [SHOPIFY_OFFER, SHOPIFY_OFFER],
+  variantFields: Record<string, unknown>[] = [],
+): unknown {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ProductGroup',
+    name: 'Vital Seamless Leggings',
+    brand: { '@type': 'Brand', name: 'Example Athletics' },
+    image: 'https://cdn.shopify.com/s/files/1/0001/products/leggings.jpg?v=1700000000',
+    hasVariant: offers.map((offer, index) => ({
+      '@type': 'Product',
+      name: `Vital Seamless Leggings - Size ${index}`,
+      sku: `VSL-${index}`,
+      ...variantFields[index],
+      offers: { '@type': 'Offer', url: `${mug}?variant=${index}`, ...offer },
+    })),
+  };
+}
 
 describe('B2.1 Product JSON-LD on product pages', () => {
   it('does not apply without sampled product pages', async () => {
@@ -129,9 +160,85 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 2 product(s) have an Offer with price, currency and schema.org availability',
+      '1 of 2 offer(s) on 2 product(s) carry price, currency and schema.org availability; missing: currency on 1, schema.org availability on 1',
     );
-    expect(outcome.evidence).toMatchObject({ complete: 1, total: 2 });
+    expect(outcome.evidence).toMatchObject({
+      products: 2,
+      complete_products: 1,
+      offers: 2,
+      complete_offers: 1,
+      missing: { price: 0, currency: 1, availability: 1 },
+    });
+  });
+
+  it('reads the offers of a ProductGroup from its variants, the way Shopify emits them', async () => {
+    const outcome = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: withJsonLd(shopifyGroup()) }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 2 offer(s) on 1 product(s) carry price, currency and schema.org availability (2 on variants)',
+    );
+    expect(outcome.evidence).toMatchObject({
+      pages: {
+        [mug]: {
+          offers: 2,
+          own_offers: 0,
+          variant_offers: 2,
+          complete_offers: 2,
+          price: true,
+          currency: true,
+          availability: true,
+        },
+      },
+    });
+  });
+
+  it('warns when some variant offers are incomplete and fails when none is', async () => {
+    const some = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          shopifyGroup([
+            { price: '40.00', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+            { price: '40.00', priceCurrency: 'USD' },
+          ]),
+        ),
+      }),
+    );
+    expect(some.verdict).toBe('warn');
+    expect(some.message).toBe(
+      '1 of 2 offer(s) on 1 product(s) carry price, currency and schema.org availability (2 on variants); missing: schema.org availability on 1',
+    );
+    const none = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: withJsonLd(shopifyGroup([{ price: '40.00' }, { price: '42.00' }])) }),
+    );
+    expect(none.verdict).toBe('fail');
+    expect(none.evidence).toMatchObject({ complete_offers: 0, offers: 2 });
+  });
+
+  it('never scores a page that could not be fetched and says so', async () => {
+    const outcome = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug, bowl] }),
+      mapFetcher({ [mug]: withJsonLd(product(COMPLETE)), [bowl]: { status: 503, body: '' } }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 of 2 sampled page(s) could not be fetched',
+    );
+    expect(outcome.evidence).toMatchObject({ unfetched: [bowl] });
+    const allDown = await runCheck(
+      offerComplete,
+      targetFor({ products: [mug] }),
+      mapFetcher({ [mug]: { status: 0 } }),
+    );
+    expect(allDown).toMatchObject({ verdict: 'skip', skipReason: 'error' });
   });
 
   it('accepts an AggregateOffer with lowPrice', async () => {
@@ -206,10 +313,34 @@ describe('B2.3 variants modeled', () => {
       pages: {
         [mug]: {
           appears_variable: true,
-          signals: ['form.variations_form', 'select[name^=attribute_]'],
+          signals: [
+            'form.variations_form',
+            'select[name^=attribute_]',
+            'jsonld:ProductGroup.hasVariant',
+          ],
           product_group: true,
           jsonld_variants: 2,
           store_api_variations: 0,
+        },
+      },
+    });
+  });
+
+  it('treats a ProductGroup with hasVariant as a variable product even without a variation form', async () => {
+    const outcome = await runCheck(
+      variantsModeled,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({ [mug]: withJsonLd(shopifyGroup()) }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      modeled: 1,
+      variable: 1,
+      pages: {
+        [mug]: {
+          appears_variable: true,
+          signals: ['jsonld:ProductGroup.hasVariant'],
+          jsonld_variants: 2,
         },
       },
     });
@@ -330,6 +461,25 @@ describe('B2.4 shipping and return details in markup', () => {
     });
   });
 
+  it('reads shipping and return details from the variant offers of a ProductGroup', async () => {
+    const outcome = await runCheck(
+      shippingAndReturnsInMarkup,
+      targetFor({ products: [mug], platform: 'shopify' }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          shopifyGroup([
+            { ...SHOPIFY_OFFER, shippingDetails: SHIPPING, hasMerchantReturnPolicy: RETURNS },
+            { ...SHOPIFY_OFFER, shippingDetails: SHIPPING, hasMerchantReturnPolicy: RETURNS },
+          ]),
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { offers: 2, shipping: true, returns: true } },
+    });
+  });
+
   it('warns when only one of the two is present', async () => {
     const outcome = await runCheck(
       shippingAndReturnsInMarkup,
@@ -373,6 +523,20 @@ function imgTag(attributes: string): string {
 
 function headRequests(fetcher: ReturnType<typeof mapFetcher>): string[] {
   return fetcher.log.filter((entry) => entry.options.method === 'HEAD').map((entry) => entry.url);
+}
+
+/** The fetcher as it answers when `url` gets no response: status 0 with the fetcher's own reason. */
+function withTransportFailure(inner: Fetcher, url: string, error: string): Fetcher {
+  return {
+    get requestCount() {
+      return inner.requestCount;
+    },
+    budget: inner.budget,
+    fetch: async (target: string, options?: FetchOptions) => {
+      const response = await inner.fetch(target, options);
+      return target === url ? { ...response, status: 0, body: '', error } : response;
+    },
+  };
 }
 
 describe('B2.5 images with alt text and resolution', () => {
@@ -464,9 +628,12 @@ describe('B2.5 images with alt text and resolution', () => {
       }),
     );
     expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `1 of 1 product image(s) need attention: ${IMAGE}: no alt text on the rendered img`,
+    );
     expect(outcome.evidence).toMatchObject({
       warn: 1,
-      pages: { [mug]: { alt: '', issues: ['rendered img has no alt text'] } },
+      pages: { [mug]: { alt: '', issues: ['no alt text on the rendered img'] } },
     });
     const noTag = await runCheck(
       productImageUsable,
@@ -477,9 +644,124 @@ describe('B2.5 images with alt text and resolution', () => {
       }),
     );
     expect(noTag.verdict).toBe('warn');
+    expect(noTag.message).toBe(
+      `1 of 1 product image(s) need attention: ${IMAGE}: not rendered as an img on the page`,
+    );
     expect(noTag.evidence).toMatchObject({
-      pages: { [mug]: { alt: null, issues: ['no rendered img matches the Product image'] } },
+      pages: { [mug]: { alt: null, issues: ['not rendered as an img on the page'] } },
     });
+  });
+
+  it('matches the image Shopify renders at another size, through srcset and picture sources', async () => {
+    const cdn = 'https://cdn.shopify.com/s/files/1/0001/products/leggings.jpg';
+    const node = { ...(product(COMPLETE) as object), image: `${cdn}?v=1700000000` };
+    const sized = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          node,
+          `<img src="${cdn}?v=1700000000&width=1080" alt="Vital Seamless Leggings" width="1080" height="1350" srcset="${cdn}?v=1700000000&width=352 352w, ${cdn}?v=1700000000&width=1080 1080w">`,
+        ),
+      }),
+    );
+    expect(sized.verdict).toBe('pass');
+    expect(sized.evidence).toMatchObject({
+      pages: { [mug]: { alt: 'Vital Seamless Leggings', longest_side: 1350 } },
+    });
+    const suffixed = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          node,
+          `<picture><source srcset="//cdn.shopify.com/s/files/1/0001/products/leggings_1080x.jpg 1x, //cdn.shopify.com/s/files/1/0001/products/leggings_1080x@2x.jpg 2x"><img data-src="//cdn.shopify.com/s/files/1/0001/products/leggings_600x.jpg" alt="Leggings" width="600" height="750"></picture>`,
+        ),
+      }),
+    );
+    expect(suffixed.verdict).toBe('warn');
+    expect(suffixed.evidence).toMatchObject({
+      pages: { [mug]: { alt: 'Leggings', issues: ['longest side is 750 px, below 800 px'] } },
+    });
+  });
+
+  it('prefers a matching img with alt text and ignores one-pixel and aria-hidden helpers', async () => {
+    const outcome = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          `<img src="${IMAGE}" width="1" height="1" alt="">
+           <img src="${IMAGE}" aria-hidden="true" width="1200" height="1200" alt="">
+           <img src="${IMAGE}" width="1200" height="1200" alt="">
+           <img src="${IMAGE}" width="1200" height="1200" alt="Blue mug">`,
+        ),
+      }),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { alt: 'Blue mug' } } });
+    const onlyHelpers = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      mapFetcher({
+        [mug]: withJsonLd(
+          { ...(product(COMPLETE) as object), image: IMAGE },
+          `<img src="${IMAGE}" width="1" height="1" alt="Blue mug">`,
+        ),
+        [IMAGE]: { status: 200 },
+      }),
+    );
+    expect(onlyHelpers.verdict).toBe('warn');
+    expect(onlyHelpers.evidence).toMatchObject({
+      pages: { [mug]: { issues: ['not rendered as an img on the page'] } },
+    });
+  });
+
+  it('treats a HEAD that gets no response as inconclusive, never as a missing image', async () => {
+    const page = withJsonLd(
+      { ...(product(COMPLETE) as object), image: IMAGE },
+      imgTag('alt="Mug"'),
+    );
+    const alone = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug] }),
+      withTransportFailure(mapFetcher({ [mug]: page }), IMAGE, 'connection reset'),
+    );
+    expect(alone).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+    expect(alone.message).toBe(
+      `no product image could be checked: ${IMAGE}: could not be checked (connection reset)`,
+    );
+    expect(alone.evidence).toMatchObject({
+      inconclusive: 1,
+      pages: {
+        [mug]: {
+          head_status: 0,
+          head_error: 'connection reset',
+          verdict: 'inconclusive',
+          issues: ['could not be checked (connection reset)'],
+        },
+      },
+    });
+    const mixed = await runCheck(
+      productImageUsable,
+      targetFor({ products: [mug, bowl] }),
+      withTransportFailure(
+        mapFetcher({
+          [mug]: page,
+          [bowl]: withJsonLd(
+            { ...(product(COMPLETE) as object), image: IMAGE },
+            imgTag('alt="Mug" width="1000" height="1000"'),
+          ),
+        }),
+        IMAGE,
+        'connection reset',
+      ),
+    );
+    expect(mixed.verdict).toBe('pass');
+    expect(mixed.message).toBe(
+      'all 1 product image(s) resolve with alt text; 1 could not be checked',
+    );
   });
 
   it('warns when the known size is below 800 px on the longest side', async () => {
@@ -548,8 +830,11 @@ describe('B2.5 images with alt text and resolution', () => {
     });
     const broken = await runCheck(productImageUsable, targetFor({ products: [mug] }), fetcher);
     expect(broken.verdict).toBe('fail');
+    expect(broken.message).toBe(
+      `1 of 1 product image(s) unusable: ${IMAGE}: did not resolve (HTTP 404)`,
+    );
     expect(broken.evidence).toMatchObject({
-      pages: { [mug]: { head_status: 404, issues: ['image does not resolve (HEAD 404)'] } },
+      pages: { [mug]: { head_status: 404, issues: ['did not resolve (HTTP 404)'] } },
     });
     expect(headRequests(fetcher)).toEqual([IMAGE]);
   });
@@ -583,15 +868,22 @@ describe('B2.6 markup matches the visible page', () => {
       [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
     });
     expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe('price matches on 1 product page(s); availability matches on 1');
     expect(outcome.evidence).toMatchObject({
       compared: 1,
-      price_mismatches: [],
+      price_contradictions: [],
+      price_not_found: [],
+      availability_compared: 1,
       availability_mismatches: [],
       pages: {
         [mug]: {
           markup_prices: [24],
           visible_prices: [24],
+          visible_price_count: 1,
+          price_element_prices: [24],
+          matched_price: 24,
           price_visible: true,
+          price_status: 'visible',
           availability: ['InStock'],
           add_to_cart: true,
           out_of_stock_text: false,
@@ -601,7 +893,7 @@ describe('B2.6 markup matches the visible page', () => {
     });
   });
 
-  it('fails when the JSON-LD price is not visible on a page', async () => {
+  it('fails when the price block shows another amount than the JSON-LD price', async () => {
     const outcome = await run({
       [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
       [bowl]: pageWith(
@@ -610,11 +902,66 @@ describe('B2.6 markup matches the visible page', () => {
       ),
     });
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toBe('JSON-LD price is not visible on 1 of 2 product page(s)');
+    expect(outcome.message).toBe(
+      `the visible price contradicts the JSON-LD price on 1 of 2 product page(s): ${bowl} shows 39 while the markup says 48`,
+    );
     expect(outcome.evidence).toMatchObject({
-      price_mismatches: [bowl],
-      pages: { [bowl]: { markup_prices: [48], visible_prices: [39], price_visible: false } },
+      price_contradictions: [bowl],
+      pages: {
+        [bowl]: {
+          markup_prices: [48],
+          visible_prices: [39],
+          price_element_prices: [39],
+          price_visible: false,
+          price_status: 'contradicted',
+        },
+      },
     });
+  });
+
+  it('warns, not fails, when the JSON-LD price is simply not found in readable page text', async () => {
+    // No price block the scanner can read: the amount is rendered by script or with an
+    // unknown currency marker. Nothing contradicts the markup, so nothing is proven wrong.
+    const outcome = await run({
+      [mug]: pageWith(product(COMPLETE), `<p class="price"></p>${ADD_TO_CART}`),
+      [bowl]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
+    });
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      'the JSON-LD price is not among the prices visible on 1 of 2 product page(s) (no readable price block contradicts it either); price matches on 1',
+    );
+    expect(outcome.evidence).toMatchObject({
+      price_not_found: [mug],
+      pages: { [mug]: { price_status: 'not_found', visible_price_count: 0 } },
+    });
+  });
+
+  it('records the matched price even when site chrome lists ten other prices first', async () => {
+    const chrome = Array.from(
+      { length: 12 },
+      (_, i) => `<a class="promo">Free gift over €${100 + i}</a>`,
+    ).join('');
+    const outcome = await run({
+      [mug]: pageWith(product(COMPLETE), `${chrome}<p class="price">€24.00</p>${ADD_TO_CART}`),
+    });
+    expect(outcome.verdict).toBe('pass');
+    const page = (outcome.evidence.pages as Record<string, { visible_prices: number[] }>)[mug];
+    expect(page?.visible_prices).toHaveLength(11);
+    expect(page?.visible_prices.at(-1)).toBe(24);
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { visible_price_count: 13, matched_price: 24 } },
+    });
+  });
+
+  it('reads prices written with kr, zł or ₹ markers', async () => {
+    const outcome = await run({
+      [mug]: pageWith(
+        product({ ...COMPLETE, price: '299', priceCurrency: 'SEK' }),
+        `<p class="price">299 kr</p>${ADD_TO_CART}`,
+      ),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { matched_price: 299 } } });
   });
 
   it('warns when availability contradicts the add-to-cart state', async () => {
@@ -640,12 +987,38 @@ describe('B2.6 markup matches the visible page', () => {
     });
   });
 
-  it('leaves availability unjudged when the page shows neither a control nor wording', async () => {
+  it('says when availability could not be compared instead of claiming it matched', async () => {
     const outcome = await run({
       [mug]: pageWith(product(COMPLETE), '<p class="price">€24.00</p>'),
     });
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.evidence).toMatchObject({ pages: { [mug]: { availability_match: null } } });
+    expect(outcome.message).toBe(
+      'price matches on 1 product page(s); availability could not be compared on 1',
+    );
+    expect(outcome.evidence).toMatchObject({
+      availability_compared: 0,
+      pages: { [mug]: { availability_match: null } },
+    });
+    const mixed = await run({
+      [mug]: pageWith(product(COMPLETE), '<p class="price">€24.00</p>'),
+      [bowl]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
+    });
+    expect(mixed.message).toBe(
+      'price matches on 2 product page(s); availability matches on 1 and could not be compared on 1',
+    );
+  });
+
+  it('compares the variant offers of a Shopify ProductGroup against the page', async () => {
+    const outcome = await run({
+      [mug]: pageWith(
+        shopifyGroup(),
+        `<span class="price-item price-item--regular">$40.00</span><button name="add" class="product-form__submit">Add to cart</button>`,
+      ),
+    });
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.evidence).toMatchObject({
+      pages: { [mug]: { markup_prices: [40], matched_price: 40, availability_match: true } },
+    });
   });
 
   it('compares every variant offer of a ProductGroup and passes when one price is visible', async () => {

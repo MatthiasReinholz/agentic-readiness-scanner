@@ -1,9 +1,14 @@
 import { elementText, HtmlDocument } from '../../parsers/html.js';
-import { storeApiUrl } from '../shared.js';
+import { describeFailure, storeApiUrl } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
-import { contentType } from '../../http/types.js';
-import { probeMcpEndpoint } from '../mcp.js';
+import { contentType, type FetchedResponse } from '../../http/types.js';
+import { type McpProbe, probeMcpEndpoint } from '../mcp.js';
 import { isRecord, looksLikeHtml, nonEmptyString, parseJson, recordEntries } from '../json.js';
+
+/** True when the fetcher refused the URL because the store's robots.txt disallows it for the scanner. */
+function blockedByRobots(response: Pick<FetchedResponse, 'status' | 'error'>): boolean {
+  return response.status === 0 && /robots\.txt/i.test(response.error ?? '');
+}
 
 /** The Store API cart object, as far as this check dereferences it. */
 interface StoreApiCart {
@@ -298,9 +303,14 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
     handlers: handlerIds,
     endpoint: null,
     endpoint_status: null,
+    endpoint_error: null,
   };
 
+  // The REST base URL is probed for reachability only. A REST base has no GET resource of
+  // its own, so 404 (ikea.com) or 405 there is the normal answer, not a finding; only a
+  // host that does not answer or a 5xx says the agent would fail there.
   let endpointNote = '';
+  let endpointProblem = '';
   const restEntry = shoppingEntries.find(
     (entry) =>
       typeof entry.transport === 'string' &&
@@ -308,18 +318,29 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
       nonEmptyString(entry.endpoint),
   );
   if (restEntry && typeof restEntry.endpoint === 'string') {
-    evidence.endpoint = restEntry.endpoint;
-    const response = await fetcher.fetch(restEntry.endpoint);
+    const endpoint = restEntry.endpoint;
+    evidence.endpoint = endpoint;
+    const response = await fetcher.fetch(endpoint);
     evidence.endpoint_status = response.status;
-    if (response.status === 404 || response.status >= 500) {
-      endpointNote = ` (endpoint answered HTTP ${response.status})`;
+    evidence.endpoint_error = response.error ?? null;
+    if (blockedByRobots(response)) {
+      endpointNote = ` (the REST endpoint ${endpoint} was not requested: ${describeFailure(response)})`;
+    } else if (response.status === 0) {
+      endpointProblem = `the REST endpoint ${endpoint} could not be reached (${describeFailure(response)})`;
+    } else if (response.status >= 500) {
+      endpointProblem = `the REST endpoint ${endpoint} answered ${describeFailure(response)}`;
+    } else {
+      endpointNote = ` (the REST endpoint ${endpoint} answered HTTP ${response.status})`;
     }
   }
 
   if (checkout && handlerIds.length > 0) {
-    const message = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerIds.join(', ')}${endpointNote}`;
-    return endpointNote ? warn(message, evidence) : pass(message, evidence);
+    const summary = `UCP profile declares checkout and ${handlerIds.length} payment handler(s): ${handlerIds.join(', ')}`;
+    return endpointProblem
+      ? warn(`${summary}, but ${endpointProblem}`, evidence)
+      : pass(`${summary}${endpointNote}`, evidence);
   }
+  if (endpointProblem) endpointNote = `; ${endpointProblem}`;
   if (checkout) {
     return warn(
       `UCP profile declares checkout but no payment handler with id, version and spec${endpointNote}`,
@@ -602,36 +623,51 @@ export const shopifyAgenticStorefront = defineCheck('B5.8', async ({ target, fet
   const linkDeclared = linkHeader !== null && hasUcpLinkRelation(linkHeader);
   const endpoint = `${target.origin}/api/ucp/mcp`;
   const probe = await probeMcpEndpoint(fetcher, endpoint);
-  const response = { status: probe.status };
   const answers = probe.outcome === 'rpc' || probe.outcome === 'auth';
+  // Shopify's stock robots.txt disallows /api/ for every crawler; the scanner honours it,
+  // so on such a store the probe never leaves and the status is 0 with the gate's reason.
+  const notRequested = blockedByRobots({ status: probe.status, error: probe.detail });
   const evidence = {
     link_header: linkHeader,
     link_declared: linkDeclared,
     endpoint,
     endpoint_status: probe.status,
     endpoint_answers: answers,
+    endpoint_requested: !notRequested,
     probe: probe.detail,
   };
   if (linkDeclared && answers) {
     return pass(
-      `agentic storefront active: the homepage links /.well-known/ucp and /api/ucp/mcp answers (HTTP ${response.status})`,
+      `agentic storefront active: the homepage links /.well-known/ucp and /api/ucp/mcp answers (HTTP ${probe.status})`,
+      evidence,
+    );
+  }
+  if (linkDeclared && notRequested) {
+    return warn(
+      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${probe.detail}); the endpoint could not be verified`,
       evidence,
     );
   }
   if (linkDeclared) {
     return warn(
-      `the homepage links /.well-known/ucp but /api/ucp/mcp returned HTTP ${response.status}`,
+      `the homepage links /.well-known/ucp but /api/ucp/mcp ${probeAnswer(probe)}`,
       evidence,
     );
   }
   if (answers) {
     return warn(
-      `/api/ucp/mcp answers (HTTP ${response.status}) but the homepage sends no Link rel="ucp" header`,
+      `/api/ucp/mcp answers (HTTP ${probe.status}) but the homepage sends no Link rel="ucp" header`,
       evidence,
     );
   }
   return fail(
-    `no Link rel="ucp" header on the homepage and /api/ucp/mcp returned HTTP ${response.status}`,
+    `no Link rel="ucp" header on the homepage and /api/ucp/mcp ${probeAnswer(probe)}`,
     evidence,
   );
 });
+
+/** How the MCP endpoint answered, for a message: the status, or the fetcher's reason when there was none. */
+function probeAnswer(probe: McpProbe): string {
+  if (probe.status === 0) return `could not be fetched (${probe.detail})`;
+  return `returned ${describeFailure({ status: probe.status })}`;
+}

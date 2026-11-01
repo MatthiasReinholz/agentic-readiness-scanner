@@ -268,6 +268,20 @@ function outcomesWith(id: string, evidence: Record<string, unknown>): Map<string
   return new Map([[id, { verdict: 'pass' as const, evidence }]]);
 }
 
+/** The fetcher as it answers when `url` gets no response: status 0 with the fetcher's own reason. */
+function withTransportFailure(inner: Fetcher, url: string, error: string): Fetcher {
+  return {
+    get requestCount() {
+      return inner.requestCount;
+    },
+    budget: inner.budget,
+    fetch: async (target: string, options?: FetchOptions) => {
+      const response = await inner.fetch(target, options);
+      return target === url ? { ...response, status: 0, body: '', error } : response;
+    },
+  };
+}
+
 const JSON_HEADERS = { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' };
 
 const profile = {
@@ -451,7 +465,9 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
     const fetcher = mapFetcher({ [endpoint]: { status: 401, body: '{"error":"unauthorized"}' } });
     const outcome = await run(profile.ucp, fetcher);
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('UCP profile declares checkout and 1 payment handler(s): gpay-1');
+    expect(outcome.message).toBe(
+      `UCP profile declares checkout and 1 payment handler(s): gpay-1 (the REST endpoint ${endpoint} answered HTTP 401)`,
+    );
     expect(outcome.evidence).toEqual({
       checkout: true,
       checkout_capability: true,
@@ -459,18 +475,53 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
       handlers: ['gpay-1'],
       endpoint,
       endpoint_status: 401,
+      endpoint_error: null,
     });
     expect(fetcher.log.map((entry) => entry.url)).toEqual([endpoint]);
   });
 
-  it('turns the pass into a warn when the REST endpoint answers 404 or 5xx', async () => {
+  it('records a 404 on the REST base without warning: a REST base has no GET resource', async () => {
     const gone = await run(profile.ucp, mapFetcher({}));
-    expect(gone.verdict).toBe('warn');
-    expect(gone.message).toMatch(/ \(endpoint answered HTTP 404\)$/);
+    expect(gone.verdict).toBe('pass');
+    expect(gone.message).toBe(
+      `UCP profile declares checkout and 1 payment handler(s): gpay-1 (the REST endpoint ${endpoint} answered HTTP 404)`,
+    );
     expect(gone.evidence).toMatchObject({ endpoint_status: 404 });
+  });
+
+  it('warns when the REST endpoint answers 5xx or its host does not answer', async () => {
     const down = await run(profile.ucp, mapFetcher({ [endpoint]: { status: 502, body: '' } }));
     expect(down.verdict).toBe('warn');
-    expect(down.message).toMatch(/ \(endpoint answered HTTP 502\)$/);
+    expect(down.message).toBe(
+      `UCP profile declares checkout and 1 payment handler(s): gpay-1, but the REST endpoint ${endpoint} answered HTTP 502`,
+    );
+    const unreachable = await run(
+      profile.ucp,
+      withTransportFailure(mapFetcher({}), endpoint, 'getaddrinfo ENOTFOUND shop.example'),
+    );
+    expect(unreachable.verdict).toBe('warn');
+    expect(unreachable.message).toBe(
+      `UCP profile declares checkout and 1 payment handler(s): gpay-1, but the REST endpoint ${endpoint} could not be reached (getaddrinfo ENOTFOUND shop.example)`,
+    );
+    expect(unreachable.evidence).toMatchObject({
+      endpoint_status: 0,
+      endpoint_error: 'getaddrinfo ENOTFOUND shop.example',
+    });
+  });
+
+  it('notes, without warning, a REST endpoint the scanner did not request because robots.txt disallows it', async () => {
+    const outcome = await run(
+      profile.ucp,
+      withTransportFailure(
+        mapFetcher({}),
+        endpoint,
+        'blocked by robots.txt for AgenticReadinessScanner',
+      ),
+    );
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toBe(
+      `UCP profile declares checkout and 1 payment handler(s): gpay-1 (the REST endpoint ${endpoint} was not requested: blocked by robots.txt for AgenticReadinessScanner)`,
+    );
   });
 
   it('counts an MCP shopping service as a checkout declaration and skips the endpoint probe', async () => {
@@ -783,6 +834,45 @@ describe('B5.8 Shopify agentic storefront active', () => {
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
       'the homepage links /.well-known/ucp but /api/ucp/mcp returned HTTP 404',
+    );
+    expect(outcome.evidence).toMatchObject({ endpoint_requested: true });
+  });
+
+  it('quotes the robots.txt reason when the scanner did not call the advertised endpoint', async () => {
+    // Shopify's stock robots.txt has Disallow: /api/; the gate refuses the probe with status 0.
+    const reason = 'blocked by robots.txt for AgenticReadinessScanner';
+    const outcome = await runAny(
+      shopifyAgenticStorefront,
+      shopifyTarget(link),
+      withTransportFailure(mapFetcher({}), endpoint, reason),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${reason}); the endpoint could not be verified`,
+    );
+    expect(outcome.evidence).toMatchObject({
+      endpoint_status: 0,
+      endpoint_answers: false,
+      endpoint_requested: false,
+      probe: reason,
+    });
+    const dropped = await runAny(
+      shopifyAgenticStorefront,
+      shopifyTarget(link),
+      withTransportFailure(mapFetcher({}), endpoint, 'fetch failed: ECONNRESET'),
+    );
+    expect(dropped.verdict).toBe('warn');
+    expect(dropped.message).toBe(
+      'the homepage links /.well-known/ucp but /api/ucp/mcp could not be fetched (fetch failed: ECONNRESET)',
+    );
+    const neither = await runAny(
+      shopifyAgenticStorefront,
+      shopifyTarget(),
+      withTransportFailure(mapFetcher({}), endpoint, reason),
+    );
+    expect(neither.verdict).toBe('fail');
+    expect(neither.message).toBe(
+      `no Link rel="ucp" header on the homepage and /api/ucp/mcp could not be fetched (${reason})`,
     );
   });
 
