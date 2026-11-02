@@ -233,25 +233,28 @@ export function policyLinkScore(
   const text = anchor.text;
   const labelMatches = pattern.test(text);
   const segment = lastSegment(pathname);
-  // A path segment that carries the site's own name next to a policy word names a product
-  // of that brand (/woocommerce-shipping/), not the shipping policy.
-  const pathMatches =
-    pattern.test(segment) &&
-    !(
-      brand !== undefined &&
-      segment
-        .toLowerCase()
-        .split(/[-_.]+/)
-        .includes(brand)
-    );
+  const pathMatches = pattern.test(segment);
   if (!labelMatches && !pathMatches) return 0;
+  const tokens = text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}&]+/u)
+    .filter(Boolean);
+  // A product of the site's own brand carries the brand in its label and in its path
+  // (/woocommerce-shipping/ "WooCommerce Shipping"); a policy page carries it at most in
+  // the label ("Standard delivery ... for IKEA Family members" at /services/delivery/) and
+  // stays a candidate.
+  if (
+    brand !== undefined &&
+    tokens.includes(brand) &&
+    tokens.length > 1 &&
+    segment
+      .toLowerCase()
+      .split(/[-_.]+/)
+      .includes(brand)
+  )
+    return 0;
   let score = 0;
   if (labelMatches) {
-    const tokens = text
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}&]+/u)
-      .filter(Boolean);
-    if (brand && tokens.includes(brand) && tokens.length > 1) return 0;
     const known = tokens.filter(isPolicyWord).length;
     score += 2 + 2 * (tokens.length > 0 ? known / tokens.length : 0);
   }
