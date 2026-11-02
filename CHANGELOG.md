@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- The README and the home page point at the published packages: `npx @agentic-readiness/cli scan <url>`, `npx -y @agentic-readiness/cli mcp` for local coding agents, and `@agentic-readiness/core` as a library.
+
 ## [0.7.0] - 2026-11-02
 
 ### Changed

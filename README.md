@@ -6,7 +6,7 @@ The scanner answers that question for any public store URL. It reads public sign
 
 It is built WordPress-first, so it knows what a WooCommerce store exposes by default, and every check also runs against any other platform because every check reads public HTTP surfaces.
 
-> Status: **0.4.0 released** (2026-11-01), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)) and against the conventional technical SEO that AI answers inherit ([the technical SEO audit](docs/audits/2026-11-01-technical-seo-audit.md)); `main` carries catalog 0.4.0 after a third audit that read reports as a store owner does and scanned fifteen real stores ([the report and accuracy audit](docs/audits/2026-11-01-report-and-accuracy-audit.md)): reports lead with what to do, and a page the scanner did not read is never scored. The recorded WooCommerce store reaches Level 5. The npm packages are not published yet. See [Roadmap](#roadmap).
+> Status: **0.7.0 released** (2026-11-02), hosted at <https://agentic-readiness-scanner.space.fast/>. The catalog was audited against every documented crawler, standard and comparable scanner on 2026-10-31 ([the audit](docs/audits/2026-10-31-check-audit.md)) and against the conventional technical SEO that AI answers inherit ([the technical SEO audit](docs/audits/2026-11-01-technical-seo-audit.md)); `main` carries catalog 0.4.0 after a third audit that read reports as a store owner does and scanned fifteen real stores ([the report and accuracy audit](docs/audits/2026-11-01-report-and-accuracy-audit.md)): reports lead with what to do, and a page the scanner did not read is never scored. The recorded WooCommerce store reaches Level 5. `@agentic-readiness/cli` and `@agentic-readiness/core` are on npm since 0.7.0. See [Roadmap](#roadmap).
 
 ## What it checks
 
@@ -35,28 +35,24 @@ When the deployment has a mail provider configured, a report can also be **monit
 
 ### Command line
 
-Two packages are published to npm once the scope exists ([decision 0013](docs/decisions/0013-two-published-packages.md)): `@agentic-readiness/cli`, the command line with the local MCP server inside, and `@agentic-readiness/core`, the engine as a library. Both are self-contained. Until the first publish, run the CLI from a checkout:
+Two packages are on npm ([decision 0013](docs/decisions/0013-two-published-packages.md)): `@agentic-readiness/cli`, the command line with the local MCP server inside, and `@agentic-readiness/core`, the engine as a library. Both are self-contained and published with provenance from the release workflow.
 
 ```bash
-git clone https://github.com/MatthiasReinholz/agentic-readiness-scanner.git && cd agentic-readiness-scanner && pnpm install && pnpm build
+npx @agentic-readiness/cli scan https://example.com
 ```
 
 ```bash
-pnpm scan https://example.com
+npx @agentic-readiness/cli scan https://example.com --format json --output report.json
 ```
 
-```bash
-pnpm scan https://example.com --format json --output report.json
-```
-
-Formats: `md` (default), `json`, `html`, `badge`. `pnpm scan diff before.json after.json` compares two saved JSON reports and exits 3 when anything changed, for pipelines. Options: `--profile <id>` overrides detection, `--budget <n>` caps requests (default 40), `--sample <n>` sets how many product pages are sampled, `--timeout <ms>` per request, `--fixture <dir>` answers from a recorded store for offline runs, `--output <file>` writes instead of printing. `pnpm scan help` prints the full usage.
+Formats: `md` (default), `json`, `html`, `badge`. `npx @agentic-readiness/cli diff before.json after.json` compares two saved JSON reports and exits 3 when anything changed, for pipelines. Options: `--profile <id>` overrides detection, `--budget <n>` caps requests (default 40), `--sample <n>` sets how many product pages are sampled, `--timeout <ms>` per request, `--fixture <dir>` answers from a recorded store for offline runs, `--output <file>` writes instead of printing. `npx @agentic-readiness/cli help` prints the full usage. From a checkout, `pnpm scan` runs the same CLI after `pnpm install && pnpm build`.
 
 ### MCP
 
-Over stdio for local agents, from the same checkout:
+Over stdio for local coding agents (Claude Code, Cursor, Claude Desktop): add a server whose command is
 
 ```bash
-pnpm --filter @agentic-readiness/cli exec agentic-readiness mcp
+npx -y @agentic-readiness/cli mcp
 ```
 
 Tools: `scan_store(url, profile?, format?)`, `get_fix(check_id)`, `list_checks()`. The hosted app exposes the same tools over Streamable HTTP at `/mcp`, plus `get_history(host)`.
@@ -71,7 +67,7 @@ console.log(result.level, result.scores);
 console.log(renderMarkdown(result));
 ```
 
-The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. The published `@agentic-readiness/core` carries the catalog and the visual system inside it, so it needs nothing else from this repository; `@agentic-readiness/core/testing` adds the fixture fetcher for offline runs. Until the packages are published, consume them through the workspace.
+The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. The published `@agentic-readiness/core` carries the catalog and the visual system inside it, so it needs nothing else from this repository; `@agentic-readiness/core/testing` adds the fixture fetcher for offline runs.
 
 ## How it works
 

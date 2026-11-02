@@ -52,7 +52,9 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} mt-4" role="alert">$
 <li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}, or append ${code('.json')} to any report URL</li>
 <li>Markdown: append ${code('.md')} to any report URL, or read <a href="/llms.txt">/llms.txt</a></li>
 <li>MCP: Streamable HTTP at ${code('/mcp')}, advertised in <a href="/.well-known/mcp/server-card.json">the server card</a></li>
-<li>CLI and local MCP server: ${code('@agentic-readiness/cli')} on npm once published; until then from the <a href="${escapeHtml(config.repositoryUrl)}">repository</a></li>
+<li>CLI: ${code('npx @agentic-readiness/cli scan https://example.com')}</li>
+<li>Local MCP server for coding agents: ${code('npx -y @agentic-readiness/cli mcp')} over stdio</li>
+<li>Library: ${code("import { scan } from '@agentic-readiness/core'")}</li>
 </ul>
 </section>
 `;
