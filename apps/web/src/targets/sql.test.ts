@@ -10,6 +10,7 @@ import { recordFromScan } from './types.js';
 function storedScan(overrides: Partial<StoredScan> = {}): StoredScan {
   const result = {
     target: {
+      input_url: 'https://ceramics.example/',
       url: 'https://ceramics.example',
       platform: 'woocommerce',
       profile: 'woocommerce-store',

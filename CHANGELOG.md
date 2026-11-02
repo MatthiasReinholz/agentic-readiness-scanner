@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Readable `/sites/<host>` profiles for root URLs, with separate subdomain identities, retained immutable scan snapshots and history after full report expiry. Path/query scans return browser-only reports without result, history, target, monitoring or progress storage. One atomic host reservation limits new scans to one per minute across paths, HTTP, MCP and monitoring; root cache hits replay safely, denied scans return retry guidance and failures consume the minute. Redirected roots retain their submitted identity for rescan actions. Scope, privacy and legacy behavior are documented and regression-tested.
+
 - Server-rendered canonical, Open Graph and X metadata with branded 1200 × 630 PNG previews for the homepage, knowledge base and hosted reports. Connected schema.org entities describe the app, articles and actual stored report scores, with JSON exports for agents. Active reports now allow search indexing and assistant/social crawling; JSON and Markdown exports point to canonical HTML without duplicate indexing. Listed training crawlers retain their report restriction. Build-only image generation, regression coverage and a sharing-metadata guide document the policy and maintenance.
 
 - Knowledge base navigation: a journey rail of the nine sections (find, get in, read, connect, catalog, products, identify, trust, buy) with the current one lit, a strip of every check as a cell with the current check and section highlighted, a sidebar with the section's checks and the article outline that follows your scroll position, a reading progress bar, previous and next across sections, and on the index a filter by text and priority (press `/`).
@@ -17,10 +19,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- Shared Signal Network design across the homepage, reports, knowledge base, history, monitoring and error pages: full-width Woo-purple headers, an uppercase lime-accented homepage headline, responsive scan controls, an icon theme toggle with dark mode by default, accessible links and focus states, and pauseable background signals that respect reduced motion. Offline reports retain the same self-contained design and the existing progress-to-report handoff; check maps add verdict symbols and larger targets.
+- Removed the homepage animation pause control and its saved preference; background signals continue to respect OS reduced motion and active scan state. The hero copy now reads “Built WooCommerce first. Works on any store.”
+
+- Shared Signal Network design across the homepage, reports, knowledge base, history, monitoring and error pages: full-width Woo-purple headers, an uppercase lime-accented homepage headline, responsive scan controls, an icon theme toggle with dark mode by default, accessible links and focus states, and background signals that respect reduced motion. Offline reports retain the same self-contained design and the existing progress-to-report handoff; check maps add verdict symbols and larger targets.
 
 - Hosts are stored without a leading `www.`: `www.example.com` and `example.com` share one cooldown, one history, one badge and one monitoring subscription. Other subdomains keep their own key. Rows stored before are moved to the bare host on first use, `/h/www.example.com` redirects to `/h/example.com`, and the scan still fetches the URL that was given.
-- A host is scanned at most once every five minutes by default (`TARGET_COOLDOWN_SECONDS` is now 300, was 120).
 - The footer reads "An experiment by Matthias Reinholz" with links to the knowledge base and the source, without the licence line, and the home page no longer repeats that nothing requires credentials.
 
 ### Fixed

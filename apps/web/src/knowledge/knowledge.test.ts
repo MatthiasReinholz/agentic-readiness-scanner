@@ -157,7 +157,7 @@ describe('knowledge base', () => {
     expect(home).not.toContain('Automattic');
     expect(home).not.toContain('open data');
     expect(home).not.toContain('Nothing requires credentials');
-    expect(home).toContain('at most once every 5 minutes');
+    expect(home).toContain('At most one new scan per host every 1 minute');
   });
 
   it('keeps the old /knowledge links working', async () => {

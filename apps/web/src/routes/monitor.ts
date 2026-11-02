@@ -6,6 +6,7 @@ import type { MonitoringService } from '../monitoring/service.js';
 import { normalizeEmail } from '../monitoring/tokens.js';
 import { monitorPage } from '../pages/monitor.js';
 import type { ResultStore } from '../store/types.js';
+import { isRootScan } from '../scan-scope.js';
 
 export interface MonitorRouteDependencies {
   config: AppConfig;
@@ -28,6 +29,7 @@ export function createMonitorRoutes(deps: MonitorRouteDependencies): Hono {
     const email = typeof form.email === 'string' ? normalizeEmail(form.email) : null;
     const scan = ID.test(scanId) ? await scans.get(scanId) : null;
     if (!scan) return c.html(monitorPage(config, 'invalid'), 404);
+    if (!isRootScan(scan)) return c.html(monitorPage(config, 'invalid'), 400);
     const reportUrl = `${config.baseUrl}/r/${scan.id}`;
     if (!email) {
       return c.html(monitorPage(config, 'invalid', { host: scan.host, reportUrl }), 400);

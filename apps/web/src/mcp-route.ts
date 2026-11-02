@@ -15,13 +15,14 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
   const route = new Hono();
   const { history } = deps;
   route.all('/', async (c) => {
+    c.header('Cache-Control', 'no-store');
     const server = createMcpServer({
       scanner: async (url, profile) => {
-        const { scan: stored } = await scanOrReuse(deps, {
+        const outcome = await scanOrReuse(deps, {
           url,
           ...(profile !== undefined ? { profile } : {}),
         });
-        return stored.result;
+        return outcome.persistence === 'stored' ? outcome.scan.result : outcome.result;
       },
       ...(history
         ? {
@@ -39,7 +40,10 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
     // No sessionIdGenerator: stateless mode, one transport per request.
     const transport = new WebStandardStreamableHTTPServerTransport({});
     await server.connect(transport);
-    return transport.handleRequest(c.req.raw);
+    const response = await transport.handleRequest(c.req.raw);
+    // The SDK sets its own cache headers on SSE; enforce this on the actual response.
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   });
   return route;
 }

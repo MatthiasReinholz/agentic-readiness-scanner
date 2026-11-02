@@ -1,5 +1,11 @@
-import { renderBadge, renderHtml, renderJson, renderMarkdown } from '@agentic-readiness/core';
-import { Hono } from 'hono';
+import {
+  escapeHtml,
+  renderBadge,
+  renderHtml,
+  renderJson,
+  renderMarkdown,
+} from '@agentic-readiness/core';
+import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
 import type { AppConfig } from '../config.js';
@@ -9,8 +15,10 @@ import { entryContaining } from '../history/types.js';
 import { hostKey } from '../hosts.js';
 import { SCAN_ID } from '../ids.js';
 import type { MonitoringService } from '../monitoring/service.js';
-import { historyJson, historyPage, sincePreviousPanel } from '../pages/history.js';
+import { historyJson, historyPage, sincePreviousPanel, withinRetention } from '../pages/history.js';
 import { homePage } from '../pages/home.js';
+import { disposableReport } from '../pages/disposable-report.js';
+import { isRootInput, isRootScan, profileHost, siteProfilePath } from '../scan-scope.js';
 import { hostedFooterHtml, hostedHead } from '../pages/layout.js';
 import { MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
 import { PROGRESS_TOKEN, type ProgressFinal } from '../progress/types.js';
@@ -27,15 +35,17 @@ export interface ReportRouteDependencies {
   monitoring: MonitoringService | null;
 }
 
-function reportLinks(config: AppConfig, stored: StoredScan) {
-  const { id, host } = stored;
-  const metadata = reportMetadata(config, stored);
+function reportLinks(config: AppConfig, stored: StoredScan, path = `/r/${stored.id}`) {
+  const { host } = stored;
+  const metadata = reportMetadata(config, stored, path);
+  const url = `${config.baseUrl}${path}`;
+  const latest = path.startsWith('/sites/');
   return {
     title: metadata.title,
     description: metadata.description,
-    reportUrl: `${config.baseUrl}/r/${id}`,
-    jsonUrl: `${config.baseUrl}/r/${id}.json`,
-    markdownUrl: `${config.baseUrl}/r/${id}.md`,
+    reportUrl: url,
+    jsonUrl: latest ? `${url}/report.json` : `${url}.json`,
+    markdownUrl: latest ? `${url}/report.md` : `${url}.md`,
     badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
     appName: config.appName,
     homeUrl: `${config.baseUrl}/`,
@@ -51,21 +61,103 @@ export const HISTORY_PAGE_ENTRIES = 200;
 export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies): Hono {
   const { config, store } = deps;
   const app = new Hono();
+  const now = deps.now ?? (() => new Date());
+
+  async function serveReport(
+    c: Context,
+    stored: StoredScan,
+    format: string,
+    path = `/r/${stored.id}`,
+  ): Promise<Response> {
+    const links = reportLinks(config, stored, path);
+    c.header(
+      'Link',
+      `<${links.reportUrl}>; rel="canonical", <${links.jsonUrl}>; rel="alternate"; type="application/json", <${links.markdownUrl}>; rel="alternate"; type="text/markdown"`,
+    );
+    c.header(
+      'X-Robots-Tag',
+      format === 'html' ? 'index, follow, max-image-preview:large' : 'noindex, follow',
+    );
+    c.header('Cache-Control', 'public, max-age=60');
+    c.header('Vary', 'Accept');
+    if (format === 'json')
+      return c.body(renderJson(stored.result), 200, {
+        'content-type': 'application/json; charset=utf-8',
+      });
+    if (format === 'md')
+      return c.body(renderMarkdown(stored.result, { reportUrl: links.reportUrl }), 200, {
+        'content-type': 'text/markdown; charset=utf-8',
+      });
+    const entries = deps.history
+      ? await deps.history.forHost(stored.host, HISTORY_PAGE_ENTRIES)
+      : [];
+    const progress =
+      entries.length > 0
+        ? sincePreviousPanel(stored.host, entries, stored, entryContaining(entries, stored))
+        : '';
+    const root = isRootScan(stored);
+    const profile = root
+      ? `<p class="mt-5 text-sm text-muted-foreground">Store profile: <a class="text-primary hover:underline" href="${siteProfilePath(stored.host)}">${escapeHtml(stored.host)}</a> · <a class="text-primary hover:underline" href="/r/${stored.id}">This scan's snapshot</a> · <a class="text-primary hover:underline" href="/h/${encodeURIComponent(stored.host)}">History</a></p>`
+      : '';
+    const monitorSlots =
+      monitoring && root
+        ? { endHtml: monitorDialog(config, stored), scripts: [MONITOR_SCRIPT] }
+        : {};
+    return c.html(
+      renderHtml(stored.result, {
+        ...links,
+        afterScoresHtml: `${profile}${progress}${monitoring && root ? monitorPanel(config, stored) : ''}`,
+        ...monitorSlots,
+      }),
+    );
+  }
+
+  // Stable host identity and immutable snapshot identity are deliberately separate.
+  async function serveProfile(c: Context, format: string): Promise<Response> {
+    c.header('Vary', 'Accept');
+    const host = profileHost(c.req.param('host') ?? '');
+    if (!host) return c.notFound();
+    const path = siteProfilePath(host);
+    if (host !== c.req.param('host'))
+      return c.redirect(`${path}${format === 'html' ? '' : `/report.${format}`}`, 301);
+    const stored = await store.latestForHost(host);
+    if (stored && isRootScan(stored) && withinRetention(config, stored.createdAt, now()))
+      return serveReport(c, stored, format, path);
+    if (format !== 'html') return c.notFound();
+    const entries = deps.history ? await deps.history.forHost(host, HISTORY_PAGE_ENTRIES) : [];
+    if (!entries.length) return c.notFound();
+    c.header('Cache-Control', 'public, max-age=60');
+    return c.html(historyPage(config, { host, entries, now: now(), view: 'profile' }));
+  }
+  app.get('/sites/:host', (c) =>
+    serveProfile(c, c.req.header('accept')?.includes('text/markdown') ? 'md' : 'html'),
+  );
+  app.get('/sites/:host/report.json', (c) => serveProfile(c, 'json'));
+  app.get('/sites/:host/report.md', (c) => serveProfile(c, 'md'));
 
   app.post('/scan', async (c) => {
-    const form = await c.req.parseBody();
+    c.header('Cache-Control', 'no-store');
+    c.header('X-Robots-Tag', 'noindex');
     try {
+      const form = await c.req.parseBody();
       const request = validateScanRequest(form);
-      const { scan: stored } = await scanOrReuse(deps, request);
-      return c.redirect(`/r/${stored.id}`, 303);
+      const outcome = await scanOrReuse(deps, request);
+      if (outcome.persistence === 'disposable')
+        return c.html(disposableReport(config, outcome.result));
+      return c.redirect(siteProfilePath(outcome.scan.host), 303);
     } catch (error) {
-      if (error instanceof ScanRequestError)
-        return c.html(homePage(config, error.message), error.status as 400 | 503);
-      throw error;
+      if (error instanceof ScanRequestError) {
+        if (error.retryAfterSeconds) c.header('Retry-After', String(error.retryAfterSeconds));
+        return c.html(homePage(config, error.message), error.status as 400 | 429 | 503);
+      }
+      console.error('[scan]', error instanceof Error ? error.name : 'UnexpectedError');
+      return c.html(homePage(config, 'The scan failed unexpectedly. Try again in a minute.'), 500);
     }
   });
 
   app.post('/api/scan', async (c) => {
+    c.header('Cache-Control', 'no-store');
+    c.header('X-Robots-Tag', 'noindex');
     let body: unknown;
     try {
       body = await c.req.json();
@@ -76,17 +168,28 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
       const request = validateScanRequest(
         body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
       );
-      const { scan: stored, reused } = await scanOrReuse(deps, request);
+      const outcome = await scanOrReuse(deps, request);
+      if (outcome.persistence === 'disposable') {
+        return c.json({ persistence: 'disposable', reused: false, result: outcome.result });
+      }
+      const { scan: stored, reused } = outcome;
       return c.json({
+        persistence: 'stored',
         id: stored.id,
+        profile_id: stored.host,
+        profile_url: `${config.baseUrl}${siteProfilePath(stored.host)}`,
+        snapshot_url: `${config.baseUrl}/r/${stored.id}`,
         reused,
-        report_url: `${config.baseUrl}/r/${stored.id}`,
+        report_url: `${config.baseUrl}${siteProfilePath(stored.host)}`,
         result: stored.result,
       });
     } catch (error) {
-      if (error instanceof ScanRequestError)
-        return c.json({ error: error.message }, error.status as 400 | 503);
-      throw error;
+      if (error instanceof ScanRequestError) {
+        if (error.retryAfterSeconds) c.header('Retry-After', String(error.retryAfterSeconds));
+        return c.json({ error: error.message }, error.status as 400 | 429 | 503);
+      }
+      console.error('[scan]', error instanceof Error ? error.name : 'UnexpectedError');
+      return c.json({ error: 'The scan failed unexpectedly. Try again in a minute.' }, 500);
     }
   });
 
@@ -116,14 +219,18 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         ? (body as Record<string, unknown>).progress_token
         : undefined;
     const token =
-      typeof rawToken === 'string' && PROGRESS_TOKEN.test(rawToken) && deps.progress
+      isRootInput(request.url) &&
+      typeof rawToken === 'string' &&
+      PROGRESS_TOKEN.test(rawToken) &&
+      deps.progress
         ? rawToken
         : null;
     c.header('cache-control', 'no-store, no-transform');
+    c.header('X-Robots-Tag', 'noindex');
     // The platform's nginx front buffers proxied responses unless told otherwise; without
     // this every event would arrive at once when the scan ends.
     c.header('x-accel-buffering', 'no');
-    return streamSSE(c, async (stream) => {
+    const response = streamSSE(c, async (stream) => {
       let open = true;
       stream.onAbort(() => {
         open = false;
@@ -173,29 +280,35 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         if (open) pending = pending.then(() => stream.write(': keep-alive\n\n'));
       }, 5000);
       try {
-        const { scan: stored, reused } = await scanOrReuse(deps, request, (progress) => {
+        const outcome = await scanOrReuse(deps, request, (progress) => {
           emit(progress);
         });
+        const result = outcome.persistence === 'stored' ? outcome.scan.result : outcome.result;
         await finish('done', {
-          id: stored.id,
-          reused,
-          report_url: `/r/${stored.id}`,
-          host: stored.host,
-          scanned_at: stored.createdAt,
-          level: stored.result.level,
+          persistence: outcome.persistence,
+          ...(outcome.persistence === 'stored'
+            ? {
+                id: outcome.scan.id,
+                report_url: siteProfilePath(outcome.scan.host),
+                host: outcome.scan.host,
+              }
+            : { result }),
+          reused: outcome.reused,
+          scanned_at: result.scanned_at,
+          level: result.level,
           scores: {
-            ingestion: stored.result.scores.ingestion,
-            commerce: stored.result.scores.commerce,
+            ingestion: result.scores.ingestion,
+            commerce: result.scores.commerce,
           },
-          requests: stored.result.requests,
-          duration_ms: stored.result.duration_ms,
-          results: stored.result.results.map((item) => ({ id: item.id, verdict: item.verdict })),
+          requests: result.requests,
+          duration_ms: result.duration_ms,
+          results: result.results.map((item) => ({ id: item.id, verdict: item.verdict })),
         });
       } catch (error) {
         if (error instanceof ScanRequestError)
           await finish('failure', { message: error.message, status: error.status });
         else {
-          console.error('[scan-stream]', error);
+          console.error('[scan-stream]', error instanceof Error ? error.name : 'UnexpectedError');
           const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           await finish('failure', {
             message: `The scan failed unexpectedly (${reason.slice(0, 200)}). Try again in a minute.`,
@@ -207,6 +320,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         await pending.catch(() => undefined);
       }
     });
+    // streamSSE sets no-cache itself; disposable payloads require the stronger no-store policy.
+    response.headers.set('Cache-Control', 'no-store, no-transform');
+    return response;
   });
 
   // What a scan in flight has done so far, for the page's poll: events after `after`, and
@@ -232,53 +348,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     const match = /^([0-9a-f]{16})(?:\.(json|md))?$/.exec(file);
     if (!match?.[1] || !SCAN_ID.test(match[1])) return c.notFound();
     const stored = await store.get(match[1]);
-    if (!stored) return c.notFound();
+    if (!stored || !withinRetention(config, stored.createdAt, now())) return c.notFound();
     const format = match[2] ?? (c.req.header('accept')?.includes('text/markdown') ? 'md' : 'html');
-    const reportUrl = `${config.baseUrl}/r/${stored.id}`;
-    c.header(
-      'Link',
-      `<${reportUrl}>; rel="canonical", <${reportUrl}.json>; rel="alternate"; type="application/json", <${reportUrl}.md>; rel="alternate"; type="text/markdown"`,
-    );
-    // Index the canonical report; machine-readable exports remain accessible without duplicate search entries.
-    c.header(
-      'X-Robots-Tag',
-      format === 'html' ? 'index, follow, max-image-preview:large' : 'noindex, follow',
-    );
-    c.header('cache-control', 'public, max-age=300');
-    // The bare URL negotiates on Accept, so caches must key on it or Markdown clients get HTML.
-    c.header('vary', 'Accept');
-    if (format === 'json')
-      return c.body(renderJson(stored.result), 200, {
-        'content-type': 'application/json; charset=utf-8',
-      });
-    if (format === 'md')
-      return c.body(
-        renderMarkdown(stored.result, { reportUrl: `${config.baseUrl}/r/${stored.id}` }),
-        200,
-        {
-          'content-type': 'text/markdown; charset=utf-8',
-          vary: 'Accept',
-        },
-      );
-    // Recent entries are enough to place this scan and show what changed before it.
-    const entries = deps.history ? await deps.history.forHost(stored.host, 20) : [];
-    const progress =
-      entries.length > 0
-        ? sincePreviousPanel(stored.host, entries, stored, entryContaining(entries, stored))
-        : '';
-    const monitorSlots = monitoring
-      ? {
-          endHtml: monitorDialog(config, stored),
-          scripts: [MONITOR_SCRIPT],
-        }
-      : {};
-    return c.html(
-      renderHtml(stored.result, {
-        ...reportLinks(config, stored),
-        afterScoresHtml: `${progress}${monitoring ? monitorPanel(config, stored) : ''}`,
-        ...monitorSlots,
-      }),
-    );
+    return serveReport(c, stored, format);
   });
 
   // History per host: one row per distinct state, never purged.

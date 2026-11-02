@@ -36,7 +36,7 @@ export function homePage(config: AppConfig, error?: string): string {
   const hero = `
 <p class="hero-eyebrow">The next customer could be an agent</p>
 <h1 class="hero-headline">Is your store ready<br>for <em class="hero-highlight" data-text="AI agents?">AI agents?</em></h1>
-<p class="hero-description">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WordPress-first; works on any store.</p>
+<p class="hero-description">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WooCommerce first. Works on any store.</p>
 ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
 <form method="post" action="/scan" id="scan-form" class="hero-form">
 <input class="${input}" type="url" name="url" placeholder="https://example.com" required aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
@@ -44,7 +44,7 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" rol
 <button type="submit" class="${button({ size: 'lg' })} hero-submit">Scan my store${icon('arrow-right')}</button>
 </form>
 <p class="hero-trust"><span>Public signals only</span><span>No credentials needed</span><span>A fix for every finding</span></p>
-<p class="hero-policy">Up to ${config.scanBudget} requests per scan with the user agent <code>AgenticReadinessScanner</code>. A target is scanned at most once every ${Math.round(config.targetCooldownSeconds / 60)} minutes; results are kept ${config.retentionDays} days.</p>
+<p class="hero-policy">Up to ${config.scanBudget} requests per scan with the user agent <code>AgenticReadinessScanner</code>. At most one new scan per host every ${Math.round(config.targetCooldownSeconds / 60)} minute${config.targetCooldownSeconds === 60 ? '' : 's'}, across all paths. Root URLs have public profiles and reports kept ${config.retentionDays} days. Paths and query URLs run once; results stay in this browser tab.</p>
 `;
   const body = `
 ${scanConsoleMarkup()}
@@ -55,8 +55,8 @@ ${scanConsoleMarkup()}
 <section class="mt-11">
 <h2 class="mb-3.5 text-lg font-semibold tracking-tight">For agents and pipelines</h2>
 <ul class="list-disc space-y-1.5 pl-5 text-muted-foreground">
-<li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}, or append ${code('.json')} to any report URL</li>
-<li>Markdown: append ${code('.md')} to any report URL, or read <a href="/llms.txt">/llms.txt</a></li>
+<li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}. Root profiles offer ${code('/report.json')}; snapshot URLs offer ${code('.json')}. Path scans return the result directly.</li>
+<li>Markdown: use ${code('/report.md')} on a root profile or ${code('.md')} on a snapshot, or read <a href="/llms.txt">/llms.txt</a></li>
 <li>MCP: Streamable HTTP at ${code('/mcp')}, advertised in <a href="/.well-known/mcp/server-card.json">the server card</a></li>
 <li>CLI: ${code('npx @agentic-readiness/cli scan https://example.com')}</li>
 <li>Local MCP server for coding agents: ${code('npx -y @agentic-readiness/cli mcp')} over stdio</li>

@@ -39,7 +39,12 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       description:
         'Scans a public store URL for agentic ingestion and agentic commerce readiness. Returns the versioned result object: level, scores, one entry per check with verdict, evidence and fix. Public signals only; no credentials.',
       inputSchema: {
-        url: z.string().min(1).describe('Store URL or hostname, e.g. https://example.com'),
+        url: z
+          .string()
+          .min(1)
+          .describe(
+            'Store URL or hostname, e.g. https://example.com. On the hosted app, root URLs create public profiles; path/query URLs return one-time results without saved reports.',
+          ),
         profile: z
           .enum(PROFILE_IDS as [string, ...string[]])
           .optional()

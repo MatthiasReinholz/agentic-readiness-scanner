@@ -41,6 +41,8 @@ export interface HtmlReportOptions {
   /** Host-specific document metadata; standalone reports retain descriptive defaults. */
   title?: string;
   description?: string;
+  /** A host may show the submitted starting URL instead of the resolved origin. Escaped as text. */
+  displayUrl?: string;
   /** Links shown in the footer. */
   jsonUrl?: string;
   markdownUrl?: string;
@@ -274,7 +276,7 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(result.target.url)}</h1><p class="hero-meta">Platform ${escapeHtml(result.target.platform)} · profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(options.displayUrl ?? result.target.url)}</h1><p class="hero-meta">Platform ${escapeHtml(result.target.platform)} · profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">

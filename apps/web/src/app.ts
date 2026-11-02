@@ -18,6 +18,7 @@ import { createInternalRoutes } from './routes/internal.js';
 import { createMonitorRoutes } from './routes/monitor.js';
 import { createReportRoutes } from './routes/report.js';
 import { scanOrReuse, type ScanDependencies } from './scan-service.js';
+import { isRootInput } from './scan-scope.js';
 
 export interface AppDependencies extends ScanDependencies {
   /** Monitoring needs both a store and a mailer, and a mail provider in the config. */
@@ -37,7 +38,12 @@ function createMonitoring(deps: AppDependencies): MonitoringService | null {
     store: deps.monitors,
     mailer: deps.mailer,
     latestScan: (host) => deps.store.latestForHost(host),
-    rescan: (url) => scanOrReuse(deps, { url }).then((outcome) => outcome.scan),
+    rescan: async (url) => {
+      if (!isRootInput(url)) throw new Error('Monitoring requires a root URL');
+      const outcome = await scanOrReuse(deps, { url });
+      if (outcome.persistence !== 'stored') throw new Error('Monitoring requires a root URL');
+      return outcome.scan;
+    },
     ...(deps.now ? { now: deps.now } : {}),
   });
 }
@@ -59,7 +65,9 @@ function llmsTxt(config: AppConfig): string {
 - [JSON API](${config.baseUrl}/): POST {"url": "https://example.com"} to ${config.baseUrl}/api/scan and receive the result object (GET is not served)
 - [MCP server](${config.baseUrl}/mcp): Streamable HTTP with tools scan_store, get_history, get_fix, explain_check and list_checks; server card at ${config.baseUrl}/mcp/server-card, listed in ${config.baseUrl}/.well-known/ai-catalog.json
 - [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
-- Reports: use the report_url returned by a scan as the canonical citation. Append .json for the versioned result or .md for Markdown; HTML includes structured data for the scan's actual scores. Active reports are public and search-indexable, and are removed under the ${config.retentionDays}-day retention policy.
+- Root profiles: use profile_url (or report_url) returned by a root scan, /sites/<host>, for the latest report. Use /sites/<host>/report.json or /report.md for its exports. Profile reads never run a scan. Subdomains are separate; www and the bare host share one profile.
+- Snapshots: snapshot_url, /r/<id>, identifies one immutable scan; append .json or .md for exports. Full results expire under the ${config.retentionDays}-day retention policy; stable profiles retain recorded history. Stored reports and profiles are public and search-indexable.
+- One-time scans: a submitted path, query or non-default port returns persistence="disposable" and the result directly, with no report/profile URL. It is a site scan started at that URL, including origin-wide signals and sampled pages, not a strict subtree audit. No result, history, monitoring or progress record is saved. In the web UI the result stays in the browser tab.
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
 ## Knowledge base
@@ -76,7 +84,7 @@ ${knowledgeIndexLines(config)}
 ## How the scanner behaves on your site
 
 - Identifies itself as AgenticReadinessScanner/${SCANNER_VERSION} on every request and never sends another agent's user agent
-- Honours robots.txt for that token, makes at most ${config.scanBudget} sequential requests per scan, and scans a host at most once per ${Math.round(config.targetCooldownSeconds / 60)} minutes
+- Honours robots.txt for that token, makes at most ${config.scanBudget} sequential requests per scan, and starts at most one scan per host every ${config.targetCooldownSeconds} seconds across all paths and interfaces. Root cache hits replay a stored root result without fetching. Cooldown rejections return 429 and retry guidance; failed scans consume the minute too. Only the host and reservation timestamp/token are retained for this admission limit, not path data.
 `;
 }
 
@@ -129,6 +137,7 @@ function robotsTxt(baseUrl: string): string {
     ...TRAINING_CRAWLERS.map((token) => `User-agent: ${token}`),
     'Allow: /',
     'Disallow: /r/',
+    'Disallow: /sites/',
     ...disallow,
     '',
     '# The crawlers behind AI answers and the fetchers assistants use (checks A2.2 and A2.5).',
@@ -244,6 +253,7 @@ export function createApp(deps: AppDependencies): Hono {
       ...(deps.targets ? { targets: deps.targets } : {}),
       ...(deps.history ? { history: deps.history } : {}),
       ...(deps.progress ? { progress: deps.progress } : {}),
+      ...(deps.limiter ? { limiter: deps.limiter } : {}),
       ...(deps.monitors ? { monitors: deps.monitors } : {}),
     }),
   );

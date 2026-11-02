@@ -25,21 +25,19 @@ feature or rich result. Reports continue to describe public signals only.
 
 ## Report indexing and retention
 
-Active report HTML is **shareable, agent-readable and search-indexable**. Its
-canonical URL is `/r/<id>` on the scanner deployment, never the scanned store.
+Stored root-report HTML and `/sites/<host>` profiles are **shareable, agent-readable and search-indexable**. Path/query scans are browser-only, carry no canonical/social/schema metadata and use `no-store`/`noindex`; see [the scope decision](decisions/0014-root-profiles-and-disposable-scans.md). A snapshot's canonical URL is `/r/<id>` and a profile uses `/sites/<host>` on the scanner deployment, never the scanned store.
 Both HTML metadata and `X-Robots-Tag` allow indexing and large image previews.
 JSON and Markdown exports remain accessible, link to the canonical HTML report and
 send `noindex, follow` to avoid duplicate search entries. Negotiated responses retain
 `Vary: Accept`. A missing or removed report returns 404 without report metadata.
 
 The wildcard, listed search crawlers and listed user-triggered fetchers can read
-reports and `/social/` images. Listed training crawlers retain their `/r/` restriction.
+reports and `/social/` images. Listed training crawlers retain their `/r/` and `/sites/` restrictions.
 The wildcard usage preference still permits training; this is not a universal
 training prohibition. Existing history, API, internal and monitoring restrictions
 remain. Robots rules are crawler guidance, not access control.
 
-Reports expire under the existing configured retention and cleanup policy. They are
-indexable when linked or shared, but are not enumerated in the sitemap. The sitemap
+Full reports expire under the configured retention policy, enforced at reads and by cleanup. Profiles retain recorded history and label expired evidence. Dynamic profiles and snapshots are indexable when linked or shared, but are not enumerated in the sitemap. The sitemap
 continues to list the homepage and durable knowledge pages. Search engines and social
 services control when they refresh or remove cached previews after expiry.
 

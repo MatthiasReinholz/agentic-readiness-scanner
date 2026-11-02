@@ -13,6 +13,7 @@ import { SqlMonitorStore } from './monitoring/sql.js';
 import { SqlProgressStore } from './progress/sql.js';
 import { SqlResultStore, type SqlDatabase } from './store/sql.js';
 import { SqlTargetRegistry } from './targets/sql.js';
+import { SqlScanLimiter } from './rate-limit/sql.js';
 
 interface FunctionsEnv extends Record<string, unknown> {
   DB: SqlDatabase;
@@ -29,16 +30,18 @@ function appFor(env: FunctionsEnv, requestUrl: string) {
   const store = new SqlResultStore(env.DB);
   const history = new SqlHistoryStore(env.DB);
   const mailer = createMailer(config.monitoring);
+  const limiter = new SqlScanLimiter(env.DB);
   const app = createApp({
     config,
     store,
+    limiter,
     targets: new SqlTargetRegistry(env.DB),
     history,
     progress: new SqlProgressStore(env.DB),
     monitors: new SqlMonitorStore(env.DB),
     ...(mailer ? { mailer } : {}),
   });
-  app.route('/mcp', createMcpRoute({ config, store, history }));
+  app.route('/mcp', createMcpRoute({ config, store, history, limiter }));
   cached = { app, db: env.DB };
   return app;
 }

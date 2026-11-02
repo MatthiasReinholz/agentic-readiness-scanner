@@ -7,31 +7,12 @@ export function signalNetwork(): string {
 </svg></div>`;
 }
 
-/** Pause affects decoration only; scan events and verdicts always continue updating. */
+/** Ambient decoration follows OS motion preferences and pauses during active scanning. */
 export const SIGNAL_NETWORK_SCRIPT = `(function(){
+  if(!window.matchMedia)return;
   var root=document.documentElement;
-  var buttons=document.querySelectorAll('[data-motion-toggle]');
-  if(!buttons.length||!window.matchMedia)return;
   var media=window.matchMedia('(prefers-reduced-motion: reduce)');
-  var paused=false;
-  try{paused=localStorage.getItem('ars-motion')==='paused'}catch(_){}
-  function paint(){
-    var off=paused||media.matches;
-    root.setAttribute('data-motion',off?'paused':'running');
-    buttons.forEach(function(button){
-      button.hidden=false;
-      button.disabled=media.matches;
-      button.setAttribute('aria-pressed',String(off));
-      button.textContent=media.matches?'Reduced motion':off?'Resume animation':'Pause animation';
-    });
-  }
-  buttons.forEach(function(button){
-    button.addEventListener('click',function(){
-      paused=!paused;
-      try{localStorage.setItem('ars-motion',paused?'paused':'running')}catch(_){}
-      paint();
-    });
-  });
+  function paint(){root.setAttribute('data-motion',media.matches?'paused':'running')}
   media.addEventListener('change',paint);
   paint();
 })();`;
