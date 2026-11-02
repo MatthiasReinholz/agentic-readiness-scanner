@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { ScanResultSchema } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
+import { BudgetedFetcher } from './http/budgeted-fetcher.js';
 import type { FetchFailure, FetchOptions, FetchedResponse, Fetcher } from './http/types.js';
 import { renderBadge, renderHtml, renderMarkdown } from './reporters/index.js';
 import type { ScanProgress } from './progress.js';
@@ -294,5 +295,36 @@ describe('scan progress events', () => {
       },
     });
     expect(result.level.value).toBe(5);
+  });
+});
+
+describe('a store that rate-limits the scanner while it resolves the target', () => {
+  it('still produces a report whose remaining checks say why they did not run', async () => {
+    const home =
+      '<html><head><title>Shop</title><meta name="generator" content="Shopify"></head><body><a href="/products/a">A</a><button>Add to cart</button></body></html>';
+    const fetcher = new BudgetedFetcher({
+      minIntervalMs: 0,
+      fetch: (url) => {
+        if (url === 'https://shop.example/')
+          return Promise.resolve(new Response(home, { headers: { 'content-type': 'text/html' } }));
+        if (url.endsWith('/robots.txt'))
+          return Promise.resolve(
+            new Response('User-agent: *\nAllow: /\nSitemap: https://shop.example/sitemap.xml\n'),
+          );
+        return Promise.resolve(
+          new Response('slow down', { status: 429, headers: { 'retry-after': '0' } }),
+        );
+      },
+    });
+    const result = await scan('https://shop.example/', { fetcher });
+    expect(result.target.platform).toBe('shopify');
+    expect(
+      result.warnings.some((w) =>
+        w.includes('policy page discovery was cut short: the store answered 429'),
+      ),
+    ).toBe(true);
+    const notRun = result.results.filter((item) => item.skip_reason === 'budget_exhausted');
+    expect(notRun.length).toBeGreaterThan(0);
+    expect(notRun[0]?.message).toMatch(/answered 429 Too Many Requests/);
   });
 });

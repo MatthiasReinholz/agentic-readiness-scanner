@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- A store that rate-limits the scanner while the target is being resolved (sitemaps, product discovery, Shopify's fallback policy pages) now gets a report whose remaining checks say they were not run because the store answered 429, instead of an internal error. Unexpected failures of a streamed scan name the error.
+
 ### Added
 
 - A live scan console on the home page: the scan streams from `POST /api/scan/stream` as server-sent events and the page animates what actually happens, the five phases, one grid cell and one radar blip per check verdict, the request counter against the budget, and a terminal log, then reveals the level and opens the report. A result reused within the cooldown is replayed from its stored verdicts. Spacefast holds streamed responses back until they end, so the scan request also writes its events to a `scan_progress` table and the page polls `GET /api/scan/progress/<token>` every 600 ms; events are numbered so the stream and the poll never apply one twice, and the cleanup cron removes progress older than an hour. Without JavaScript the form posts as before. The engine gains `ScanOptions.onProgress` (phase, target and check events with running request count and elapsed time).
