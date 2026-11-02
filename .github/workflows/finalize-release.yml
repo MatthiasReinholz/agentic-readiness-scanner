@@ -57,7 +57,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -100,16 +99,36 @@ jobs:
             git push origin "v${VERSION}"
           fi
 
+      # Two ways in, both publishing the exact tarballs attested above:
+      # - trusted publishing (OIDC): the repository variable NPM_TRUSTED_PUBLISHING is "true" and each
+      #   package on npmjs.com names this repository and this workflow file as its trusted publisher;
+      #   no secret, nothing expires, provenance is automatic.
+      # - a granular token in the NPM_TOKEN secret: only for the first publish of a package, which
+      #   must exist before a trusted publisher can be configured for it. Delete the token afterwards.
       - name: Publish npm packages
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+          VERSION: ${{ steps.version.outputs.value }}
         run: |
           set -euo pipefail
-          if [ -z "${NODE_AUTH_TOKEN}" ]; then
-            echo "NPM_TOKEN is not set; skipping npm publish."
+          if [ -n "${NPM_TOKEN}" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            echo "Publishing with the NPM_TOKEN secret (first publish only)."
+          elif [ "${TRUSTED}" = "true" ]; then
+            echo "Publishing through npm trusted publishing (OIDC)."
+          else
+            echo "Neither NPM_TRUSTED_PUBLISHING nor NPM_TOKEN is set; skipping npm publish."
             exit 0
           fi
-          pnpm -r --filter '@agentic-readiness/core' --filter '@agentic-readiness/cli' publish --access public --provenance --no-git-checks
+          # Trusted publishing needs npm 11.5.1 or later.
+          if ! node -e 'const [a,b,c]=process.argv[1].split(".").map(Number);process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"; then
+            npm install -g npm@11
+          fi
+          npm --version
+          for pkg in core cli; do
+            npm publish ".release/agentic-readiness-${pkg}-${VERSION}.tgz" --access public --provenance
+          done
 
       - name: Create GitHub release
         env:
