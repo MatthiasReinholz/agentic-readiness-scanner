@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- On a multi-market site the scan samples the market the owner typed: the product sitemap whose name carries the input URL's locale (ikea.com/us/en/ → `prod-en-US_1.xml`, not the first child in the index) is fetched first, product URLs under that path win, and the report warns when the sample had to come from another market.
+
 ## [0.5.0] - 2026-11-01
 
 ### Added
