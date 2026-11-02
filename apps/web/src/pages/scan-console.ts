@@ -3,7 +3,10 @@
  * /api/scan/stream and animates what the scanner reports as it happens: the five phases,
  * one radar blip and one grid cell per check verdict, a request counter against the
  * budget, and a terminal log. Nothing in it is decoration over a spinner: every cell that
- * lights up is a check the scanner decided. Without JavaScript or streaming the form posts
+ * lights up is a check the scanner decided. The platform holds streamed responses back
+ * until they end, so the page also polls /api/scan/progress/<token>, which the scan request
+ * writes as it goes; events carry a sequence number so neither source applies one twice.
+ * Without JavaScript the form posts
  * to /scan as before, and a dropped stream falls back to that path too.
  */
 import { catalog } from '@agentic-readiness/catalog';
@@ -96,7 +99,7 @@ export function scanConsoleMarkup(): string {
  */
 export const SCAN_CONSOLE_SCRIPT = `(function(){
 var form=document.getElementById('scan-form');var box=document.getElementById('scan-console');
-if(!form||!box||!window.fetch||!window.ReadableStream||!window.TextDecoder)return;
+if(!form||!box||!window.fetch||!window.ReadableStream||!window.TextDecoder||!window.crypto||!crypto.getRandomValues)return;
 var $=function(id){return document.getElementById(id)};
 var QUIPS={
 home:['Knocking on the front door. Politely, with a name tag.','User agent: AgenticReadinessScanner. No disguises today.','Following redirects like a well-trained crawler.'],
@@ -105,7 +108,7 @@ sitemap:['Unfolding the sitemap. It is always bigger than it looks.','Gunzipping
 sample:['Picking product pages at random. Deterministically. Do not ask.','The return policy is always in the footer. Always.','Choosing the market you typed, not the one listed first.'],
 checks:['Counting GTIN check digits. Mod 10, no calculator.','Asking /.well-known/ucp whether anyone is home.','Parsing JSON-LD. Someone always forgets a comma.','Measuring the HTML against Googlebot’s 2 MB of patience.','Not impersonating Googlebot. We checked.','Being very nice to the rate limiter.','Reading the shipping policy so you do not have to.','Matching the markup price against the visible price.','Looking for a doctype. It is 2026 and we still look.','Checking whether an agent could actually buy something here.']};
 var NOTE={done:'Opening your report',reused:'Scanned a moment ago, replaying the result'};
-var started=0,timer=null,quipTimer=null,phase='',checks=0,total=${catalog.checks.length},done=false,quipIndex=0;
+var started=0,timer=null,quipTimer=null,pollTimer=null,token='',lastSeq=0,phase='',checks=0,total=${catalog.checks.length},done=false,quipIndex=0;
 function pad(n){return (n<10?'0':'')+n.toFixed(2)}
 function stamp(){return pad((Date.now()-started)/1000)}
 function log(parts){var line=document.createElement('div');var t=document.createElement('span');t.className='sc-t';t.textContent='['+stamp()+'] ';line.appendChild(t);parts.forEach(function(p){var s=document.createElement('span');if(p[1])s.className=p[1];s.textContent=p[0];line.appendChild(s)});var l=$('sc-log');l.appendChild(line);while(l.childNodes.length>40)l.removeChild(l.firstChild)}
@@ -123,7 +126,7 @@ function onProgress(e){$('sc-requests').textContent=e.requests+'/'+e.budget;
 if(e.type==='phase'){var r=PH[e.phase];if(r){target(r[0],r[1]);shown=Math.max(shown,r[0])}log([[e.detail,'']]);var order=['home','robots','sitemap','sample','checks'];setPhase(order[order.indexOf(e.phase)+1]||'checks')}
 else if(e.type==='target'){total=e.checks;setPhase('checks');$('sc-status').textContent='Running '+e.checks+' checks'+(e.platform==='unknown'?'':' on a '+e.platform+' store')+' · profile '+e.profile.replace(/-/g,' ');target(20,24);log([['target ','sc-t'],[e.origin+' · '+e.products+' product page(s) · '+e.policies+' policy page(s)','']])}
 else if(e.type==='check'){checks=e.index;$('sc-checks').textContent=e.index+'/'+e.total;cell(e.id,e.verdict);if(e.verdict!=='skip'||Math.random()<0.4)blip(e.verdict);var pr=20+80*e.index/e.total;target(pr,Math.min(99,pr+80/e.total));shown=Math.max(shown,pr);var t=TAG[e.verdict]||TAG.skip;var parts=[[t[0]+' ',t[1]],[e.id+' ','sc-t'],[e.title,'']];if((e.verdict==='fail'||e.verdict==='warn')&&e.message)parts.push([' — '+e.message,'sc-t']);log(parts)}}
-function finish(d){done=true;box.setAttribute('aria-busy','false');clearInterval(quipTimer);var replay=d.reused?d.results.filter(function(r){var el=box.querySelector('.sc-cell[data-id="'+r.id+'"]');return el&&!el.getAttribute('data-v')}):[];var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function finish(d){done=true;clearTimeout(pollTimer);box.setAttribute('aria-busy','false');clearInterval(quipTimer);var replay=d.reused?d.results.filter(function(r){var el=box.querySelector('.sc-cell[data-id="'+r.id+'"]');return el&&!el.getAttribute('data-v')}):[];var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var step=reduce?0:Math.max(8,Math.min(30,900/Math.max(1,replay.length)));
 if(d.reused){$('sc-status').textContent=NOTE.reused;setPhase('checks');$('sc-requests').textContent=String(d.requests);$('sc-elapsed').textContent=(d.duration_ms/1000).toFixed(1)+' s';log([['scanned at '+d.scanned_at.replace('T',' ').slice(0,19)+' UTC, reused within the cooldown','sc-t']])}
 var i=0;function next(){if(i<replay.length){var r=replay[i++];cell(r.id,r.verdict);if(r.verdict!=='skip')blip(r.verdict);if(r.verdict!=='pass'&&r.verdict!=='skip'){var c=box.querySelector('.sc-cell[data-id="'+r.id+'"]');var t=TAG[r.verdict];log([[t[0]+' ',t[1]],[c?c.title:r.id,'']])}shown=20+80*i/replay.length;paint();$('sc-checks').textContent=i+'/'+replay.length;setTimeout(next,step);return}
@@ -133,20 +136,22 @@ $('sc-status').textContent=NOTE.done;$('sc-host').textContent='Level '+d.level.v
 log([['done ','sc-pass'],['level '+d.level.value+' · ingestion '+d.scores.ingestion+(d.scores.commerce===null?'':' · commerce '+d.scores.commerce)+' · '+d.requests+' requests in '+(d.duration_ms/1000).toFixed(1)+' s','']]);
 $('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='› Opening the report…';setTimeout(function(){location.href=d.report_url},reduce?400:1500)}
 next()}
-function fail(msg){done=true;clearInterval(quipTimer);clearInterval(timer);box.setAttribute('aria-busy','false');var e=$('sc-error');e.classList.remove('hidden');e.className='mt-3 text-sm text-destructive';e.textContent=msg;$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='';$('sc-status').textContent='The scan stopped';form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});log([['error ','sc-fail'],[msg,'']])}
-function fallback(){form.removeEventListener('submit',onSubmit);form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});form.submit()}
+function fail(msg){done=true;clearTimeout(pollTimer);clearInterval(quipTimer);clearInterval(timer);box.setAttribute('aria-busy','false');var e=$('sc-error');e.classList.remove('hidden');e.className='mt-3 text-sm text-destructive';e.textContent=msg;$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='';$('sc-status').textContent='The scan stopped';form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});log([['error ','sc-fail'],[msg,'']])}
+function fallback(){done=true;clearTimeout(pollTimer);form.removeEventListener('submit',onSubmit);form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});form.submit()}
+function handle(ev,d){if(done)return;if(ev==='progress'){if(typeof d.seq==='number'){if(d.seq<=lastSeq)return;lastSeq=d.seq}onProgress(d)}else if(ev==='done'){clearInterval(timer);tick();finish(d)}else if(ev==='failure'){fail(d.message)}}
+function poll(){if(done)return;fetch('/api/scan/progress/'+token+'?after='+lastSeq,{cache:'no-store'}).then(function(r){return r.status===200?r.json():null}).then(function(j){if(!j)return;(j.events||[]).forEach(function(e){handle('progress',e)});if(j.final)handle(j.final.event,j.final.data)}).catch(function(){}).then(function(){if(!done)pollTimer=setTimeout(poll,600)})}
 function onSubmit(ev){var data=new FormData(form);var url=String(data.get('url')||'').trim();if(!url)return;ev.preventDefault();
-var body={url:url};var prof=String(data.get('profile')||'');if(prof)body.profile=prof;
+var bytes=new Uint8Array(16);crypto.getRandomValues(bytes);token=Array.prototype.map.call(bytes,function(b){return ('0'+b.toString(16)).slice(-2)}).join('');lastSeq=0;var body={url:url,progress_token:token};var prof=String(data.get('profile')||'');if(prof)body.profile=prof;
 started=Date.now();done=false;floor=0;ceiling=4;shown=0;box.classList.remove('hidden');$('sc-error').classList.add('hidden');$('sc-log').textContent='';$('sc-blips').textContent='';box.querySelectorAll('.sc-cell').forEach(function(el){el.removeAttribute('data-v');el.classList.remove('sc-wave')});
 $('sc-host').textContent=url.replace(/^https?:\\/\\//,'').replace(/\\/$/,'');$('sc-status').textContent='Connecting';setPhase('home');log([['POST ','sc-t'],['/api/scan/stream '+url,'']]);
 form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=true});box.scrollIntoView({behavior:'smooth',block:'start'});
 clearInterval(timer);timer=setInterval(tick,100);clearInterval(quipTimer);quipTimer=setInterval(quip,2600);
-var got=false;
+var got=false;clearTimeout(pollTimer);pollTimer=setTimeout(poll,500);
 fetch('/api/scan/stream',{method:'POST',headers:{'content-type':'application/json',accept:'text/event-stream'},body:JSON.stringify(body)}).then(function(res){
 if(!res.ok||!/event-stream/.test(res.headers.get('content-type')||'')){return res.json().then(function(j){fail(j.error||('HTTP '+res.status))},function(){fail('HTTP '+res.status)})}
 var reader=res.body.getReader(),dec=new TextDecoder(),buf='';
-function pump(){return reader.read().then(function(r){if(r.done){if(!done){clearInterval(timer);if(got)fail('The connection dropped before the scan finished. The result may still arrive: try again in a minute.');else fallback()}return}
+function pump(){return reader.read().then(function(r){if(r.done){if(!done){setTimeout(function(){if(!done){clearInterval(timer);fail('The connection dropped before the scan finished. The result may still arrive: try again in a minute.')}},8000)}return}
 buf+=dec.decode(r.value,{stream:true});var parts=buf.split('\\n\\n');buf=parts.pop();parts.forEach(function(chunk){var ev='message',dat='';chunk.split('\\n').forEach(function(line){if(line.indexOf('event:')===0)ev=line.slice(6).trim();else if(line.indexOf('data:')===0)dat+=line.slice(5).trim()});if(!dat)return;got=true;var d;try{d=JSON.parse(dat)}catch(_){return}
-if(ev==='progress')onProgress(d);else if(ev==='done'){clearInterval(timer);tick();finish(d)}else if(ev==='failure'){fail(d.message)}});return pump()})}
-return pump()}).catch(function(){if(!got)fallback();else fail('The connection dropped before the scan finished. Try again in a minute.')})}
+handle(ev,d)});return pump()})}
+return pump()}).catch(function(){if(!got&&lastSeq===0)fallback()})}
 form.addEventListener('submit',onSubmit)})();`;

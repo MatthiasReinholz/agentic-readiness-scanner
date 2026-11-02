@@ -11,6 +11,7 @@ import {
 
 import type { AppConfig } from './config.js';
 import type { HistoryStore } from './history/types.js';
+import type { ProgressStore } from './progress/types.js';
 import { newScanId } from './ids.js';
 import type { ResultStore, StoredScan } from './store/types.js';
 import type { TargetRegistry } from './targets/types.js';
@@ -23,6 +24,8 @@ export interface ScanDependencies {
   targets?: TargetRegistry;
   /** Durable per-host history of distinct states; optional for the same reason. */
   history?: HistoryStore;
+  /** Progress of scans in flight, for pages that poll; optional. */
+  progress?: ProgressStore;
   /** Test seam: supply a Fetcher factory to answer from fixtures instead of the network. */
   fetcherFactory?: () => Fetcher;
   now?: () => Date;

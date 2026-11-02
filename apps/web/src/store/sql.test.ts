@@ -6,6 +6,7 @@ import { computeScores, scan } from '@agentic-readiness/core';
 import { fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it } from 'vitest';
 
+import { SqlProgressStore } from '../progress/sql.js';
 import { FakeSqlDatabase } from './fake-sql.js';
 import { clampLimit, RowReader } from './sql-store.js';
 import { SqlResultStore, stripFixes } from './sql.js';
@@ -143,5 +144,39 @@ describe('row helpers', () => {
     expect(clampLimit(Number.NaN, 100)).toBe(1);
     expect(clampLimit(Number.POSITIVE_INFINITY, 100)).toBe(1);
     expect(clampLimit(1e9, 100)).toBe(100);
+  });
+});
+
+describe('SqlProgressStore', () => {
+  it('upserts the record by token and reads it back', async () => {
+    const db = new FakeSqlDatabase();
+    db.script(/SELECT token, events, final_json, updated_at FROM scan_progress/, [
+      {
+        token: 'a'.repeat(32),
+        events: '[{"seq":1}]',
+        final_json: null,
+        updated_at: '2026-11-02T00:00:00.000Z',
+      },
+    ]);
+    const store = new SqlProgressStore(db);
+    await store.save('a'.repeat(32), {
+      events: [{ seq: 1 }],
+      final: null,
+      updatedAt: '2026-11-02T00:00:00.000Z',
+    });
+    const upsert = db.executed.find((statement) =>
+      statement.sql.includes('ON DUPLICATE KEY UPDATE'),
+    );
+    expect(upsert?.values).toEqual([
+      'a'.repeat(32),
+      '[{"seq":1}]',
+      null,
+      '2026-11-02T00:00:00.000Z',
+    ]);
+    expect(await store.load('a'.repeat(32))).toEqual({
+      events: [{ seq: 1 }],
+      final: null,
+      updatedAt: '2026-11-02T00:00:00.000Z',
+    });
   });
 });

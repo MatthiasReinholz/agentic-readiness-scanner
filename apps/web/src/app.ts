@@ -231,6 +231,7 @@ export function createApp(deps: AppDependencies): Hono {
       now,
       ...(deps.targets ? { targets: deps.targets } : {}),
       ...(deps.history ? { history: deps.history } : {}),
+      ...(deps.progress ? { progress: deps.progress } : {}),
       ...(deps.monitors ? { monitors: deps.monitors } : {}),
     }),
   );

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { SCAN_CONSOLE_SCRIPT } from './pages/scan-console.js';
+import { MemoryProgressStore } from './progress/memory.js';
 import { MemoryResultStore } from './store/memory.js';
 
 const fixture = join(
@@ -22,13 +23,15 @@ const fixture = join(
 
 function testApp() {
   const store = new MemoryResultStore();
+  const progress = new MemoryProgressStore();
   const app = createApp({
     config: configFromEnv({ APP_BASE_URL: 'https://scanner.example' }),
     store,
+    progress,
     fetcherFactory: () => fixtureFetcher(fixture),
     now: () => new Date('2026-10-30T12:00:00Z'),
   });
-  return { app, store };
+  return { app, store, progress };
 }
 
 interface SseEvent {
@@ -121,5 +124,46 @@ describe('streamed scan', () => {
     expect(() => new Script(SCAN_CONSOLE_SCRIPT)).not.toThrow();
     // The form still posts without JavaScript.
     expect(html).toContain('action="/scan"');
+  });
+});
+
+describe('polled progress', () => {
+  const token = '0123456789abcdef0123456789abcdef';
+
+  it('records the events under the page token, numbered, with the final event', async () => {
+    const { app } = testApp();
+    const missing = await app.request(`/api/scan/progress/${token}`);
+    expect(missing.status).toBe(404);
+    await (
+      await app.request('/api/scan/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: 'https://ceramics.example/', progress_token: token }),
+      })
+    ).text();
+    const all = (await (await app.request(`/api/scan/progress/${token}`)).json()) as {
+      events: { seq: number; type: string }[];
+      final: { event: string; data: { level: { value: number } } } | null;
+    };
+    expect(all.events.map((event) => event.seq)).toEqual(all.events.map((_, index) => index + 1));
+    expect(all.events.filter((event) => event.type === 'check')).toHaveLength(64);
+    expect(all.final).toMatchObject({ event: 'done', data: { level: { value: 5 } } });
+    const later = (await (await app.request(`/api/scan/progress/${token}?after=60`)).json()) as {
+      events: { seq: number }[];
+    };
+    expect(later.events.map((event) => event.seq)).toEqual(
+      all.events.filter((event) => event.seq > 60).map((event) => event.seq),
+    );
+    expect((await app.request('/api/scan/progress/not-a-token')).status).toBe(404);
+  });
+
+  it('removes progress older than an hour in the cleanup cron', async () => {
+    const { app, progress } = testApp();
+    await progress.save(token, { events: [], final: null, updatedAt: '2020-01-01T00:00:00.000Z' });
+    const response = await app.request('/internal/cron/cleanup', {
+      headers: { 'x-spacefast-cron': '1' },
+    });
+    expect(await response.json()).toMatchObject({ progressRemoved: 1 });
+    expect(await progress.load(token)).toBeNull();
   });
 });
