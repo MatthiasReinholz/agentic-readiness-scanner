@@ -32,22 +32,24 @@ export function homePage(config: AppConfig, error?: string): string {
     )
     .join('');
   const code = (text: string) => `<code class="${codeInline}">${escapeHtml(text)}</code>`;
-  const body = `
-<section>
-<h1 class="max-w-[18ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">Can an AI agent find, read, trust and buy from your store?</h1>
-<p class="mt-3 max-w-[62ch] text-muted-foreground">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WordPress-first; works on any store.</p>
-${error ? `<div class="${alert({ variant: 'destructive' })} mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
-<form method="post" action="/scan" id="scan-form" class="mt-6 grid gap-2.5 md:grid-cols-[minmax(0,1fr)_200px_auto]">
-<input class="${input}" type="url" name="url" placeholder="https://example.com" required autofocus aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
+  const hero = `
+<p class="hero-eyebrow">The next customer could be an agent</p>
+<h1 class="hero-headline">Is your store ready<br>for <em class="hero-highlight" data-text="AI agents?">AI agents?</em></h1>
+<p class="hero-description">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WordPress-first; works on any store.</p>
+${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
+<form method="post" action="/scan" id="scan-form" class="hero-form">
+<input class="${input}" type="url" name="url" placeholder="https://example.com" required aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
 <div class="${nativeSelectWrapper}"><select class="${nativeSelect}" name="profile" aria-label="Profile"><option value="">Detect profile</option>${profiles}</select>${icon('chevron-down', nativeSelectChevron)}</div>
-<button type="submit" class="${button({ size: 'lg' })}">Scan</button>
+<button type="submit" class="${button({ size: 'lg' })} hero-submit">Scan my store${icon('arrow-right')}</button>
 </form>
-<p class="mt-3 text-sm text-muted-foreground">Up to ${config.scanBudget} requests per scan with the user agent ${code('AgenticReadinessScanner')}. A target is scanned at most once every ${Math.round(config.targetCooldownSeconds / 60)} minutes; results are kept ${config.retentionDays} days.</p>
+<p class="hero-trust"><span>Public signals only</span><span>No credentials needed</span><span>A fix for every finding</span></p>
+<p class="hero-policy">Up to ${config.scanBudget} requests per scan with the user agent <code>AgenticReadinessScanner</code>. A target is scanned at most once every ${Math.round(config.targetCooldownSeconds / 60)} minutes; results are kept ${config.retentionDays} days.</p>
+`;
+  const body = `
 ${scanConsoleMarkup()}
-</section>
 <section class="mt-11">
 <div class="mb-3.5 flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-semibold tracking-tight">What gets checked</h2><a class="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base">Knowledge base: every check explained</a></div>
-<div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">${groups}</div>
+<div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">${groups}</div>
 </section>
 <section class="mt-11">
 <h2 class="mb-3.5 text-lg font-semibold tracking-tight">For agents and pipelines</h2>
@@ -65,6 +67,8 @@ ${scanConsoleMarkup()}
     config,
     {
       title: config.appName,
+      hero,
+      home: true,
       description:
         'Scan any store URL for agentic ingestion and agentic commerce readiness. Public signals only, a fix for every finding.',
       head: `<style>${SCAN_CONSOLE_STYLE}</style>`,

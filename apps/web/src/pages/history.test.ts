@@ -99,14 +99,14 @@ describe('history page', () => {
     expect(html).toContain('href="/r/b000000000000001"');
     expect(html).not.toContain('href="/r/a000000000000003"');
     expect(html).toContain('Report expired');
-    expect(html).toContain('<svg');
+    expect(html).toContain('aria-label="Ingestion and commerce scores over time"');
     expect(html).toContain('Scan again');
   });
 
   it('renders an empty page with a scan form when nothing was recorded', () => {
     const html = historyPage(config, { host: 'new.example', entries: [], now: new Date() });
     expect(html).toContain('No scans recorded');
-    expect(html).not.toContain('<svg viewBox');
+    expect(html).not.toContain('aria-label="Ingestion and commerce scores over time"');
   });
 
   it('draws no chart for a single state', () => {

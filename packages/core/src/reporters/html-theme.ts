@@ -8,7 +8,7 @@
  * semantic layer: pass is success (green), warn is warning (amber), fail is destructive
  * (red), skip is muted.
  */
-import { button, icon, THEME_CSS } from '@agentic-readiness/ui';
+import { icon, signalNetwork, SIGNAL_NETWORK_SCRIPT, THEME_CSS } from '@agentic-readiness/ui';
 
 import { escapeHtml } from './shared.js';
 
@@ -18,15 +18,39 @@ export const THEME_STORAGE_KEY = 'ars-theme';
 export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}})();`;
 
 /** Wires every [data-theme-toggle] button. Inlined at the end of <body>. */
-export const THEME_TOGGLE_SCRIPT = `(function(){var r=document.documentElement;document.querySelectorAll('[data-theme-toggle]').forEach(function(b){b.addEventListener('click',function(){var n=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',n);try{localStorage.setItem('${THEME_STORAGE_KEY}',n)}catch(e){}})})})();`;
+export const THEME_TOGGLE_SCRIPT = `(function(){
+  var root=document.documentElement;
+  var buttons=document.querySelectorAll('[data-theme-toggle]');
+  function paint(){
+    buttons.forEach(function(button){
+      button.setAttribute('aria-label',root.getAttribute('data-theme')==='light'?'Switch to dark mode':'Switch to light mode');
+    });
+  }
+  buttons.forEach(function(button){
+    button.hidden=false;
+    button.addEventListener('click',function(){
+      var theme=root.getAttribute('data-theme')==='light'?'dark':'light';
+      root.setAttribute('data-theme',theme);
+      try{localStorage.setItem('${THEME_STORAGE_KEY}',theme)}catch(_){}
+      paint();
+    });
+  });
+  paint();
+})();`;
 
 export function themeToggleButton(): string {
-  return `<button type="button" class="${button({ variant: 'outline', size: 'sm' })} rounded-full text-muted-foreground" data-theme-toggle aria-label="Switch colour theme"><span class="hidden items-center gap-2 dark:inline-flex">${icon('moon')}Dark</span><span class="inline-flex items-center gap-2 dark:hidden">${icon('sun')}Light</span></button>`;
+  return `<button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch to light mode" hidden><span class="hidden dark:inline-flex">${icon('sun', 'size-5')}</span><span class="inline-flex dark:hidden">${icon('moon', 'size-5')}</span></button>`;
 }
 
 /** Brand link plus theme toggle; the first row of every page. */
 export function siteHeader(appName: string, homeUrl = '/'): string {
-  return `<div class="mb-8 flex items-center justify-between gap-4"><a class="inline-flex items-center gap-2.5 font-semibold text-foreground no-underline hover:no-underline" href="${escapeHtml(homeUrl)}"><span class="inline-grid size-7 place-items-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-[0.8rem] font-extrabold text-primary-foreground" aria-hidden="true">AR</span><span>${escapeHtml(appName)}</span></a>${themeToggleButton()}</div>`;
+  const knowledgeUrl = `${homeUrl.replace(/\/?$/, '/')}knowledge-base`;
+  return `<div class="site-header"><nav class="site-container site-nav" aria-label="Main navigation"><a class="site-brand" href="${escapeHtml(homeUrl)}"><span class="site-monogram" aria-hidden="true">AR</span><span>${escapeHtml(appName)}</span></a><a class="site-knowledge" href="${escapeHtml(knowledgeUrl)}">Knowledge base${icon('arrow-right', 'size-4')}</a>${themeToggleButton()}</nav></div>`;
+}
+
+/** Trusted, escaped-by-the-caller content, with decoration isolated from real scan state. */
+export function pageHero(content: string, options: { home?: boolean } = {}): string {
+  return `<section class="site-hero${options.home ? ' site-hero-home' : ''}">${signalNetwork()}<div class="site-container hero-content">${content}${options.home ? '<button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false" hidden>Pause animation</button>' : ''}</div></section>`;
 }
 
 /** Footer row; `content` is trusted HTML. */
@@ -51,11 +75,15 @@ export interface HtmlDocumentOptions {
   head?: string;
   /** Extra inline scripts, appended after the theme toggle wiring. */
   scripts?: string[];
+  /** Trusted full-width navigation, outside the main landmark. */
+  headerHtml?: string;
+  /** Trusted full-width hero inside the main landmark, before the readable content. */
+  heroHtml?: string;
 }
 
 /** Wraps page markup in a complete document with the theme applied. */
 export function htmlDocument(options: HtmlDocumentOptions, body: string): string {
-  const scripts = [THEME_TOGGLE_SCRIPT, ...(options.scripts ?? [])]
+  const scripts = [THEME_TOGGLE_SCRIPT, SIGNAL_NETWORK_SCRIPT, ...(options.scripts ?? [])]
     .map((script) => `<script>${script}</script>`)
     .join('\n');
   return `<!doctype html>
@@ -71,8 +99,13 @@ ${options.head ?? ''}
 <style>${THEME_CSS}</style>
 </head>
 <body>
-<main class="mx-auto w-full max-w-[960px] px-5 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-12">
+<a class="skip-link" href="#main-content">Skip to content</a>
+${options.headerHtml ?? ''}
+<main id="main-content" tabindex="-1">
+${options.heroHtml ?? ''}
+<div class="page-content">
 ${body}
+</div>
 </main>
 ${scripts}
 </body>

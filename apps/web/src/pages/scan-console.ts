@@ -26,12 +26,13 @@ export const SCAN_CONSOLE_STYLE = `
 @view-transition{navigation:auto}
 #sc-grid{view-transition-name:check-map}
 .sc-radar.sc-handoff{view-transition-name:level-badge}
-.sc-cell{width:14px;height:14px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--border));transition:background .25s,border-color .25s}
+.sc-cell{display:grid;place-items:center;font:700 10px/1 ui-monospace,monospace;color:hsl(var(--background));width:16px;height:16px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:background .25s,border-color .25s}
 .sc-cell[data-v]{animation:sc-pop .35s ease-out}
 .sc-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .sc-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}
 .sc-cell[data-v=fail]{background:hsl(var(--destructive));border-color:hsl(var(--destructive))}
 .sc-cell[data-v=skip]{background:transparent;border-style:dashed}
+.sc-cell[data-v=pass]::after{content:"✓" / ""}.sc-cell[data-v=warn]::after{content:"!" / ""}.sc-cell[data-v=fail]::after{content:"×" / ""}
 .sc-cell.sc-wave{animation:sc-wave .6s ease-in-out}
 .sc-radar{position:relative;width:72px;height:72px;border-radius:50%;border:1px solid hsl(var(--primary)/.45);background:radial-gradient(circle,hsl(var(--primary)/.08) 0 30%,transparent 31%),radial-gradient(circle,transparent 0 62%,hsl(var(--primary)/.18) 63% 64%,transparent 65%);overflow:hidden;flex:none}
 .sc-sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,hsl(var(--primary)/0) 0deg,hsl(var(--primary)/0) 290deg,hsl(var(--primary)/.55) 360deg);animation:sc-spin 1.6s linear infinite}
@@ -139,15 +140,15 @@ $('sc-status').textContent=NOTE.done;$('sc-host').textContent='Level '+d.level.v
 log([['done ','sc-pass'],['level '+d.level.value+' · ingestion '+d.scores.ingestion+(d.scores.commerce===null?'':' · commerce '+d.scores.commerce)+' · '+d.requests+' requests in '+(d.duration_ms/1000).toFixed(1)+' s','']]);
 $('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='› Opening the report…';setTimeout(function(){try{sessionStorage.setItem('ars-arrived',d.report_url+'|'+(d.duration_ms/1000).toFixed(1)+' s')}catch(_){}var r=box.querySelector('.sc-radar');if(r)r.classList.add('sc-handoff');location.href=d.report_url},reduce?400:1200)}
 next()}
-function fail(msg){done=true;clearTimeout(pollTimer);clearInterval(quipTimer);clearInterval(timer);box.setAttribute('aria-busy','false');var e=$('sc-error');e.classList.remove('hidden');e.className='mt-3 text-sm text-destructive';e.textContent=msg;$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='';$('sc-status').textContent='The scan stopped';form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});log([['error ','sc-fail'],[msg,'']])}
-function fallback(){done=true;clearTimeout(pollTimer);form.removeEventListener('submit',onSubmit);form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});form.submit()}
+function fail(msg){document.documentElement.removeAttribute('data-scanning');done=true;clearTimeout(pollTimer);clearInterval(quipTimer);clearInterval(timer);box.setAttribute('aria-busy','false');var e=$('sc-error');e.classList.remove('hidden');e.className='mt-3 text-sm text-destructive';e.textContent=msg;$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='';$('sc-status').textContent='The scan stopped';form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});log([['error ','sc-fail'],[msg,'']])}
+function fallback(){document.documentElement.removeAttribute('data-scanning');done=true;clearTimeout(pollTimer);form.removeEventListener('submit',onSubmit);form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});form.submit()}
 function handle(ev,d){if(done)return;if(ev==='progress'){if(typeof d.seq==='number'){if(d.seq<=lastSeq)return;lastSeq=d.seq}onProgress(d)}else if(ev==='done'){clearInterval(timer);tick();finish(d)}else if(ev==='failure'){fail(d.message)}}
 function poll(){if(done)return;fetch('/api/scan/progress/'+token+'?after='+lastSeq,{cache:'no-store'}).then(function(r){return r.status===200?r.json():null}).then(function(j){if(!j)return;(j.events||[]).forEach(function(e){handle('progress',e)});if(j.final)handle(j.final.event,j.final.data)}).catch(function(){}).then(function(){if(!done)pollTimer=setTimeout(poll,600)})}
 function onSubmit(ev){var data=new FormData(form);var url=String(data.get('url')||'').trim();if(!url)return;ev.preventDefault();
 var bytes=new Uint8Array(16);crypto.getRandomValues(bytes);token=Array.prototype.map.call(bytes,function(b){return ('0'+b.toString(16)).slice(-2)}).join('');lastSeq=0;var body={url:url,progress_token:token};var prof=String(data.get('profile')||'');if(prof)body.profile=prof;
-started=Date.now();done=false;floor=0;ceiling=4;shown=0;box.classList.remove('hidden');$('sc-error').classList.add('hidden');$('sc-log').textContent='';$('sc-blips').textContent='';box.querySelectorAll('.sc-cell').forEach(function(el){el.removeAttribute('data-v');el.classList.remove('sc-wave')});
+document.documentElement.setAttribute('data-scanning','');started=Date.now();done=false;floor=0;ceiling=4;shown=0;box.classList.remove('hidden');box.setAttribute('aria-busy','true');$('sc-error').classList.add('hidden');$('sc-log').textContent='';$('sc-blips').textContent='';box.querySelectorAll('.sc-cell').forEach(function(el){el.removeAttribute('data-v');el.classList.remove('sc-wave')});
 $('sc-host').textContent=url.replace(/^https?:\\/\\//,'').replace(/\\/$/,'');$('sc-status').textContent='Connecting';setPhase('home');log([['POST ','sc-t'],['/api/scan/stream '+url,'']]);
-form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=true});box.scrollIntoView({behavior:'smooth',block:'start'});
+form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=true});box.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
 clearInterval(timer);timer=setInterval(tick,100);clearInterval(quipTimer);quipTimer=setInterval(quip,2600);
 var got=false;clearTimeout(pollTimer);pollTimer=setTimeout(poll,500);
 fetch('/api/scan/stream',{method:'POST',headers:{'content-type':'application/json',accept:'text/event-stream'},body:JSON.stringify(body)}).then(function(res){

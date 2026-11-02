@@ -10,3 +10,4 @@ export { ICON_SVG, type IconName } from './generated/icons.js';
 export { icon } from './icon.js';
 export { FONT_FILES, interFontFaceCss } from './fonts.js';
 export * from './recipes.js';
+export { signalNetwork, SIGNAL_NETWORK_SCRIPT } from './signal-network.js';

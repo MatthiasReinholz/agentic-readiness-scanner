@@ -177,11 +177,13 @@ function kbPage(
   description: string,
   head: string,
   body: string,
+  hero: string,
 ): string {
   return page(
     config,
     {
       title: `${title} · ${config.appName}`,
+      hero,
       description,
       head: `${head}\n<style>${KB_CSS}</style>`,
       scripts: [KB_SCRIPT],
@@ -229,14 +231,15 @@ export function knowledgeIndexPage(config: AppConfig): string {
         `<button type="button" class="kb-chip inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground" data-tier="${tier}" aria-pressed="false"><span class="size-2 rounded-full ${TIER_DOT[tier]}" aria-hidden="true"></span>${TIER_TEXT[tier]}</button>`,
     )
     .join('');
+  const hero = `
+<h1 class="hero-title">${title}</h1>
+<p class="hero-description">An AI agent that shops for someone has to find a store, be allowed in, read its products as data, trust the merchant and, eventually, check out. Each article explains one check of the <a class="font-medium text-current underline-offset-4 hover:underline" href="/">Agentic Readiness Scanner</a>: what it looks at, why agents care, exactly how the scanner decides, and how to fix it on WordPress and WooCommerce, Shopify or any other stack.</p>
+`;
   const body = `
 ${breadcrumbs([{ label: 'Home', href: '/' }, { label: 'Knowledge base' }])}
-<header class="mt-4">
-<h1 class="max-w-[22ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">${title}</h1>
-<p class="mt-3 max-w-[66ch] leading-7 text-muted-foreground">An AI agent that shops for someone has to find a store, be allowed in, read its products as data, trust the merchant and, eventually, check out. Each article explains one check of the <a class="font-medium text-primary underline-offset-4 hover:underline" href="/">Agentic Readiness Scanner</a>: what it looks at, why agents care, exactly how the scanner decides, and how to fix it on WordPress and WooCommerce, Shopify or any other stack.</p>
-</header>
+
 <section class="${card} mt-8 p-5" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
-<div class="sticky top-0 z-10 -mx-5 mt-8 border-b border-border bg-background/85 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-[14rem] flex-1"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-[0.7rem] text-muted-foreground">/</kbd></label><div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
+<div class="kb-filter-bar sticky top-0 z-10 mt-8 border-b border-border bg-background/85 py-3 backdrop-blur"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-[14rem] flex-1"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd aria-hidden="true" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-[0.7rem] text-muted-foreground">/</kbd></label><div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
 ${catalog.groups.map((group) => groupSection(group, 'h2')).join('')}
 <div class="mt-12 grid gap-3 md:grid-cols-2">
 <section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">How to read priorities</h2><ul class="mt-3 space-y-2.5">${tiers}</ul></section>
@@ -278,6 +281,7 @@ ${jsonLd({
     description,
     headFor(config, '/knowledge-base', title, description, 'website'),
     body,
+    hero,
   );
 }
 
@@ -298,14 +302,15 @@ export function knowledgeGroupPage(config: AppConfig, group: Group): string {
     target
       ? `<a class="${card} block p-4 ${align} transition-colors hover:border-primary/50" href="/knowledge-base/${groupSlug(target)}"><span class="text-xs text-muted-foreground">${label} section · ${escapeHtml(target.id)}</span><span class="mt-1 block text-sm font-medium">${escapeHtml(target.title)}</span></a>`
       : '<span></span>';
+  const hero = `
+<p class="hero-eyebrow">Section ${position + 1} of ${catalog.groups.length} · ${escapeHtml(group.id)} · ${dimension}</p>
+<h1 class="hero-title">${escapeHtml(group.title)}</h1>
+<p class="hero-description">${escapeHtml(group.description)}</p>
+`;
   const body = `
 ${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: group.title }])}
 <div class="mt-5">${journeyRail(group.id)}</div>
-<header class="mt-6">
-<p class="font-mono text-xs text-muted-foreground">Section ${position + 1} of ${catalog.groups.length} · ${escapeHtml(group.id)} · ${dimension}</p>
-<h1 class="mt-1 text-balance text-3xl font-bold tracking-tight">${escapeHtml(group.title)}</h1>
-<p class="mt-3 max-w-[66ch] leading-7 text-muted-foreground">${escapeHtml(group.description)}</p>
-</header>
+
 <div class="mt-5">${checkStrip(undefined, group.id)}</div>
 <ul class="mt-6">${checks.map(checkRow).join('')}</ul>
 <nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Other sections">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
@@ -346,6 +351,7 @@ ${jsonLd({
     description,
     headFor(config, path, title, description, 'website'),
     body,
+    hero,
   );
 }
 
@@ -407,6 +413,12 @@ export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticl
   const summary = plainText(section(article.body, 'In short'));
   const faq = faqPairs(article.body);
   const title = article.headline;
+  const hero = `
+<p class="hero-eyebrow">Check ${escapeHtml(check.id)} · ${escapeHtml(check.title)}</p>
+<h1 class="hero-title">${escapeHtml(title)}</h1>
+<p class="hero-description">${escapeHtml(article.description)}</p>
+<p class="mt-3 text-sm text-current">By <a class="underline underline-offset-4" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="underline underline-offset-4" href="${path}.md" type="text/markdown">Markdown</a></p>
+`;
   const body = `
 ${breadcrumbs([
   { label: 'Knowledge base', href: '/knowledge-base' },
@@ -418,12 +430,7 @@ ${breadcrumbs([
 <div class="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
 ${articleSidebar(check, group, rendered.headings)}
 <article data-kb-article class="min-w-0">
-<header>
-<p class="font-mono text-xs text-muted-foreground">Check ${escapeHtml(check.id)} · ${escapeHtml(check.title)}</p>
-<h1 class="mt-1 max-w-[26ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">${escapeHtml(title)}</h1>
-<p class="mt-3 max-w-[66ch] text-lg leading-8 text-muted-foreground">${escapeHtml(article.description)}</p>
-<p class="mt-3 text-sm text-muted-foreground">By <a class="hover:text-foreground" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="hover:text-foreground" href="${path}.md" type="text/markdown">Markdown</a></p>
-</header>
+
 <dl class="${card} mt-6 divide-y divide-border px-5">${facts}</dl>
 <details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
 <div class="max-w-[72ch]">${rendered.html}</div>
@@ -487,6 +494,7 @@ ${jsonLd({
     article.description,
     `${headFor(config, path, title, article.description, 'article')}\n<meta name="keywords" content="${escapeHtml(article.keywords.join(', '))}">`,
     body,
+    hero,
   );
 }
 

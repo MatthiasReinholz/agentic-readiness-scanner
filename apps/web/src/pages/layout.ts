@@ -1,4 +1,10 @@
-import { escapeHtml, htmlDocument, siteFooter, siteHeader } from '@agentic-readiness/core';
+import {
+  escapeHtml,
+  htmlDocument,
+  pageHero,
+  siteFooter,
+  siteHeader,
+} from '@agentic-readiness/core';
 import { FONT_FILES, interFontFaceCss } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
@@ -8,6 +14,9 @@ export interface PageOptions {
   description?: string;
   head?: string;
   scripts?: string[];
+  /** Trusted hero content; escape data before composing it. */
+  hero?: string;
+  home?: boolean;
 }
 
 /** Where build.mjs puts the Inter files and dev.ts serves them from. */
@@ -42,9 +51,13 @@ export function page(config: AppConfig, options: PageOptions, body: string): str
       title: options.title,
       ...(options.description ? { description: options.description } : {}),
       head: `${hostedHead()}\n${options.head ?? ''}`,
+      headerHtml: siteHeader(config.appName),
+      ...(options.hero
+        ? { heroHtml: pageHero(options.hero, { home: options.home === true }) }
+        : {}),
       ...(options.scripts ? { scripts: options.scripts } : {}),
     },
-    `${siteHeader(config.appName)}\n${body}\n${siteFooter(hostedFooterHtml(config))}`,
+    `${body}\n${siteFooter(hostedFooterHtml(config))}`,
   );
 }
 
@@ -58,7 +71,10 @@ export function messagePage(
   const tone = status.kind === 'error' ? 'text-destructive' : 'text-foreground';
   return page(
     config,
-    { title },
-    `<section class="space-y-3"><h1 class="text-2xl font-bold tracking-tight ${tone}">${escapeHtml(title)}</h1><p class="text-muted-foreground">${text}</p></section>`,
+    {
+      title,
+      hero: `<p class="hero-eyebrow">Agentic readiness</p><h1 class="hero-title">${escapeHtml(title)}</h1>`,
+    },
+    `<section class="space-y-3"><p class="${tone}">${text}</p></section>`,
   );
 }
