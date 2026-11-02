@@ -65,7 +65,7 @@ describe('hosted app', () => {
       name: 'Agentic Readiness Scanner',
       remotes: [{ type: 'streamable-http', url: 'https://scanner.example/mcp' }],
       endpoint: 'https://scanner.example/mcp',
-      tools: ['scan_store', 'get_history', 'get_fix', 'list_checks'],
+      tools: ['scan_store', 'get_history', 'get_fix', 'explain_check', 'list_checks'],
     });
     const legacy = await app.request('/.well-known/mcp/server-card.json');
     expect(legacy.status).toBe(200);

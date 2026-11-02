@@ -19,6 +19,8 @@ import {
   knowledgeFullMarkdown,
   knowledgeGroupPage,
   knowledgeIndexMarkdown,
+  knowledgeIndexJson,
+  groupMarkdown,
   knowledgeIndexPage,
   KNOWLEDGE_UPDATED,
 } from './pages.js';
@@ -38,7 +40,8 @@ function markdown(c: Context, body: string): Response {
 /** Lines for /llms.txt: every article with its Markdown URL. */
 export function knowledgeIndexLines(config: AppConfig): string {
   return [
-    `- [Knowledge base index](${config.baseUrl}/knowledge.md): every section and check in one list`,
+    `- [Knowledge base index](${config.baseUrl}/knowledge-base.md): every section and check in one list`,
+    `- [Knowledge base as JSON](${config.baseUrl}/knowledge-base.json): sections, checks, priorities, level gates and URLs`,
     ...knowledge.map((article) => {
       return `- [${article.id} ${article.headline}](${config.baseUrl}${articlePath(article)}.md): ${article.description}`;
     }),
@@ -48,19 +51,38 @@ export function knowledgeIndexLines(config: AppConfig): string {
 function sitemapXml(config: AppConfig): string {
   const urls = [
     '/',
-    '/knowledge',
-    ...catalog.groups.map((group) => `/knowledge/${groupSlug(group)}`),
+    '/knowledge-base',
+    ...catalog.groups.map((group) => `/knowledge-base/${groupSlug(group)}`),
     ...knowledge.map(articlePath),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((path) => `<url><loc>${config.baseUrl}${path}</loc>${path.startsWith('/knowledge') ? `<lastmod>${KNOWLEDGE_UPDATED}</lastmod>` : ''}</url>`).join('\n')}
+${urls.map((path) => `<url><loc>${config.baseUrl}${path}</loc>${path.startsWith('/knowledge-base') ? `<lastmod>${KNOWLEDGE_UPDATED}</lastmod>` : ''}</url>`).join('\n')}
 </urlset>
 `;
 }
 
+/** Link header pointing a page at its other representation, for agents that only send HEAD. */
+function alternates(config: AppConfig, path: string, as: 'html' | 'markdown'): string {
+  const url = `${config.baseUrl}${path}`;
+  return as === 'html'
+    ? `<${url}.md>; rel="alternate"; type="text/markdown", <${url}>; rel="canonical"`
+    : `<${url}>; rel="canonical"; type="text/html"`;
+}
+
 export function createKnowledgeRoutes(config: AppConfig): Hono {
   const app = new Hono();
+
+  const html = (c: Context, path: string, body: string): Response => {
+    c.header('cache-control', CACHE);
+    c.header('vary', 'Accept');
+    c.header('link', alternates(config, path, 'html'));
+    return c.html(body);
+  };
+  const md = (c: Context, path: string, body: string): Response => {
+    c.header('link', alternates(config, path, 'markdown'));
+    return markdown(c, body);
+  };
 
   app.get('/sitemap.xml', (c) =>
     c.body(sitemapXml(config), 200, {
@@ -71,38 +93,50 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
 
   app.get('/llms-full.txt', (c) => markdown(c, knowledgeFullMarkdown(config)));
 
-  app.get('/knowledge.md', (c) => markdown(c, knowledgeIndexMarkdown(config)));
-  app.get('/knowledge/', (c) => c.redirect('/knowledge', 301));
-  app.get('/knowledge', (c) => {
-    if (wantsMarkdown(c)) return markdown(c, knowledgeIndexMarkdown(config));
-    c.header('cache-control', CACHE);
-    c.header('vary', 'Accept');
-    return c.html(knowledgeIndexPage(config));
-  });
+  app.get('/knowledge-base.json', (c) =>
+    c.json(knowledgeIndexJson(config), 200, {
+      'cache-control': CACHE,
+      'access-control-allow-origin': '*',
+    }),
+  );
+  app.get('/knowledge-base.md', (c) => md(c, '/knowledge-base', knowledgeIndexMarkdown(config)));
+  app.get('/knowledge-base/', (c) => c.redirect('/knowledge-base', 301));
+  app.get('/knowledge-base', (c) =>
+    wantsMarkdown(c)
+      ? md(c, '/knowledge-base', knowledgeIndexMarkdown(config))
+      : html(c, '/knowledge-base', knowledgeIndexPage(config)),
+  );
 
-  app.get('/knowledge/:file', (c) => {
+  app.get('/knowledge-base/:file', (c) => {
     const file = c.req.param('file');
     const asMarkdown = file.endsWith('.md');
     const slug = asMarkdown ? file.slice(0, -3) : file;
-    // A check id (/knowledge/A2.2) moves to its article, so reports and agents can link by id.
+    // A check id (/knowledge-base/A2.2) moves to its article, so reports and agents can link by id.
     if (/^[ab]\d\.\d+$/i.test(slug)) {
       const byId = articleByCheckId(slug);
       if (byId) return c.redirect(`${articlePath(byId)}${asMarkdown ? '.md' : ''}`, 301);
     }
     const article = articleBySlug(slug);
     if (article) {
-      if (asMarkdown || wantsMarkdown(c)) return markdown(c, articleMarkdown(config, article));
-      c.header('cache-control', CACHE);
-      c.header('vary', 'Accept');
-      return c.html(knowledgeArticlePage(config, article));
+      const path = articlePath(article);
+      return asMarkdown || wantsMarkdown(c)
+        ? md(c, path, articleMarkdown(config, article))
+        : html(c, path, knowledgeArticlePage(config, article));
     }
     const group = groupBySlug(slug);
-    if (group && !asMarkdown) {
-      c.header('cache-control', CACHE);
-      return c.html(knowledgeGroupPage(config, group));
+    if (group) {
+      const path = `/knowledge-base/${groupSlug(group)}`;
+      return asMarkdown || wantsMarkdown(c)
+        ? md(c, path, groupMarkdown(config, group))
+        : html(c, path, knowledgeGroupPage(config, group));
     }
     return c.notFound();
   });
+
+  // The knowledge base first lived at /knowledge; those links keep working.
+  app.get('/knowledge', (c) => c.redirect('/knowledge-base', 301));
+  app.get('/knowledge.md', (c) => c.redirect('/knowledge-base.md', 301));
+  app.get('/knowledge/:file', (c) => c.redirect(`/knowledge-base/${c.req.param('file')}`, 301));
 
   return app;
 }

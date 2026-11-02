@@ -1,6 +1,6 @@
 /**
  * Parses and validates one knowledge-base article: `knowledge/<CHECK-ID>.md`, the long
- * explanation of a check that the hosted app publishes at /knowledge/<slug>. The format
+ * explanation of a check that the hosted app publishes at /knowledge-base/<slug>. The format
  * and the writing rules are in docs/knowledge-base.md. Everything the catalog already
  * knows (weight, levels, fix, specifications) is added by the page, never repeated here.
  */
@@ -8,7 +8,7 @@
 export interface KnowledgeArticle {
   /** The check this article explains. */
   id: string;
-  /** Permanent URL segment: /knowledge/<slug>. */
+  /** Permanent URL segment: /knowledge-base/<slug>. */
   slug: string;
   /** The page's H1 and title; written as the question or task a reader searches for. */
   headline: string;
@@ -107,9 +107,9 @@ export function parseKnowledgeMarkdown(source: string, fileName: string): Knowle
   return { id, slug, headline, description, keywords, body };
 }
 
-/** Links inside articles to other articles: /knowledge/<slug>. */
+/** Links inside articles to other articles: /knowledge-base/<slug>. */
 export function articleLinks(article: KnowledgeArticle): string[] {
-  return [...article.body.matchAll(/\]\(\/knowledge\/([a-z0-9-]+)\)/g)].map(
+  return [...article.body.matchAll(/\]\(\/knowledge-base\/([a-z0-9-]+)\)/g)].map(
     (match) => match[1] ?? '',
   );
 }

@@ -7,6 +7,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { Hono } from 'hono';
 
 import { hostKey } from './hosts.js';
+import { articleByCheckId, articleMarkdown } from './knowledge/pages.js';
 import { historyJson } from './pages/history.js';
 import { scanOrReuse, type ScanDependencies } from './scan-service.js';
 
@@ -30,6 +31,10 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
             },
           }
         : {}),
+      explain: (checkId) => {
+        const article = articleByCheckId(checkId);
+        return article ? articleMarkdown(deps.config, article) : undefined;
+      },
     });
     // No sessionIdGenerator: stateless mode, one transport per request.
     const transport = new WebStandardStreamableHTTPServerTransport({});

@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it } from 'vitest';
 
-import { createMcpServer } from './index.js';
+import { createMcpServer, type McpServerOptions } from './index.js';
 
 const fixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -20,9 +20,10 @@ const fixture = join(
   'good-woocommerce',
 );
 
-async function connectedClient() {
+async function connectedClient(extra: Partial<McpServerOptions> = {}) {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const server = createMcpServer({
+    ...extra,
     scanner: (url, profile) =>
       scan(url, {
         fetcher: fixtureFetcher(fixture),
@@ -41,6 +42,21 @@ function textOf(result: Awaited<ReturnType<Client['callTool']>>): string {
 }
 
 describe('MCP server', () => {
+  it('explains a check when the host publishes articles', async () => {
+    const client = await connectedClient({
+      explain: (id) => (id === 'A2.2' ? '# Article for A2.2' : undefined),
+    });
+    const { tools } = await client.listTools();
+    expect(tools.map((tool) => tool.name)).toContain('explain_check');
+    const found = await client.callTool({ name: 'explain_check', arguments: { check_id: 'A2.2' } });
+    expect(textOf(found)).toBe('# Article for A2.2');
+    const missing = await client.callTool({
+      name: 'explain_check',
+      arguments: { check_id: 'B5.99' },
+    });
+    expect(missing.isError).toBe(true);
+  });
+
   it('exposes scan_store, get_fix and list_checks', async () => {
     const client = await connectedClient();
     const { tools } = await client.listTools();

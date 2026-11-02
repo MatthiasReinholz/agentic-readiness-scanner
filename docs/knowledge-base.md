@@ -1,6 +1,6 @@
 # Knowledge base
 
-The hosted scanner publishes one article per check at `/knowledge/<slug>`, with an index at `/knowledge` and one page per section. Every article is also served as Markdown (append `.md`, or send `Accept: text/markdown`) and listed in `/llms.txt` and `/sitemap.xml`, so people, search engines and agents can all read and cite it.
+The hosted scanner publishes one article per check at `/knowledge-base/<slug>`, with an index at `/knowledge-base` and one page per section. Every page is also served as Markdown (append `.md`, or send `Accept: text/markdown`), the index is data at `/knowledge-base.json`, the MCP tool `explain_check` returns an article, and everything is listed in `/llms.txt` and `/sitemap.xml`, so people, search engines and agents can all read and cite it.
 
 ## Where the content lives
 
@@ -53,7 +53,7 @@ The renderer accepts a deliberate subset, so every article renders the same ever
 
 - `##` and `###` headings, paragraphs, `-` bullet lists and `1.` numbered lists (no nesting)
 - fenced code blocks with a language (`bash`, `robots`, `html`, `json`, `http`, `liquid`, `php`, `text`)
-- `inline code`, `**bold**`, `[links](https://...)` and links to other articles as `/knowledge/<slug>`
+- `inline code`, `**bold**`, `[links](https://...)` and links to other articles as `/knowledge-base/<slug>`
 - pipe tables with a header row
 
 No raw HTML, no images, no nested lists, no headings below `###`.

@@ -82,33 +82,45 @@ describe('knowledge base', () => {
     expect(gateOf('B5.8')).toMatchObject({ value: 2 });
     expect(gateOf('A1.4')).toBeNull();
     const html = await (
-      await testApp().request('/knowledge/search-and-assistant-crawlers-allowed')
+      await testApp().request('/knowledge-base/search-and-assistant-crawlers-allowed')
     ).text();
     expect(html).toContain('Required from Level 1 (Crawlable) upward.');
   });
 
   it('serves Markdown by suffix and by Accept, and redirects check ids', async () => {
     const app = testApp();
-    const path = '/knowledge/search-and-assistant-crawlers-allowed';
+    const path = '/knowledge-base/search-and-assistant-crawlers-allowed';
     const md = await app.request(`${path}.md`);
     expect(md.headers.get('content-type')).toContain('text/markdown');
     const text = await md.text();
-    expect(text).toMatch(/^# Let the crawlers behind AI answers read your product pages/);
+    expect(text).toMatch(
+      /^---\ntitle: "Let the crawlers behind AI answers read your product pages"\n/,
+    );
+    expect(text).toContain(
+      'canonical_url: https://scanner.example/knowledge-base/search-and-assistant-crawlers-allowed',
+    );
+    expect(text).toContain('level_gate: 1');
+    expect(text).toContain('\n# Let the crawlers behind AI answers read your product pages\n');
+    expect(md.headers.get('link')).toBe(
+      '<https://scanner.example/knowledge-base/search-and-assistant-crawlers-allowed>; rel="canonical"; type="text/html"',
+    );
     expect(text).toContain('## The fix in one step');
-    expect(text).toContain('](https://scanner.example/knowledge/');
+    expect(text).toContain('](https://scanner.example/knowledge-base/');
     const negotiated = await app.request(path, { headers: { accept: 'text/markdown' } });
     expect(negotiated.headers.get('content-type')).toContain('text/markdown');
     expect(negotiated.headers.get('vary')).toBe('Accept');
-    const byId = await app.request('/knowledge/a2.2');
+    const byId = await app.request('/knowledge-base/a2.2');
     expect(byId.status).toBe(301);
     expect(byId.headers.get('location')).toBe(path);
-    expect((await app.request('/knowledge/A2.2.md')).headers.get('location')).toBe(`${path}.md`);
-    expect((await app.request('/knowledge/nothing-here')).status).toBe(404);
+    expect((await app.request('/knowledge-base/A2.2.md')).headers.get('location')).toBe(
+      `${path}.md`,
+    );
+    expect((await app.request('/knowledge-base/nothing-here')).status).toBe(404);
   });
 
   it('lists every article on the index, the section pages, the sitemap and llms.txt', async () => {
     const app = testApp();
-    const index = await (await app.request('/knowledge')).text();
+    const index = await (await app.request('/knowledge-base')).text();
     const sitemap = await (await app.request('/sitemap.xml')).text();
     const llms = await (await app.request('/llms.txt')).text();
     const full = await (await app.request('/llms-full.txt')).text();
@@ -119,9 +131,9 @@ describe('knowledge base', () => {
       expect(full).toContain(`# ${article.headline}`);
     }
     for (const group of catalog.groups) {
-      const response = await app.request(`/knowledge/${groupSlug(group)}`);
+      const response = await app.request(`/knowledge-base/${groupSlug(group)}`);
       expect(response.status, group.id).toBe(200);
-      expect(index).toContain(`href="/knowledge/${groupSlug(group)}"`);
+      expect(index).toContain(`href="/knowledge-base/${groupSlug(group)}"`);
     }
     expect(await (await app.request('/robots.txt')).text()).toMatch(
       /^Sitemap: https:\/\/scanner\.example\/sitemap\.xml/,
@@ -131,7 +143,7 @@ describe('knowledge base', () => {
   it('links the home page cards to their section and carries the new footer', async () => {
     const home = await (await testApp().request('/')).text();
     for (const group of catalog.groups)
-      expect(home).toContain(`href="/knowledge/${groupSlug(group)}"`);
+      expect(home).toContain(`href="/knowledge-base/${groupSlug(group)}"`);
     expect(home).toContain(
       'An experiment by <a href="https://matthiasreinholz.com/about/" rel="author">Matthias Reinholz</a>',
     );
@@ -139,5 +151,54 @@ describe('knowledge base', () => {
     expect(home).not.toContain('open data');
     expect(home).not.toContain('Nothing requires credentials');
     expect(home).toContain('at most once every 5 minutes');
+  });
+
+  it('keeps the old /knowledge links working', async () => {
+    const app = testApp();
+    for (const [from, to] of [
+      ['/knowledge', '/knowledge-base'],
+      ['/knowledge.md', '/knowledge-base.md'],
+      ['/knowledge/gtin-valid', '/knowledge-base/gtin-valid'],
+      ['/knowledge/A2.2', '/knowledge-base/A2.2'],
+    ]) {
+      const response = await app.request(from ?? '');
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get('location'), from).toBe(to);
+    }
+  });
+
+  it('gives agents a JSON index, section Markdown and alternate links', async () => {
+    const app = testApp();
+    const index = (await (await app.request('/knowledge-base.json')).json()) as {
+      sections: {
+        id: string;
+        checks: { id: string; url: string; markdown_url: string; level_gate: unknown }[];
+      }[];
+    };
+    const checks = index.sections.flatMap((section) => section.checks);
+    expect(checks).toHaveLength(catalog.checks.length);
+    expect(checks.find((check) => check.id === 'A2.2')).toMatchObject({
+      url: 'https://scanner.example/knowledge-base/search-and-assistant-crawlers-allowed',
+      level_gate: { level: 1, alternatives: [] },
+    });
+    const group = await app.request('/knowledge-base/bot-access-control.md');
+    expect(group.headers.get('content-type')).toContain('text/markdown');
+    expect(await group.text()).toContain('# A2 Bot access control');
+    const html = await app.request('/knowledge-base/bot-access-control');
+    expect(html.headers.get('link')).toContain(
+      '<https://scanner.example/knowledge-base/bot-access-control.md>; rel="alternate"; type="text/markdown"',
+    );
+  });
+
+  it('marks where the reader is: journey step, check cell and sidebar entry', async () => {
+    const html = await (
+      await testApp().request('/knowledge-base/search-and-assistant-crawlers-allowed')
+    ).text();
+    expect(html).toMatch(/title="A2 Bot access control" aria-current="step"/);
+    expect(html).toContain('data-state="current"');
+    expect(html.match(/data-state="group"/g)).toHaveLength(6);
+    expect(html).toContain('Check 2 of 7 in Bot access control · 10 of 64 overall');
+    expect(html).toContain('<section aria-labelledby="in-short">');
+    expect(html).toContain('class="kb-progress"');
   });
 });
