@@ -21,6 +21,6 @@ Bundling is done with tsup (esbuild plus a declaration bundler) in each publishe
 
 ## Consequences
 
-A consumer installs one package. The published result schema and catalog data are versioned with `core`, so a report says which catalog it was produced with whatever the install path. The `@agentic-readiness` scope on npm and the `NPM_TOKEN` secret are still prerequisites of the first publish; until then the home page does not advertise `npx`, and the README says how to run from a checkout.
+A consumer installs one package. The published result schema and catalog data are versioned with `core`, so a report says which catalog it was produced with whatever the install path. The `@agentic-readiness` scope on npm is a prerequisite of the first publish, which uses a short-lived token once; later releases publish through npm trusted publishing (OpenID Connect), so no token is stored ([release process](../release-process.md)); until then the home page does not advertise `npx`, and the README says how to run from a checkout.
 
 The cost is a bundler in the build and duplicated third-party dependency declarations on `cli` (the engine's runtime libraries must be listed there because the engine is inlined). Both are checked by the full validation and by the dependency review on every pull request.
