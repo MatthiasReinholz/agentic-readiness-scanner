@@ -21,6 +21,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - A host is scanned at most once every five minutes by default (`TARGET_COOLDOWN_SECONDS` is now 300, was 120).
 - The footer reads "An experiment by Matthias Reinholz" with links to the knowledge base and the source, without the licence line, and the home page no longer repeats that nothing requires credentials.
 
+### Fixed
+
+- The homepage headline no longer paints a purple rectangle over the animated network. A shared feathered network mask and lower intensity on narrow screens preserve text contrast without covering the decoration; compact hero metadata and level descriptions retain readable line lengths.
+
 ## [0.9.0] - 2026-11-02
 
 ### Fixed
