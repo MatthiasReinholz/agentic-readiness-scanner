@@ -1,5 +1,5 @@
 /**
- * The knowledge base: an index at /knowledge, one page per catalog section and one
+ * The knowledge base: an index at /knowledge-base, one page per catalog section and one
  * article per check. Articles come from @agentic-readiness/catalog/knowledge; everything
  * else on the page (priority, the levels a check gates, its dependencies, the fix and
  * the specifications) is read from the catalog, so the two can never disagree. Every page
@@ -8,11 +8,22 @@
 import { catalog, type CheckDefinition, type Group } from '@agentic-readiness/catalog';
 import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
-import { badge, button, card, icon } from '@agentic-readiness/ui';
+import { badge, button, card, codeInline, icon, input } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
 import { page } from '../pages/layout.js';
 import { faqPairs, markdownToHtml, plainText, section, slugify } from './markdown.js';
+import {
+  articleSidebar,
+  checkStrip,
+  JOURNEY_STEP,
+  journeyRail,
+  KB_CSS,
+  KB_SCRIPT,
+  positionLine,
+  TIER_DOT,
+  tocLinks,
+} from './nav.js';
 
 /** When the articles were last reviewed as a whole; bump with substantive rewrites. */
 export const KNOWLEDGE_UPDATED = '2026-11-02';
@@ -43,7 +54,7 @@ export function groupSlug(group: Group): string {
 }
 
 export function articlePath(article: KnowledgeArticle): string {
-  return `/knowledge/${article.slug}`;
+  return `/knowledge-base/${article.slug}`;
 }
 
 function checkOf(article: KnowledgeArticle): CheckDefinition {
@@ -156,30 +167,49 @@ function breadcrumbLd(config: AppConfig, items: { name: string; path: string }[]
 }
 
 function scanCta(): string {
-  return `<section class="${card} mt-10 flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-base font-semibold tracking-tight">See how your store does</h2><p class="mt-1 text-sm text-muted-foreground">One scan runs every check in this knowledge base against your site and ends with a prioritised fix list.</p></div><a class="${button()}" href="/">Scan a store${icon('arrow-right')}</a></section>`;
+  return `<section class="${card} relative mt-12 overflow-hidden p-6"><div class="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/10 blur-2xl" aria-hidden="true"></div><div class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-base font-semibold tracking-tight">See how your store does</h2><p class="mt-1 text-sm text-muted-foreground">One scan runs every check in this knowledge base against your site and ends with a prioritised fix list.</p></div><a class="${button()}" href="/">Scan a store${icon('arrow-right')}</a></div></section>`;
+}
+
+/** Shared <head> and script for every knowledge-base page. */
+function kbPage(
+  config: AppConfig,
+  title: string,
+  description: string,
+  head: string,
+  body: string,
+): string {
+  return page(
+    config,
+    {
+      title: `${title} · ${config.appName}`,
+      description,
+      head: `${head}\n<style>${KB_CSS}</style>`,
+      scripts: [KB_SCRIPT],
+    },
+    `<div class="kb-progress" aria-hidden="true"></div>\n${body}`,
+  );
 }
 
 function checkRow(check: CheckDefinition): string {
   const article = articleFor(check.id);
   const tier = tierOf(check.weight);
   const title = article ? article.headline : check.title;
-  return `<li class="py-4"><div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span></div><h3 class="mt-1.5 text-base font-semibold">${
-    article
-      ? `<a class="hover:text-primary" href="${articlePath(article)}">${escapeHtml(title)}</a>`
-      : escapeHtml(title)
-  }</h3><p class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</p></li>`;
+  const text =
+    `${check.id} ${check.title} ${title} ${article?.description ?? ''} ${article?.keywords.join(' ') ?? ''}`.toLowerCase();
+  const gate = gateOf(check.id);
+  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="group -mx-3 flex gap-4 rounded-lg px-3 py-3.5 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="mt-0.5 w-10 shrink-0 font-mono text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
 }
 
-/** /knowledge */
+function groupSection(group: Group, headingLevel: 'h2' | 'h3'): string {
+  const checks = catalog.checks.filter((check) => check.group === group.id);
+  const index = catalog.groups.indexOf(group) + 1;
+  return `<section class="mt-10 scroll-mt-6" id="${escapeHtml(group.id)}" data-kb-section><div class="flex items-center gap-3"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary">${index}</span><div class="min-w-0 flex-1"><${headingLevel} class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="/knowledge-base/${groupSlug(group)}">${escapeHtml(group.title)}</a></${headingLevel}><p class="text-xs uppercase tracking-wider text-muted-foreground">${escapeHtml(group.id)} · ${escapeHtml(JOURNEY_STEP[group.id] ?? '')} · ${checks.length} checks</p></div></div><p class="mt-3 max-w-[70ch] text-sm leading-6 text-muted-foreground">${escapeHtml(group.description)}</p><ul class="mt-2">${checks.map(checkRow).join('')}</ul></section>`;
+}
+
+/** /knowledge-base */
 export function knowledgeIndexPage(config: AppConfig): string {
   const title = 'Agentic readiness knowledge base';
   const description = `How AI agents find, read, trust and buy from online stores: ${catalog.checks.length} checks explained, with what each one tests, why it matters and how to fix it.`;
-  const sections = catalog.groups
-    .map((group) => {
-      const checks = catalog.checks.filter((check) => check.group === group.id);
-      return `<section class="mt-10" id="${escapeHtml(group.id)}"><div class="flex flex-wrap items-baseline justify-between gap-2"><h2 class="flex items-center gap-2 text-lg font-semibold tracking-tight"><span class="${badge()}">${escapeHtml(group.id)}</span><a class="hover:text-primary" href="/knowledge/${groupSlug(group)}">${escapeHtml(group.title)}</a></h2><span class="text-sm text-muted-foreground">${checks.length} checks</span></div><p class="mt-2 max-w-[70ch] text-sm leading-6 text-muted-foreground">${escapeHtml(group.description)}</p><ul class="mt-2 divide-y divide-border">${checks.map(checkRow).join('')}</ul></section>`;
-    })
-    .join('');
   const tiers = (Object.keys(TIER_TEXT) as Tier[])
     .map(
       (tier) =>
@@ -190,18 +220,29 @@ export function knowledgeIndexPage(config: AppConfig): string {
     .sort((a, b) => a.value - b.value)
     .map(
       (level) =>
-        `<li class="text-sm leading-6 text-muted-foreground"><strong class="font-semibold text-foreground">Level ${level.value}, ${escapeHtml(level.name)}.</strong> ${escapeHtml(level.description)}</li>`,
+        `<li class="flex gap-3 text-sm leading-6"><span class="grid size-6 shrink-0 place-items-center rounded-md bg-muted font-mono text-xs font-semibold">${level.value}</span><span class="text-muted-foreground"><strong class="font-semibold text-foreground">${escapeHtml(level.name)}.</strong> ${escapeHtml(level.description)}</span></li>`,
+    )
+    .join('');
+  const chips = (Object.keys(TIER_TEXT) as Tier[])
+    .map(
+      (tier) =>
+        `<button type="button" class="kb-chip inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground" data-tier="${tier}" aria-pressed="false"><span class="size-2 rounded-full ${TIER_DOT[tier]}" aria-hidden="true"></span>${TIER_TEXT[tier]}</button>`,
     )
     .join('');
   const body = `
 ${breadcrumbs([{ label: 'Home', href: '/' }, { label: 'Knowledge base' }])}
-<h1 class="mt-4 max-w-[22ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">${title}</h1>
-<p class="mt-3 max-w-[66ch] leading-7 text-muted-foreground">An AI agent that shops for someone has to find a store, be allowed in, read its products as data, trust the merchant and, eventually, check out. Each article below explains one check of the <a class="font-medium text-primary underline-offset-4 hover:underline" href="/">Agentic Readiness Scanner</a>: what it looks at, why agents care, exactly how the scanner decides, and how to fix it on WordPress and WooCommerce, Shopify or any other stack.</p>
-<div class="mt-8 grid gap-3 md:grid-cols-2">
+<header class="mt-4">
+<h1 class="max-w-[22ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">${title}</h1>
+<p class="mt-3 max-w-[66ch] leading-7 text-muted-foreground">An AI agent that shops for someone has to find a store, be allowed in, read its products as data, trust the merchant and, eventually, check out. Each article explains one check of the <a class="font-medium text-primary underline-offset-4 hover:underline" href="/">Agentic Readiness Scanner</a>: what it looks at, why agents care, exactly how the scanner decides, and how to fix it on WordPress and WooCommerce, Shopify or any other stack.</p>
+</header>
+<section class="${card} mt-8 p-5" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
+<div class="sticky top-0 z-10 -mx-5 mt-8 border-b border-border bg-background/85 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-[14rem] flex-1"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-[0.7rem] text-muted-foreground">/</kbd></label><div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
+${catalog.groups.map((group) => groupSection(group, 'h2')).join('')}
+<div class="mt-12 grid gap-3 md:grid-cols-2">
 <section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">How to read priorities</h2><ul class="mt-3 space-y-2.5">${tiers}</ul></section>
-<section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">Readiness levels</h2><ul class="mt-3 space-y-1.5">${levels}</ul></section>
+<section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">Readiness levels</h2><ul class="mt-3 space-y-2">${levels}</ul></section>
 </div>
-${sections}
+<section class="${card} mt-3 p-5"><h2 class="text-base font-semibold tracking-tight">For agents</h2><p class="mt-2 text-sm leading-6 text-muted-foreground">Every page is also Markdown: append <code class="${codeInline}">.md</code> or send <code class="${codeInline}">Accept: text/markdown</code>. The whole knowledge base is in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/llms-full.txt">/llms-full.txt</a>, the index as data in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base.json">/knowledge-base.json</a>, and the MCP server at <code class="${codeInline}">/mcp</code> answers <code class="${codeInline}">explain_check</code>. Cite articles by their canonical URL.</p></section>
 ${scanCta()}
 ${jsonLd({
   '@context': 'https://schema.org',
@@ -210,49 +251,64 @@ ${jsonLd({
       '@type': 'CollectionPage',
       name: title,
       description,
-      url: `${config.baseUrl}/knowledge`,
+      url: `${config.baseUrl}/knowledge-base`,
       inLanguage: 'en',
       dateModified: KNOWLEDGE_UPDATED,
       author: { '@type': 'Person', ...AUTHOR },
-      hasPart: knowledge.map((article) => ({
-        '@type': 'TechArticle',
-        headline: article.headline,
-        url: `${config.baseUrl}${articlePath(article)}`,
-      })),
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: knowledge.length,
+        itemListElement: knowledge.map((article, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${config.baseUrl}${articlePath(article)}`,
+          name: article.headline,
+        })),
+      },
     },
     breadcrumbLd(config, [
       { name: 'Home', path: '/' },
-      { name: 'Knowledge base', path: '/knowledge' },
+      { name: 'Knowledge base', path: '/knowledge-base' },
     ]),
   ],
 })}`;
-  return page(
+  return kbPage(
     config,
-    {
-      title: `${title} · ${config.appName}`,
-      description,
-      head: headFor(config, '/knowledge', title, description, 'website'),
-    },
+    title,
+    description,
+    headFor(config, '/knowledge-base', title, description, 'website'),
     body,
   );
 }
 
-/** /knowledge/<group-slug> */
+/** /knowledge-base/<group-slug> */
 export function knowledgeGroupPage(config: AppConfig, group: Group): string {
   const checks = catalog.checks.filter((check) => check.group === group.id);
-  const path = `/knowledge/${groupSlug(group)}`;
+  const path = `/knowledge-base/${groupSlug(group)}`;
   const title = `${group.title}: ${checks.length} agentic readiness checks explained`;
   const description =
     group.description.length > 170
       ? `${group.description.slice(0, 167).replace(/\s+\S*$/, '')}...`
       : group.description;
   const dimension = group.dimension === 'ingestion' ? 'Agentic ingestion' : 'Agentic commerce';
+  const position = catalog.groups.indexOf(group);
+  const previous = catalog.groups[position - 1];
+  const next = catalog.groups[position + 1];
+  const neighbour = (target: Group | undefined, label: string, align: string) =>
+    target
+      ? `<a class="${card} block p-4 ${align} transition-colors hover:border-primary/50" href="/knowledge-base/${groupSlug(target)}"><span class="text-xs text-muted-foreground">${label} section · ${escapeHtml(target.id)}</span><span class="mt-1 block text-sm font-medium">${escapeHtml(target.title)}</span></a>`
+      : '<span></span>';
   const body = `
-${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge' }, { label: group.title }])}
-<p class="mt-4 font-mono text-xs text-muted-foreground">Section ${escapeHtml(group.id)} · ${dimension}</p>
+${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: group.title }])}
+<div class="mt-5">${journeyRail(group.id)}</div>
+<header class="mt-6">
+<p class="font-mono text-xs text-muted-foreground">Section ${position + 1} of ${catalog.groups.length} · ${escapeHtml(group.id)} · ${dimension}</p>
 <h1 class="mt-1 text-balance text-3xl font-bold tracking-tight">${escapeHtml(group.title)}</h1>
 <p class="mt-3 max-w-[66ch] leading-7 text-muted-foreground">${escapeHtml(group.description)}</p>
-<ul class="mt-4 divide-y divide-border">${checks.map(checkRow).join('')}</ul>
+</header>
+<div class="mt-5">${checkStrip(undefined, group.id)}</div>
+<ul class="mt-6">${checks.map(checkRow).join('')}</ul>
+<nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Other sections">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
 ${scanCta()}
 ${jsonLd({
   '@context': 'https://schema.org',
@@ -263,56 +319,62 @@ ${jsonLd({
       description,
       url: `${config.baseUrl}${path}`,
       inLanguage: 'en',
-      isPartOf: { '@type': 'CollectionPage', url: `${config.baseUrl}/knowledge` },
+      isPartOf: { '@type': 'CollectionPage', url: `${config.baseUrl}/knowledge-base` },
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: checks.length,
+        itemListElement: checks.map((check, index) => {
+          const article = articleFor(check.id);
+          return {
+            '@type': 'ListItem',
+            position: index + 1,
+            url: `${config.baseUrl}${article ? articlePath(article) : '/knowledge-base'}`,
+            name: article?.headline ?? check.title,
+          };
+        }),
+      },
     },
     breadcrumbLd(config, [
-      { name: 'Knowledge base', path: '/knowledge' },
+      { name: 'Knowledge base', path: '/knowledge-base' },
       { name: group.title, path },
     ]),
   ],
 })}`;
-  return page(
+  return kbPage(
     config,
-    {
-      title: `${title} · ${config.appName}`,
-      description,
-      head: headFor(config, path, title, description, 'website'),
-    },
+    title,
+    description,
+    headFor(config, path, title, description, 'website'),
     body,
   );
 }
 
 function fixCard(check: CheckDefinition): string {
   const { fix } = check;
-  return `<section class="${card} mt-10 p-6" id="fix"><h2 class="text-xl font-semibold tracking-tight">The fix in one step</h2><p class="mt-3 leading-7 text-muted-foreground">${escapeHtml(fix.summary)}</p>${
+  return `<section class="${card} mt-12 scroll-mt-6 border-primary/30 p-6" id="fix" aria-labelledby="fix-heading"><div class="flex items-center gap-2"><span class="grid size-7 place-items-center rounded-full bg-success/15 text-success">${icon('check', 'size-4')}</span><h2 id="fix-heading" class="text-xl font-semibold tracking-tight">The fix in one step</h2></div><p class="mt-3 leading-7 text-muted-foreground">${escapeHtml(fix.summary)}</p>${
     fix.snippet
       ? `<pre class="mt-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-[0.82rem] leading-6" data-language="${escapeHtml(fix.snippet_language ?? 'text')}"><code>${escapeHtml(fix.snippet)}</code></pre>`
       : ''
   }<details class="group mt-4 rounded-lg border border-border"><summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">Prompt for a coding agent${icon('chevron-down', 'size-4 transition-transform group-open:rotate-180')}</summary><p class="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">${escapeHtml(fix.agent_prompt)}</p></details></section>`;
 }
 
-/** /knowledge/<article-slug> */
+/** /knowledge-base/<article-slug> */
 export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticle): string {
   const check = checkOf(article);
   const group = groupOf(check);
   const tier = tierOf(check.weight);
   const path = articlePath(article);
   const rendered = markdownToHtml(article.body);
-  const toc = rendered.headings
-    .filter((heading) => heading.level === 2)
-    .map(
-      (heading) =>
-        `<li><a class="hover:text-foreground" href="#${heading.id}">${escapeHtml(heading.text)}</a></li>`,
-    )
-    .join('');
   const siblings = catalog.checks.filter((candidate) => candidate.group === check.group);
   const position = siblings.findIndex((candidate) => candidate.id === check.id);
-  const previous = siblings[position - 1];
-  const next = siblings[position + 1];
+  // Previous and next run across sections, so the last check of one leads into the next.
+  const overall = catalog.checks.findIndex((candidate) => candidate.id === check.id);
+  const previous = catalog.checks[overall - 1];
+  const next = catalog.checks[overall + 1];
   const neighbour = (target: CheckDefinition | undefined, label: string, align: string) => {
     const linked = target ? articleFor(target.id) : undefined;
     return linked
-      ? `<a class="${card} block p-4 ${align} hover:border-primary/50" href="${articlePath(linked)}"><span class="text-xs text-muted-foreground">${label} · ${escapeHtml(linked.id)}</span><span class="mt-1 block text-sm font-medium">${escapeHtml(linked.headline)}</span></a>`
+      ? `<a class="${card} group block p-4 ${align} transition-colors hover:border-primary/50" href="${articlePath(linked)}" rel="${label === 'Previous' ? 'prev' : 'next'}"><span class="text-xs text-muted-foreground">${label} · ${escapeHtml(linked.id)}</span><span class="mt-1 block text-sm font-medium group-hover:text-primary">${escapeHtml(linked.headline)}</span></a>`
       : '<span></span>';
   };
   const facts = [
@@ -333,7 +395,7 @@ export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticl
   ]
     .map(
       ([label, value]) =>
-        `<div class="grid gap-1 py-3 sm:grid-cols-[10rem_1fr] sm:gap-4"><dt class="text-sm font-medium">${label}</dt><dd class="text-sm leading-6">${value}</dd></div>`,
+        `<div class="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4"><dt class="text-sm font-medium">${label}</dt><dd class="text-sm leading-6">${value}</dd></div>`,
     )
     .join('');
   const sources = check.spec
@@ -347,23 +409,30 @@ export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticl
   const title = article.headline;
   const body = `
 ${breadcrumbs([
-  { label: 'Knowledge base', href: '/knowledge' },
-  { label: group.title, href: `/knowledge/${groupSlug(group)}` },
+  { label: 'Knowledge base', href: '/knowledge-base' },
+  { label: group.title, href: `/knowledge-base/${groupSlug(group)}` },
   { label: check.id },
 ])}
-<article class="mt-4">
+<div class="mt-5">${journeyRail(group.id)}</div>
+<div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"><span class="text-xs text-muted-foreground">${escapeHtml(positionLine(check, group))}</span>${checkStrip(check.id)}</div>
+<div class="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+${articleSidebar(check, group, rendered.headings)}
+<article data-kb-article class="min-w-0">
+<header>
 <p class="font-mono text-xs text-muted-foreground">Check ${escapeHtml(check.id)} · ${escapeHtml(check.title)}</p>
 <h1 class="mt-1 max-w-[26ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">${escapeHtml(title)}</h1>
 <p class="mt-3 max-w-[66ch] text-lg leading-8 text-muted-foreground">${escapeHtml(article.description)}</p>
-<p class="mt-3 text-sm text-muted-foreground">By <a class="hover:text-foreground" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="hover:text-foreground" href="${path}.md">Markdown</a></p>
+<p class="mt-3 text-sm text-muted-foreground">By <a class="hover:text-foreground" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="hover:text-foreground" href="${path}.md" type="text/markdown">Markdown</a></p>
+</header>
 <dl class="${card} mt-6 divide-y divide-border px-5">${facts}</dl>
-<nav class="mt-6" aria-label="On this page"><p class="text-sm font-medium">On this page</p><ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">${toc}<li><a class="hover:text-foreground" href="#fix">The fix in one step</a></li><li><a class="hover:text-foreground" href="#sources">Sources</a></li></ul></nav>
+<details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
 <div class="max-w-[72ch]">${rendered.html}</div>
 ${fixCard(check)}
-<section class="mt-10" id="sources"><h2 class="text-xl font-semibold tracking-tight">Sources and specifications</h2><ul class="mt-4 list-disc space-y-2 pl-6 text-sm leading-6 marker:text-muted-foreground/70">${sources}</ul></section>
-</article>
-<nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="More in ${escapeHtml(group.title)}">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
+<section class="mt-10 scroll-mt-6" id="sources" aria-labelledby="sources-heading"><h2 id="sources-heading" class="text-xl font-semibold tracking-tight">Sources and specifications</h2><ul class="mt-4 list-disc space-y-2 pl-6 text-sm leading-6 marker:text-muted-foreground/70">${sources}</ul></section>
+<nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Previous and next check">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
 ${scanCta()}
+</article>
+</div>
 ${jsonLd({
   '@context': 'https://schema.org',
   '@graph': [
@@ -376,6 +445,7 @@ ${jsonLd({
       abstract: summary,
       keywords: article.keywords.join(', '),
       url: `${config.baseUrl}${path}`,
+      mainEntityOfPage: `${config.baseUrl}${path}`,
       inLanguage: 'en',
       datePublished: KNOWLEDGE_UPDATED,
       dateModified: KNOWLEDGE_UPDATED,
@@ -384,10 +454,16 @@ ${jsonLd({
       isPartOf: {
         '@type': 'CollectionPage',
         name: 'Agentic readiness knowledge base',
-        url: `${config.baseUrl}/knowledge`,
+        url: `${config.baseUrl}/knowledge-base`,
       },
       about: group.title,
+      position: position + 1,
       citation: check.spec.map((ref) => ref.url),
+      encoding: {
+        '@type': 'MediaObject',
+        encodingFormat: 'text/markdown',
+        contentUrl: `${config.baseUrl}${path}.md`,
+      },
       proficiencyLevel: 'Beginner',
     },
     {
@@ -399,19 +475,17 @@ ${jsonLd({
       })),
     },
     breadcrumbLd(config, [
-      { name: 'Knowledge base', path: '/knowledge' },
-      { name: group.title, path: `/knowledge/${groupSlug(group)}` },
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: group.title, path: `/knowledge-base/${groupSlug(group)}` },
       { name: title, path },
     ]),
   ],
 })}`;
-  return page(
+  return kbPage(
     config,
-    {
-      title: `${title} · ${config.appName}`,
-      description: article.description,
-      head: `${headFor(config, path, title, article.description, 'article')}\n<meta name="keywords" content="${escapeHtml(article.keywords.join(', '))}">`,
-    },
+    title,
+    article.description,
+    `${headFor(config, path, title, article.description, 'article')}\n<meta name="keywords" content="${escapeHtml(article.keywords.join(', '))}">`,
     body,
   );
 }
@@ -420,22 +494,40 @@ function absolute(config: AppConfig, markdown: string): string {
   return markdown.replace(/\]\(\/(?!\/)/g, `](${config.baseUrl}/`);
 }
 
-/** The article as one Markdown document: the article, then the catalog's facts, fix and sources. */
+/** A YAML value on one line: quoted, with quotes and backslashes escaped. */
+function yaml(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/** The article as one Markdown document: front matter, the article, then the catalog's fix and sources. */
 export function articleMarkdown(config: AppConfig, article: KnowledgeArticle): string {
   const check = checkOf(article);
   const group = groupOf(check);
   const tier = tierOf(check.weight);
   const url = `${config.baseUrl}${articlePath(article)}`;
+  const gate = gateOf(check.id);
   const { fix } = check;
-  return `# ${article.headline}
+  return `---
+title: ${yaml(article.headline)}
+description: ${yaml(article.description)}
+canonical_url: ${url}
+check_id: ${check.id}
+check_title: ${yaml(check.title)}
+section: ${yaml(`${group.id} ${group.title}`)}
+priority: ${tier}
+weight: ${check.weight}
+level_gate: ${gate ? gate.value : 'none'}
+depends_on: [${check.depends_on.join(', ')}]
+keywords: [${article.keywords.map(yaml).join(', ')}]
+author: ${yaml(AUTHOR.name)}
+updated: ${KNOWLEDGE_UPDATED}
+---
+
+# ${article.headline}
 
 > ${article.description}
 
-- Check: ${check.id} ${check.title} (section ${group.id}, ${group.title})
-- Priority: ${TIER_TEXT[tier].toLowerCase()}. ${TIER_HELP[tier]}
-- Readiness level: ${gateSentence(check.id)}
-${check.depends_on.length > 0 ? `- Runs after: ${check.depends_on.join(', ')}\n` : ''}- Canonical URL: ${url}
-- Author: ${AUTHOR.name} (${AUTHOR.url}), updated ${KNOWLEDGE_UPDATED}
+Check ${check.id} (${check.title}) in section ${group.id}, ${group.title}. Priority: ${TIER_TEXT[tier].toLowerCase()}. ${TIER_HELP[tier]} ${gateSentence(check.id)}${check.depends_on.length > 0 ? ` Runs after ${check.depends_on.join(', ')}.` : ''}
 
 ${absolute(config, article.body)}
 
@@ -450,6 +542,36 @@ ${fix.agent_prompt}
 ## Sources and specifications
 
 ${check.spec.map((ref) => `- [${ref.title}](${ref.url})`).join('\n')}
+
+Source: ${url} (${config.appName} knowledge base, by ${AUTHOR.name}).
+`;
+}
+
+function articleListItem(config: AppConfig, check: CheckDefinition): string {
+  const article = articleFor(check.id);
+  return article
+    ? `- [${check.id} ${article.headline}](${config.baseUrl}${articlePath(article)}.md): ${article.description}`
+    : `- ${check.id} ${check.title}`;
+}
+
+/** A section as Markdown: its description and every check with a link. */
+export function groupMarkdown(config: AppConfig, group: Group): string {
+  const items = catalog.checks
+    .filter((check) => check.group === group.id)
+    .map((check) => articleListItem(config, check))
+    .join('\n');
+  return `---
+title: ${yaml(group.title)}
+canonical_url: ${config.baseUrl}/knowledge-base/${groupSlug(group)}
+section: ${group.id}
+dimension: ${group.dimension}
+---
+
+# ${group.id} ${group.title}
+
+${group.description}
+
+${items}
 `;
 }
 
@@ -459,12 +581,7 @@ export function knowledgeIndexMarkdown(config: AppConfig): string {
     .map((group) => {
       const items = catalog.checks
         .filter((check) => check.group === group.id)
-        .map((check) => {
-          const article = articleFor(check.id);
-          return article
-            ? `- [${check.id} ${article.headline}](${config.baseUrl}${articlePath(article)}.md): ${article.description}`
-            : `- ${check.id} ${check.title}`;
-        })
+        .map((check) => articleListItem(config, check))
         .join('\n');
       return `## ${group.id} ${group.title}\n\n${group.description}\n\n${items}`;
     })
@@ -473,10 +590,54 @@ export function knowledgeIndexMarkdown(config: AppConfig): string {
 
 > How AI agents find, read, trust and buy from online stores: every check of the ${config.appName} explained, with what it tests, why it matters, how the scanner decides and how to fix it.
 
-By ${AUTHOR.name} (${AUTHOR.url}). Each article is also an HTML page at the same URL without .md.
+By ${AUTHOR.name} (${AUTHOR.url}). Each article is also an HTML page at the same URL without .md. The index as data: ${config.baseUrl}/knowledge-base.json. Everything in one file: ${config.baseUrl}/llms-full.txt.
 
 ${sections}
 `;
+}
+
+/** The index as data, for agents and tools: sections, checks, URLs, priorities and gates. */
+export function knowledgeIndexJson(config: AppConfig) {
+  return {
+    name: 'Agentic readiness knowledge base',
+    url: `${config.baseUrl}/knowledge-base`,
+    markdown_url: `${config.baseUrl}/knowledge-base.md`,
+    full_text_url: `${config.baseUrl}/llms-full.txt`,
+    author: AUTHOR,
+    updated: KNOWLEDGE_UPDATED,
+    catalog_version: catalog.version,
+    levels: [...catalog.levels]
+      .sort((a, b) => a.value - b.value)
+      .map((level) => ({ value: level.value, name: level.name, description: level.description })),
+    sections: catalog.groups.map((group) => ({
+      id: group.id,
+      title: group.title,
+      dimension: group.dimension,
+      description: group.description,
+      url: `${config.baseUrl}/knowledge-base/${groupSlug(group)}`,
+      checks: catalog.checks
+        .filter((check) => check.group === group.id)
+        .map((check) => {
+          const article = articleFor(check.id);
+          const gate = gateOf(check.id);
+          const url = `${config.baseUrl}${article ? articlePath(article) : '/knowledge-base'}`;
+          return {
+            id: check.id,
+            title: check.title,
+            headline: article?.headline ?? check.title,
+            description: article?.description ?? check.question,
+            question: check.question,
+            priority: tierOf(check.weight),
+            weight: check.weight,
+            level_gate: gate ? { level: gate.value, alternatives: gate.alternatives } : null,
+            depends_on: check.depends_on,
+            keywords: article?.keywords ?? [],
+            url,
+            markdown_url: `${url}.md`,
+          };
+        }),
+    })),
+  };
 }
 
 /** Every article in one Markdown file, for agents that want the whole knowledge base at once. */

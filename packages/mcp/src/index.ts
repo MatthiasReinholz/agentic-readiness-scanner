@@ -11,11 +11,15 @@ import { z } from 'zod';
 export type Scanner = (url: string, profile?: string) => Promise<ScanResult>;
 /** A host's recorded states over time, as the hosted app keeps them; JSON-safe. */
 export type HistoryReader = (host: string) => Promise<unknown>;
+/** The knowledge-base article for a check id as Markdown, or undefined when there is none. */
+export type ArticleReader = (checkId: string) => string | undefined;
 
 export interface McpServerOptions {
   scanner: Scanner;
   /** Registers get_history when the host keeps history (the hosted app does; a CLI does not). */
   history?: HistoryReader;
+  /** Registers explain_check when the host publishes the knowledge base (the hosted app does). */
+  explain?: ArticleReader;
   name?: string;
   version?: string;
 }
@@ -112,6 +116,30 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       };
     },
   );
+
+  if (options.explain) {
+    const readArticle = options.explain;
+    server.registerTool(
+      'explain_check',
+      {
+        title: 'Explain a check in depth',
+        description:
+          'Returns the knowledge-base article for a check id as Markdown: what the check looks at, why it matters to AI agents, how the scanner decides, how to fix it per platform, how to verify the fix, common mistakes, an FAQ, the fix and its sources, with the canonical URL to cite.',
+        inputSchema: {
+          check_id: z
+            .string()
+            .regex(/^[AB][1-5]\.\d{1,2}$/)
+            .describe('Check id, e.g. A2.2'),
+        },
+      },
+      ({ check_id }) => {
+        const text = readArticle(check_id);
+        return text === undefined
+          ? { content: [{ type: 'text', text: `Unknown check ${check_id}` }], isError: true }
+          : { content: [{ type: 'text', text }] };
+      },
+    );
+  }
 
   server.registerTool(
     'list_checks',

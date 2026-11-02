@@ -28,7 +28,7 @@ export function homePage(config: AppConfig, error?: string): string {
   const groups = catalog.groups
     .map(
       (group) =>
-        `<a class="${card} group block p-5 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge/${groupSlug(group)}"><h3 class="flex items-center gap-2 text-base font-semibold"><span class="${badge()}">${escapeHtml(group.id)}</span>${escapeHtml(group.title)}</h3><p class="mt-1.5 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
+        `<a class="${card} group block p-5 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge-base/${groupSlug(group)}"><h3 class="flex items-center gap-2 text-base font-semibold"><span class="${badge()}">${escapeHtml(group.id)}</span>${escapeHtml(group.title)}</h3><p class="mt-1.5 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
     )
     .join('');
   const code = (text: string) => `<code class="${codeInline}">${escapeHtml(text)}</code>`;
@@ -46,7 +46,7 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} mt-4" role="alert">$
 ${scanConsoleMarkup()}
 </section>
 <section class="mt-11">
-<div class="mb-3.5 flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-semibold tracking-tight">What gets checked</h2><a class="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/knowledge">Knowledge base: every check explained</a></div>
+<div class="mb-3.5 flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-semibold tracking-tight">What gets checked</h2><a class="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base">Knowledge base: every check explained</a></div>
 <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">${groups}</div>
 </section>
 <section class="mt-11">

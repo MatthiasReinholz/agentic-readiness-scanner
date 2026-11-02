@@ -79,6 +79,7 @@ export function markdownToHtml(markdown: string): RenderedMarkdown {
   const used = new Set<string>();
   let paragraph: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
+  let openSection = false;
 
   const flushParagraph = () => {
     if (paragraph.length > 0)
@@ -127,6 +128,11 @@ export function markdownToHtml(markdown: string): RenderedMarkdown {
       while (used.has(id)) id = `${id}-x`;
       used.add(id);
       headings.push({ level, text, id });
+      if (level === 2) {
+        if (openSection) out.push('</section>');
+        out.push(`<section aria-labelledby="${id}">`);
+        openSection = true;
+      }
       out.push(
         level === 2
           ? `<h2 id="${id}" class="mt-10 scroll-mt-6 text-xl font-semibold tracking-tight text-foreground">${renderInline(text)}</h2>`
@@ -183,6 +189,7 @@ export function markdownToHtml(markdown: string): RenderedMarkdown {
     paragraph.push(line.trim());
   }
   flush();
+  if (openSection) out.push('</section>');
   return { html: out.join('\n'), headings };
 }
 
