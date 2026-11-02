@@ -6,6 +6,7 @@ import {
   TargetUnreachableError,
   type Fetcher,
   type ScanOptions,
+  type ScanProgress,
 } from '@agentic-readiness/core';
 
 import type { AppConfig } from './config.js';
@@ -66,6 +67,8 @@ const MAX_CONCURRENT_SCANS = 4;
 export async function scanOrReuse(
   deps: ScanDependencies,
   request: ScanRequest,
+  /** Receives the scan's progress events; a reused or shared scan sends none. */
+  onProgress?: (progress: ScanProgress) => void,
 ): Promise<{ scan: StoredScan; reused: boolean }> {
   let host: string;
   try {
@@ -89,7 +92,7 @@ export async function scanOrReuse(
   if (inFlightScans.size >= MAX_CONCURRENT_SCANS) {
     throw new ScanRequestError('The scanner is busy; try again in a minute.', 503);
   }
-  const running = performScan(deps, request, host, now);
+  const running = performScan(deps, request, host, now, onProgress);
   inFlightScans.set(host, running);
   try {
     return { scan: await running, reused: false };
@@ -103,8 +106,10 @@ async function performScan(
   request: ScanRequest,
   host: string,
   now: () => Date,
+  onProgress?: (progress: ScanProgress) => void,
 ): Promise<StoredScan> {
   const options: ScanOptions = {
+    ...(onProgress ? { onProgress } : {}),
     budget: deps.config.scanBudget,
     deadlineMs: deps.config.scanDeadlineMs,
     now,

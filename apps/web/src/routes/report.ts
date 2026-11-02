@@ -1,5 +1,6 @@
 import { renderBadge, renderHtml, renderJson, renderMarkdown } from '@agentic-readiness/core';
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 
 import type { AppConfig } from '../config.js';
 import { entryContaining } from '../history/types.js';
@@ -79,6 +80,81 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         return c.json({ error: error.message }, error.status as 400 | 503);
       throw error;
     }
+  });
+
+  // The same scan as /api/scan, streamed as server-sent events so the home page can show
+  // what the scanner is doing: `progress` per phase and per check verdict, then `done`
+  // with the report URL, or `failure` with the reason. A reused result answers `done` at
+  // once with its verdicts, so the page can replay them.
+  app.post('/api/scan/stream', async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'Body must be JSON.' }, 400);
+    }
+    let request;
+    try {
+      request = validateScanRequest(
+        body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
+      );
+    } catch (error) {
+      if (error instanceof ScanRequestError)
+        return c.json({ error: error.message }, error.status as 400);
+      throw error;
+    }
+    c.header('cache-control', 'no-store');
+    return streamSSE(c, async (stream) => {
+      let open = true;
+      stream.onAbort(() => {
+        open = false;
+      });
+      // Writes are chained so they reach the client in order and all of them have flushed
+      // before the stream closes.
+      let pending: Promise<unknown> = Promise.resolve();
+      const send = (event: string, data: unknown): void => {
+        if (!open) return;
+        pending = pending.then(() => stream.writeSSE({ event, data: JSON.stringify(data) }));
+      };
+      // A comment every few seconds keeps intermediaries from holding the stream while a
+      // slow store takes its time between events.
+      const keepAlive = setInterval(() => {
+        if (open) pending = pending.then(() => stream.write(': keep-alive\n\n'));
+      }, 5000);
+      try {
+        const { scan: stored, reused } = await scanOrReuse(deps, request, (progress) => {
+          send('progress', progress);
+        });
+        send('done', {
+          id: stored.id,
+          reused,
+          report_url: `/r/${stored.id}`,
+          host: stored.host,
+          scanned_at: stored.createdAt,
+          level: stored.result.level,
+          scores: {
+            ingestion: stored.result.scores.ingestion,
+            commerce: stored.result.scores.commerce,
+          },
+          requests: stored.result.requests,
+          duration_ms: stored.result.duration_ms,
+          results: stored.result.results.map((item) => ({ id: item.id, verdict: item.verdict })),
+        });
+      } catch (error) {
+        if (error instanceof ScanRequestError)
+          send('failure', { message: error.message, status: error.status });
+        else {
+          console.error('[scan-stream]', error);
+          send('failure', {
+            message: 'The scan failed unexpectedly. Try again in a minute.',
+            status: 500,
+          });
+        }
+      } finally {
+        clearInterval(keepAlive);
+        await pending.catch(() => undefined);
+      }
+    });
   });
 
   app.get('/r/:file', async (c) => {

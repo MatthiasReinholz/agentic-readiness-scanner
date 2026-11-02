@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FetchFailure, FetchOptions, FetchedResponse, Fetcher } from './http/types.js';
 import { renderBadge, renderHtml, renderMarkdown } from './reporters/index.js';
+import type { ScanProgress } from './progress.js';
 import { scan } from './scan.js';
 import { fixtureFetcher } from './testing/index.js';
 
@@ -255,5 +256,43 @@ describe('scan of a store whose home page refuses the scanner', () => {
     expect(markdown).toMatch(
       /1\. \*\*A2\.4 No block or challenge on an honest fetch\*\* — blocking · unlocks Level 1/,
     );
+  });
+});
+
+describe('scan progress events', () => {
+  it('reports each phase and every check verdict with running counters', async () => {
+    const events: ScanProgress[] = [];
+    const result = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(join(fixtures, 'good-woocommerce')),
+      onProgress: (event) => events.push(event),
+    });
+    const phases = events
+      .filter((e) => e.type === 'phase')
+      .map((e) => (e.type === 'phase' ? e.phase : ''));
+    expect(phases).toEqual(['home', 'robots', 'sitemap', 'sample']);
+    const target = events.find((e) => e.type === 'target');
+    expect(target).toMatchObject({ platform: 'woocommerce', checks: result.results.length });
+    const checks = events.filter((e) => e.type === 'check');
+    expect(checks).toHaveLength(result.results.length);
+    expect(checks.at(-1)).toMatchObject({
+      index: result.results.length,
+      total: result.results.length,
+    });
+    expect(new Set(checks.map((e) => (e.type === 'check' ? e.id : ''))).size).toBe(
+      result.results.length,
+    );
+    const requests = events.map((e) => e.requests);
+    expect(requests).toEqual([...requests].sort((a, b) => a - b));
+    expect(events.every((e) => e.budget === 40 && e.elapsed_ms >= 0)).toBe(true);
+  });
+
+  it('never lets a broken listener break the scan', async () => {
+    const result = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(join(fixtures, 'good-woocommerce')),
+      onProgress: () => {
+        throw new Error('display broke');
+      },
+    });
+    expect(result.level.value).toBe(5);
   });
 });

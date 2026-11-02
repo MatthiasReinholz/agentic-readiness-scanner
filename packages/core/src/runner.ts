@@ -11,12 +11,15 @@ import {
 import { BudgetExhaustedError, type Fetcher } from './http/types.js';
 import type { Check, CheckOutcome } from './checks/types.js';
 import type { Target } from './target/types.js';
+import { emitProgress, type ProgressListener } from './progress.js';
 
 export interface RunOptions {
   target: Target;
   fetcher: Fetcher;
   checks: readonly Check[];
   catalog?: Catalog;
+  /** Receives a check event as each verdict is decided. */
+  onProgress?: ProgressListener;
 }
 
 export interface RunOutput {
@@ -103,6 +106,23 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   const implementations = new Map(options.checks.map((check) => [check.id, check]));
   const applicable = new Set(checksForProfile(target.profile).map((definition) => definition.id));
   const outcomes = new Map<string, CheckOutcome>();
+  const total = catalog.checks.length;
+  let decided = 0;
+  const record = (definition: CheckDefinition, outcome: CheckOutcome): void => {
+    outcomes.set(definition.id, outcome);
+    decided += 1;
+    emitProgress(options.onProgress, {
+      type: 'check',
+      id: definition.id,
+      group: definition.group,
+      title: definition.title,
+      verdict: outcome.verdict,
+      ...(outcome.skipReason ? { skip_reason: outcome.skipReason } : {}),
+      ...(outcome.message ? { message: outcome.message } : {}),
+      index: decided,
+      total,
+    });
+  };
   let budgetExhausted = false;
   let stopReason = 'request budget exhausted before this check ran';
 
@@ -111,7 +131,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     // sitemap and the refusal itself can be judged. Everything else would report the
     // absence of things the scanner never saw.
     if (target.blocked && !runsWhenHomeBlocked(definition.id, target)) {
-      outcomes.set(definition.id, {
+      record(definition, {
         verdict: 'skip',
         skipReason: 'dependency_failed',
         message: `not evaluated: the home page refused the scanner (HTTP ${target.blocked.status}); see A2.4`,
@@ -121,7 +141,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     }
     const unmet = applicable.has(definition.id) ? unmetRequirement(definition, target) : null;
     if (!applicable.has(definition.id) || unmet) {
-      outcomes.set(definition.id, {
+      record(definition, {
         verdict: 'skip',
         skipReason: 'not_applicable',
         message: unmet ? UNMET_MESSAGES[unmet] : 'does not apply to this profile',
@@ -138,8 +158,8 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       // A parent that had nothing to evaluate (an optional file that is absent, say)
       // leaves its dependents with nothing to evaluate either; that is not a failure.
       const parentSkip = outcomes.get(failedParent)?.skipReason;
-      outcomes.set(
-        definition.id,
+      record(
+        definition,
         parentSkip === 'not_applicable'
           ? {
               verdict: 'skip',
@@ -158,7 +178,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     }
     const implementation = implementations.get(definition.id);
     if (!implementation) {
-      outcomes.set(definition.id, {
+      record(definition, {
         verdict: 'skip',
         skipReason: 'not_implemented',
         message: 'not implemented in this scanner version',
@@ -167,7 +187,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       continue;
     }
     if (budgetExhausted) {
-      outcomes.set(definition.id, {
+      record(definition, {
         verdict: 'skip',
         skipReason: 'budget_exhausted',
         message: stopReason,
@@ -176,23 +196,20 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       continue;
     }
     try {
-      outcomes.set(
-        definition.id,
-        await implementation.run({ target, fetcher, definition, outcomes }),
-      );
+      record(definition, await implementation.run({ target, fetcher, definition, outcomes }));
     } catch (error) {
       if (error instanceof BudgetExhaustedError) {
         budgetExhausted = true;
         if (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError')
           stopReason = `not run: ${error.message} before this check`;
-        outcomes.set(definition.id, {
+        record(definition, {
           verdict: 'skip',
           skipReason: 'budget_exhausted',
           message: error.message,
           evidence: {},
         });
       } else {
-        outcomes.set(definition.id, {
+        record(definition, {
           verdict: 'skip',
           skipReason: 'error',
           message: error instanceof Error ? `${error.name}: ${error.message}` : String(error),

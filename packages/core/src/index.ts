@@ -9,4 +9,5 @@ export * from './runner.js';
 export * from './scoring.js';
 export * from './diff.js';
 export * from './scan.js';
+export * from './progress.js';
 export * from './version.js';
