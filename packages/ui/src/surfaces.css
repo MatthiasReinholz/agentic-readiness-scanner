@@ -103,8 +103,6 @@
   max-width: 28ch;
 }
 .hero-headline {
-  /* Keep moving signals out of the display type's contrast area. */
-  background: hsl(var(--hero));
   max-width: 18ch;
   font-size: clamp(2.4rem, 6.6vw, 5rem);
   font-weight: 700;
@@ -167,6 +165,9 @@
   align-items: center;
   gap: 1rem;
 }
+.hero-level p {
+  max-width: 55ch;
+}
 .hero-level .lv-badge {
   flex: none;
   color: hsl(var(--hero-highlight));
@@ -174,6 +175,7 @@
   background: hsl(var(--hero));
 }
 .hero-meta {
+  max-width: 72ch;
   margin-top: 1rem;
   font-size: 0.875rem;
   line-height: 1.7;
@@ -250,7 +252,8 @@
   overflow: hidden;
   inset: 0;
   opacity: 0.55;
-  mask-image: linear-gradient(90deg, transparent 30%, #000 85%);
+  /* Fade the decoration itself, never cover it with rectangular text backgrounds. */
+  mask-image: linear-gradient(90deg, transparent 20%, rgb(0 0 0 / 0.1) 70%, #000);
 }
 .signal-network svg {
   position: absolute;
@@ -335,6 +338,12 @@
 .page-content :is(p, li, h2, h3, dd) {
   overflow-wrap: anywhere;
 }
+@media (max-width: 1023px) {
+  /* Copy fills the width here. Even an overlapping packet keeps white text above 4.5:1. */
+  .signal-network {
+    opacity: 0.08;
+  }
+}
 @media (max-width: 767px) {
   .hero-form {
     grid-template-columns: 1fr;
@@ -376,7 +385,6 @@
     align-items: flex-start;
   }
   .signal-network {
-    opacity: 0.3;
     mask-image: linear-gradient(90deg, transparent, #000);
   }
 }
