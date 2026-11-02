@@ -447,3 +447,14 @@ describe('market scope', () => {
     expect(target.sampled.products).toHaveLength(2);
   });
 });
+
+describe('brand names in policy labels', () => {
+  it('keeps a policy page whose label mentions the brand when its path does not', () => {
+    const doc = new HtmlDocument(
+      '<footer><a href="/us/en/customer-service/services/delivery/">Standard delivery starts at $19 for IKEA Family members!</a></footer>',
+    );
+    expect(findPolicyLinks(doc, 'https://www.ikea.com')).toEqual({
+      shipping: 'https://www.ikea.com/us/en/customer-service/services/delivery/',
+    });
+  });
+});
