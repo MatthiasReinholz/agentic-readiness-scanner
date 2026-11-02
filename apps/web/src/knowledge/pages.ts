@@ -11,6 +11,7 @@ import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
 import { badge, button, card, codeInline, icon, input } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
+import { AUTHOR, jsonLd, metadataHead, siteGraph, socialImage, webPage } from '../metadata.js';
 import { page } from '../pages/layout.js';
 import { faqPairs, markdownToHtml, plainText, section, slugify } from './markdown.js';
 import {
@@ -27,7 +28,6 @@ import {
 
 /** When the articles were last reviewed as a whole; bump with substantive rewrites. */
 export const KNOWLEDGE_UPDATED = '2026-11-02';
-const AUTHOR = { name: 'Matthias Reinholz', url: 'https://matthiasreinholz.com/about/' };
 
 const TIER_TEXT: Record<Tier, string> = {
   blocking: 'Blocking',
@@ -117,27 +117,24 @@ function checkLink(id: string): string {
     : escapeHtml(id);
 }
 
-function jsonLd(data: unknown): string {
-  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
-}
-
 function headFor(
   config: AppConfig,
   path: string,
   title: string,
   description: string,
-  type: string,
+  type: 'website' | 'article',
 ): string {
   const url = `${config.baseUrl}${path}`;
   return [
-    `<link rel="canonical" href="${escapeHtml(url)}">`,
+    metadataHead(config, {
+      path,
+      title,
+      description,
+      image: 'knowledge',
+      type,
+      ...(type === 'article' ? { published: KNOWLEDGE_UPDATED, modified: KNOWLEDGE_UPDATED } : {}),
+    }),
     `<link rel="alternate" type="text/markdown" href="${escapeHtml(`${url}.md`)}" title="Markdown">`,
-    `<meta property="og:type" content="${type}">`,
-    `<meta property="og:title" content="${escapeHtml(title)}">`,
-    `<meta property="og:description" content="${escapeHtml(description)}">`,
-    `<meta property="og:url" content="${escapeHtml(url)}">`,
-    `<meta property="og:site_name" content="${escapeHtml(config.appName)}">`,
-    `<meta name="author" content="${AUTHOR.name}">`,
   ].join('\n');
 }
 
@@ -157,6 +154,7 @@ function breadcrumbs(items: { label: string; href?: string }[]): string {
 function breadcrumbLd(config: AppConfig, items: { name: string; path: string }[]) {
   return {
     '@type': 'BreadcrumbList',
+    '@id': `${config.baseUrl}${items.at(-1)?.path ?? '/'}#breadcrumb`,
     itemListElement: items.map((item, index) => ({
       '@type': 'ListItem',
       position: index + 1,
@@ -251,13 +249,14 @@ ${jsonLd({
   '@context': 'https://schema.org',
   '@graph': [
     {
+      ...webPage(config, '/knowledge-base', title, description, 'knowledge'),
       '@type': 'CollectionPage',
       name: title,
       description,
       url: `${config.baseUrl}/knowledge-base`,
       inLanguage: 'en',
       dateModified: KNOWLEDGE_UPDATED,
-      author: { '@type': 'Person', ...AUTHOR },
+      author: { '@id': `${AUTHOR.url}#person` },
       mainEntity: {
         '@type': 'ItemList',
         numberOfItems: knowledge.length,
@@ -273,6 +272,7 @@ ${jsonLd({
       { name: 'Home', path: '/' },
       { name: 'Knowledge base', path: '/knowledge-base' },
     ]),
+    ...siteGraph(config, 'knowledge'),
   ],
 })}`;
   return kbPage(
@@ -319,12 +319,13 @@ ${jsonLd({
   '@context': 'https://schema.org',
   '@graph': [
     {
+      ...webPage(config, path, title, description, 'knowledge'),
       '@type': 'CollectionPage',
       name: title,
       description,
       url: `${config.baseUrl}${path}`,
       inLanguage: 'en',
-      isPartOf: { '@type': 'CollectionPage', url: `${config.baseUrl}/knowledge-base` },
+      isPartOf: { '@id': `${config.baseUrl}/knowledge-base#webpage` },
       mainEntity: {
         '@type': 'ItemList',
         numberOfItems: checks.length,
@@ -343,6 +344,7 @@ ${jsonLd({
       { name: 'Knowledge base', path: '/knowledge-base' },
       { name: group.title, path },
     ]),
+    ...siteGraph(config, 'knowledge'),
   ],
 })}`;
   return kbPage(
@@ -452,18 +454,28 @@ ${jsonLd({
       abstract: summary,
       keywords: article.keywords.join(', '),
       url: `${config.baseUrl}${path}`,
-      mainEntityOfPage: `${config.baseUrl}${path}`,
+      mainEntityOfPage: { '@id': `${config.baseUrl}${path}#webpage` },
       inLanguage: 'en',
       datePublished: KNOWLEDGE_UPDATED,
       dateModified: KNOWLEDGE_UPDATED,
-      author: { '@type': 'Person', ...AUTHOR },
-      publisher: { '@type': 'Organization', name: config.appName, url: config.baseUrl },
+      author: { '@id': `${AUTHOR.url}#person` },
+      publisher: { '@id': `${AUTHOR.url}#person` },
+      image: { '@id': `${socialImage(config, 'knowledge').url}#image` },
+      isAccessibleForFree: true,
+      identifier: check.id,
+      articleSection: group.title,
       isPartOf: {
+        '@id': `${config.baseUrl}/knowledge-base#webpage`,
         '@type': 'CollectionPage',
         name: 'Agentic readiness knowledge base',
         url: `${config.baseUrl}/knowledge-base`,
       },
-      about: group.title,
+      about: {
+        '@type': 'DefinedTerm',
+        name: group.title,
+        termCode: group.id,
+        url: `${config.baseUrl}/knowledge-base/${groupSlug(group)}`,
+      },
       position: position + 1,
       citation: check.spec.map((ref) => ref.url),
       encoding: {
@@ -475,6 +487,8 @@ ${jsonLd({
     },
     {
       '@type': 'FAQPage',
+      '@id': `${config.baseUrl}${path}#faq`,
+      isPartOf: { '@id': `${config.baseUrl}${path}#webpage` },
       mainEntity: faq.map((pair) => ({
         '@type': 'Question',
         name: pair.question,
@@ -486,6 +500,11 @@ ${jsonLd({
       { name: group.title, path: `/knowledge-base/${groupSlug(group)}` },
       { name: title, path },
     ]),
+    {
+      ...webPage(config, path, title, article.description, 'knowledge'),
+      mainEntity: { '@id': `${config.baseUrl}${path}#article` },
+    },
+    ...siteGraph(config, 'knowledge'),
   ],
 })}`;
   return kbPage(

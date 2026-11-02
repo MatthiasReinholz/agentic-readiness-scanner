@@ -3,6 +3,8 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
 import type { AppConfig } from '../config.js';
+import { reportMetadata } from '../metadata.js';
+import type { StoredScan } from '../store/types.js';
 import { entryContaining } from '../history/types.js';
 import { hostKey } from '../hosts.js';
 import { SCAN_ID } from '../ids.js';
@@ -25,15 +27,19 @@ export interface ReportRouteDependencies {
   monitoring: MonitoringService | null;
 }
 
-function reportLinks(config: AppConfig, id: string, host: string) {
+function reportLinks(config: AppConfig, stored: StoredScan) {
+  const { id, host } = stored;
+  const metadata = reportMetadata(config, stored);
   return {
+    title: metadata.title,
+    description: metadata.description,
     reportUrl: `${config.baseUrl}/r/${id}`,
     jsonUrl: `${config.baseUrl}/r/${id}.json`,
     markdownUrl: `${config.baseUrl}/r/${id}.md`,
     badgeUrl: `${config.baseUrl}/badge/${host}.svg`,
     appName: config.appName,
     homeUrl: `${config.baseUrl}/`,
-    head: hostedHead(),
+    head: `${hostedHead()}\n${metadata.head}`,
     footerHtml: hostedFooterHtml(config),
   };
 }
@@ -228,6 +234,16 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     const stored = await store.get(match[1]);
     if (!stored) return c.notFound();
     const format = match[2] ?? (c.req.header('accept')?.includes('text/markdown') ? 'md' : 'html');
+    const reportUrl = `${config.baseUrl}/r/${stored.id}`;
+    c.header(
+      'Link',
+      `<${reportUrl}>; rel="canonical", <${reportUrl}.json>; rel="alternate"; type="application/json", <${reportUrl}.md>; rel="alternate"; type="text/markdown"`,
+    );
+    // Index the canonical report; machine-readable exports remain accessible without duplicate search entries.
+    c.header(
+      'X-Robots-Tag',
+      format === 'html' ? 'index, follow, max-image-preview:large' : 'noindex, follow',
+    );
     c.header('cache-control', 'public, max-age=300');
     // The bare URL negotiates on Accept, so caches must key on it or Markdown clients get HTML.
     c.header('vary', 'Accept');
@@ -258,7 +274,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
       : {};
     return c.html(
       renderHtml(stored.result, {
-        ...reportLinks(config, stored.id, stored.host),
+        ...reportLinks(config, stored),
         afterScoresHtml: `${progress}${monitoring ? monitorPanel(config, stored) : ''}`,
         ...monitorSlots,
       }),

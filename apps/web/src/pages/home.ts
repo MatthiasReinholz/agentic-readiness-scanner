@@ -15,6 +15,7 @@ import {
 
 import type { AppConfig } from '../config.js';
 import { groupSlug } from '../knowledge/pages.js';
+import { HOME_DESCRIPTION, homeMetadata } from '../metadata.js';
 import { page } from './layout.js';
 import { SCAN_CONSOLE_SCRIPT, SCAN_CONSOLE_STYLE, scanConsoleMarkup } from './scan-console.js';
 
@@ -66,12 +67,11 @@ ${scanConsoleMarkup()}
   return page(
     config,
     {
-      title: config.appName,
+      title: `${config.appName}: Is your store ready for AI agents?`,
       hero,
       home: true,
-      description:
-        'Scan any store URL for agentic ingestion and agentic commerce readiness. Public signals only, a fix for every finding.',
-      head: `<style>${SCAN_CONSOLE_STYLE}</style>`,
+      description: HOME_DESCRIPTION,
+      head: `${homeMetadata(config)}\n<style>${SCAN_CONSOLE_STYLE}</style>`,
       scripts: [SCAN_CONSOLE_SCRIPT],
     },
     body,

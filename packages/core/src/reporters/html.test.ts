@@ -52,10 +52,19 @@ describe('HTML report', () => {
       afterScoresHtml: '<div id="slot-a">A</div>',
       endHtml: '<div id="slot-b">B</div>',
       scripts: ['window.__slot=1'],
+      title: 'Hosted report for blog.example',
+      description: 'A stored public-signal assessment.',
     });
     expect(html.indexOf('id="slot-a"')).toBeLessThan(html.indexOf('id="expand-all"'));
     expect(html).toContain('id="slot-b"');
     expect(html).toContain('<script>window.__slot=1</script>');
+    expect(html).toContain('<title>Hosted report for blog.example</title>');
+    expect(html).toContain(
+      '<meta name="description" content="A stored public-signal assessment.">',
+    );
+    const standalone = renderHtml(result);
+    expect(standalone).toContain(`<title>Agentic readiness: ${result.target.url}</title>`);
+    expect(standalone).not.toContain('rel="canonical"');
   });
 
   it('maps scores to tones', () => {
