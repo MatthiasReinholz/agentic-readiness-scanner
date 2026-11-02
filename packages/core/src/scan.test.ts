@@ -320,7 +320,7 @@ describe('a store that rate-limits the scanner while it resolves the target', ()
     expect(result.target.platform).toBe('shopify');
     expect(
       result.warnings.some((w) =>
-        /policy page discovery was cut short: the store answered 429/.test(w),
+        w.includes('policy page discovery was cut short: the store answered 429'),
       ),
     ).toBe(true);
     const notRun = result.results.filter((item) => item.skip_reason === 'budget_exhausted');
