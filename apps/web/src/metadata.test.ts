@@ -120,7 +120,11 @@ describe('server-rendered discovery and sharing metadata', () => {
     const hostile = '</script><script>alert("x")</script>&\u2028\u2029';
     const serialized = jsonLd({ name: hostile });
     expect(serialized.match(/<\/script>/g)).toHaveLength(1);
-    expect(JSON.parse(serialized.replace(/^<script[^>]*>|<\/script>$/g, ''))).toEqual({
+    expect(
+      JSON.parse(
+        serialized.slice(serialized.indexOf('>') + 1, serialized.lastIndexOf('</script>')),
+      ),
+    ).toEqual({
       name: hostile,
     });
     const app = createApp({
