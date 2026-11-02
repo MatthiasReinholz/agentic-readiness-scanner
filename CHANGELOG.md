@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A check map on every HTML report: one cell per check, grouped by section with the section score, coloured by verdict and linked to the check (opening its section). Arriving from the scan console, the console's grid and radar morph into the check map and the level badge (cross-document view transitions where the browser supports them), the cells pop in as a wave, the level badge bounces with a burst of confetti, and the map says how long the scan took. The animation plays once per scan, never on reload or a shared link, and respects reduced motion. Deep links to a check (`/r/<id>#B2.2`) open its section and scroll to it.
+
 ## [0.9.0] - 2026-11-02
 
 ### Fixed
