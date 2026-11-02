@@ -32,7 +32,7 @@ ${preload}
 
 /** The footer every hosted page and report carries. */
 export function hostedFooterHtml(config: AppConfig): string {
-  return `Catalog and scoring are open data · <a href="${escapeHtml(config.repositoryUrl)}">Source on GitHub</a> · GPL-3.0-or-later · Not affiliated with Automattic or WooCommerce.`;
+  return `An experiment by <a href="https://matthiasreinholz.com/about/" rel="author">Matthias Reinholz</a> · <a href="/knowledge">Knowledge base</a> · <a href="${escapeHtml(config.repositoryUrl)}">Source on GitHub</a> · GPL-3.0-or-later`;
 }
 
 /** Wraps page markup in the shared document shell: header with brand and theme toggle, footer. */

@@ -1,6 +1,7 @@
 import { clampLimit, RowReader, SqlStore, type SqlDatabase } from '../store/sql-store.js';
 import type { StoredScan } from '../store/types.js';
 import { recordFromScan, type TargetRecord, type TargetRegistry } from './types.js';
+import { wwwHostMigrations } from '../hosts.js';
 
 export const TARGETS_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS targets (
   host VARCHAR(255) NOT NULL PRIMARY KEY,
@@ -39,7 +40,7 @@ function rowToRecord(row: Record<string, unknown>): TargetRecord {
 
 export class SqlTargetRegistry extends SqlStore implements TargetRegistry {
   constructor(db: SqlDatabase) {
-    super(db, TARGETS_SCHEMA_SQL);
+    super(db, TARGETS_SCHEMA_SQL, wwwHostMigrations('targets', true));
   }
 
   async record(scan: StoredScan): Promise<void> {

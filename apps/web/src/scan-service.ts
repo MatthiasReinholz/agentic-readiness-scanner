@@ -10,6 +10,7 @@ import {
 } from '@agentic-readiness/core';
 
 import type { AppConfig } from './config.js';
+import { hostKey } from './hosts.js';
 import type { HistoryStore } from './history/types.js';
 import type { ProgressStore } from './progress/types.js';
 import { newScanId } from './ids.js';
@@ -75,7 +76,7 @@ export async function scanOrReuse(
 ): Promise<{ scan: StoredScan; reused: boolean }> {
   let host: string;
   try {
-    host = normalizeInputUrl(request.url).hostname.toLowerCase();
+    host = hostKey(normalizeInputUrl(request.url).hostname);
   } catch {
     throw new ScanRequestError('That does not look like a URL.', 400);
   }

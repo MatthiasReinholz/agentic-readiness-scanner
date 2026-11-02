@@ -20,14 +20,28 @@ export abstract class SqlStore {
   protected constructor(
     protected readonly db: SqlDatabase,
     private readonly ddl: string,
+    /** Idempotent data migrations, run in order after the table exists. */
+    private readonly migrations: readonly string[] = [],
   ) {}
 
-  /** Issues the CREATE TABLE IF NOT EXISTS once per store instance, before any other statement. */
+  /**
+   * Issues the CREATE TABLE IF NOT EXISTS once per store instance, before any other
+   * statement, then the migrations. A failed migration is logged, never fatal: the data it
+   * would have moved stays readable under its old key.
+   */
   protected ensureSchema(): Promise<void> {
     this.schemaReady ??= this.db
       .prepare(this.ddl)
       .run()
-      .then(() => undefined);
+      .then(async () => {
+        for (const sql of this.migrations) {
+          try {
+            await this.db.prepare(sql).run();
+          } catch (error) {
+            console.warn(`[sql] migration failed: ${sql}: ${String(error)}`);
+          }
+        }
+      });
     return this.schemaReady;
   }
 }

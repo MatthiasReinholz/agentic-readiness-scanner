@@ -4,6 +4,7 @@ import { streamSSE } from 'hono/streaming';
 
 import type { AppConfig } from '../config.js';
 import { entryContaining } from '../history/types.js';
+import { hostKey } from '../hosts.js';
 import { SCAN_ID } from '../ids.js';
 import type { MonitoringService } from '../monitoring/service.js';
 import { historyJson, historyPage, sincePreviousPanel } from '../pages/history.js';
@@ -268,7 +269,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
   app.get('/h/:file', async (c) => {
     const match = /^([a-z0-9.-]+?)(\.json)?$/i.exec(c.req.param('file'));
     if (!match?.[1] || !deps.history) return c.notFound();
-    const host = match[1].toLowerCase();
+    const host = hostKey(match[1]);
+    // One page per site: /h/www.example.com moves to /h/example.com.
+    if (host !== match[1]) return c.redirect(`/h/${host}${match[2] ?? ''}`, 301);
     const entries = await deps.history.forHost(host, HISTORY_PAGE_ENTRIES);
     c.header('cache-control', 'public, max-age=300');
     if (match[2]) {
@@ -283,7 +286,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
   app.get('/badge/:file', async (c) => {
     const match = /^([a-z0-9.-]+)\.svg$/i.exec(c.req.param('file'));
     if (!match?.[1]) return c.notFound();
-    const stored = await store.latestForHost(match[1].toLowerCase());
+    const stored = await store.latestForHost(hostKey(match[1]));
     if (!stored) return c.notFound();
     return c.body(renderBadge(stored.result), 200, {
       'content-type': 'image/svg+xml',

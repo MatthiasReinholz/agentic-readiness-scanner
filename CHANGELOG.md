@@ -6,7 +6,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- A knowledge base on the hosted app: an index at `/knowledge`, a page per section and one article per check (64) that explains what the check looks at, why it matters to AI agents, exactly how the scanner decides, how to fix it on WordPress and WooCommerce, Shopify or any other stack, how to verify the fix, common mistakes and an FAQ. The page adds the check's priority, the level it gates, its dependencies, the fix with the prompt for a coding agent, and its specifications from the catalog. Every page is also Markdown (append `.md` or send `Accept: text/markdown`), carries schema.org TechArticle, FAQPage and BreadcrumbList data and a canonical URL, and is listed in the new `/sitemap.xml` and in `/llms.txt`; `/llms-full.txt` holds every article in one file. `/knowledge/<check id>` redirects to the article. Articles live in `packages/catalog/knowledge` and are validated by the catalog build (see `docs/knowledge-base.md`). The home page's section cards link to their section of the knowledge base.
+
 - A check map on every HTML report: one cell per check, grouped by section with the section score, coloured by verdict and linked to the check (opening its section). Arriving from the scan console, the console's grid and radar morph into the check map and the level badge (cross-document view transitions where the browser supports them), the cells pop in as a wave, the level badge bounces with a burst of confetti, and the map says how long the scan took. The animation plays once per scan, never on reload or a shared link, and respects reduced motion. Deep links to a check (`/r/<id>#B2.2`) open its section and scroll to it.
+
+### Changed
+
+- Hosts are stored without a leading `www.`: `www.example.com` and `example.com` share one cooldown, one history, one badge and one monitoring subscription. Other subdomains keep their own key. Rows stored before are moved to the bare host on first use, `/h/www.example.com` redirects to `/h/example.com`, and the scan still fetches the URL that was given.
+- A host is scanned at most once every five minutes by default (`TARGET_COOLDOWN_SECONDS` is now 300, was 120).
+- The footer reads "An experiment by Matthias Reinholz" with a link to the knowledge base, and the home page no longer repeats that nothing requires credentials.
 
 ## [0.9.0] - 2026-11-02
 

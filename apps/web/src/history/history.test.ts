@@ -166,7 +166,7 @@ describe('SqlHistoryStore', () => {
     const store = new SqlHistoryStore(db);
     await store.record(await stored('e000000000000002', '2026-10-08T00:00:00.000Z'));
     expect(db.statements(/^INSERT INTO scan_history/)).toHaveLength(0);
-    const update = db.statements(/^UPDATE scan_history/)[0];
+    const update = db.statements(/^UPDATE scan_history SET url/)[0];
     expect(update?.values).toEqual([
       'https://ceramics.example',
       '2026-10-08T00:00:00.000Z',

@@ -38,6 +38,7 @@ writeFileSync(
 // Icons. Add a name here and use icon('name') in a template; nothing else to wire.
 const ICONS = [
   'arrow-left',
+  'arrow-right',
   'bell',
   'check',
   'chevron-down',

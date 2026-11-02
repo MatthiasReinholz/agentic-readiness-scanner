@@ -3,6 +3,7 @@ import { computeScores } from '@agentic-readiness/core';
 
 import { RowReader, SqlStore, type SqlDatabase } from './sql-store.js';
 import type { ResultStore, StoredScan } from './types.js';
+import { wwwHostMigrations } from '../hosts.js';
 
 export type { SqlDatabase, SqlStatement } from './sql-store.js';
 
@@ -50,7 +51,7 @@ export const SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS scans (
 
 export class SqlResultStore extends SqlStore implements ResultStore {
   constructor(db: SqlDatabase) {
-    super(db, SCHEMA_SQL);
+    super(db, SCHEMA_SQL, wwwHostMigrations('scans', false));
   }
 
   async put(scan: StoredScan): Promise<void> {

@@ -20,7 +20,12 @@ function walk(dir, out = []) {
 const linkPattern = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 let failures = 0;
 
+// Knowledge-base articles link to site URLs (/knowledge/<slug>), which the catalog build
+// resolves against the article slugs instead.
+const knowledgeDir = join(root, 'packages', 'catalog', 'knowledge');
+
 for (const file of walk(root)) {
+  if (file.startsWith(knowledgeDir)) continue;
   const text = readFileSync(file, 'utf8');
   for (const match of text.matchAll(linkPattern)) {
     const target = match[1];

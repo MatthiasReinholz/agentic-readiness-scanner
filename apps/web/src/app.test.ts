@@ -167,6 +167,32 @@ describe('hosted app', () => {
     expect(second.id).toBe(first.id);
   });
 
+  it('stores www. and the bare host under one key', async () => {
+    const { app, store } = testApp();
+    const first = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://ceramics.example/' }),
+      })
+    ).json()) as { id: string };
+    expect((await store.get(first.id))?.host).toBe('ceramics.example');
+    const second = (await (
+      await app.request('/api/scan', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'https://www.ceramics.example/' }),
+      })
+    ).json()) as { id: string; reused: boolean };
+    expect(second).toMatchObject({ id: first.id, reused: true });
+    const history = await app.request('/h/www.ceramics.example.json');
+    expect(history.status).toBe(301);
+    expect(history.headers.get('location')).toBe('/h/ceramics.example.json');
+    expect((await app.request('/badge/www.ceramics.example.svg')).status).toBe(200);
+  });
+
+  it('scans a host again only after five minutes by default', () => {
+    expect(configFromEnv({}).targetCooldownSeconds).toBe(300);
+  });
+
   it('keeps the per-host cooldown even when a profile override is requested', async () => {
     const { app } = testApp();
     const first = (await (

@@ -11,6 +11,7 @@ import { Hono } from 'hono';
 import type { AppConfig } from './config.js';
 import { MonitoringService } from './monitoring/service.js';
 import type { Mailer, MonitorStore } from './monitoring/types.js';
+import { createKnowledgeRoutes, knowledgeIndexLines } from './knowledge/routes.js';
 import { homePage } from './pages/home.js';
 import { messagePage } from './pages/layout.js';
 import { createInternalRoutes } from './routes/internal.js';
@@ -60,6 +61,12 @@ function llmsTxt(config: AppConfig): string {
 - [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
+## Knowledge base
+
+One article per check: what it looks at, why agents care, how the scanner decides and how to fix it. Each link is Markdown; drop .md for the HTML page. Everything at once: ${config.baseUrl}/llms-full.txt
+
+${knowledgeIndexLines(config)}
+
 ## Reference
 
 - [Check catalog](${config.repositoryUrl}/blob/main/docs/checks.md): ${catalog.checks.length} checks, levels and profiles
@@ -100,7 +107,7 @@ function serverCard(config: AppConfig) {
 }
 
 /** The hosted app's own robots.txt: a wildcard policy, a shared training decision, and the crawler classes named. */
-function robotsTxt(): string {
+function robotsTxt(baseUrl: string): string {
   const disallow = [
     'Disallow: /r/',
     'Disallow: /h/',
@@ -109,6 +116,8 @@ function robotsTxt(): string {
     'Disallow: /monitor/',
   ];
   return [
+    `Sitemap: ${baseUrl}/sitemap.xml`,
+    '',
     '# Search crawlers, assistants and agents are welcome on the public pages.',
     'User-agent: *',
     'Allow: /',
@@ -178,7 +187,9 @@ export function createApp(deps: AppDependencies): Hono {
     c.text(llmsTxt(config), 200, { 'content-type': 'text/markdown; charset=utf-8' }),
   );
 
-  app.get('/robots.txt', (c) => c.text(robotsTxt()));
+  app.get('/robots.txt', (c) => c.text(robotsTxt(config.baseUrl)));
+
+  app.route('/', createKnowledgeRoutes(config));
 
   app.get('/.well-known/security.txt', (c) =>
     c.text(

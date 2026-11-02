@@ -180,3 +180,18 @@ describe('SqlProgressStore', () => {
     });
   });
 });
+
+describe('www host migration', () => {
+  it('moves rows stored under www. onto the bare host once, after creating the table', async () => {
+    const db = new FakeSqlDatabase();
+    const store = new SqlResultStore(db);
+    await store.latestForHost('example.com');
+    await store.latestForHost('example.com');
+    expect(db.executed.map((statement) => statement.sql.split(' (')[0])).toEqual([
+      'CREATE TABLE IF NOT EXISTS scans',
+      "UPDATE scans SET host = SUBSTRING(host, 5) WHERE host LIKE 'www.%.%'",
+      'SELECT id, host, created_at, result FROM scans WHERE host = ? ORDER BY created_at DESC LIMIT 1',
+      'SELECT id, host, created_at, result FROM scans WHERE host = ? ORDER BY created_at DESC LIMIT 1',
+    ]);
+  });
+});

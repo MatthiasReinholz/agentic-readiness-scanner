@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
+import { hostKey } from '../hosts.js';
 import type { HistoryStore } from '../history/types.js';
 import type { ProgressStore } from '../progress/types.js';
 import type { MonitoringService } from '../monitoring/service.js';
@@ -65,7 +66,7 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
       case 'targets.json':
         return c.json({ targets: deps.targets ? await deps.targets.list(limit) : [] });
       case 'history.json': {
-        const host = (c.req.query('host') ?? '').toLowerCase();
+        const host = hostKey(c.req.query('host') ?? '');
         if (!/^[a-z0-9.-]+$/.test(host)) return c.json({ error: 'host is required' }, 400);
         return c.json({
           host,
