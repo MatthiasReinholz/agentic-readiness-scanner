@@ -1,5 +1,6 @@
 export * from './shared.js';
 export * from './priorities.js';
+export * from './check-map.js';
 export * from './json.js';
 export * from './markdown.js';
 export * from './html.js';

@@ -23,6 +23,9 @@ const PHASES: [string, string][] = [
 
 /** Styles the console needs beyond the compiled utility classes: animations and colours. */
 export const SCAN_CONSOLE_STYLE = `
+@view-transition{navigation:auto}
+#sc-grid{view-transition-name:check-map}
+.sc-radar.sc-handoff{view-transition-name:level-badge}
 .sc-cell{width:14px;height:14px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--border));transition:background .25s,border-color .25s}
 .sc-cell[data-v]{animation:sc-pop .35s ease-out}
 .sc-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
@@ -54,7 +57,7 @@ export const SCAN_CONSOLE_STYLE = `
 @keyframes sc-pulse{50%{opacity:.35}}
 @keyframes sc-in{from{opacity:0;transform:translateY(4px)}}
 @keyframes sc-caret{50%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.sc-sweep,.sc-fill,.sc-caret::after,.sc-phase[data-s=active]::before{animation:none}.sc-cell[data-v],.sc-cell.sc-wave,.sc-blip,.sc-log div{animation:none}}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}.sc-sweep,.sc-fill,.sc-caret::after,.sc-phase[data-s=active]::before{animation:none}.sc-cell[data-v],.sc-cell.sc-wave,.sc-blip,.sc-log div{animation:none}}
 `;
 
 /** The console markup, hidden until a scan starts. Grid cells are rendered from the catalog. */
@@ -100,7 +103,7 @@ export function scanConsoleMarkup(): string {
 export const SCAN_CONSOLE_SCRIPT = `(function(){
 var form=document.getElementById('scan-form');var box=document.getElementById('scan-console');
 if(!form||!box||!window.fetch||!window.ReadableStream||!window.TextDecoder||!window.crypto||!crypto.getRandomValues)return;
-var $=function(id){return document.getElementById(id)};
+var $=function(id){return document.getElementById(id)};window.addEventListener('pageswap',function(e){var t=e.viewTransition;if(t){var q=function(){};t.ready.catch(q);t.finished.catch(q);t.updateCallbackDone.catch(q)}});
 var QUIPS={
 home:['Knocking on the front door. Politely, with a name tag.','User agent: AgenticReadinessScanner. No disguises today.','Following redirects like a well-trained crawler.'],
 robots:['Reading robots.txt like the terms and conditions. Because it is.','Checking the guest list: Googlebot, Bingbot, GPTBot, ClaudeBot…','Training crawlers and answer engines are not the same thing. We check both.'],
@@ -134,7 +137,7 @@ shown=100;paint();box.querySelectorAll('.sc-phase').forEach(function(el){el.setA
 if(!reduce)box.querySelectorAll('.sc-cell').forEach(function(el,k){setTimeout(function(){el.classList.add('sc-wave')},k*12)});
 $('sc-status').textContent=NOTE.done;$('sc-host').textContent='Level '+d.level.value+' · '+d.level.name;
 log([['done ','sc-pass'],['level '+d.level.value+' · ingestion '+d.scores.ingestion+(d.scores.commerce===null?'':' · commerce '+d.scores.commerce)+' · '+d.requests+' requests in '+(d.duration_ms/1000).toFixed(1)+' s','']]);
-$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='› Opening the report…';setTimeout(function(){location.href=d.report_url},reduce?400:1500)}
+$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='› Opening the report…';setTimeout(function(){try{sessionStorage.setItem('ars-arrived',d.report_url+'|'+(d.duration_ms/1000).toFixed(1)+' s')}catch(_){}var r=box.querySelector('.sc-radar');if(r)r.classList.add('sc-handoff');location.href=d.report_url},reduce?400:1200)}
 next()}
 function fail(msg){done=true;clearTimeout(pollTimer);clearInterval(quipTimer);clearInterval(timer);box.setAttribute('aria-busy','false');var e=$('sc-error');e.classList.remove('hidden');e.className='mt-3 text-sm text-destructive';e.textContent=msg;$('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='';$('sc-status').textContent='The scan stopped';form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});log([['error ','sc-fail'],[msg,'']])}
 function fallback(){done=true;clearTimeout(pollTimer);form.removeEventListener('submit',onSubmit);form.querySelectorAll('input,select,button').forEach(function(el){el.disabled=false});form.submit()}

@@ -16,6 +16,7 @@ import {
 } from '@agentic-readiness/ui';
 
 import { scoreGroup } from '../scoring.js';
+import { CHECK_MAP_CSS, CHECK_MAP_SCRIPT, checkMapHtml } from './check-map.js';
 import { htmlDocument, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
   groupIsOptional,
@@ -58,7 +59,7 @@ export interface HtmlReportOptions {
 }
 
 /** Toggles every section at once; the button label follows the sections' state. */
-const EXPAND_SCRIPT = `(function(){var b=document.getElementById('expand-all');if(!b)return;var g=function(){return Array.prototype.slice.call(document.querySelectorAll('details[data-group]'))};var u=function(){var all=g().every(function(d){return d.open});b.textContent=all?'Collapse all':'Expand all';b.setAttribute('aria-expanded',all?'true':'false')};b.addEventListener('click',function(){var all=g().every(function(d){return d.open});g().forEach(function(d){d.open=!all});u()});g().forEach(function(d){d.addEventListener('toggle',u)});u();var h=location.hash&&document.querySelector(location.hash);if(h){var p=h.closest('details[data-group]');if(p)p.open=true}})();`;
+const EXPAND_SCRIPT = `(function(){var b=document.getElementById('expand-all');if(!b)return;var g=function(){return Array.prototype.slice.call(document.querySelectorAll('details[data-group]'))};var u=function(){var all=g().every(function(d){return d.open});b.textContent=all?'Collapse all':'Expand all';b.setAttribute('aria-expanded',all?'true':'false')};b.addEventListener('click',function(){var all=g().every(function(d){return d.open});g().forEach(function(d){d.open=!all});u()});g().forEach(function(d){d.addEventListener('toggle',u)});u();function reveal(){var id=decodeURIComponent(location.hash.slice(1));var h=id&&document.getElementById(id);if(h){var p=h.closest('details[data-group]');if(p&&!p.open){p.open=true;u()}h.scrollIntoView({block:'center'})}}reveal();if(location.hash){requestAnimationFrame(reveal);window.addEventListener('load',reveal)}window.addEventListener('hashchange',reveal)})();`;
 
 /** Copies the element named by data-copy and confirms on the button's label span. */
 const COPY_SCRIPT = `(function(){document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(){var t=document.getElementById(b.getAttribute('data-copy'));if(!t||!navigator.clipboard)return;var l=b.querySelector('[data-copy-label]')||b;navigator.clipboard.writeText(t.value||t.textContent||'').then(function(){var o=l.textContent;l.textContent='Copied';setTimeout(function(){l.textContent=o},1500)})})})})();`;
@@ -275,9 +276,10 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
 ${links.length > 0 ? `<p class="text-sm text-muted-foreground">${links.join(' · ')}</p>` : ''}
 </header>
 <section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr] sm:items-center">
-<div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${result.level.value}</div>
+<div class="lv-badge inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${result.level.value}</div>
 <div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5 text-muted-foreground">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm text-muted-foreground">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold text-primary hover:underline" href="#priorities">What to do</a></p>` : ''}</div>
 </section>
+${checkMapHtml(result, card)}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
@@ -301,8 +303,8 @@ ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeH
     {
       title: `Agentic readiness: ${result.target.url}`,
       description: `Level ${result.level.value} (${result.level.name}); ingestion ${result.scores.ingestion}, commerce ${result.scores.commerce ?? 'n/a'}.`,
-      ...(options.head ? { head: options.head } : {}),
-      scripts: [EXPAND_SCRIPT, COPY_SCRIPT, ...(options.scripts ?? [])],
+      head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
+      scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],
     },
     body,
   );

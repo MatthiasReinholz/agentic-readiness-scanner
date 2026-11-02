@@ -87,3 +87,25 @@ describe('Markdown report', () => {
     expect(markdown).toMatch(/without running JavaScript, signing in/);
   });
 });
+
+describe('check map', () => {
+  it('shows one linked, verdict-coloured cell per check with section scores, and an arrival script that compiles', async () => {
+    const { Script } = await import('node:vm');
+    const { CHECK_MAP_SCRIPT } = await import('./check-map.js');
+    const result = await scan('https://blog.example/', {
+      fetcher: fixtureFetcher(fixture('content-site')),
+    });
+    const html = renderHtml(result);
+    const cells =
+      html.match(/<a class="cm-cell" href="#[AB]\d\.\d+" data-v="(pass|warn|fail|skip)"/g) ?? [];
+    expect(cells).toHaveLength(result.results.length);
+    expect(html).toContain('id="check-map"');
+    expect(html.indexOf('id="check-map"')).toBeLessThan(html.indexOf('aria-label="Scores"'));
+    expect(html).toContain('class="lv-badge');
+    expect(html).toContain('@view-transition{navigation:auto}');
+    expect(html).toContain(CHECK_MAP_SCRIPT);
+    expect(() => new Script(CHECK_MAP_SCRIPT)).not.toThrow();
+    // The animation is opt-in per arrival: the script checks the handed-over path.
+    expect(CHECK_MAP_SCRIPT).toContain("v.split('|')[0]!==location.pathname");
+  });
+});
