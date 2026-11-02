@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Server-rendered canonical, Open Graph and X metadata with branded 1200 × 630 PNG previews for the homepage, knowledge base and hosted reports. Connected schema.org entities describe the app, articles and actual stored report scores, with JSON exports for agents. Active reports now allow search indexing and assistant/social crawling; JSON and Markdown exports point to canonical HTML without duplicate indexing. Listed training crawlers retain their report restriction. Build-only image generation, regression coverage and a sharing-metadata guide document the policy and maintenance.
+
 - Knowledge base navigation: a journey rail of the nine sections (find, get in, read, connect, catalog, products, identify, trust, buy) with the current one lit, a strip of every check as a cell with the current check and section highlighted, a sidebar with the section's checks and the article outline that follows your scroll position, a reading progress bar, previous and next across sections, and on the index a filter by text and priority (press `/`).
 - For agents: `/knowledge-base.json` lists every section and check with priority, level gate and URLs; section pages are Markdown too; Markdown articles open with YAML front matter (canonical URL, check id, priority, level gate); HTML and Markdown answers carry `Link` headers to each other; article sections are `<section>` elements; and the MCP server answers `explain_check` with the article.
 

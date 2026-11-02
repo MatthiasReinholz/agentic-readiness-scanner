@@ -66,12 +66,19 @@ describe('knowledge base', () => {
       const prose = body.replace(/<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>/g, '');
       expect(prose, article.id).not.toMatch(/\*\*|\]\(|^#{2,3} /m);
       const graph = ldGraph(html);
-      expect(graph.map((node) => node['@type'])).toEqual([
-        'TechArticle',
-        'FAQPage',
-        'BreadcrumbList',
-      ]);
-      const faq = graph[1] as { mainEntity: unknown[] };
+      expect(graph.map((node) => node['@type'])).toEqual(
+        expect.arrayContaining([
+          'TechArticle',
+          'FAQPage',
+          'BreadcrumbList',
+          'WebPage',
+          'WebSite',
+          'WebApplication',
+          'Person',
+          'ImageObject',
+        ]),
+      );
+      const faq = graph.find((node) => node['@type'] === 'FAQPage') as { mainEntity: unknown[] };
       expect(faq.mainEntity.length, article.id).toBeGreaterThanOrEqual(3);
       expect(html).toContain('The fix in one step');
     }

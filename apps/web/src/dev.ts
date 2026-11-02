@@ -51,6 +51,7 @@ app.use(
     rewriteRequestPath: (path) => path.replace(/^\/fonts\//, '/'),
   }),
 );
+app.use('/social/*', serveStatic({ root: './dist' }));
 app.use('/*', serveStatic({ root: './public' }));
 
 serve({ fetch: app.fetch, port }, (info) => {

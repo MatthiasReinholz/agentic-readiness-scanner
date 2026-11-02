@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
 import { FONT_FILES } from '@agentic-readiness/ui';
+import { buildSocialImages } from './scripts/build-social-images.mjs';
 
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist', { recursive: true });
@@ -27,6 +28,7 @@ await build({
 });
 
 cpSync('public', 'dist', { recursive: true });
+await buildSocialImages('dist/social');
 // Self-hosted Inter (latin subset, the weights the design uses), served under /fonts.
 const require = createRequire(import.meta.url);
 const fontDir = join(dirname(require.resolve('@fontsource/inter/package.json')), 'files');

@@ -11,3 +11,9 @@ export { icon } from './icon.js';
 export { FONT_FILES, interFontFaceCss } from './fonts.js';
 export * from './recipes.js';
 export { signalNetwork, SIGNAL_NETWORK_SCRIPT } from './signal-network.js';
+export {
+  SOCIAL_IMAGES,
+  SOCIAL_IMAGE_WIDTH,
+  SOCIAL_IMAGE_HEIGHT,
+  type SocialImageKind,
+} from './social-images.js';

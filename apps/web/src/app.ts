@@ -59,6 +59,7 @@ function llmsTxt(config: AppConfig): string {
 - [JSON API](${config.baseUrl}/): POST {"url": "https://example.com"} to ${config.baseUrl}/api/scan and receive the result object (GET is not served)
 - [MCP server](${config.baseUrl}/mcp): Streamable HTTP with tools scan_store, get_history, get_fix, explain_check and list_checks; server card at ${config.baseUrl}/mcp/server-card, listed in ${config.baseUrl}/.well-known/ai-catalog.json
 - [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
+- Reports: use the report_url returned by a scan as the canonical citation. Append .json for the versioned result or .md for Markdown; HTML includes structured data for the scan's actual scores. Active reports are public and search-indexable, and are removed under the ${config.retentionDays}-day retention policy.
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
 ## Knowledge base
@@ -109,7 +110,6 @@ function serverCard(config: AppConfig) {
 /** The hosted app's own robots.txt: a wildcard policy, a shared training decision, and the crawler classes named. */
 function robotsTxt(baseUrl: string): string {
   const disallow = [
-    'Disallow: /r/',
     'Disallow: /h/',
     'Disallow: /api/',
     'Disallow: /internal/',
@@ -128,6 +128,7 @@ function robotsTxt(baseUrl: string): string {
     `User-agent: ${SHARED_TRAINING_TOKEN}`,
     ...TRAINING_CRAWLERS.map((token) => `User-agent: ${token}`),
     'Allow: /',
+    'Disallow: /r/',
     ...disallow,
     '',
     '# The crawlers behind AI answers and the fetchers assistants use (checks A2.2 and A2.5).',

@@ -38,6 +38,9 @@ import {
 } from './shared.js';
 
 export interface HtmlReportOptions {
+  /** Host-specific document metadata; standalone reports retain descriptive defaults. */
+  title?: string;
+  description?: string;
   /** Links shown in the footer. */
   jsonUrl?: string;
   markdownUrl?: string;
@@ -300,10 +303,12 @@ ${options.endHtml ?? ''}
 ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeHtml(result.scoring_version)} · scanner ${escapeHtml(result.scanner_version)} · ${result.requests} requests in ${result.duration_ms} ms${links.length > 0 ? ` · ${links.join(' · ')}` : ''}${options.footerHtml ? `<br>${options.footerHtml}` : ''}`)}`;
   return htmlDocument(
     {
-      title: `Agentic readiness: ${result.target.url}`,
+      title: options.title ?? `Agentic readiness: ${result.target.url}`,
       headerHtml: siteHeader(appName, options.homeUrl),
       heroHtml: pageHero(hero),
-      description: `Level ${result.level.value} (${result.level.name}); ingestion ${result.scores.ingestion}, commerce ${result.scores.commerce ?? 'n/a'}.`,
+      description:
+        options.description ??
+        `Level ${result.level.value} (${result.level.name}); ingestion ${result.scores.ingestion}, commerce ${result.scores.commerce ?? 'n/a'}.`,
       head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
       scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],
     },
