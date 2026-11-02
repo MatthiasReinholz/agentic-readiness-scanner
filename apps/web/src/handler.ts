@@ -10,6 +10,7 @@ import { SqlHistoryStore } from './history/sql.js';
 import { createMcpRoute } from './mcp-route.js';
 import { createMailer } from './monitoring/mailer.js';
 import { SqlMonitorStore } from './monitoring/sql.js';
+import { SqlProgressStore } from './progress/sql.js';
 import { SqlResultStore, type SqlDatabase } from './store/sql.js';
 import { SqlTargetRegistry } from './targets/sql.js';
 
@@ -33,6 +34,7 @@ function appFor(env: FunctionsEnv, requestUrl: string) {
     store,
     targets: new SqlTargetRegistry(env.DB),
     history,
+    progress: new SqlProgressStore(env.DB),
     monitors: new SqlMonitorStore(env.DB),
     ...(mailer ? { mailer } : {}),
   });

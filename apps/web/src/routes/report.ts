@@ -10,6 +10,7 @@ import { historyJson, historyPage, sincePreviousPanel } from '../pages/history.j
 import { homePage } from '../pages/home.js';
 import { hostedFooterHtml, hostedHead } from '../pages/layout.js';
 import { MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
+import { PROGRESS_TOKEN, type ProgressFinal } from '../progress/types.js';
 import {
   ScanRequestError,
   scanOrReuse,
@@ -103,6 +104,14 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         return c.json({ error: error.message }, error.status as 400);
       throw error;
     }
+    const rawToken =
+      body && typeof body === 'object'
+        ? (body as Record<string, unknown>).progress_token
+        : undefined;
+    const token =
+      typeof rawToken === 'string' && PROGRESS_TOKEN.test(rawToken) && deps.progress
+        ? rawToken
+        : null;
     c.header('cache-control', 'no-store, no-transform');
     // The platform's nginx front buffers proxied responses unless told otherwise; without
     // this every event would arrive at once when the scan ends.
@@ -119,6 +128,38 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         if (!open) return;
         pending = pending.then(() => stream.writeSSE({ event, data: JSON.stringify(data) }));
       };
+      // The same events go to the progress store when the page asked for it: the platform
+      // holds the stream back until it ends, so the page polls the store to watch the scan.
+      // Writes are throttled; the final event is written before the stream closes.
+      const recorded: unknown[] = [];
+      let lastSaved = 0;
+      let saving: Promise<unknown> = Promise.resolve();
+      const save = (final: ProgressFinal | null): Promise<unknown> => {
+        if (!token || !deps.progress) return Promise.resolve();
+        const store = deps.progress;
+        const snapshot = [...recorded];
+        lastSaved = Date.now();
+        saving = saving.then(() =>
+          store
+            .save(token, { events: snapshot, final, updatedAt: new Date().toISOString() })
+            .catch((error: unknown) => {
+              console.error('[scan-progress]', error);
+            }),
+        );
+        return saving;
+      };
+      let seq = 0;
+      const emit = (data: Record<string, unknown>): void => {
+        seq += 1;
+        const event = { ...data, seq };
+        send('progress', event);
+        recorded.push(event);
+        if (Date.now() - lastSaved > 400) void save(null);
+      };
+      const finish = async (event: 'done' | 'failure', data: unknown): Promise<void> => {
+        send(event, data);
+        await save({ event, data });
+      };
       // A comment every few seconds keeps intermediaries from holding the stream while a
       // slow store takes its time between events.
       const keepAlive = setInterval(() => {
@@ -126,9 +167,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
       }, 5000);
       try {
         const { scan: stored, reused } = await scanOrReuse(deps, request, (progress) => {
-          send('progress', progress);
+          emit(progress);
         });
-        send('done', {
+        await finish('done', {
           id: stored.id,
           reused,
           report_url: `/r/${stored.id}`,
@@ -145,10 +186,10 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         });
       } catch (error) {
         if (error instanceof ScanRequestError)
-          send('failure', { message: error.message, status: error.status });
+          await finish('failure', { message: error.message, status: error.status });
         else {
           console.error('[scan-stream]', error);
-          send('failure', {
+          await finish('failure', {
             message: 'The scan failed unexpectedly. Try again in a minute.',
             status: 500,
           });
@@ -158,6 +199,24 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         await pending.catch(() => undefined);
       }
     });
+  });
+
+  // What a scan in flight has done so far, for the page's poll: events after `after`, and
+  // the final event once the scan ended. Unknown tokens answer 404 until the first write.
+  app.get('/api/scan/progress/:token', async (c) => {
+    const token = c.req.param('token');
+    if (!PROGRESS_TOKEN.test(token) || !deps.progress) return c.notFound();
+    c.header('cache-control', 'no-store');
+    const record = await deps.progress.load(token);
+    if (!record) return c.json({ events: [], final: null }, 404);
+    const after = Number(c.req.query('after') ?? '0');
+    const events = record.events.filter(
+      (event) =>
+        typeof event === 'object' &&
+        event !== null &&
+        Number((event as { seq?: unknown }).seq) > (Number.isFinite(after) ? after : 0),
+    );
+    return c.json({ events, final: record.final });
   });
 
   app.get('/r/:file', async (c) => {

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 
 import type { AppConfig } from '../config.js';
 import type { HistoryStore } from '../history/types.js';
+import type { ProgressStore } from '../progress/types.js';
 import type { MonitoringService } from '../monitoring/service.js';
 import { digestsEqual } from '../monitoring/tokens.js';
 import type { MonitorStore } from '../monitoring/types.js';
@@ -14,6 +15,7 @@ export interface InternalRouteDependencies {
   targets?: TargetRegistry;
   history?: HistoryStore;
   monitors?: MonitorStore;
+  progress?: ProgressStore;
   /** Null when monitoring is off: no monitor cron, nothing to purge. */
   monitoring: MonitoringService | null;
   now: () => Date;
@@ -98,7 +100,10 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
     const removed = await store.deleteOlderThan(cutoff);
     const pendingRemoved = monitoring ? await monitoring.purgePending() : 0;
-    return c.json({ removed, cutoff, pendingRemoved });
+    const progressRemoved = deps.progress
+      ? await deps.progress.deleteOlderThan(new Date(Date.now() - 3_600_000).toISOString())
+      : 0;
+    return c.json({ removed, cutoff, pendingRemoved, progressRemoved });
   });
 
   return app;

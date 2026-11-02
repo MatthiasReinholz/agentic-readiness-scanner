@@ -34,6 +34,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 
 - Scan ids are 16 hex characters from a cryptographic random source and are not listed anywhere.
 - Stored results contain only what the report shows: URLs, status codes, excerpts of evidence. No request bodies beyond what the checks quote, no visitor data.
+- Scan progress (the same phase and verdict events the report contains, under a random token the page generates) is kept in `scan_progress` only while a scan runs and removed by the cleanup cron after an hour.
 - Reports are kept for `RETENTION_DAYS` and deleted by the cleanup cron, which only runs when the platform's cron header is present. The `targets` registry keeps one row per host and the `scan_history` table one row per distinct state per host (level, scores, verdict per check; no evidence, no visitor data) indefinitely, so the owner can see what was scanned and anyone can see how a host developed ([decision 0009](decisions/0009-result-storage-tiers.md)).
 - Secrets live in Space variables. The repository holds none.
 

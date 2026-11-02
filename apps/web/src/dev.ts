@@ -14,6 +14,7 @@ import { MemoryHistoryStore } from './history/memory.js';
 import { createMcpRoute } from './mcp-route.js';
 import { createMailer } from './monitoring/mailer.js';
 import { MemoryMonitorStore } from './monitoring/memory.js';
+import { MemoryProgressStore } from './progress/memory.js';
 import { MemoryResultStore } from './store/memory.js';
 import { MemoryTargetRegistry } from './targets/memory.js';
 
@@ -30,6 +31,7 @@ const app = createApp({
   config,
   store,
   targets: new MemoryTargetRegistry(),
+  progress: new MemoryProgressStore(),
   history,
   monitors: new MemoryMonitorStore(),
   ...(mailer ? { mailer } : {}),
