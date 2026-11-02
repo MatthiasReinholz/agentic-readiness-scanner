@@ -6,6 +6,7 @@ import {
   type SqlDatabase,
 } from '../store/sql-store.js';
 import type { Baseline, Monitor, MonitorStatus, MonitorStore } from './types.js';
+import { wwwHostMigrations } from '../hosts.js';
 
 /** MySQL-compatible DDL for the D1-shaped broker in front of the Space's database. */
 export const MONITORS_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS monitors (
@@ -60,7 +61,7 @@ function rowToMonitor(row: Record<string, unknown>): Monitor {
 
 export class SqlMonitorStore extends SqlStore implements MonitorStore {
   constructor(db: SqlDatabase) {
-    super(db, MONITORS_SCHEMA_SQL);
+    super(db, MONITORS_SCHEMA_SQL, wwwHostMigrations('monitors', true));
   }
 
   async create(monitor: Monitor): Promise<void> {

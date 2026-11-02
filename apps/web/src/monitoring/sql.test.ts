@@ -139,7 +139,7 @@ describe('SqlMonitorStore', () => {
       4,
     );
     expect(await new SqlMonitorStore(db).deletePendingOlderThan('before')).toBe(4);
-    expect(db.statements(/^DELETE/)[0]?.values).toEqual(['before']);
+    expect(db.statements(/^DELETE FROM monitors WHERE status/)[0]?.values).toEqual(['before']);
   });
 
   it('rejects rows with an unknown status or a missing column', async () => {

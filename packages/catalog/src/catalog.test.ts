@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { parseFixMarkdown } from './fixes.js';
-import { loadCatalogFromDisk } from './load.js';
+import { parseKnowledgeMarkdown } from './knowledge.js';
+import { loadCatalogFromDisk, loadKnowledgeFromDisk } from './load.js';
 import { validateCatalogIntegrity } from './schema.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -73,5 +74,50 @@ describe('parseFixMarkdown', () => {
         'Y.md',
       ),
     ).toThrow(/agent_prompt/);
+  });
+});
+
+describe('knowledge base', () => {
+  const catalog = loadCatalogFromDisk(packageRoot);
+
+  it('has one valid article per check with unique slugs and resolving links', () => {
+    const articles = loadKnowledgeFromDisk(packageRoot, catalog);
+    expect(articles.map((article) => article.id)).toEqual(catalog.checks.map((check) => check.id));
+  });
+
+  it('rejects articles that break the format', () => {
+    const valid = `---
+slug: a-valid-slug
+headline: A headline long enough
+description: ${'x'.repeat(120)}
+keywords: one, two, three
+---
+
+## In short
+## What this check looks at
+## Why it matters for AI agents
+## How the scanner decides
+## How to fix it
+## Verify it yourself
+## Common mistakes
+## FAQ
+### One?
+### Two?
+### Three?
+`;
+    expect(parseKnowledgeMarkdown(valid, 'A1.1.md').slug).toBe('a-valid-slug');
+    expect(() =>
+      parseKnowledgeMarkdown(valid.replace('## FAQ', '## Questions'), 'A1.1.md'),
+    ).toThrow(/sections/);
+    expect(() =>
+      parseKnowledgeMarkdown(valid.replace('### Three?', '### Three'), 'A1.1.md'),
+    ).toThrow(/not a question/);
+    expect(() => parseKnowledgeMarkdown(`${valid}\n<div>raw</div>\n`, 'A1.1.md')).toThrow(
+      /raw HTML/,
+    );
+    expect(() => parseKnowledgeMarkdown(`${valid}\nA \u2014 B\n`, 'A1.1.md')).toThrow(/em dashes/);
+    expect(() =>
+      parseKnowledgeMarkdown(valid.replace('a-valid-slug', 'Bad Slug'), 'A1.1.md'),
+    ).toThrow(/slug/);
   });
 });

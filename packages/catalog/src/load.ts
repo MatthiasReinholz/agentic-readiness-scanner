@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { parseFixMarkdown } from './fixes.js';
+import { articleLinks, parseKnowledgeMarkdown, type KnowledgeArticle } from './knowledge.js';
 import {
   CatalogSchema,
   CheckDefinitionSchema,
@@ -89,4 +90,41 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
     throw new CatalogLoadError(problems);
   }
   return catalogParse.data;
+}
+
+/**
+ * Loads `knowledge/`: one article per check, in catalog order, with unique slugs and
+ * links that resolve to another article.
+ */
+export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): KnowledgeArticle[] {
+  const dir = join(packageRoot, 'knowledge');
+  const problems: string[] = [];
+  const files = new Set(readdirSync(dir).filter((name) => name.endsWith('.md')));
+  const articles: KnowledgeArticle[] = [];
+  for (const check of catalog.checks) {
+    const file = `${check.id}.md`;
+    if (!files.has(file)) {
+      problems.push(`${check.id}: missing knowledge/${file}`);
+      continue;
+    }
+    files.delete(file);
+    try {
+      articles.push(parseKnowledgeMarkdown(readFileSync(join(dir, file), 'utf8'), file));
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  for (const orphan of files) problems.push(`knowledge/${orphan} has no matching check definition`);
+  const slugs = new Map<string, string>();
+  for (const article of articles) {
+    const taken = slugs.get(article.slug);
+    if (taken) problems.push(`${article.id}: slug ${article.slug} is already used by ${taken}`);
+    slugs.set(article.slug, article.id);
+  }
+  for (const article of articles)
+    for (const link of articleLinks(article))
+      if (!slugs.has(link))
+        problems.push(`${article.id}: link to unknown article /knowledge/${link}`);
+  if (problems.length > 0) throw new CatalogLoadError(problems);
+  return articles;
 }

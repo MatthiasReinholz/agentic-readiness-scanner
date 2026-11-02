@@ -21,13 +21,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./knowledge": {
+      "types": "./dist/articles.d.ts",
+      "import": "./dist/articles.js"
+    },
     "./catalog.json": "./dist/catalog.json",
     "./schema/*.json": "./dist/schema/*.json"
   },
   "files": [
     "dist",
     "data",
-    "fixes"
+    "fixes",
+    "knowledge"
   ],
   "scripts": {
     "build": "tsx src/build.ts && tsc -p tsconfig.build.json",

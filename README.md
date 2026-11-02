@@ -31,6 +31,8 @@ curl -X POST https://agentic-readiness-scanner.space.fast/api/scan -H 'content-t
 
 While a scan runs the page shows what the scanner is doing, phase by phase and check by check; `POST /api/scan/stream` serves the same progress as server-sent events. Every report is also available as `.json` and `.md`. After a host has been scanned, `GET /badge/<host>.svg` renders a badge for a README or footer, and `/h/<host>` (or `/h/<host>.json`) shows every distinct state the host was observed in and what changed between them; each report says what changed since the previous state. The app advertises an MCP server at `/mcp` with its server card at `/mcp/server-card`, listed in `/.well-known/ai-catalog.json`.
 
+The [knowledge base](https://agentic-readiness-scanner.space.fast/knowledge) explains every check in its own article: what it looks at, why agents care, how the scanner decides and how to fix it. Each article is also Markdown (append `.md`), and `/llms-full.txt` has all of them in one file. Hosts are keyed without `www.`, so `www.example.com` and `example.com` share one cooldown, history and badge.
+
 When the deployment has a mail provider configured, a report can also be **monitored**: leave an email address, confirm it, and the scanner rescans the host weekly and writes only when the level, a score or a check result changed. Double opt-in, one-click unsubscribe, nothing else done with the address ([decision 0006](docs/decisions/0006-monitoring-by-weekly-rescan.md)).
 
 ### Command line

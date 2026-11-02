@@ -9,6 +9,7 @@ import {
   type HistoryEntry,
   type HistoryStore,
 } from './types.js';
+import { wwwHostMigrations } from '../hosts.js';
 
 /**
  * One row per distinct state per host; see HistoryEntry. The snapshot columns hold small
@@ -73,7 +74,7 @@ function rowToEntry(row: Record<string, unknown>): HistoryEntry {
 
 export class SqlHistoryStore extends SqlStore implements HistoryStore {
   constructor(db: SqlDatabase) {
-    super(db, HISTORY_SCHEMA_SQL);
+    super(db, HISTORY_SCHEMA_SQL, wwwHostMigrations('scan_history', false));
   }
 
   async record(scan: StoredScan): Promise<void> {

@@ -69,7 +69,7 @@ export function configFromEnv(
     appName: env.APP_NAME ?? 'Agentic Readiness Scanner',
     scanBudget: positiveInt('SCAN_BUDGET', env.SCAN_BUDGET, 40),
     scanDeadlineMs: positiveInt('SCAN_DEADLINE_MS', env.SCAN_DEADLINE_MS, 24_000),
-    targetCooldownSeconds: positiveInt('TARGET_COOLDOWN_SECONDS', env.TARGET_COOLDOWN_SECONDS, 120),
+    targetCooldownSeconds: positiveInt('TARGET_COOLDOWN_SECONDS', env.TARGET_COOLDOWN_SECONDS, 300),
     retentionDays: positiveInt('RETENTION_DAYS', env.RETENTION_DAYS, 30),
     repositoryUrl:
       env.REPOSITORY_URL ?? 'https://github.com/MatthiasReinholz/agentic-readiness-scanner',
