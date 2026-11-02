@@ -1,6 +1,7 @@
 import { sameSnapshot, snapshotOf, type ResultSnapshot } from '@agentic-readiness/core';
 
 import type { StoredScan } from '../store/types.js';
+import { rootScanUrl } from '../scan-scope.js';
 
 /**
  * One distinct state of a host: the headline numbers, the group scores and every
@@ -41,7 +42,7 @@ export function entryFromScan(scan: StoredScan): HistoryEntry {
   return {
     id: scan.id,
     host: scan.host,
-    url: scan.result.target.url,
+    url: rootScanUrl(scan),
     firstAt: scan.createdAt,
     lastAt: scan.createdAt,
     scans: 1,
@@ -70,7 +71,7 @@ export function confirmsEntry(entry: HistoryEntry, scan: StoredScan): boolean {
 export function confirmedEntry(entry: HistoryEntry, scan: StoredScan): HistoryEntry {
   return {
     ...entry,
-    url: scan.result.target.url,
+    url: rootScanUrl(scan),
     lastAt: scan.createdAt,
     scans: entry.scans + 1,
     lastScanId: scan.id,

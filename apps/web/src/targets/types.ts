@@ -1,4 +1,5 @@
 import type { StoredScan } from '../store/types.js';
+import { rootScanUrl } from '../scan-scope.js';
 
 /**
  * One row per host ever scanned. Scans are purged after the retention window; this
@@ -28,7 +29,7 @@ export interface TargetRegistry {
 export function recordFromScan(scan: StoredScan, previous?: TargetRecord): TargetRecord {
   return {
     host: scan.host,
-    url: scan.result.target.url,
+    url: rootScanUrl(scan),
     firstSeenAt: previous?.firstSeenAt ?? scan.createdAt,
     lastSeenAt: scan.createdAt,
     scanCount: (previous?.scanCount ?? 0) + 1,

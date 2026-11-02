@@ -8,7 +8,7 @@ The visual system shared by the HTML report (`@agentic-readiness/core`) and the 
 - Recipes (`src/recipes.ts`): `button({ variant, size })`, `badge({ variant })`, `card` and its parts, `input`, `nativeSelect` with wrapper and chevron, `textarea`, `label`, `alert({ variant })`, `separator`, `codeInline`, `codeBlock`, and `cn` for merging class lists.
 - `icon(name, className?)`: an inline lucide SVG; the names are listed in `scripts/build-assets.mjs`.
 - `interFontFaceCss(baseUrl)` and `FONT_FILES` for the self-hosted font faces the hosted app serves under `/fonts`.
-- `signalNetwork()` and `SIGNAL_NETWORK_SCRIPT`: inline decorative network geometry and its pause control. These never represent check outcomes or make network requests.
+- `signalNetwork()` and `SIGNAL_NETWORK_SCRIPT`: inline decorative network geometry and its reduced-motion handling. These never represent check outcomes or make network requests.
 
 ## Signal Network design
 
@@ -18,7 +18,7 @@ The visual system shared by the HTML report (`@agentic-readiness/core`) and the 
 
 Core's `htmlDocument` accepts trusted `headerHtml` outside the main landmark and `heroHtml` inside it. `pageHero` and `siteHeader` compose those surfaces for the web app and standalone HTML reports. Escape user data before passing it to these helpers. Do not recreate page-specific colours or duplicate the document shell. Hosted pages use the same shell for the knowledge base, history, monitoring and errors.
 
-Only the homepage's decorative signals loop. The pause button remembers the visitor's choice under `ars-motion`; the OS reduced-motion preference always takes precedence. Active scanning pauses the ambient network while real verdicts continue updating. Compact page and report heroes remain static. No-JavaScript pages show a static network and hide inactive motion/theme controls. Dark is the default; `ars-theme` restores a visitor's explicit theme before paint.
+Only the homepage's decorative signals loop. The OS reduced-motion preference disables them, including when it changes while the page is open. There is no separate pause control or stored motion preference. Active scanning pauses the ambient network while real verdicts continue updating. Compact page and report heroes remain static. No-JavaScript pages show a static network and hide the inactive theme control. Dark is the default; `ars-theme` restores a visitor's explicit theme before paint.
 
 Hero text stays transparent over the network. Preserve contrast with the network's own continuous feathered mask, rather than opaque backgrounds on headings or other copy. Below 1024px, where copy fills the width, network opacity is capped so white text retains at least 4.5:1 even over a bright packet. Form, error and bordered status surfaces remain intentionally opaque.
 

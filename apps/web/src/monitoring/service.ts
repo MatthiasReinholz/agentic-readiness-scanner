@@ -2,6 +2,7 @@ import { diffSnapshots, snapshotOf } from '@agentic-readiness/core';
 
 import type { AppConfig } from '../config.js';
 import type { StoredScan } from '../store/types.js';
+import { isRootScan, rootScanUrl, rescanUrlForHost } from '../scan-scope.js';
 import { changeEmail, confirmEmail } from './emails.js';
 import { digestsEqual, hashToken, newMonitorId, newToken } from './tokens.js';
 import type { Baseline, Mailer, Monitor, MonitorStore } from './types.js';
@@ -55,6 +56,7 @@ export class MonitoringService {
   }
 
   async subscribe(email: string, scan: StoredScan): Promise<SubscribeOutcome> {
+    if (!isRootScan(scan)) throw new Error('Monitoring requires a root URL');
     const existing = await this.deps.store.findByEmailAndHost(email, scan.host);
     if (existing?.status === 'active') return 'already_active';
     const nowIso = this.now().toISOString();
@@ -76,7 +78,7 @@ export class MonitoringService {
       id: existing?.id ?? newMonitorId(),
       email,
       host: scan.host,
-      url: scan.result.target.url,
+      url: rootScanUrl(scan),
       status: 'pending',
       confirmTokenHash: await hashToken(confirmToken),
       manageTokenHash: await hashToken(manageToken),
@@ -165,7 +167,7 @@ export class MonitoringService {
       try {
         let pending = scansByHost.get(monitor.host);
         if (!pending) {
-          pending = this.deps.rescan(monitor.url);
+          pending = this.deps.rescan(rescanUrlForHost(monitor.host, monitor.url));
           scansByHost.set(monitor.host, pending);
         }
         const scan = await pending;

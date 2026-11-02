@@ -50,7 +50,7 @@ export function siteHeader(appName: string, homeUrl = '/'): string {
 
 /** Trusted, escaped-by-the-caller content, with decoration isolated from real scan state. */
 export function pageHero(content: string, options: { home?: boolean } = {}): string {
-  return `<section class="site-hero${options.home ? ' site-hero-home' : ''}">${signalNetwork()}<div class="site-container hero-content">${content}${options.home ? '<button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false" hidden>Pause animation</button>' : ''}</div></section>`;
+  return `<section class="site-hero${options.home ? ' site-hero-home' : ''}">${signalNetwork()}<div class="site-container hero-content">${content}</div></section>`;
 }
 
 /** Footer row; `content` is trusted HTML. */

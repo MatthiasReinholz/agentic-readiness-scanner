@@ -171,11 +171,15 @@ export function homeMetadata(config: AppConfig): string {
 }
 
 /** No sampled URLs, query strings, evidence or personal signup data enter sharing metadata. */
-export function reportMetadata(config: AppConfig, stored: StoredScan) {
+export function reportMetadata(
+  config: AppConfig,
+  stored: StoredScan,
+  pagePath = `/r/${stored.id}`,
+) {
   const result = stored.result;
   const origin = new URL(result.target.url).origin;
   const hostname = new URL(origin).hostname;
-  const path = `/r/${stored.id}`;
+  const path = pagePath;
   const url = `${config.baseUrl}${path}`;
   const title = `Agentic readiness report for ${hostname}`;
   const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${result.scores.ingestion}/100; commerce ${result.scores.commerce === null ? 'not scored' : `${result.scores.commerce}/100`}. Public signals only; checkout not verified.`;
@@ -245,7 +249,11 @@ export function reportMetadata(config: AppConfig, stored: StoredScan) {
             ]),
       ],
       distribution: [
-        { '@type': 'DataDownload', encodingFormat: 'application/json', contentUrl: `${url}.json` },
+        {
+          '@type': 'DataDownload',
+          encodingFormat: 'application/json',
+          contentUrl: `${config.baseUrl}/r/${stored.id}.json`,
+        },
       ],
     },
     ...siteGraph(config, 'report'),

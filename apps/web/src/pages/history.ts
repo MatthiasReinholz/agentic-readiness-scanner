@@ -11,6 +11,8 @@ import { badge, button, card, icon } from '@agentic-readiness/ui';
 import type { AppConfig } from '../config.js';
 import type { HistoryEntry } from '../history/types.js';
 import { page } from './layout.js';
+import { jsonLd, metadataHead, siteGraph, webPage } from '../metadata.js';
+import { rescanUrlForHost, siteProfilePath } from '../scan-scope.js';
 
 /** An entry together with what changed since the entry before it (older), when there is one. */
 export interface HistoryStep {
@@ -142,6 +144,7 @@ export interface HistoryPageInput {
   host: string;
   entries: readonly HistoryEntry[];
   now: Date;
+  view?: 'history' | 'profile';
 }
 
 export function historyPage(config: AppConfig, input: HistoryPageInput): string {
@@ -169,10 +172,11 @@ export function historyPage(config: AppConfig, input: HistoryPageInput): string 
 <p class="text-sm text-current"><a href="/h/${escapeHtml(host)}.json">JSON</a> · <a href="/badge/${escapeHtml(host)}.svg">Badge</a></p>
 </div>`;
   const body = `
+${input.view === 'profile' ? '<p class="mt-6 text-sm text-muted-foreground">The full report is no longer available. This profile retains recorded history, not current evidence. Older history can include scans started from paths before the root-only profile policy.</p>' : ''}
 
 ${
   latest
-    ? `<section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"><div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${latest.snapshot.level}</div><div><h2 class="text-lg font-semibold tracking-tight">Current state</h2><p class="mt-1.5 text-muted-foreground">Ingestion ${score(latest.snapshot.ingestion)} · commerce ${score(latest.snapshot.commerce)} · held since ${when(latest.firstAt)} and confirmed by ${latest.scans} scan${latest.scans === 1 ? '' : 's'}.</p></div><form method="post" action="/scan"><input type="hidden" name="url" value="${escapeHtml(latest.url)}"><button type="submit" class="${button({ variant: 'outline' })}">Scan again</button></form></section>`
+    ? `<section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"><div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${latest.snapshot.level}</div><div><h2 class="text-lg font-semibold tracking-tight">Last recorded state</h2><p class="mt-1.5 text-muted-foreground">Ingestion ${score(latest.snapshot.ingestion)} · commerce ${score(latest.snapshot.commerce)} · held since ${when(latest.firstAt)} and confirmed by ${latest.scans} scan${latest.scans === 1 ? '' : 's'}.</p></div><form method="post" action="/scan"><input type="hidden" name="url" value="${escapeHtml(rescanUrlForHost(host, latest.url))}"><button type="submit" class="${button({ variant: 'outline' })}">Scan again</button></form></section>`
     : `<section class="${card} mt-6 p-6"><p class="text-muted-foreground">No scans recorded for this host yet.</p><form method="post" action="/scan" class="mt-3"><input type="hidden" name="url" value="https://${escapeHtml(host)}/"><button type="submit" class="${button()}">Scan it</button></form></section>`
 }
 ${entries.length >= 2 ? `<div class="mt-6">${trendChart(entries)}</div>` : ''}
@@ -185,10 +189,15 @@ ${
   return page(
     config,
     {
-      title: `History: ${host}`,
+      title: `${input.view === 'profile' ? 'Readiness profile' : 'History'}: ${host}`,
+      ...(input.view === 'profile'
+        ? {
+            head: `${metadataHead(config, { path: siteProfilePath(host), title: `Readiness profile: ${host}`, description: `Recorded readiness history for ${host}. The detailed report has expired.`, image: 'report' })}${jsonLd({ '@context': 'https://schema.org', '@graph': [webPage(config, siteProfilePath(host), `Readiness profile: ${host}`, `Recorded readiness history for ${host}. The detailed report has expired.`, 'report'), ...siteGraph(config, 'report')] })}`,
+          }
+        : {}),
       hero,
       description: latest
-        ? `Agentic readiness of ${host} over time: currently Level ${latest.snapshot.level}, ingestion ${latest.snapshot.ingestion}.`
+        ? `Agentic readiness of ${host} over time: last recorded at Level ${latest.snapshot.level}, ingestion ${latest.snapshot.ingestion}.`
         : `Agentic readiness history of ${host}.`,
     },
     body,

@@ -9,6 +9,7 @@ import { digestsEqual } from '../monitoring/tokens.js';
 import type { MonitorStore } from '../monitoring/types.js';
 import type { ResultStore } from '../store/types.js';
 import type { TargetRegistry } from '../targets/types.js';
+import type { ScanLimiter } from '../rate-limit/types.js';
 
 export interface InternalRouteDependencies {
   config: AppConfig;
@@ -17,6 +18,7 @@ export interface InternalRouteDependencies {
   history?: HistoryStore;
   monitors?: MonitorStore;
   progress?: ProgressStore;
+  limiter?: ScanLimiter;
   /** Null when monitoring is off: no monitor cron, nothing to purge. */
   monitoring: MonitoringService | null;
   now: () => Date;
@@ -104,7 +106,10 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     const progressRemoved = deps.progress
       ? await deps.progress.deleteOlderThan(new Date(Date.now() - 3_600_000).toISOString())
       : 0;
-    return c.json({ removed, cutoff, pendingRemoved, progressRemoved });
+    const limitsRemoved = deps.limiter
+      ? await deps.limiter.deleteOlderThan(new Date(now().getTime() - 86_400_000).toISOString())
+      : 0;
+    return c.json({ removed, cutoff, pendingRemoved, progressRemoved, limitsRemoved });
   });
 
   return app;

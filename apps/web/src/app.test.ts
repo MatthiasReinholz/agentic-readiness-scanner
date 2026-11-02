@@ -189,8 +189,9 @@ describe('hosted app', () => {
     expect((await app.request('/badge/www.ceramics.example.svg')).status).toBe(200);
   });
 
-  it('scans a host again only after five minutes by default', () => {
-    expect(configFromEnv({}).targetCooldownSeconds).toBe(300);
+  it('limits new scans to one per host per minute and disallows a shorter configured window', () => {
+    expect(configFromEnv({}).targetCooldownSeconds).toBe(60);
+    expect(configFromEnv({ TARGET_COOLDOWN_SECONDS: '1' }).targetCooldownSeconds).toBe(60);
   });
 
   it('keeps the per-host cooldown even when a profile override is requested', async () => {
@@ -262,7 +263,7 @@ describe('hosted app', () => {
       body: 'url=https%3A%2F%2Fceramics.example%2F&profile=',
     });
     expect(response.status).toBe(303);
-    expect(response.headers.get('location')).toMatch(/^\/r\/[0-9a-f]{16}$/);
+    expect(response.headers.get('location')).toBe('/sites/ceramics.example');
   });
 
   it('only runs cleanup for the cron caller', async () => {

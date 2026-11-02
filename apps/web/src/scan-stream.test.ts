@@ -78,7 +78,7 @@ describe('streamed scan', () => {
     const done = events.at(-1);
     expect(done?.event).toBe('done');
     expect(done?.data).toMatchObject({ reused: false, level: { value: 5 } });
-    expect(String(done?.data.report_url)).toMatch(/^\/r\/[0-9a-f]{16}$/);
+    expect(done?.data.report_url).toBe('/sites/ceramics.example');
     expect(done?.data.results).toHaveLength(64);
     expect(await store.latestForHost('ceramics.example')).not.toBeNull();
 
@@ -119,6 +119,8 @@ describe('streamed scan', () => {
     const html = await (await app.request('/')).text();
     expect(html).toContain('id="scan-form"');
     expect(html).toContain('id="scan-console"');
+    expect(html).toContain('Built WooCommerce first. Works on any store.');
+    expect(html).not.toContain('data-motion-toggle');
     expect(html.match(/class="sc-cell"/g)).toHaveLength(64);
     // Compiles without running: a syntax error in the inline script would break the page.
     expect(() => new Script(SCAN_CONSOLE_SCRIPT)).not.toThrow();

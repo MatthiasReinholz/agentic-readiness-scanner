@@ -231,20 +231,6 @@
 .hero-policy code {
   font-family: ui-monospace, monospace;
 }
-.motion-toggle {
-  margin-top: 1rem;
-  min-height: 44px;
-  font-size: 0.75rem;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  color: inherit;
-}
-.motion-toggle:hover {
-  color: hsl(var(--hero-highlight));
-}
-.motion-toggle:disabled {
-  text-decoration: none;
-}
 .signal-network {
   position: absolute;
   z-index: -1;
@@ -319,8 +305,7 @@
 .skip-link:focus {
   transform: translateY(0);
 }
-.site-header :focus-visible,
-.site-hero .motion-toggle:focus-visible {
+.site-header :focus-visible {
   outline: 3px solid hsl(var(--hero-foreground));
   outline-offset: 4px;
 }
@@ -396,7 +381,6 @@
 @media print {
   .site-header,
   .signal-network,
-  .motion-toggle,
   .skip-link {
     display: none !important;
   }
