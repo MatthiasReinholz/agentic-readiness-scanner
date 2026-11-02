@@ -17,7 +17,7 @@ import {
 
 import { scoreGroup } from '../scoring.js';
 import { CHECK_MAP_CSS, CHECK_MAP_SCRIPT, checkMapHtml } from './check-map.js';
-import { htmlDocument, scoreTone, siteFooter, siteHeader } from './html-theme.js';
+import { htmlDocument, pageHero, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
   groupIsOptional,
   prioritize,
@@ -270,16 +270,15 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   ].filter(Boolean);
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
-  const body = `${siteHeader(appName, options.homeUrl)}
-<header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-<div class="min-w-0"><p class="text-sm text-muted-foreground">Agentic readiness report</p><h1 class="mt-1 break-all text-2xl font-bold tracking-tight sm:text-3xl">${escapeHtml(result.target.url)}</h1><p class="mt-1.5 text-sm text-muted-foreground">Platform ${escapeHtml(result.target.platform)} · profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
-${links.length > 0 ? `<p class="text-sm text-muted-foreground">${links.join(' · ')}</p>` : ''}
-</header>
-<section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr] sm:items-center">
-<div class="lv-badge inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${result.level.value}</div>
-<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5 text-muted-foreground">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm text-muted-foreground">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold text-primary hover:underline" href="#priorities">What to do</a></p>` : ''}</div>
-</section>
-${checkMapHtml(result, card)}
+  const hero = `<div class="hero-summary">
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(result.target.url)}</h1><p class="hero-meta">Platform ${escapeHtml(result.target.platform)} · profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
+</div>
+<div class="hero-level mt-6">
+<div class="lv-badge inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-xs font-bold uppercase tracking-[0.12em] text-current">Level</small>${result.level.value}</div>
+<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold underline underline-offset-4" href="#priorities">What to do</a></p>` : ''}</div>
+</div>`;
+  const body = `${checkMapHtml(result, card)}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
@@ -302,6 +301,8 @@ ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeH
   return htmlDocument(
     {
       title: `Agentic readiness: ${result.target.url}`,
+      headerHtml: siteHeader(appName, options.homeUrl),
+      heroHtml: pageHero(hero),
       description: `Level ${result.level.value} (${result.level.name}); ingestion ${result.scores.ingestion}, commerce ${result.scores.commerce ?? 'n/a'}.`,
       head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
       scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],

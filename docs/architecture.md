@@ -56,6 +56,8 @@ Check definitions and fixes are consumed by the engine, the docs generator, the 
 
 The app's own TypeScript project (`tsconfig.app.json`) has no Node types, so a Node-only global in worker code fails the type-check; `dev.ts` and the tests live in `tsconfig.node.json`.
 
+The shared document shell separates full-width navigation and hero surfaces from a readable inner grid. The Signal Network composition and motion rules live in `packages/ui/src/surfaces.css`, with the purple/lime palette in `theme.css`; core's `siteHeader` and `pageHero` compose them for hosted pages and offline reports. The homepage network is decorative, pauseable and disabled by reduced motion. Compact heroes are static. The scan grid and radar keep their named transitions into the report's map and level badge; neither the palette nor the ambient animation changes scan state. See [the UI package guide](../packages/ui/README.md) for tokens, layout, accessibility and verification.
+
 ## Determinism
 
 Given the same responses, a scan produces the same result: the product sample is seeded by hostname, checks run sequentially in a fixed order, and the result records catalog, scoring and scanner versions. The fixture suite relies on this, and so does comparing two reports of the same store over time.

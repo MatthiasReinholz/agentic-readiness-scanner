@@ -33,7 +33,7 @@ export function monitorDialog(config: AppConfig, scan: StoredScan): string {
   return `<dialog class="w-[min(520px,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-[2px] open:animate-content-in" id="monitor-dialog" aria-labelledby="monitor-dialog-title" data-host="${escapeHtml(scan.host)}" data-delay="${MONITOR_DIALOG_DELAY_MS}">
 <div class="relative space-y-4 p-6">
 <form method="dialog"><button class="${button({ variant: 'ghost', size: 'icon-sm' })} absolute right-3 top-3 text-muted-foreground" value="dismiss" aria-label="Close">${icon('x')}</button></form>
-${offer(scan, config, 'monitor-dialog-title', `Want to know when ${escapeHtml(scan.host)} changes?`)}
+${offer(scan, config, 'monitor-dialog-title', `<span class="pr-12">Want to know when ${escapeHtml(scan.host)} changes?</span>`)}
 ${form(scan, 'monitor-dialog', true)}
 </div>
 </dialog>`;
@@ -107,8 +107,9 @@ export function monitorPage(
     config,
     {
       title: `${title} · ${config.appName}`,
+      hero: `<p class="hero-eyebrow">Site monitoring</p><h1 class="hero-title">${escapeHtml(title)}</h1>`,
       ...(stateAttributes ? { scripts: [MONITOR_STATE_SCRIPT] } : {}),
     },
-    `<section class="${card} max-w-[560px] space-y-3 p-6"${stateAttributes}><h1 class="text-2xl font-bold tracking-tight">${title}</h1>${body}<p class="pt-1">${back}</p></section>`,
+    `<section class="${card} max-w-[560px] space-y-3 p-6"${stateAttributes}>${body}<p class="pt-1">${back}</p></section>`,
   );
 }

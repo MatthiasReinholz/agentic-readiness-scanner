@@ -15,6 +15,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Shared Signal Network design across the homepage, reports, knowledge base, history, monitoring and error pages: full-width Woo-purple headers, an uppercase lime-accented homepage headline, responsive scan controls, an icon theme toggle with dark mode by default, accessible links and focus states, and pauseable background signals that respect reduced motion. Offline reports retain the same self-contained design and the existing progress-to-report handoff; check maps add verdict symbols and larger targets.
+
 - Hosts are stored without a leading `www.`: `www.example.com` and `example.com` share one cooldown, one history, one badge and one monitoring subscription. Other subdomains keep their own key. Rows stored before are moved to the bare host on first use, `/h/www.example.com` redirects to `/h/example.com`, and the scan still fetches the URL that was given.
 - A host is scanned at most once every five minutes by default (`TARGET_COOLDOWN_SECONDS` is now 300, was 120).
 - The footer reads "An experiment by Matthias Reinholz" with links to the knowledge base and the source, without the licence line, and the home page no longer repeats that nothing requires credentials.

@@ -164,11 +164,12 @@ export function historyPage(config: AppConfig, input: HistoryPageInput): string 
       return `<tr class="align-top"><td class="whitespace-nowrap py-3 pr-4 text-sm">${period(entry)}<div class="mt-0.5 text-xs text-muted-foreground">catalog ${escapeHtml(entry.catalogVersion)}${catalogChanged ? ' · changed' : ''}</div></td><td class="py-3 pr-4 text-sm"><span class="${badge({ variant: 'secondary' })}">Level ${entry.snapshot.level}</span>${previous && diff?.level ? arrow(diff.level.from, diff.level.to) : ''}</td><td class="py-3 pr-4 text-sm tabular-nums">${score(entry.snapshot.ingestion)} ${arrow(previous?.snapshot.ingestion ?? null, entry.snapshot.ingestion)}</td><td class="py-3 pr-4 text-sm tabular-nums">${score(entry.snapshot.commerce)} ${arrow(previous?.snapshot.commerce ?? null, entry.snapshot.commerce)}</td><td class="py-3 pr-4"><div class="flex max-w-[320px] flex-wrap gap-1">${groups}</div></td><td class="py-3 pr-4 text-sm">${changeList({ entry, previous, diff, catalogChanged })}</td><td class="whitespace-nowrap py-3 text-sm">${report}</td></tr>`;
     })
     .join('');
+  const hero = `<div class="hero-summary">
+<div class="min-w-0"><p class="text-sm text-current">Agentic readiness history</p><h1 class="hero-title">${escapeHtml(host)}</h1><p class="mt-1.5 text-sm text-current">${entries.length} distinct state${entries.length === 1 ? '' : 's'} across ${totalScans} scan${totalScans === 1 ? '' : 's'}${latest ? ` · first scanned ${when(entries[entries.length - 1]?.firstAt ?? latest.firstAt)} · last scanned ${when(latest.lastAt)}` : ''}</p></div>
+<p class="text-sm text-current"><a href="/h/${escapeHtml(host)}.json">JSON</a> · <a href="/badge/${escapeHtml(host)}.svg">Badge</a></p>
+</div>`;
   const body = `
-<header class="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-<div class="min-w-0"><p class="text-sm text-muted-foreground">Agentic readiness history</p><h1 class="mt-1 break-all text-2xl font-bold tracking-tight sm:text-3xl">${escapeHtml(host)}</h1><p class="mt-1.5 text-sm text-muted-foreground">${entries.length} distinct state${entries.length === 1 ? '' : 's'} across ${totalScans} scan${totalScans === 1 ? '' : 's'}${latest ? ` · first scanned ${when(entries[entries.length - 1]?.firstAt ?? latest.firstAt)} · last scanned ${when(latest.lastAt)}` : ''}</p></div>
-<p class="text-sm text-muted-foreground"><a href="/h/${escapeHtml(host)}.json">JSON</a> · <a href="/badge/${escapeHtml(host)}.svg">Badge</a></p>
-</header>
+
 ${
   latest
     ? `<section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"><div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${latest.snapshot.level}</div><div><h2 class="text-lg font-semibold tracking-tight">Current state</h2><p class="mt-1.5 text-muted-foreground">Ingestion ${score(latest.snapshot.ingestion)} · commerce ${score(latest.snapshot.commerce)} · held since ${when(latest.firstAt)} and confirmed by ${latest.scans} scan${latest.scans === 1 ? '' : 's'}.</p></div><form method="post" action="/scan"><input type="hidden" name="url" value="${escapeHtml(latest.url)}"><button type="submit" class="${button({ variant: 'outline' })}">Scan again</button></form></section>`
@@ -185,6 +186,7 @@ ${
     config,
     {
       title: `History: ${host}`,
+      hero,
       description: latest
         ? `Agentic readiness of ${host} over time: currently Level ${latest.snapshot.level}, ingestion ${latest.snapshot.ingestion}.`
         : `Agentic readiness history of ${host}.`,

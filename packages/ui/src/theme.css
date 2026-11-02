@@ -1,3 +1,5 @@
+@import './surfaces.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,7 +7,7 @@
 /*
  * Design tokens. The names and the HSL-triplet convention follow the app-base UI
  * standard (shadcn token contract) so the Tailwind colour utilities resolve the same
- * way there and here; the values are this project's: a bright blue primary in both
+ * way there and here; the values are this project's: Woo purple, a pale lime hero highlight, and accessible primary colours in both
  * themes and three semantic verdict colours on top of the baseline set.
  *
  * Dark is the default theme (`<html data-theme="dark">`); the light set lives on :root
@@ -14,58 +16,63 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 216 50% 98%;
-    --foreground: 222 47% 11%;
-    --muted: 214 32% 94%;
-    --muted-foreground: 215 16% 42%;
+    --hero: 262.694 100% 62.157%;
+    --hero-foreground: 0 0% 100%;
+    --hero-highlight: 65.405 100% 78.235%;
+    --hero-action: 267.027 88.8% 49.02%;
+    --hero-action-hover: 266.871 92.09% 34.706%;
+    --background: 265.714 53.846% 97.451%;
+    --foreground: 265 34.286% 13.725%;
+    --muted: 270 40% 94.118%;
+    --muted-foreground: 273.103 14.573% 39.02%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 265 34.286% 13.725%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --border: 214 32% 89%;
-    --input: 214 28% 82%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 214 32% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --accent: 221 83% 95%;
-    --accent-foreground: 221 83% 35%;
+    --popover-foreground: 265 34.286% 13.725%;
+    --border: 270 32.353% 86.667%;
+    --input: 273.103 13.004% 43.725%;
+    --primary: 267.027 88.8% 49.02%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 270 40% 94.118%;
+    --secondary-foreground: 265 34.286% 13.725%;
+    --accent: 266 93.75% 93.725%;
+    --accent-foreground: 266.871 92.09% 34.706%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 98%;
     --success: 142 72% 29%;
     --success-foreground: 0 0% 98%;
     --warning: 28 90% 40%;
     --warning-foreground: 0 0% 98%;
-    --ring: 221 83% 53%;
+    --ring: 267.027 88.8% 49.02%;
     --radius: 0.75rem;
     --shadow-soft: 0 1px 2px 0 hsl(222 47% 11% / 0.05), 0 1px 3px 0 hsl(222 47% 11% / 0.1);
   }
 
   [data-theme='dark'] {
     color-scheme: dark;
-    --background: 222 49% 8%;
-    --foreground: 214 40% 93%;
-    --muted: 220 38% 13%;
-    --muted-foreground: 215 22% 68%;
-    --card: 221 42% 12%;
-    --card-foreground: 214 40% 93%;
-    --popover: 221 42% 12%;
-    --popover-foreground: 214 40% 93%;
-    --border: 220 32% 20%;
-    --input: 220 30% 28%;
-    --primary: 213 94% 68%;
-    --primary-foreground: 222 49% 8%;
-    --secondary: 220 38% 13%;
-    --secondary-foreground: 214 40% 93%;
-    --accent: 213 60% 18%;
-    --accent-foreground: 213 94% 80%;
+    --background: 261.176 41.463% 8.039%;
+    --foreground: 223.333 100% 96.471%;
+    --muted: 263.478 29.87% 15.098%;
+    --muted-foreground: 269.032 24.409% 75.098%;
+    --card: 265 34.286% 13.725%;
+    --card-foreground: 223.333 100% 96.471%;
+    --popover: 265 34.286% 13.725%;
+    --popover-foreground: 223.333 100% 96.471%;
+    --border: 267.097 26.05% 23.333%;
+    --input: 270 17.778% 64.706%;
+    --primary: 255.484 100% 87.843%;
+    --primary-foreground: 266.966 91.753% 19.02%;
+    --secondary: 263.478 29.87% 15.098%;
+    --secondary-foreground: 223.333 100% 96.471%;
+    --accent: 269.231 37.864% 20.196%;
+    --accent-foreground: 257.647 100% 93.333%;
     --destructive: 0 91% 71%;
     --destructive-foreground: 222 49% 8%;
     --success: 142 69% 58%;
     --success-foreground: 222 49% 8%;
     --warning: 38 92% 62%;
     --warning-foreground: 222 49% 8%;
-    --ring: 213 94% 68%;
+    --ring: 255.484 100% 87.843%;
     --shadow-soft: 0 1px 0 hsl(0 0% 100% / 0.03) inset, 0 8px 24px hsl(0 0% 0% / 0.35);
   }
 
@@ -98,6 +105,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
     *,
     ::before,
     ::after {

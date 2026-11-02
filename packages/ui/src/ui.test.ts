@@ -23,7 +23,7 @@ describe('ui package', () => {
 
   it('composes variants from complete class literals', () => {
     expect(button()).toContain('bg-primary');
-    expect(button({ variant: 'outline', size: 'sm' })).toContain('h-9');
+    expect(button({ variant: 'outline', size: 'sm' })).toContain('min-h-11');
     expect(badge({ variant: 'destructive' })).toContain('text-destructive');
     expect(cn('p-2 p-4', 'text-sm')).toBe('p-4 text-sm');
   });

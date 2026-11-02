@@ -23,14 +23,15 @@ const VERDICT_WORD: Record<CheckResult['verdict'], string> = {
 export const CHECK_MAP_CSS = `
 @view-transition{navigation:auto}
 .cm-grid{view-transition-name:check-map}
-.cm-cell{display:block;width:16px;height:16px;border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--border));transition:transform .15s}
-.cm-cell:hover,.cm-cell:focus-visible{transform:scale(1.3);outline:none;box-shadow:0 0 0 2px hsl(var(--ring)/.5)}
+.cm-cell{display:grid;place-items:center;width:24px;height:24px;font:700 12px/1 ui-monospace,monospace;color:hsl(var(--background));border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s}
+.cm-cell:hover,.cm-cell:focus-visible{transform:translateY(-2px);outline:2px solid hsl(var(--ring));outline-offset:2px}
 .cm-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .cm-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}
 .cm-cell[data-v=fail]{background:hsl(var(--destructive));border-color:hsl(var(--destructive))}
 .cm-cell[data-v=skip]{background:transparent;border-style:dashed}
 .cm-key{display:inline-flex;align-items:center;gap:6px}
-.cm-key .cm-cell{width:11px;height:11px;border-radius:3px}
+.cm-key .cm-cell{width:14px;height:14px;font-size:10px;border-radius:3px}
+.cm-cell[data-v=pass]::after{content:"✓" / ""}.cm-cell[data-v=warn]::after{content:"!" / ""}.cm-cell[data-v=fail]::after{content:"×" / ""}
 .lv-badge{position:relative;view-transition-name:level-badge}
 .lv-burst{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 .lv-burst i{position:absolute;width:7px;height:7px;margin:-3.5px;border-radius:2px;opacity:0}
@@ -59,7 +60,7 @@ export function checkMapHtml(result: ScanResult, cardClass: string): string {
           return cell;
         })
         .join('');
-      return `<div class="grid grid-cols-[2.25rem_1fr_auto] items-center gap-x-3 sm:grid-cols-[2.25rem_12rem_1fr_auto]"><a class="font-mono text-xs text-muted-foreground hover:text-foreground" href="#group-${escapeHtml(group.id)}">${escapeHtml(group.id)}</a><span class="hidden truncate text-sm text-muted-foreground sm:block">${escapeHtml(group.title)}</span><span class="flex flex-wrap gap-1">${cells}</span><span class="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">${score === null ? '–' : String(score)}</span></div>`;
+      return `<div class="grid grid-cols-[2.25rem_1fr_auto] items-center gap-x-3 sm:grid-cols-[2.25rem_12rem_1fr_auto] lg:grid-cols-[2.25rem_16rem_1fr_auto]"><a class="font-mono text-xs text-muted-foreground hover:text-foreground" href="#group-${escapeHtml(group.id)}">${escapeHtml(group.id)}</a><span class="hidden truncate text-sm text-muted-foreground sm:block" title="${escapeHtml(group.title)}">${escapeHtml(group.title)}</span><span class="flex flex-wrap gap-1">${cells}</span><span class="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">${score === null ? '–' : String(score)}</span></div>`;
     })
     .join('');
   const key = (['pass', 'warn', 'fail', 'skip'] as const)

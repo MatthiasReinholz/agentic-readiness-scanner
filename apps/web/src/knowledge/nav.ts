@@ -50,11 +50,12 @@ function groupHref(group: Group): string {
 }
 
 export const KB_CSS = `
+.kb-filter-bar{margin-inline:calc(-1 * var(--page-gutter));padding-inline:var(--page-gutter)}
 .kb-progress{position:fixed;inset:0 0 auto 0;height:3px;z-index:50;background:hsl(var(--primary));transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
-.kb-cell{display:block;width:12px;height:12px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--border));transition:transform .15s,background .15s}
+.kb-cell{display:block;width:24px;height:24px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s,background .15s}
 .kb-cell:hover,.kb-cell:focus-visible{transform:scale(1.35);outline:none;background:hsl(var(--primary)/.6)}
 .kb-cell[data-state=group]{background:hsl(var(--primary)/.28);border-color:hsl(var(--primary)/.45)}
-.kb-cell[data-state=current]{background:hsl(var(--primary));border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.25);animation:kb-pulse 2.4s ease-in-out infinite}
+.kb-cell[data-state=current]{background:hsl(var(--primary));border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.25);animation:kb-pulse 2.4s ease-in-out 2}
 @keyframes kb-pulse{50%{box-shadow:0 0 0 6px hsl(var(--primary)/.08)}}
 .kb-toc a{display:block;border-left:2px solid hsl(var(--border));padding:.2rem 0 .2rem .75rem;transition:color .15s,border-color .15s}
 .kb-toc a[data-active]{color:hsl(var(--foreground));border-left-color:hsl(var(--primary));font-weight:500}
@@ -112,7 +113,7 @@ export function checkStrip(currentId?: string, currentGroup?: string): string {
           return `<a class="kb-cell" data-state="${state}" href="${hrefOf(check.id)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"${state === 'current' ? ' aria-current="page"' : ''}></a>`;
         })
         .join('');
-      return `<span class="flex items-center gap-[3px]" title="${escapeHtml(`${group.id} ${group.title}`)}">${cells}</span>`;
+      return `<span class="flex max-w-full flex-wrap items-center gap-[3px]" title="${escapeHtml(`${group.id} ${group.title}`)}">${cells}</span>`;
     })
     .join('');
   return `<div class="flex flex-wrap items-center gap-x-2.5 gap-y-2" role="navigation" aria-label="All ${catalog.checks.length} checks">${groups}</div>`;

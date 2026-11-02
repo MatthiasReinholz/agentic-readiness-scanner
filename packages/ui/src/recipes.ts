@@ -15,7 +15,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 export const button = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -27,11 +27,11 @@ export const button = cva(
         link: 'h-auto rounded-none px-0 py-0 text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 px-3.5',
+        default: 'min-h-11 px-4 py-2',
+        sm: 'min-h-11 px-3.5',
         lg: 'h-11 px-6 text-base',
-        icon: 'h-10 w-10 rounded-md',
-        'icon-sm': 'h-8 w-8 rounded-md',
+        icon: 'h-11 w-11 rounded-md',
+        'icon-sm': 'h-11 w-11 rounded-md',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
@@ -66,7 +66,7 @@ export const cardContent = 'px-6 pb-6';
 export const cardFooter = 'flex items-center gap-3 px-6 pb-6';
 
 export const input =
-  'flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
  * A native <select> styled like the input. Render it inside `nativeSelectWrapper` with
