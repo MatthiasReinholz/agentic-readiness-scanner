@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
 ### Fixed
 
 - A store that rate-limits the scanner while the target is being resolved (sitemaps, product discovery, Shopify's fallback policy pages) now gets a report whose remaining checks say they were not run because the store answered 429, instead of an internal error. Unexpected failures of a streamed scan name the error.
