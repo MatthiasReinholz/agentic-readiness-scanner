@@ -65,6 +65,7 @@ describe('streamed scan', () => {
       body: JSON.stringify({ url: 'https://ceramics.example/' }),
     });
     expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(response.headers.get('x-accel-buffering')).toBe('no');
     const events = await readEvents(response);
     const progress = events.filter((item) => item.event === 'progress');
     expect(
