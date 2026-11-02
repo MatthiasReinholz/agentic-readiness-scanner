@@ -35,7 +35,7 @@ When the deployment has a mail provider configured, a report can also be **monit
 
 ### Command line
 
-The packages are not on npm yet (the `@agentic-readiness/*` names are reserved for them), so run the CLI from a checkout:
+Two packages are published to npm once the scope exists ([decision 0013](docs/decisions/0013-two-published-packages.md)): `@agentic-readiness/cli`, the command line with the local MCP server inside, and `@agentic-readiness/core`, the engine as a library. Both are self-contained. Until the first publish, run the CLI from a checkout:
 
 ```bash
 git clone https://github.com/MatthiasReinholz/agentic-readiness-scanner.git && cd agentic-readiness-scanner && pnpm install && pnpm build
@@ -71,18 +71,18 @@ console.log(result.level, result.scores);
 console.log(renderMarkdown(result));
 ```
 
-The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. Until the packages are published, consume them through the workspace.
+The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. The published `@agentic-readiness/core` carries the catalog and the visual system inside it, so it needs nothing else from this repository; `@agentic-readiness/core/testing` adds the fixture fetcher for offline runs. Until the packages are published, consume them through the workspace.
 
 ## How it works
 
 One engine, three hosts. Nothing in a check knows where it runs.
 
 ```text
-packages/catalog   the catalog as data: checks, levels, profiles, fixes, result schema
-packages/core      fetcher, target resolver, parsers, checks, runner, scoring, reporters
-packages/ui        visual system: Tailwind tokens, compiled stylesheet, class recipes, icons (after the app-base UI standard)
-packages/mcp       MCP server definition (tools), shared by CLI and hosted app
-packages/cli       agentic-readiness scan | mcp | catalog
+packages/catalog   the catalog as data: checks, levels, profiles, fixes, result schema (private, bundled into core and cli)
+packages/core      fetcher, target resolver, parsers, checks, runner, scoring, reporters (published: @agentic-readiness/core)
+packages/ui        visual system: Tailwind tokens, compiled stylesheet, class recipes, icons (private, bundled)
+packages/mcp       MCP server definition (tools), shared by CLI and hosted app (private, bundled into cli)
+packages/cli       agentic-readiness scan | mcp | catalog (published: @agentic-readiness/cli, self-contained)
 apps/web           Hono app: form, reports, badge, API, MCP endpoint, monitoring; runs on Spacefast Functions
 fixtures/stores    recorded stores for deterministic tests
 docs/              architecture, scoring, checks (generated), hosting, security model, release process, decisions

@@ -76,7 +76,7 @@ jobs:
           cp packages/catalog/dist/catalog.json ".release/catalog-${{ steps.version.outputs.value }}.json"
           cp packages/catalog/dist/schema/scan-result.schema.json ".release/scan-result.schema.json"
           cp packages/catalog/dist/schema/catalog.schema.json ".release/catalog.schema.json"
-          for pkg in catalog core mcp cli ui; do
+          for pkg in core cli; do
             (cd "packages/$pkg" && pnpm pack --pack-destination ../../.release >/dev/null)
           done
           ls -la .release
@@ -109,7 +109,7 @@ jobs:
             echo "NPM_TOKEN is not set; skipping npm publish."
             exit 0
           fi
-          pnpm -r --filter './packages/*' publish --access public --provenance --no-git-checks
+          pnpm -r --filter '@agentic-readiness/core' --filter '@agentic-readiness/cli' publish --access public --provenance --no-git-checks
 
       - name: Create GitHub release
         env:
