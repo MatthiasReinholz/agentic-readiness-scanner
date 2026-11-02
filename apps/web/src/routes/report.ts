@@ -189,8 +189,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
           await finish('failure', { message: error.message, status: error.status });
         else {
           console.error('[scan-stream]', error);
+          const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           await finish('failure', {
-            message: 'The scan failed unexpectedly. Try again in a minute.',
+            message: `The scan failed unexpectedly (${reason.slice(0, 200)}). Try again in a minute.`,
             status: 500,
           });
         }
