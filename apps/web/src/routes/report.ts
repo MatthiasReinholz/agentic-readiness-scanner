@@ -103,7 +103,10 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         return c.json({ error: error.message }, error.status as 400);
       throw error;
     }
-    c.header('cache-control', 'no-store');
+    c.header('cache-control', 'no-store, no-transform');
+    // The platform's nginx front buffers proxied responses unless told otherwise; without
+    // this every event would arrive at once when the scan ends.
+    c.header('x-accel-buffering', 'no');
     return streamSSE(c, async (stream) => {
       let open = true;
       stream.onAbort(() => {
