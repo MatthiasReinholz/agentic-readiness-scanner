@@ -4,7 +4,7 @@
     "group": "A4",
     "title": "MCP server discoverable",
     "question": "Can an agent find an MCP server for this site through a documented route?",
-    "method": "Look for a server card through the routes the MCP Server Card extension and the AI Catalog proposal describe: entries of type application/mcp-server-card+json in /.well-known/ai-catalog.json, a card at <endpoint>/server-card for an endpoint linked from llms.txt or a Link header, and the community paths /.well-known/mcp/server-card (the path the extension's discovery document names) and the older /.well-known/mcp/server-card.json. Pass when a card parses with a name and an endpoint URL; warn when only a community path answers (neither is in the specification), saying which; fail when none does. When a card URL is refused or challenged (401, 403, 429, a bot-management challenge) or fails transiently, the check is inconclusive and names the refusal rather than reporting a missing card. The extension is not an accepted MCP extension and no host probes these files yet (agents are given MCP URLs by hand or through registries), hence the low weight.",
+    "method": "Look for a server card through the routes the MCP Server Card extension and the AI Catalog proposal describe: entries of type application/mcp-server-card+json in /.well-known/ai-catalog.json, a card at <endpoint>/server-card for an endpoint linked from llms.txt or a Link header, and the community paths /.well-known/mcp/server-card (which the extension's discovery document mentions and recommends against) and the older /.well-known/mcp/server-card.json. Pass when a card parses with a name and an endpoint URL; warn when only a community path answers (neither is in the specification), saying which; fail when none does. When a card URL is refused or challenged (401, 403, 429, a bot-management challenge) or fails transiently, the check is inconclusive and names the refusal rather than reporting a missing card. SEP-2127, which charters the extension, is Final on the Extensions Track, but extensions are optional and no host probes these files yet (agents are given MCP URLs by hand or through registries), hence the low weight.",
     "weight": 1,
     "spec": [
       {
@@ -30,7 +30,7 @@
     "group": "A4",
     "title": "API catalog",
     "question": "Does the site publish an API catalog linkset?",
-    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json document (or a linkset parseable as JSON) with at least one item. Fail otherwise, including on 404 or 410. Skipped when the request was rate limited or failed (429, a gateway error or no response). No answer engine documents reading it: a convention.",
+    "method": "GET /.well-known/api-catalog. Pass on an application/linkset+json document (or a linkset parseable as JSON) with at least one link in any relation; item links, the relation RFC 9727 uses for catalog entries, are counted but not required, and another content type is noted. Fail otherwise, including on 404 or 410, an HTML page, a missing linkset array or a linkset without links. Skipped when the request was rate limited or failed (429, a gateway error or no response). No answer engine documents reading it: a convention.",
     "weight": 1,
     "spec": [
       {

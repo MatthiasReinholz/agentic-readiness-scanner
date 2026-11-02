@@ -51,7 +51,7 @@
     "group": "A1",
     "title": "Link response headers",
     "question": "Does the site point agents at its machine-readable resources through Link headers?",
-    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version), and the <link> elements in the home page's head. Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, and which Hydrogen storefronts declare as <link rel=\"ucp\" href=\"/.well-known/ucp\"> in the head), license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
+    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version), and any <link rel=\"ucp\"> element in the home page's head (the only relation that counts there). Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, and which Hydrogen storefronts declare as <link rel=\"ucp\" href=\"/.well-known/ucp\"> in the head), llms-txt, license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
     "weight": 1,
     "spec": [
       {
@@ -99,7 +99,7 @@
     "group": "A1",
     "title": "llms.txt links to the catalog",
     "question": "Does llms.txt lead an agent to the catalog as data?",
-    "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap, the shop index, a UCP profile or an MCP endpoint (Shopify's generated file names /.well-known/ucp and /api/ucp/mcp), so an agent that reads the file reaches the catalog as data. Fail when it links only to prose pages. Skipped when there is no llms.txt. A convention with no documented reader: weight 1.",
+    "method": "When llms.txt is present and valid, pass when the text or URL of one of its links points at a product feed, the Store API, a product sitemap, a product or shop index or a catalog, or when a link targets the UCP profile /.well-known/ucp or the UCP MCP endpoint /api/ucp/mcp (both named in Shopify's generated file; no other MCP endpoint is recognised), so an agent that reads the file reaches the catalog as data. Fail when it links only to prose pages. Skipped when there is no llms.txt. A convention with no documented reader: weight 1.",
     "weight": 1,
     "depends_on": ["A1.5"],
     "spec": [

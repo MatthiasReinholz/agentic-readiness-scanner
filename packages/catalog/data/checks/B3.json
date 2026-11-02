@@ -23,7 +23,7 @@
     "group": "B3",
     "title": "GTIN valid",
     "question": "Are the GTINs real GTINs?",
-    "method": "Each GTIN must be 8, 12, 13 or 14 digits and pass the GS1 check digit. Pass when all found GTINs are valid; fail when any is not.",
+    "method": "Every GTIN that B3.1 accepted as well-formed (8, 12, 13 or 14 digits), on the product and its variants, must pass the GS1 check digit. Pass when all do; fail when any does not; skipped when no GTIN was found. A value of the wrong length is reported as an invalid format by B3.1, not here.",
     "weight": 3,
     "depends_on": ["B3.1"],
     "spec": [
@@ -79,8 +79,8 @@
         "url": "https://schema.org/sku"
       },
       {
-        "title": "Google Merchant Center: sku",
-        "url": "https://support.google.com/merchants/answer/6324353"
+        "title": "Google Merchant Center: id (SKUs recommended as the id)",
+        "url": "https://support.google.com/merchants/answer/6324405"
       },
       {
         "title": "Meta: on-page product markup (productID)",
