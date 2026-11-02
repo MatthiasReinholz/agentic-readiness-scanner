@@ -10,7 +10,7 @@ import { botManagementVendor, isChallengePage, REFUSAL_STATUSES } from '../http/
 import { registrableDomain } from '../http/domain.js';
 import { isRobotsAware } from '../http/robots-gate.js';
 import { emitProgress, type ProgressListener } from '../progress.js';
-import type { FetchedResponse, Fetcher } from '../http/types.js';
+import { BudgetExhaustedError, type FetchedResponse, type Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument, type Anchor } from '../parsers/html.js';
 import { extractJsonLd, hasType } from '../parsers/jsonld.js';
@@ -533,6 +533,27 @@ const PRODUCT_PROBE_LIMIT = 4;
  * page is kept when it carries Product JSON-LD or an add-to-cart control. Bounded by
  * PRODUCT_PROBE_LIMIT requests; the fetcher caches the pages for the checks.
  */
+/**
+ * Runs an optional resolution step. When the fetcher stops (request or time budget used
+ * up, or the store kept answering 429), the step's result is the fallback and a warning
+ * says why: the scan still produces a report, and the runner marks every check that
+ * needs a request as not run with the same reason.
+ */
+async function optionalStep<T>(
+  step: () => Promise<T>,
+  fallback: T,
+  what: string,
+  warnings: string[],
+): Promise<T> {
+  try {
+    return await step();
+  } catch (error) {
+    if (!(error instanceof BudgetExhaustedError)) throw error;
+    warnings.push(`${what} was cut short: ${error.message}`);
+    return fallback;
+  }
+}
+
 export async function discoverProductsBySampling(
   candidates: readonly string[],
   hostname: string,
@@ -666,13 +687,11 @@ export async function resolveTarget(
       : `robots.txt answered HTTP ${robotsResponse.status}`,
   });
   const scope = marketScope(new URL(home.finalUrl));
-  const sitemap = await discoverSitemap(
-    origin,
-    robots,
-    fetcher,
-    options.maxSitemapFetches ?? 4,
+  const sitemap = await optionalStep(
+    () => discoverSitemap(origin, robots, fetcher, options.maxSitemapFetches ?? 4, warnings, scope),
+    null,
+    'sitemap discovery',
     warnings,
-    scope,
   );
 
   emitProgress(options.onProgress, {
@@ -719,11 +738,17 @@ export async function resolveTarget(
   ) {
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
     // still a store; a few linked pages are fetched and kept when they are product pages.
-    products = await discoverProductsBySampling(
-      preferMarket([...anchorUrls, ...(sitemap?.urls ?? [])], scope),
-      hostname,
-      fetcher,
-      sampleSize,
+    products = await optionalStep(
+      () =>
+        discoverProductsBySampling(
+          preferMarket([...anchorUrls, ...(sitemap?.urls ?? [])], scope),
+          hostname,
+          fetcher,
+          sampleSize,
+          warnings,
+        ),
+      [],
+      'product discovery',
       warnings,
     );
   }
@@ -740,7 +765,12 @@ export async function resolveTarget(
         (kind) => (ranked[kind]?.score ?? 0) < LABELLED_POLICY_SCORE,
       ),
     );
-    await addShopifyPolicyPages(policies, origin, fetcher, weak);
+    await optionalStep(
+      () => addShopifyPolicyPages(policies, origin, fetcher, weak),
+      undefined,
+      'policy page discovery',
+      warnings,
+    );
   }
 
   // A refused home page says nothing about what the site sells; without an override the
