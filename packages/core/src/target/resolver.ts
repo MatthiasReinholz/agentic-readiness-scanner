@@ -226,32 +226,35 @@ export function policyLinkScore(
   anchor: Anchor,
   pathname: string,
   kind: PolicyKind,
-  /** The site's own name (the registrable label of its hostname); a label that carries it names a product, not a policy. */
+  /** The site's own name (the registrable label of its hostname). */
   brand?: string,
 ): number {
   const pattern = POLICY_PATTERNS[kind];
   const text = anchor.text;
   const labelMatches = pattern.test(text);
   const segment = lastSegment(pathname);
-  // A path segment that carries the site's own name next to a policy word names a product
-  // of that brand (/woocommerce-shipping/), not the shipping policy.
-  const pathMatches =
-    pattern.test(segment) &&
-    !(
-      brand !== undefined &&
-      segment
-        .toLowerCase()
-        .split(/[-_.]+/)
-        .includes(brand)
-    );
+  // A path segment that carries the site's own brand next to a policy word is a product of
+  // that brand (/woocommerce-shipping/), never the policy: it does not count as a path
+  // match, and a label that repeats the brand ("WooCommerce Shipping") does not rescue it.
+  // A label that merely mentions the brand ("Standard delivery ... for IKEA Family
+  // members" at /services/delivery/) stays a candidate.
+  const brandInPath =
+    brand !== undefined &&
+    segment
+      .toLowerCase()
+      .split(/[-_.]+/)
+      .includes(brand);
+  const pathMatches = pattern.test(segment) && !brandInPath;
   if (!labelMatches && !pathMatches) return 0;
+  const tokens = text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}&]+/u)
+    .filter(Boolean);
+  if (brandInPath && brand !== undefined && tokens.includes(brand) && tokens.length > 1) {
+    return 0;
+  }
   let score = 0;
   if (labelMatches) {
-    const tokens = text
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}&]+/u)
-      .filter(Boolean);
-    if (brand && tokens.includes(brand) && tokens.length > 1) return 0;
     const known = tokens.filter(isPolicyWord).length;
     score += 2 + 2 * (tokens.length > 0 ? known / tokens.length : 0);
   }
