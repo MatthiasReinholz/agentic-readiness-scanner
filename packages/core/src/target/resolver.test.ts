@@ -5,6 +5,8 @@ import type { FetchedResponse } from '../http/types.js';
 import { mapFetcher } from '../testing/index.js';
 import {
   chooseListing,
+  marketScope,
+  preferMarket,
   detectPlatform,
   discoverProductsBySampling,
   findPolicyLinks,
@@ -364,5 +366,84 @@ describe('policy links: brand names and help centres elsewhere', () => {
     expect(findPolicyLinks(doc, 'https://www.gymshark.com')).toMatchObject({
       contact: 'https://support.gymshark.com/',
     });
+  });
+});
+
+describe('market scope', () => {
+  it('reads the locale path of the input URL and prefers URLs under it', () => {
+    expect(marketScope(new URL('https://www.ikea.com/us/en/'))).toEqual({
+      prefix: '/us/en/',
+      tokens: ['us', 'en'],
+    });
+    expect(marketScope(new URL('https://shop.example/en-us/products/x'))).toEqual({
+      prefix: '/en-us/',
+      tokens: ['en', 'us'],
+    });
+    expect(marketScope(new URL('https://shop.example/'))).toBeNull();
+    expect(marketScope(new URL('https://shop.example/products/x'))).toBeNull();
+    const scope = marketScope(new URL('https://www.ikea.com/us/en/'));
+    expect(
+      preferMarket(
+        [
+          'https://www.ikea.com/ee/et/p/a/',
+          'https://www.ikea.com/us/en/p/b/',
+          'https://www.ikea.com/us/en/p/c/',
+        ],
+        scope,
+      ),
+    ).toEqual(['https://www.ikea.com/us/en/p/b/', 'https://www.ikea.com/us/en/p/c/']);
+    expect(preferMarket(['https://www.ikea.com/ee/et/p/a/'], scope)).toEqual([
+      'https://www.ikea.com/ee/et/p/a/',
+    ]);
+  });
+
+  it('fetches the product sitemap of the typed market first and samples its products', async () => {
+    const urlset = (locale: string, country: string) =>
+      `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://www.shop.example/${country}/${locale}/p/one-1/</loc></url><url><loc>https://www.shop.example/${country}/${locale}/p/two-2/</loc></url></urlset>`;
+    const pages: Record<string, { body: string; type?: string }> = {
+      'https://www.shop.example/us/en/': {
+        body: '<html><body><a href="/us/en/cat/sofas/">Sofas</a><button>Add to cart</button></body></html>',
+      },
+      'https://www.shop.example/robots.txt': {
+        body: 'User-agent: *\nAllow: /\nSitemap: https://www.shop.example/sitemaps/sitemap.xml\n',
+      },
+      'https://www.shop.example/sitemaps/sitemap.xml': {
+        body: '<?xml version="1.0"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://www.shop.example/sitemaps/prod-et-EE_1.xml</loc></sitemap><sitemap><loc>https://www.shop.example/sitemaps/prod-en-US_1.xml</loc></sitemap></sitemapindex>',
+        type: 'application/xml',
+      },
+      'https://www.shop.example/sitemaps/prod-et-EE_1.xml': {
+        body: urlset('et', 'ee'),
+        type: 'application/xml',
+      },
+      'https://www.shop.example/sitemaps/prod-en-US_1.xml': {
+        body: urlset('en', 'us'),
+        type: 'application/xml',
+      },
+    };
+    const requested: string[] = [];
+    const fetcher = {
+      budget: 40,
+      requestCount: 0,
+      fetch: (url: string) => {
+        requested.push(url);
+        const page = pages[url];
+        return Promise.resolve({
+          url,
+          finalUrl: url,
+          status: page ? 200 : 404,
+          headers: { 'content-type': page?.type ?? 'text/html' },
+          body: page?.body ?? '',
+          bytes: page?.body.length ?? 0,
+          truncated: false,
+          redirects: 0,
+          durationMs: 1,
+          fromCache: false,
+        });
+      },
+    };
+    const target = await resolveTarget('https://www.shop.example/us/en/', fetcher);
+    expect(requested).not.toContain('https://www.shop.example/sitemaps/prod-et-EE_1.xml');
+    expect(target.sampled.products.every((url) => url.includes('/us/en/'))).toBe(true);
+    expect(target.sampled.products).toHaveLength(2);
   });
 });

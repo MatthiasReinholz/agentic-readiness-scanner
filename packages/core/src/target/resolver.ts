@@ -350,12 +350,60 @@ export async function addShopifyPolicyPages(
   }
 }
 
+/**
+ * The market a URL names in its leading path segments: /us/en/, /de/, /en-us/, /fr_ca/.
+ * A multi-market site (ikea.com) publishes one product sitemap per market and lists them
+ * in no useful order; the scan samples the market the owner typed, not the first one.
+ */
+export interface MarketScope {
+  /** Leading path, with slashes: "/us/en/". */
+  prefix: string;
+  /** Lower-case tokens to look for in sitemap file names: ["us", "en"]. */
+  tokens: string[];
+}
+
+const LOCALE_SEGMENT = /^[a-z]{2}(?:[-_][a-z]{2})?$/i;
+
+export function marketScope(url: URL): MarketScope | null {
+  const segments = url.pathname.split('/').filter(Boolean);
+  const locale: string[] = [];
+  for (const segment of segments.slice(0, 2)) {
+    if (!LOCALE_SEGMENT.test(segment)) break;
+    locale.push(segment);
+  }
+  if (locale.length === 0) return null;
+  const tokens = [...new Set(locale.flatMap((part) => part.toLowerCase().split(/[-_]/)))];
+  return { prefix: `/${locale.join('/')}/`, tokens };
+}
+
+/** How many of the market's tokens a sitemap file name carries ("prod-en-US_1.xml" → 2 for us/en). */
+function marketMatch(sitemapUrl: string, scope: MarketScope | null): number {
+  if (!scope) return 0;
+  const name = sitemapUrl.split(/[?#]/, 1)[0]?.split('/').pop()?.toLowerCase() ?? '';
+  const parts = new Set(name.replace(/\.xml(?:\.gz)?$/, '').split(/[-_.]/));
+  return scope.tokens.filter((token) => parts.has(token)).length;
+}
+
+/** The URLs of a list that sit under the market's path, or the whole list when none does. */
+export function preferMarket(urls: readonly string[], scope: MarketScope | null): string[] {
+  if (!scope) return [...urls];
+  const inMarket = urls.filter((url) => {
+    try {
+      return new URL(url).pathname.toLowerCase().startsWith(scope.prefix.toLowerCase());
+    } catch {
+      return false;
+    }
+  });
+  return inMarket.length > 0 ? inMarket : [...urls];
+}
+
 async function discoverSitemap(
   origin: string,
   robots: RobotsTxt | null,
   fetcher: Fetcher,
   maxFetches: number,
   warnings: string[],
+  scope: MarketScope | null = null,
 ): Promise<SitemapSummary | null> {
   const candidates = [
     ...new Set([...(robots?.sitemaps ?? []), ...SITEMAP_CANDIDATES.map((path) => origin + path)]),
@@ -415,7 +463,9 @@ async function discoverSitemap(
     };
     if (parsed.kind === 'index') {
       const productFirst = [...parsed.sitemaps].sort(
-        (a, b) => Number(looksLikeProductSitemap(b)) - Number(looksLikeProductSitemap(a)),
+        (a, b) =>
+          Number(looksLikeProductSitemap(b)) - Number(looksLikeProductSitemap(a)) ||
+          marketMatch(b, scope) - marketMatch(a, scope),
       );
       for (const child of productFirst) {
         if (fetches >= maxFetches) break;
@@ -595,23 +645,45 @@ export async function resolveTarget(
   const robots = robotsLooksLikeText ? parseRobotsTxt(robotsResponse.body) : null;
   if (isRobotsAware(fetcher)) fetcher.setRobots(robots);
 
+  const scope = marketScope(new URL(home.finalUrl));
   const sitemap = await discoverSitemap(
     origin,
     robots,
     fetcher,
     options.maxSitemapFetches ?? 4,
     warnings,
+    scope,
   );
 
   const anchorUrls = homeDoc
     .anchors()
     .map((anchor) => resolveSameOrigin(anchor.href, origin, home.finalUrl))
     .filter((url): url is string => url !== null);
+  // Product URLs of the market the owner typed come first; a sitemap for another market
+  // is used only when the typed market has none.
+  const marketSitemapProducts = preferMarket(sitemap?.productUrls ?? [], scope);
+  const marketAnchorProducts = preferMarket(anchorUrls.filter(looksLikeProductUrl), scope);
+  const sitemapInMarket =
+    scope === null ||
+    marketSitemapProducts.some((url) =>
+      new URL(url).pathname.toLowerCase().startsWith(scope.prefix.toLowerCase()),
+    );
   const productCandidates =
-    sitemap && sitemap.productUrls.length > 0
-      ? sitemap.productUrls
-      : anchorUrls.filter(looksLikeProductUrl);
+    marketSitemapProducts.length > 0 && (sitemapInMarket || marketAnchorProducts.length === 0)
+      ? marketSitemapProducts
+      : marketAnchorProducts;
   let products = sample(productCandidates, hostname, sampleSize);
+  if (
+    scope &&
+    products.length > 0 &&
+    !products.every((url) =>
+      new URL(url).pathname.toLowerCase().startsWith(scope.prefix.toLowerCase()),
+    )
+  ) {
+    warnings.push(
+      `no product URLs under ${scope.prefix} were found; the sample comes from another market of this site`,
+    );
+  }
   const listing = chooseListing(anchorUrls);
   if (
     products.length === 0 &&
@@ -621,7 +693,7 @@ export async function resolveTarget(
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
     // still a store; a few linked pages are fetched and kept when they are product pages.
     products = await discoverProductsBySampling(
-      [...anchorUrls, ...(sitemap?.urls ?? [])],
+      preferMarket([...anchorUrls, ...(sitemap?.urls ?? [])], scope),
       hostname,
       fetcher,
       sampleSize,
