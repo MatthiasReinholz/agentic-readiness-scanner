@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A live scan console on the home page: the scan streams from `POST /api/scan/stream` as server-sent events and the page animates what actually happens, the five phases, one grid cell and one radar blip per check verdict, the request counter against the budget, and a terminal log, then reveals the level and opens the report. A result reused within the cooldown is replayed from its stored verdicts. Without JavaScript or streaming the form posts as before. The engine gains `ScanOptions.onProgress` (phase, target and check events with running request count and elapsed time).
+
 ## [0.8.0] - 2026-11-02
 
 ### Changed

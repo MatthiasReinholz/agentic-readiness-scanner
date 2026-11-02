@@ -14,6 +14,7 @@ import { runChecks } from './runner.js';
 import { computeLevel, computeScores } from './scoring.js';
 import { resolveTarget } from './target/resolver.js';
 import { SCANNER_VERSION } from './version.js';
+import { emitProgress, type ProgressListener, type ScanProgress } from './progress.js';
 
 export interface ScanOptions {
   /** Supply a Fetcher (tests, fixtures) or let the scan build a BudgetedFetcher. */
@@ -26,6 +27,8 @@ export interface ScanOptions {
   minIntervalMs?: number;
   /** Wall-clock budget for the whole scan in milliseconds; remaining checks are skipped once it is used up. */
   deadlineMs?: number;
+  /** Receives progress events with the running request count and elapsed time. */
+  onProgress?: (progress: ScanProgress) => void;
   /** Profile id override. */
   profile?: string;
   sampleSize?: number;
@@ -55,11 +58,33 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
   // Every fetch after robots.txt is parsed honours the store's rules for the scanner.
   const fetcher = new RobotsGatedFetcher(inner);
 
+  const budget = options.budget ?? 40;
+  const listener: ProgressListener | undefined = options.onProgress
+    ? (event) => {
+        options.onProgress?.({
+          ...event,
+          requests: fetcher.requestCount,
+          budget,
+          elapsed_ms: Date.now() - started,
+        });
+      }
+    : undefined;
   const target = await resolveTarget(inputUrl, fetcher, {
+    ...(listener ? { onProgress: listener } : {}),
     ...(options.profile !== undefined ? { profile: options.profile } : {}),
     ...(options.sampleSize !== undefined ? { sampleSize: options.sampleSize } : {}),
   });
+  emitProgress(listener, {
+    type: 'target',
+    origin: target.origin,
+    platform: target.platform,
+    profile: target.profile.id,
+    products: target.sampled.products.length,
+    policies: Object.keys(target.sampled.policies).length,
+    checks: catalog.checks.length,
+  });
   const { results } = await runChecks({
+    ...(listener ? { onProgress: listener } : {}),
     target,
     fetcher,
     checks: options.checks ?? builtInChecks,

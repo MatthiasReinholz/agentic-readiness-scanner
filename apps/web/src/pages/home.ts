@@ -15,6 +15,7 @@ import {
 
 import type { AppConfig } from '../config.js';
 import { page } from './layout.js';
+import { SCAN_CONSOLE_SCRIPT, SCAN_CONSOLE_STYLE, scanConsoleMarkup } from './scan-console.js';
 
 export function homePage(config: AppConfig, error?: string): string {
   const profiles = catalog.profiles
@@ -35,12 +36,13 @@ export function homePage(config: AppConfig, error?: string): string {
 <h1 class="max-w-[18ch] text-balance text-3xl font-bold tracking-tight sm:text-4xl">Can an AI agent find, read, trust and buy from your store?</h1>
 <p class="mt-3 max-w-[62ch] text-muted-foreground">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WordPress-first; works on any store.</p>
 ${error ? `<div class="${alert({ variant: 'destructive' })} mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
-<form method="post" action="/scan" class="mt-6 grid gap-2.5 md:grid-cols-[minmax(0,1fr)_200px_auto]">
+<form method="post" action="/scan" id="scan-form" class="mt-6 grid gap-2.5 md:grid-cols-[minmax(0,1fr)_200px_auto]">
 <input class="${input}" type="url" name="url" placeholder="https://example.com" required autofocus aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
 <div class="${nativeSelectWrapper}"><select class="${nativeSelect}" name="profile" aria-label="Profile"><option value="">Detect profile</option>${profiles}</select>${icon('chevron-down', nativeSelectChevron)}</div>
 <button type="submit" class="${button({ size: 'lg' })}">Scan</button>
 </form>
 <p class="mt-3 text-sm text-muted-foreground">Up to ${config.scanBudget} requests per scan with the user agent ${code('AgenticReadinessScanner')}. A target is scanned at most once every ${Math.round(config.targetCooldownSeconds / 60)} minutes; results are kept ${config.retentionDays} days. Nothing requires credentials.</p>
+${scanConsoleMarkup()}
 </section>
 <section class="mt-11">
 <h2 class="mb-3.5 text-lg font-semibold tracking-tight">What gets checked</h2>
@@ -64,6 +66,8 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} mt-4" role="alert">$
       title: config.appName,
       description:
         'Scan any store URL for agentic ingestion and agentic commerce readiness. Public signals only, a fix for every finding.',
+      head: `<style>${SCAN_CONSOLE_STYLE}</style>`,
+      scripts: [SCAN_CONSOLE_SCRIPT],
     },
     body,
   );

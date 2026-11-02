@@ -32,7 +32,7 @@ Two of the five packages are published, both self-contained: `@agentic-readiness
 5. **`runner.ts`** Orders checks by dependency, skips checks that do not apply to the profile or platform, skips dependents of failed checks, marks unimplemented checks honestly, and stops on budget exhaustion. Results come back in catalog order.
 6. **`scoring.ts`** Pure functions: dimension scores (weighted pass ratio, warn counts half, skips drop out of the denominator) and the gated level with its next gate.
 7. **`reporters/`** JSON, Markdown, HTML and SVG badge, all from the same result object. None touches the network. `priorities.ts` orders open findings (next gate first, then tier from the catalog weight, then fail before warn) and every surface renders that one list; `shared.ts` holds the scope note that says what a scan did and did not do. `html-theme.ts` is the document shell shared with the hosted pages (the inlined stylesheet, theme boot and toggle, header and footer chrome); the visual system itself comes from `packages/ui`, so the CLI's report and the web app look the same and change together.
-8. **`scan.ts`** The composition root: fetcher, target, runner, scoring, result.
+8. **`scan.ts`** The composition root: fetcher, target, runner, scoring, result. `onProgress` receives an event after each resolution phase and each check verdict (`progress.ts`); the hosted app streams them to the home page's scan console.
 
 ## The result object
 

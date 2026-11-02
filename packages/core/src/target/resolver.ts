@@ -9,6 +9,7 @@ import {
 import { botManagementVendor, isChallengePage, REFUSAL_STATUSES } from '../http/bot-management.js';
 import { registrableDomain } from '../http/domain.js';
 import { isRobotsAware } from '../http/robots-gate.js';
+import { emitProgress, type ProgressListener } from '../progress.js';
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { normalizeInputUrl, assertPublicUrl } from '../http/url-policy.js';
 import { HtmlDocument, type Anchor } from '../parsers/html.js';
@@ -36,6 +37,8 @@ export interface ResolveOptions {
   sampleSize?: number;
   /** Sitemaps to fetch at most while looking for product URLs. */
   maxSitemapFetches?: number;
+  /** Receives a phase event after each resolution step. */
+  onProgress?: ProgressListener;
 }
 
 export class TargetUnreachableError extends Error {
@@ -642,12 +645,26 @@ export async function resolveTarget(
     );
   }
 
+  emitProgress(options.onProgress, {
+    type: 'phase',
+    phase: 'home',
+    detail: blocked
+      ? `GET ${home.finalUrl} answered HTTP ${home.status}${blocked.vendor ? ` from ${blocked.vendor}` : ''}`
+      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `; ${platform} detected`}`,
+  });
   const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
   const robotsLooksLikeText =
     robotsResponse.status === 200 && !/<html|<!doctype/i.test(robotsResponse.body.slice(0, 500));
   const robots = robotsLooksLikeText ? parseRobotsTxt(robotsResponse.body) : null;
   if (isRobotsAware(fetcher)) fetcher.setRobots(robots);
 
+  emitProgress(options.onProgress, {
+    type: 'phase',
+    phase: 'robots',
+    detail: robots
+      ? `robots.txt parsed: ${robots.groups.length} group(s), ${robots.sitemaps.length} sitemap line(s)`
+      : `robots.txt answered HTTP ${robotsResponse.status}`,
+  });
   const scope = marketScope(new URL(home.finalUrl));
   const sitemap = await discoverSitemap(
     origin,
@@ -658,6 +675,13 @@ export async function resolveTarget(
     scope,
   );
 
+  emitProgress(options.onProgress, {
+    type: 'phase',
+    phase: 'sitemap',
+    detail: sitemap
+      ? `sitemap ${sitemap.url} read: ${sitemap.urls.length} URL(s), ${sitemap.productUrls.length} product URL(s)`
+      : 'no sitemap found',
+  });
   const anchorUrls = homeDoc
     .anchors()
     .map((anchor) => resolveSameOrigin(anchor.href, origin, home.finalUrl))
@@ -728,6 +752,11 @@ export async function resolveTarget(
     listing !== undefined ||
     hasStoreSignals(homeDoc, home.body);
   const profile = selectProfile(platform, storeSignals, options.profile);
+  emitProgress(options.onProgress, {
+    type: 'phase',
+    phase: 'sample',
+    detail: `${products.length} product page(s)${listing ? ', a listing page' : ''} and ${Object.keys(policies).length} policy page(s) sampled; profile ${profile.id}`,
+  });
 
   const sampled: SampledPages = {
     home: home.finalUrl,
