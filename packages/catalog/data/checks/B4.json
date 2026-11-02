@@ -50,7 +50,7 @@
     "group": "B4",
     "title": "Merchant identity",
     "question": "Who is selling, where are they, and how can they be reached?",
-    "method": "Pass when Organization JSON-LD (name, address or contactPoint) exists, or an imprint or about page carries a legal name and address.",
+    "method": "Look for Organization JSON-LD with a name and at least one of address, contactPoint, telephone or email on the home page, then the imprint page, then the contact page. Pass when one carries it, or when the imprint page's text shows a postal code and a street with a house number. Warn when Organization JSON-LD lacks a name or every contact detail, or when the imprint page shows no complete postal address; fail when there is neither.",
     "weight": 2,
     "spec": [
       {
@@ -64,7 +64,7 @@
     "group": "B4",
     "title": "Contact channel",
     "question": "Can an agent or its user find a way to contact the merchant?",
-    "method": "Pass when the home page links a mailto: address, a tel: number, or a same-origin contact, support, help or customer-service page (the words must stand alone in a short label or in the last path segment, and product or listing pages never count); warn when only a cross-origin contact link exists; fail when none. The message names a page. Google Merchant Center requires a contact method on the site, and UCP onboarding asks for at least one.",
+    "method": "Pass when the home page links a mailto: address, a tel: number, or a contact, support, help or customer-service page on the store's own site, its subdomains included (the words must stand alone in a short label or in the last path segment, and product, listing and account pages never count); warn when only a contact link on another site exists; fail when none. The message names a page. Google Merchant Center requires a contact method on the site, and UCP onboarding asks for at least one.",
     "weight": 2,
     "spec": [
       {

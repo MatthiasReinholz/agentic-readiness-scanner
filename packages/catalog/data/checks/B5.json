@@ -4,7 +4,7 @@
     "group": "B5",
     "title": "UCP business profile",
     "question": "Does the merchant publish a Universal Commerce Protocol profile?",
-    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 or later still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
+    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with a content type other than application/json, or when a profile declaring version 2026-08-25 or later still carries signing_keys instead of keys. Fail when absent, when the body is an HTML page or not JSON, or when the version, services or payment_handlers are missing; a refusal or challenge on the profile URL also fails, but is reported as a refusal, not as absence. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
     "weight": 2,
     "spec": [
       {
@@ -49,7 +49,7 @@
     "group": "B5",
     "title": "ACP discovery document",
     "question": "Does the merchant advertise an Agentic Commerce Protocol integration?",
-    "method": "GET /.well-known/acp.json. Pass on JSON with protocol.name \"acp\", a protocol.version, an api_base_url and a transports array that includes rest; record supported_versions and capabilities. Fail when absent. The document is a merged proposal in the ACP repository (status proposal, version unreleased, not part of the released 2026-04-17 specification), and OpenAI does not document probing it; checkout endpoints are registered with the platform privately, so this is the only public trace and the weight is low.",
+    "method": "GET /.well-known/acp.json. Pass on JSON with protocol.name \"acp\", a protocol.version, an https api_base_url and a transports array that includes rest; record supported_versions and capabilities. Fail when absent, not a JSON object, or missing any of these. The document is a merged proposal in the ACP repository (status proposal, version unreleased, not part of the released 2026-04-17 specification), and OpenAI does not document probing it; checkout endpoints are registered with the platform privately, so this is the only public trace and the weight is low.",
     "weight": 1,
     "spec": [
       {

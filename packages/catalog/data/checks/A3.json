@@ -86,8 +86,8 @@
     "id": "A3.5",
     "group": "A3",
     "title": "Accessible main content",
-    "question": "Is the product content inside a main landmark and not hidden behind an overlay in the HTML?",
-    "method": "Informational. Pass when a main or article landmark wraps the product content; warn when a cookie or consent banner precedes it in the DOM, naming the element (a cart drawer or a closed modal does not count). No answer engine documents depending on landmarks, so this is reported and never scored.",
+    "question": "Does the page have a main landmark that no consent overlay precedes in the HTML?",
+    "method": "Informational. On each sampled product page (the home page when no product was sampled), look for a main element or an element with role=\"main\"; an article does not count. Pass when every page has one; warn when a page has none, or when a cookie or consent banner precedes it in the DOM, naming the element (a cart drawer or a closed modal does not count). No answer engine documents depending on landmarks, so this is reported and never scored.",
     "weight": "info",
     "spec": [
       {

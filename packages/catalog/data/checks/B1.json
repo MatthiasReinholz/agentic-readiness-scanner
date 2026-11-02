@@ -4,7 +4,7 @@
     "group": "B1",
     "title": "Platform detected",
     "question": "Which platform serves the store?",
-    "method": "Informational. Detect WooCommerce (wc/store in the REST index, a woocommerce body class or generator), Shopify (cdn.shopify.com assets or the Shopify generator) or plain WordPress from the home page. The result selects the profile and the platform-specific checks; it is never scored.",
+    "method": "Informational. Detect the platform from the home page: WooCommerce from a woocommerce body class, a WooCommerce generator tag, or a wc-block or /wp-json/wc/ reference in the HTML; Shopify from the Shopify generator tag, cdn.shopify.com assets or a Shopify.theme reference; plain WordPress from the WordPress generator tag, the api.w.org link or /wp-content/ paths. The result selects the profile and the platform-specific checks; it is never scored.",
     "weight": "info",
     "spec": [
       {
@@ -54,7 +54,7 @@
     "group": "B1",
     "title": "Store API product completeness",
     "question": "Do Store API products carry the fields an agent needs?",
-    "method": "Sampled products must carry name, prices, images, stock status, permalink and categories. Pass when all do; warn when some lack images or categories; fail when prices or stock status are missing.",
+    "method": "Read the first 20 products of the Store API product list; each must carry a name, permalink, price, currency code, stock status, images and categories. Pass when all do; warn when some lack only images or categories; fail when any lacks a name, permalink, price, currency code or stock status, when the list is empty, or when the answer is not a JSON product array.",
     "weight": 2,
     "requires": ["woocommerce"],
     "depends_on": ["B1.2"],

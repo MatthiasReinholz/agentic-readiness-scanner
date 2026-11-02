@@ -135,7 +135,7 @@ describe('A4.1 MCP server discoverable', () => {
     );
     expect(documented.verdict).toBe('warn');
     expect(documented.message).toBe(
-      'MCP server "Shop catalog" at https://shop.example/mcp is advertised only at /.well-known/mcp/server-card (the community path the Server Card discovery document names, which the specification does not define)',
+      'MCP server "Shop catalog" at https://shop.example/mcp is advertised only at /.well-known/mcp/server-card (the community path the Server Card discovery document recommends against, which the specification does not define)',
     );
     expect(documented.evidence).toMatchObject({
       source: 'community',

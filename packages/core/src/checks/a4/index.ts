@@ -121,7 +121,7 @@ const MCP_CARD_TYPE = 'application/mcp-server-card+json';
 const MAX_PROBES = 6;
 /**
  * The community well-known paths, outside the specification: the one the Server Card
- * extension's discovery document names, then the older `.json` form still in the wild.
+ * extension's discovery document mentions and recommends against, then the older `.json` form still in the wild.
  */
 const COMMUNITY_PATHS = ['/.well-known/mcp/server-card', '/.well-known/mcp/server-card.json'];
 const MAX_CATALOG_CARDS = 2;
@@ -238,7 +238,7 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
     if (community) {
       const form = path.endsWith('.json')
         ? 'the older .json form of the community path'
-        : 'the community path the Server Card discovery document names';
+        : 'the community path the Server Card discovery document recommends against';
       return warn(
         `MCP server "${community.name}" at ${community.endpoint} is advertised only at ${path} (${form}, which the specification does not define)`,
         { ...found(community, 'community', communityUrl), community_path: path, hints },
