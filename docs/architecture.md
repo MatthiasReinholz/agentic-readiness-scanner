@@ -21,6 +21,8 @@ One engine, three hosts. The hosted app, the CLI and the MCP server all call the
           └────────────────┘  runs on Spacefast Functions (worker) and on Node for development
 ```
 
+Two of the five packages are published, both self-contained: `@agentic-readiness/cli` bundles every workspace package, `@agentic-readiness/core` bundles the catalog and the visual system and inlines their types ([decision 0013](decisions/0013-two-published-packages.md)). The others are build inputs the hosted app consumes through the workspace.
+
 ## Layers in `packages/core`
 
 1. **`http/`** The `Fetcher` interface and two implementations. `BudgetedFetcher` wraps the platform `fetch` and enforces the request budget, timeouts, body size cap, redirect limit and the URL policy; every response is cached per scan so two checks never fetch the same URL twice. `FixtureFetcher` answers from a recorded map for tests and offline runs. `bot-management.ts` names the product behind a refusal or challenge (Cloudflare, Akamai, DataDome, Vercel, Imperva, HUMAN, AWS WAF) for the resolver and the honest-fetch check alike.

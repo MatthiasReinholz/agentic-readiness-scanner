@@ -14,3 +14,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0010 The scanner identifies itself and never impersonates an agent](0010-honest-fetch.md)
 - [0011 Conventional technical SEO is scored only where a documented AI surface depends on it](0011-technical-seo-scope.md)
 - [0012 Reports lead with priorities, and a page the scanner did not read is never scored](0012-priorities-and-honest-non-answers.md)
+- [0013 Two published packages: the CLI with the MCP server inside, and the engine](0013-two-published-packages.md)

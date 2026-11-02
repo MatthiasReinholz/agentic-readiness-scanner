@@ -1,7 +1,7 @@
 {
   "name": "@agentic-readiness/cli",
   "version": "0.6.0",
-  "description": "Command-line scanner and stdio MCP server for agentic readiness.",
+  "description": "Command line and local MCP server of the Agentic Readiness Scanner, self-contained: npx @agentic-readiness/cli scan <url>.",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -34,18 +34,24 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsup",
     "test": "vitest run",
     "lint": "eslint .",
     "type-check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "domhandler": "6.0.1",
+    "domutils": "4.0.2",
+    "fast-xml-parser": "5.11.2",
+    "htmlparser2": "12.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
     "@agentic-readiness/catalog": "workspace:*",
     "@agentic-readiness/core": "workspace:*",
     "@agentic-readiness/mcp": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.32.2"
-  },
-  "devDependencies": {
+    "@agentic-readiness/ui": "workspace:*",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   }

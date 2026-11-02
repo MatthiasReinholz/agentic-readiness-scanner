@@ -13,6 +13,7 @@ export default tseslint.config(
       'packages/catalog/src/generated/**',
       'packages/ui/src/generated/**',
       '**/vitest.config.ts',
+      '**/tsup.config.ts',
       '**/tailwind.config.ts',
     ],
   },

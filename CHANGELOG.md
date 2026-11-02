@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Two packages are published instead of five ([decision 0013](docs/decisions/0013-two-published-packages.md)): `@agentic-readiness/cli` (the command line with the local MCP server inside, every workspace package bundled in) and `@agentic-readiness/core` (the engine with the catalog and the visual system bundled in and their types inlined). `catalog`, `ui` and `mcp` are private workspace packages; the release packs and publishes the two. The home page no longer advertises `npx` until the first publish.
+
 ## [0.6.0] - 2026-11-02
 
 ### Changed

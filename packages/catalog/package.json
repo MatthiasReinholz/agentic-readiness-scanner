@@ -15,10 +15,6 @@
   "engines": {
     "node": ">=24.0.0"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
   "type": "module",
   "exports": {
     ".": {
@@ -48,5 +44,6 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
-  }
+  },
+  "private": true
 }

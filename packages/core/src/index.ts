@@ -1,3 +1,5 @@
+// The published engine carries the catalog inside it; its API is part of the surface.
+export * from '@agentic-readiness/catalog';
 export * from './http/index.js';
 export * from './parsers/index.js';
 export * from './target/index.js';
