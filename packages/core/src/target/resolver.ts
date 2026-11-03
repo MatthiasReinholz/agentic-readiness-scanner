@@ -1,5 +1,6 @@
 import {
   getProfile,
+  platformLabel,
   type Platform,
   type PolicyKind,
   type Profile,
@@ -675,7 +676,7 @@ export async function resolveTarget(
     phase: 'home',
     detail: blocked
       ? `GET ${home.finalUrl} answered HTTP ${home.status}${blocked.vendor ? ` from ${blocked.vendor}` : ''}`
-      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `; ${platform} detected`}`,
+      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `; ${platformLabel(platform) ?? platform} detected`}`,
   });
   const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
   const robotsLooksLikeText =
