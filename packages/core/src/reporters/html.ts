@@ -13,6 +13,8 @@ import {
   codeInline,
   icon,
   textarea,
+  identifier,
+  panel,
 } from '@agentic-readiness/ui';
 
 import { scoreGroup } from '../scoring.js';
@@ -70,16 +72,16 @@ const EXPAND_SCRIPT = `(function(){var b=document.getElementById('expand-all');i
 const COPY_SCRIPT = `(function(){document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(){var t=document.getElementById(b.getAttribute('data-copy'));if(!t||!navigator.clipboard)return;var l=b.querySelector('[data-copy-label]')||b;navigator.clipboard.writeText(t.value||t.textContent||'').then(function(){var o=l.textContent;l.textContent='Copied';setTimeout(function(){l.textContent=o},1500)})})})})();`;
 
 const VERDICT_BADGE: Record<CheckResult['verdict'], string> = {
-  pass: `<span class="${badge({ variant: 'success' })} uppercase tracking-wide" data-verdict="pass">${icon('circle-check')}pass</span>`,
-  warn: `<span class="${badge({ variant: 'warning' })} uppercase tracking-wide" data-verdict="warn">${icon('triangle-alert')}warn</span>`,
-  fail: `<span class="${badge({ variant: 'destructive' })} uppercase tracking-wide" data-verdict="fail">${icon('circle-alert')}fail</span>`,
-  skip: `<span class="${badge({ variant: 'outline' })} uppercase tracking-wide" data-verdict="skip">${icon('minus')}skip</span>`,
+  pass: `<span class="${badge({ variant: 'success' })} font-mono uppercase tracking-wide" data-verdict="pass">${icon('circle-check')}pass</span>`,
+  warn: `<span class="${badge({ variant: 'warning' })} font-mono uppercase tracking-wide" data-verdict="warn">${icon('triangle-alert')}warn</span>`,
+  fail: `<span class="${badge({ variant: 'destructive' })} font-mono uppercase tracking-wide" data-verdict="fail">${icon('circle-alert')}fail</span>`,
+  skip: `<span class="${badge({ variant: 'outline' })} font-mono uppercase tracking-wide" data-verdict="skip">${icon('minus')}skip</span>`,
 };
 
 const SECTION_SUMMARY_CLASS =
-  'grid cursor-pointer grid-cols-[auto_1fr] items-center gap-3.5 px-4 py-4 transition-colors hover:bg-accent/60 group-open/section:border-b group-open/section:border-border sm:grid-cols-[auto_1fr_auto] sm:px-5';
+  'result-summary cursor-pointer px-4 py-4 transition-colors hover:bg-accent/60 group-open/section:border-b group-open/section:border-border sm:px-5';
 const DISCLOSURE_SUMMARY_CLASS =
-  'inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-primary hover:underline';
+  'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md text-sm font-semibold text-primary hover:underline';
 
 function disclosureChevron(scope: 'section' | 'fix'): string {
   return scope === 'section'
@@ -96,12 +98,12 @@ function scoreCard(label: string, score: number | null, note: string): string {
   const value =
     score === null
       ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">n/a</div>`
-      : `<div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none ${tone}">${score}<small class="text-sm font-semibold text-muted-foreground">/ 100</small></div>`;
+      : `<div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none ${tone}">${score}<small class="text-sm font-semibold text-muted-foreground">/ 100</small></div>`;
   const meter =
     score === null
       ? ''
       : `<div class="mt-3 h-1.5 overflow-hidden rounded-full bg-muted ${tone}" aria-hidden="true"><i class="block h-full rounded-full bg-current" style="width:${score}%"></i></div>`;
-  return `<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">${escapeHtml(label)}</div>${value}${meter}<div class="mt-2 text-sm text-muted-foreground">${escapeHtml(note)}</div></div>`;
+  return `<div class="${card} p-4"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">${escapeHtml(label)}</div>${value}${meter}<div class="mt-2 text-sm text-muted-foreground">${escapeHtml(note)}</div></div>`;
 }
 
 function promptFor(result: ScanResult, item: CheckResult, reportUrl?: string): string | null {
@@ -129,14 +131,14 @@ function renderCheck(result: ScanResult, item: CheckResult, options: HtmlReportO
       : null;
   const fix =
     item.fix && prompt
-      ? `<details class="group/fix mt-2"><summary class="${DISCLOSURE_SUMMARY_CLASS}">${disclosureChevron('fix')}How to fix it</summary><div class="mt-2.5 space-y-2.5"><p class="text-[0.95rem]">${escapeHtml(item.fix.summary)}</p>${
+      ? `<details class="group/fix mt-2"><summary class="${DISCLOSURE_SUMMARY_CLASS}">${disclosureChevron('fix')}How to fix it</summary><div class="mt-2.5 space-y-2.5"><p class="text-base leading-7">${escapeHtml(item.fix.summary)}</p>${
           item.fix.snippet
-            ? `<pre class="${codeBlock}"><code>${escapeHtml(item.fix.snippet)}</code></pre>`
+            ? `<pre class="${codeBlock}" tabindex="0" aria-label="Code example"><code>${escapeHtml(item.fix.snippet)}</code></pre>`
             : ''
         }<div class="flex flex-wrap items-center gap-2"><span class="text-sm text-muted-foreground">Brief for a coding agent</span>${copyButton(promptId, 'Copy brief')}</div><textarea class="${textarea}" id="${promptId}" readonly aria-label="Brief for a coding agent">${escapeHtml(prompt)}</textarea></div></details>`
       : '';
-  const evidence = `<details class="group/fix mt-2"><summary class="${DISCLOSURE_SUMMARY_CLASS}">${disclosureChevron('fix')}Evidence</summary><pre class="${codeBlock} mt-2.5"><code>${escapeHtml(JSON.stringify(item.evidence, null, 2))}</code></pre></details>`;
-  return `<li class="grid grid-cols-[auto_1fr] items-start gap-3.5 px-4 py-3.5 sm:grid-cols-[auto_1fr_auto] sm:px-5" id="${escapeHtml(item.id)}"><div class="pt-px">${VERDICT_BADGE[item.verdict]}</div><div class="min-w-0"><div class="font-semibold"><code class="${codeInline} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}${skip}</div>${item.message ? `<div class="mt-1 text-[0.93rem] text-muted-foreground">${escapeHtml(item.message)}</div>` : ''}${fix}${evidence}</div><div class="col-start-2 whitespace-nowrap text-xs text-muted-foreground sm:col-auto sm:pt-1">weight ${item.weight === 'info' ? 'info' : String(item.weight)}</div></li>`;
+  const evidence = `<details class="group/fix mt-2"><summary class="${DISCLOSURE_SUMMARY_CLASS}">${disclosureChevron('fix')}Evidence</summary><pre class="${codeBlock} mt-2.5" tabindex="0" aria-label="Check evidence"><code>${escapeHtml(JSON.stringify(item.evidence, null, 2))}</code></pre></details>`;
+  return `<li class="result-row px-4 py-4 sm:px-5" id="${escapeHtml(item.id)}"><div class="result-verdict">${VERDICT_BADGE[item.verdict]}</div><div class="min-w-0"><div class="font-semibold"><code class="${codeInline} ${identifier} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}${skip}</div>${item.message ? `<div class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(item.message)}</div>` : ''}${fix}${evidence}</div><div class="result-weight whitespace-nowrap text-xs leading-5 text-muted-foreground">weight ${item.weight === 'info' ? 'info' : String(item.weight)}</div></li>`;
 }
 
 const TIER_BADGE: Record<Tier, string> = {
@@ -165,7 +167,7 @@ function priorityItemHtml(priority: Priority): string {
   const fix = item.fix
     ? `<div class="mt-1 text-sm">${escapeHtml(item.fix.summary)} <a class="font-semibold text-primary hover:underline" href="#${escapeHtml(item.id)}">Details</a></div>`
     : '';
-  return `<li class="py-3"><div class="flex flex-wrap items-center gap-1.5"><a class="font-semibold hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${priorityTagsHtml(priority)}</div>${message}${fix}</li>`;
+  return `<li class="py-3"><div class="flex flex-wrap items-center gap-1.5"><a class="font-semibold hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} ${identifier} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${priorityTagsHtml(priority)}</div>${message}${fix}</li>`;
 }
 
 function compactPriorityHtml(priority: Priority): string {
@@ -174,7 +176,7 @@ function compactPriorityHtml(priority: Priority): string {
     priority.unlocks !== null ? `unlocks Level ${priority.unlocks}` : '',
     priority.mechanical ? 'mechanical fix' : '',
   ].filter(Boolean);
-  return `<li><a class="hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} mr-1">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${tags.length > 0 ? ` <span class="text-muted-foreground">(${escapeHtml(tags.join(', '))})</span>` : ''}</li>`;
+  return `<li><a class="hover:underline" href="#${escapeHtml(item.id)}"><code class="${codeInline} ${identifier} mr-1">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}</a>${tags.length > 0 ? ` <span class="text-muted-foreground">(${escapeHtml(tags.join(', '))})</span>` : ''}</li>`;
 }
 
 /** The "what to do" card: next-gate and blocking findings in full, the rest as compact lists. */
@@ -185,7 +187,7 @@ function renderPriorities(priorities: Priorities): string {
     priorities.optional.length +
     priorities.informational.length;
   if (total === 0)
-    return `<section class="${card} mt-8 p-6" id="priorities"><h2 class="text-lg font-semibold tracking-tight">Nothing to fix</h2><p class="mt-1.5 text-sm text-muted-foreground">Every check that applied to this site passed.</p></section>`;
+    return `<section class="${panel} mt-8" id="priorities"><h2 class="text-lg font-semibold tracking-tight">Nothing to fix</h2><p class="mt-1.5 text-sm text-muted-foreground">Every check that applied to this site passed.</p></section>`;
   const block = (title: string, note: string, body: string): string =>
     `<div class="mt-6 first:mt-0"><h3 class="text-base font-semibold tracking-tight">${title}</h3><p class="mt-0.5 text-sm text-muted-foreground">${note}</p>${body}</div>`;
   const parts: string[] = [];
@@ -221,7 +223,7 @@ function renderPriorities(priorities: Priorities): string {
         `<ul class="mt-2 list-disc space-y-1 pl-5 text-sm">${priorities.informational.map(compactPriorityHtml).join('')}</ul>`,
       ),
     );
-  return `<section class="${card} mt-8 p-6" id="priorities"><h2 class="text-lg font-semibold tracking-tight">What to do</h2>${parts.join('')}</section>`;
+  return `<section class="${panel} mt-8" id="priorities"><h2 class="text-lg font-semibold tracking-tight">What to do</h2>${parts.join('')}</section>`;
 }
 
 function renderGroup(
@@ -247,12 +249,12 @@ function renderGroup(
   const tone = optional ? 'text-muted-foreground' : score === null ? '' : scoreTone(score);
   const scoreMarkup =
     score === null
-      ? `<div class="col-start-2 flex items-baseline gap-2 sm:col-auto sm:block sm:min-w-16 sm:text-right" data-group-score><b class="block text-2xl font-extrabold leading-none text-muted-foreground">–</b><span class="text-[0.72rem] uppercase tracking-wider text-muted-foreground">not applicable</span></div>`
-      : `<div class="col-start-2 flex items-baseline gap-2 sm:col-auto sm:block sm:min-w-16 sm:text-right" data-group-score><b class="block text-2xl font-extrabold leading-none ${tone}">${score}</b><span class="text-[0.72rem] uppercase tracking-wider text-muted-foreground">of 100</span></div>`;
+      ? `<div class="group-score" data-group-score><b class="block text-2xl font-extrabold leading-none text-muted-foreground">–</b><span class="text-xs leading-5 uppercase tracking-wider text-muted-foreground">not applicable</span></div>`
+      : `<div class="group-score" data-group-score><b class="block text-2xl font-extrabold leading-none ${tone}">${score}</b><span class="text-xs leading-5 uppercase tracking-wider text-muted-foreground">of 100</span></div>`;
   const optionalTag = optional
     ? `<span class="${badge({ variant: 'outline' })}" data-group-optional>nice to have</span>`
     : '';
-  return `<details class="group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">${escapeHtml(group.id)} · ${escapeHtml(group.title)}${optionalTag}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
+  return `<details class="result-section group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold leading-6 tracking-tight"><span class="min-w-0"><span class="${identifier}">${escapeHtml(group.id)}</span> · ${escapeHtml(group.title)}</span>${optionalTag}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
 }
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
@@ -280,21 +282,21 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">
-<div class="lv-badge inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-xs font-bold uppercase tracking-[0.12em] text-current">Level</small>${result.level.value}</div>
+<div class="lv-badge inline-grid size-[5.5rem] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-xs font-bold uppercase tracking-[0.12em] text-current">Level</small>${result.level.value}</div>
 <div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold underline underline-offset-4" href="#priorities">What to do</a></p>` : ''}</div>
 </div>`;
   const body = `${checkMapHtml(result, card)}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
-<div class="${card} p-5"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2"><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
+<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}
 ${options.afterScoresHtml ?? ''}
-<div class="mb-3 mt-10 flex items-center justify-between gap-4"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
+<div class="mb-3 mt-10 flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
 <div class="space-y-3">${sections}</div>
-${prompts ? `<section class="${card} mt-8 p-6"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold tracking-tight">All fix briefs</h2><p class="mt-1 text-sm text-muted-foreground">One brief per finding, ready for a coding agent working on the store.</p></div>${copyButton('all-prompts', 'Copy all')}</div><textarea class="${textarea} mt-3.5 min-h-[260px]" id="all-prompts" readonly aria-label="All fix briefs">${escapeHtml(prompts)}</textarea></section>` : ''}
+${prompts ? `<section class="${panel} mt-8"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold tracking-tight">All fix briefs</h2><p class="mt-1 text-sm text-muted-foreground">One brief per finding, ready for a coding agent working on the store.</p></div>${copyButton('all-prompts', 'Copy all')}</div><textarea class="${textarea} mt-3.5 min-h-[260px]" id="all-prompts" readonly aria-label="All fix briefs">${escapeHtml(prompts)}</textarea></section>` : ''}
 <section class="mt-8" id="scope"><h2 class="text-lg font-semibold tracking-tight">What this scan did and did not do</h2><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">${scopeLines(
     result,
   )

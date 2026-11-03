@@ -6,7 +6,7 @@ import {
   scoreTone,
   type ResultDiff,
 } from '@agentic-readiness/core';
-import { badge, button, card, icon } from '@agentic-readiness/ui';
+import { badge, button, card, icon, panel, identifier } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
 import type { HistoryEntry } from '../history/types.js';
@@ -158,7 +158,7 @@ export function historyPage(config: AppConfig, input: HistoryPageInput): string 
       const groups = Object.entries(entry.snapshot.groups ?? {})
         .map(([id, value]) => {
           const from = previous?.snapshot.groups?.[id] ?? null;
-          return `<span class="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs" title="${escapeHtml(groupTitles.get(id) ?? id)}"><span class="text-muted-foreground">${escapeHtml(id)}</span>${score(value)}${arrow(from, value)}</span>`;
+          return `<span class="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-xs" title="${escapeHtml(groupTitles.get(id) ?? id)}"><span class="${identifier} text-muted-foreground">${escapeHtml(id)}</span>${score(value)}${arrow(from, value)}</span>`;
         })
         .join(' ');
       const report = withinRetention(config, entry.lastAt, input.now)
@@ -176,13 +176,13 @@ ${input.view === 'profile' ? '<p class="mt-6 text-sm text-muted-foreground">The 
 
 ${
   latest
-    ? `<section class="${card} mt-6 grid gap-5 p-6 sm:grid-cols-[auto_1fr_auto] sm:items-center"><div class="inline-grid size-[88px] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${latest.snapshot.level}</div><div><h2 class="text-lg font-semibold tracking-tight">Last recorded state</h2><p class="mt-1.5 text-muted-foreground">Ingestion ${score(latest.snapshot.ingestion)} · commerce ${score(latest.snapshot.commerce)} · held since ${when(latest.firstAt)} and confirmed by ${latest.scans} scan${latest.scans === 1 ? '' : 's'}.</p></div><form method="post" action="/scan"><input type="hidden" name="url" value="${escapeHtml(rescanUrlForHost(host, latest.url))}"><button type="submit" class="${button({ variant: 'outline' })}">Scan again</button></form></section>`
-    : `<section class="${card} mt-6 p-6"><p class="text-muted-foreground">No scans recorded for this host yet.</p><form method="post" action="/scan" class="mt-3"><input type="hidden" name="url" value="https://${escapeHtml(host)}/"><button type="submit" class="${button()}">Scan it</button></form></section>`
+    ? `<section class="${panel} history-summary mt-6"><div class="inline-grid size-[5.5rem] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Level</small>${latest.snapshot.level}</div><div class="history-info"><h2 class="text-lg font-semibold tracking-tight">Last recorded state</h2><p class="mt-1.5 text-muted-foreground">Ingestion ${score(latest.snapshot.ingestion)} · commerce ${score(latest.snapshot.commerce)} · held since ${when(latest.firstAt)} and confirmed by ${latest.scans} scan${latest.scans === 1 ? '' : 's'}.</p></div><form method="post" action="/scan"><input type="hidden" name="url" value="${escapeHtml(rescanUrlForHost(host, latest.url))}"><button type="submit" class="${button({ variant: 'outline' })}">Scan again</button></form></section>`
+    : `<section class="${panel} mt-6"><p class="text-muted-foreground">No scans recorded for this host yet.</p><form method="post" action="/scan" class="mt-3"><input type="hidden" name="url" value="https://${escapeHtml(host)}/"><button type="submit" class="${button()}">Scan it</button></form></section>`
 }
 ${entries.length >= 2 ? `<div class="mt-6">${trendChart(entries)}</div>` : ''}
 ${
   entries.length > 0
-    ? `<section class="mt-8"><h2 class="mb-3 text-lg font-semibold tracking-tight">States over time</h2><p class="mb-3 text-sm text-muted-foreground">Each row is one distinct state: a rescan that changed nothing extends the row, a rescan that changed any verdict or score starts a new one. Newest first.</p><div class="${card} overflow-x-auto"><table class="w-full min-w-[880px] border-collapse px-4 text-left"><thead><tr class="border-b border-border text-xs uppercase tracking-wider text-muted-foreground"><th class="px-4 py-3 font-semibold">Period</th><th class="py-3 pr-4 font-semibold">Level</th><th class="py-3 pr-4 font-semibold">Ingestion</th><th class="py-3 pr-4 font-semibold">Commerce</th><th class="py-3 pr-4 font-semibold">Sections</th><th class="py-3 pr-4 font-semibold">What changed</th><th class="py-3 pr-4 font-semibold"></th></tr></thead><tbody class="divide-y divide-border [&>tr>td:first-child]:pl-4">${rows}</tbody></table></div></section>`
+    ? `<section class="mt-8"><h2 class="mb-3 text-lg font-semibold tracking-tight">States over time</h2><p class="mb-3 text-sm text-muted-foreground">Each row is one distinct state: a rescan that changed nothing extends the row, a rescan that changed any verdict or score starts a new one. Newest first.</p><div class="${card} overflow-x-auto" tabindex="0" role="region" aria-label="Readiness history table"><table class="w-full min-w-[55rem] border-collapse px-4 text-left"><thead><tr class="border-b border-border text-xs uppercase tracking-wider text-muted-foreground"><th class="px-4 py-3 font-semibold">Period</th><th class="py-3 pr-4 font-semibold">Level</th><th class="py-3 pr-4 font-semibold">Ingestion</th><th class="py-3 pr-4 font-semibold">Commerce</th><th class="py-3 pr-4 font-semibold">Sections</th><th class="py-3 pr-4 font-semibold">What changed</th><th class="py-3 pr-4 font-semibold"></th></tr></thead><tbody class="divide-y divide-border [&>tr>td:first-child]:pl-4">${rows}</tbody></table></div></section>`
     : ''
 }
 `;
@@ -224,9 +224,9 @@ export function sincePreviousPanel(
       step.entry.scans > 1
         ? `This state has held since ${when(step.entry.firstAt)} and was confirmed by ${step.entry.scans} scans.`
         : `First scan of ${escapeHtml(host)}. Scan again later to see what changed.`;
-    return `<section class="${card} mt-4 flex flex-wrap items-center justify-between gap-3 p-5" aria-labelledby="since-title"><div><h2 id="since-title" class="text-base font-semibold tracking-tight">Progress</h2><p class="mt-1 text-sm text-muted-foreground">${held}</p></div>${historyLink}</section>`;
+    return `<section class="${panel} mt-4 flex flex-wrap items-center justify-between gap-3" aria-labelledby="since-title"><div><h2 id="since-title" class="text-base font-semibold tracking-tight">Progress</h2><p class="mt-1 text-sm text-muted-foreground">${held}</p></div>${historyLink}</section>`;
   }
   const lines = describeDiff(step.diff).map((line) => `<li>${escapeHtml(line)}</li>`);
   const since = `Compared with the state observed ${when(step.previous.firstAt)}${step.previous.scans > 1 ? ` to ${when(step.previous.lastAt)}` : ''}${step.catalogChanged ? ` (catalog ${escapeHtml(step.previous.catalogVersion)} → ${escapeHtml(step.entry.catalogVersion)})` : ''}.`;
-  return `<section class="${card} mt-4 p-5" aria-labelledby="since-title"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 id="since-title" class="text-base font-semibold tracking-tight">Since the previous state</h2><p class="mt-1 text-sm text-muted-foreground">${since}${scan.id !== step.entry.id ? ` This report confirms a state first seen ${when(step.entry.firstAt)}.` : ''}</p></div>${historyLink}</div>${lines.length > 0 ? `<ul class="mt-3 list-disc space-y-0.5 pl-5 text-sm">${lines.join('')}</ul>` : ''}</section>`;
+  return `<section class="${panel} mt-4" aria-labelledby="since-title"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 id="since-title" class="text-base font-semibold tracking-tight">Since the previous state</h2><p class="mt-1 text-sm text-muted-foreground">${since}${scan.id !== step.entry.id ? ` This report confirms a state first seen ${when(step.entry.firstAt)}.` : ''}</p></div>${historyLink}</div>${lines.length > 0 ? `<ul class="mt-3 list-disc space-y-0.5 pl-5 text-sm">${lines.join('')}</ul>` : ''}</section>`;
 }

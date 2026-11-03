@@ -15,7 +15,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 export const button = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex min-w-0 max-w-full flex-wrap items-center justify-center gap-2 whitespace-normal rounded-md text-center font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -27,9 +27,9 @@ export const button = cva(
         link: 'h-auto rounded-none px-0 py-0 text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'min-h-11 px-4 py-2',
-        sm: 'min-h-11 px-3.5',
-        lg: 'h-11 px-6 text-base',
+        default: 'min-h-11 px-4 py-2 text-sm',
+        sm: 'min-h-11 px-3.5 py-2 text-sm',
+        lg: 'min-h-11 px-6 py-2 text-base',
         icon: 'h-11 w-11 rounded-md',
         'icon-sm': 'h-11 w-11 rounded-md',
       },
@@ -40,7 +40,7 @@ export const button = cva(
 export type ButtonVariants = VariantProps<typeof button>;
 
 export const badge = cva(
-  'inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-medium transition-colors [&_svg]:size-3',
+  'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-0.5 text-xs font-medium leading-5 transition-colors [&_svg]:size-3 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -59,6 +59,11 @@ export const badge = cva(
 export type BadgeVariants = VariantProps<typeof badge>;
 
 export const card = 'rounded-xl border border-border bg-card text-card-foreground shadow-soft';
+/** Primary panels share one responsive inset; compact cards and dense rows stay separate. */
+export const panel = `${card} p-4 sm:p-6`;
+/** Short catalog IDs are one typographic unit. Long prose/code remains free to wrap. */
+export const identifier =
+  'ui-identifier inline-block shrink-0 whitespace-nowrap font-mono tabular-nums';
 export const cardHeader = 'flex flex-col gap-2 p-6';
 export const cardTitle = 'text-lg font-semibold tracking-tight';
 export const cardDescription = 'text-sm leading-6 text-muted-foreground';
@@ -79,7 +84,7 @@ export const nativeSelectChevron =
   'pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground';
 
 export const textarea =
-  'flex min-h-[200px] w-full resize-y rounded-md border border-input bg-muted px-3.5 py-3 font-mono text-[0.84rem] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+  'flex min-h-[200px] w-full min-w-0 resize-y rounded-md border border-input bg-muted px-3 py-3 font-mono text-base leading-6 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-sm';
 
 export const label = 'text-sm font-medium text-foreground';
 
@@ -105,4 +110,4 @@ export const separator = 'h-px w-full shrink-0 bg-border/80';
 export const codeInline =
   'rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.9em] text-foreground';
 export const codeBlock =
-  'overflow-auto rounded-lg border border-border bg-muted p-3.5 font-mono text-[0.84rem] leading-relaxed text-foreground';
+  'overflow-auto rounded-lg border border-border bg-muted p-4 font-mono text-sm leading-6 text-foreground';

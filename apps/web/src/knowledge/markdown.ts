@@ -6,7 +6,7 @@
  * `node:` imports, so it runs in the worker.
  */
 import { escapeHtml } from '@agentic-readiness/core';
-import { codeInline } from '@agentic-readiness/ui';
+import { codeBlock, codeInline } from '@agentic-readiness/ui';
 
 export interface Heading {
   level: 2 | 3;
@@ -115,7 +115,7 @@ export function markdownToHtml(markdown: string): RenderedMarkdown {
       }
       const language = fence[1] === undefined || fence[1] === '' ? 'text' : fence[1];
       out.push(
-        `<pre class="mt-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-[0.82rem] leading-6" data-language="${escapeHtml(language)}"><code>${escapeHtml(code.join('\n'))}</code></pre>`,
+        `<pre class="${codeBlock} mt-4" tabindex="0" aria-label="Code example" data-language="${escapeHtml(language)}"><code>${escapeHtml(code.join('\n'))}</code></pre>`,
       );
       continue;
     }
@@ -152,7 +152,7 @@ export function markdownToHtml(markdown: string): RenderedMarkdown {
       const hasHeader = separator?.every((cell) => /^:?-{3,}:?$/.test(cell)) ?? false;
       const bodyRows = hasHeader ? body : rows.slice(1);
       out.push(
-        `<div class="mt-4 overflow-x-auto rounded-lg border border-border"><table class="w-full text-left text-sm">${
+        `<div class="mt-4 overflow-x-auto rounded-lg border border-border" tabindex="0" role="region" aria-label="Reference table"><table class="w-full text-left text-sm">${
           head
             ? `<thead class="bg-muted/50"><tr>${head.map((cell) => `<th class="px-3 py-2 font-semibold text-foreground">${renderInline(cell)}</th>`).join('')}</tr></thead>`
             : ''

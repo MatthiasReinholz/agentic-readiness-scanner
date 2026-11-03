@@ -8,6 +8,7 @@ import {
   codeInline,
   icon,
   input,
+  identifier,
   nativeSelect,
   nativeSelectChevron,
   nativeSelectWrapper,
@@ -29,7 +30,7 @@ export function homePage(config: AppConfig, error?: string): string {
   const groups = catalog.groups
     .map(
       (group) =>
-        `<a class="${card} group block p-5 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge-base/${groupSlug(group)}"><h3 class="flex items-center gap-2 text-base font-semibold"><span class="${badge()}">${escapeHtml(group.id)}</span>${escapeHtml(group.title)}</h3><p class="mt-1.5 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
+        `<a class="${card} group block p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge-base/${groupSlug(group)}"><h3 class="flex items-start gap-2 text-base font-semibold leading-6"><span class="${badge()} ${identifier}">${escapeHtml(group.id)}</span><span class="min-w-0">${escapeHtml(group.title)}</span></h3><p class="mt-1.5 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
     )
     .join('');
   const code = (text: string) => `<code class="${codeInline}">${escapeHtml(text)}</code>`;
@@ -48,11 +49,11 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" rol
 `;
   const body = `
 ${scanConsoleMarkup()}
-<section class="mt-11">
+<section class="home-checks">
 <div class="mb-3.5 flex flex-wrap items-baseline justify-between gap-2"><h2 class="text-lg font-semibold tracking-tight">What gets checked</h2><a class="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base">Knowledge base: every check explained</a></div>
 <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">${groups}</div>
 </section>
-<section class="mt-11">
+<section class="mt-10">
 <h2 class="mb-3.5 text-lg font-semibold tracking-tight">For agents and pipelines</h2>
 <ul class="list-disc space-y-1.5 pl-5 text-muted-foreground">
 <li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}. Root profiles offer ${code('/report.json')}; snapshot URLs offer ${code('.json')}. Path scans return the result directly.</li>
