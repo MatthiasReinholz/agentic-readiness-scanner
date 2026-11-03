@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-03
+
 ### Added
 
 - **Resumable scans** in `@agentic-readiness/core`: `startScan()` and `continueScan()` run one scan as several short steps with a small, versioned JSON state in between (about 2.6 KiB on the recorded WooCommerce store), for hosts that must answer each invocation within a fixed time. A step that runs out of its own time (`stepDeadlineMs`) or requests (`stepBudget`) is not a skip: the check it cut off runs again in the next step. The request budget counts across steps, re-sent requests are never counted twice, and `maxSteps`, `maxActiveMs` and a stall guard end the scan with the usual `budget_exhausted` semantics. An optional `ResponseCache` keeps responses between steps. Split into steps, a scan returns the same result as one `scan()` call over the same responses; `duration_ms` is the active time and `steps` the number of steps. A state from another scanner, catalog or scoring version is refused. `scan()` is unchanged. See decision 0016.
