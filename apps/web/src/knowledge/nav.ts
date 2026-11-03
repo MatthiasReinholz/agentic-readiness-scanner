@@ -13,6 +13,8 @@ import { catalog, type CheckDefinition, type Group } from '@agentic-readiness/ca
 import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
 
+import { identifier } from '@agentic-readiness/ui';
+
 import type { Heading } from './markdown.js';
 import { slugify } from './markdown.js';
 
@@ -52,12 +54,12 @@ function groupHref(group: Group): string {
 export const KB_CSS = `
 .kb-filter-bar{margin-inline:calc(-1 * var(--page-gutter));padding-inline:var(--page-gutter)}
 .kb-progress{position:fixed;inset:0 0 auto 0;height:3px;z-index:50;background:hsl(var(--primary));transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
-.kb-cell{display:block;width:24px;height:24px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s,background .15s}
-.kb-cell:hover,.kb-cell:focus-visible{transform:scale(1.35);outline:none;background:hsl(var(--primary)/.6)}
+.kb-cell{display:block;width:1.5rem;height:1.5rem;flex:none;border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s,background .15s}
+.kb-cell:hover,.kb-cell:focus-visible{transform:translateY(-2px);outline:2px solid hsl(var(--ring));outline-offset:2px;background:hsl(var(--primary)/.6)}
 .kb-cell[data-state=group]{background:hsl(var(--primary)/.28);border-color:hsl(var(--primary)/.45)}
 .kb-cell[data-state=current]{background:hsl(var(--primary));border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.25);animation:kb-pulse 2.4s ease-in-out 2}
-@keyframes kb-pulse{50%{box-shadow:0 0 0 6px hsl(var(--primary)/.08)}}
-.kb-toc a{display:block;border-left:2px solid hsl(var(--border));padding:.2rem 0 .2rem .75rem;transition:color .15s,border-color .15s}
+@keyframes kb-pulse{50%{box-shadow:0 0 0 4px hsl(var(--primary)/.08)}}
+.kb-toc a{display:block;border-left:2px solid hsl(var(--border));min-height:2rem;padding:.375rem 0 .375rem .75rem;transition:color .15s,border-color .15s}
 .kb-toc a[data-active]{color:hsl(var(--foreground));border-left-color:hsl(var(--primary));font-weight:500}
 .kb-step[aria-current] .kb-dot{background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:hsl(var(--primary));box-shadow:0 0 0 4px hsl(var(--primary)/.2)}
 .kb-step[aria-current] .kb-label{color:hsl(var(--foreground));font-weight:600}
@@ -91,12 +93,12 @@ export function journeyRail(currentGroup?: string): string {
       .map((group) => {
         const index = catalog.groups.indexOf(group) + 1;
         const current = group.id === currentGroup;
-        return `<li class="min-w-0 flex-1"><a class="kb-step group flex flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-center hover:bg-muted/60" href="${groupHref(group)}" title="${escapeHtml(`${group.id} ${group.title}`)}"${current ? ' aria-current="step"' : ''}><span class="kb-dot grid size-7 place-items-center rounded-full border border-border bg-card font-mono text-[0.7rem] text-muted-foreground transition-colors group-hover:border-primary/60">${index}</span><span class="kb-label text-xs text-muted-foreground">${escapeHtml(JOURNEY_STEP[group.id] ?? group.title)}</span></a></li>`;
+        return `<li class="min-w-0 flex-1"><a class="kb-step group flex flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-center hover:bg-muted/60" href="${groupHref(group)}" title="${escapeHtml(`${group.id} ${group.title}`)}"${current ? ' aria-current="step"' : ''}><span class="kb-dot grid size-7 place-items-center rounded-full border border-border bg-card font-mono text-xs text-muted-foreground transition-colors group-hover:border-primary/60">${index}</span><span class="kb-label whitespace-nowrap text-xs text-muted-foreground">${escapeHtml(JOURNEY_STEP[group.id] ?? group.title)}</span></a></li>`;
       })
       .join('');
-    return `<div class="min-w-0"><p class="mb-1 px-1 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">${label}</p><ol class="relative flex before:absolute before:left-6 before:right-6 before:top-[1.4rem] before:h-px before:bg-border">${steps}</ol></div>`;
+    return `<div class="min-w-0"><p class="mb-1 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">${label}</p><ol class="relative flex before:absolute before:left-6 before:right-6 before:top-[1.4rem] before:h-px before:bg-border">${steps}</ol></div>`;
   };
-  return `<nav aria-label="The agent's journey" class="overflow-x-auto"><div class="grid min-w-[36rem] grid-cols-[4fr_5fr] gap-4">${half('ingestion', 'Agentic ingestion')}${half('commerce', 'Agentic commerce')}</div></nav>`;
+  return `<nav aria-label="The agent's journey" class="rounded-md overflow-x-auto" tabindex="0"><div class="grid min-w-[36rem] grid-cols-[4fr_5fr] gap-4">${half('ingestion', 'Agentic ingestion')}${half('commerce', 'Agentic commerce')}</div></nav>`;
 }
 
 /** Every check as one cell, grouped by section; the current check and section stand out. */
@@ -113,7 +115,7 @@ export function checkStrip(currentId?: string, currentGroup?: string): string {
           return `<a class="kb-cell" data-state="${state}" href="${hrefOf(check.id)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"${state === 'current' ? ' aria-current="page"' : ''}></a>`;
         })
         .join('');
-      return `<span class="flex max-w-full flex-wrap items-center gap-[3px]" title="${escapeHtml(`${group.id} ${group.title}`)}">${cells}</span>`;
+      return `<span class="flex max-w-full flex-wrap items-center gap-1" title="${escapeHtml(`${group.id} ${group.title}`)}">${cells}</span>`;
     })
     .join('');
   return `<div class="flex flex-wrap items-center gap-x-2.5 gap-y-2" role="navigation" aria-label="All ${catalog.checks.length} checks">${groups}</div>`;
@@ -134,11 +136,11 @@ export function articleSidebar(check: CheckDefinition, group: Group, outline: He
     .map((candidate) => {
       const current = candidate.id === check.id;
       const article = articleOf(candidate.id);
-      return `<li><a class="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm ${current ? 'bg-primary/10 font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}" href="${hrefOf(candidate.id)}"${current ? ' aria-current="page"' : ''}><span class="mt-1.5 size-2 shrink-0 rounded-full ${TIER_DOT[tierOf(candidate.weight)]}" aria-hidden="true"></span><span><span class="font-mono text-[0.7rem] text-muted-foreground">${escapeHtml(candidate.id)}</span> ${escapeHtml(article?.headline ?? candidate.title)}</span></a></li>`;
+      return `<li><a class="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm ${current ? 'bg-primary/10 font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}" href="${hrefOf(candidate.id)}"${current ? ' aria-current="page"' : ''}><span class="mt-1.5 size-2 shrink-0 rounded-full ${TIER_DOT[tierOf(candidate.weight)]}" aria-hidden="true"></span><span><span class="${identifier} text-xs text-muted-foreground">${escapeHtml(candidate.id)}</span> ${escapeHtml(article?.headline ?? candidate.title)}</span></a></li>`;
     })
     .join('');
   return `<aside class="hidden lg:block" aria-label="Section navigation"><div class="sticky top-6 max-h-[calc(100vh-3rem)] space-y-6 overflow-y-auto pb-6 pr-1">
-<div><a class="flex items-center gap-2 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground" href="${groupHref(group)}"><span class="font-mono">${escapeHtml(group.id)}</span>${escapeHtml(group.title)}</a><ul class="mt-2 space-y-0.5">${checks}</ul></div>
+<div><a class="flex items-start gap-2 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground" href="${groupHref(group)}"><span class="${identifier}">${escapeHtml(group.id)}</span>${escapeHtml(group.title)}</a><ul class="mt-2 space-y-0.5">${checks}</ul></div>
 <div><p class="px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">On this page</p><nav class="kb-toc mt-2 pl-2 text-sm text-muted-foreground">${tocLinks(outline)}</nav></div>
 </div></aside>`;
 }

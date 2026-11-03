@@ -9,6 +9,8 @@
  */
 import type { CheckResult, ScanResult } from '@agentic-readiness/catalog';
 
+import { identifier } from '@agentic-readiness/ui';
+
 import { scoreGroup } from '../scoring.js';
 import { escapeHtml, groupResults } from './shared.js';
 
@@ -22,20 +24,27 @@ const VERDICT_WORD: Record<CheckResult['verdict'], string> = {
 /** Styles for the map and the arrival animation; tokens come from the shared theme. */
 export const CHECK_MAP_CSS = `
 @view-transition{navigation:auto}
-.cm-grid{view-transition-name:check-map}
-.cm-cell{display:grid;place-items:center;width:24px;height:24px;font:700 12px/1 ui-monospace,monospace;color:hsl(var(--background));border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s}
+.cm-grid{view-transition-name:check-map;container-type:inline-size}
+.cm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.5rem .75rem}
+.cm-title{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-cells{display:flex;min-width:0;flex-wrap:wrap;gap:.25rem;grid-column:1/-1;grid-row:2}
+.cm-score{grid-column:2;grid-row:1}
+@container (min-width:14rem){.cm-row{grid-template-columns:2.25rem minmax(0,1fr) auto}.cm-cells{grid-column:2;grid-row:1}.cm-score{grid-column:3}}
+@container (min-width:32rem){.cm-row{grid-template-columns:2.25rem 10rem minmax(0,1fr) auto}.cm-title{display:block}.cm-cells{grid-column:3}.cm-score{grid-column:4}}
+@container (min-width:48rem){.cm-row{grid-template-columns:2.25rem 14rem minmax(0,1fr) auto}}
+.cm-cell{display:grid;place-items:center;width:1.5rem;height:1.5rem;flex:none;font:700 .75rem/1 ui-monospace,monospace;color:hsl(var(--background));border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s}
 .cm-cell:hover,.cm-cell:focus-visible{transform:translateY(-2px);outline:2px solid hsl(var(--ring));outline-offset:2px}
 .cm-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .cm-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}
 .cm-cell[data-v=fail]{background:hsl(var(--destructive));border-color:hsl(var(--destructive))}
 .cm-cell[data-v=skip]{background:transparent;border-style:dashed}
 .cm-key{display:inline-flex;align-items:center;gap:6px}
-.cm-key .cm-cell{width:14px;height:14px;font-size:10px;border-radius:3px}
+.cm-key .cm-cell{width:.875rem;height:.875rem;font-size:.625rem;border-radius:3px}
 .cm-cell[data-v=pass]::after{content:"✓" / ""}.cm-cell[data-v=warn]::after{content:"!" / ""}.cm-cell[data-v=fail]::after{content:"×" / ""}
 .lv-badge{position:relative;view-transition-name:level-badge}
 .lv-burst{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
 .lv-burst i{position:absolute;width:7px;height:7px;margin:-3.5px;border-radius:2px;opacity:0}
-.cm-arrive .cm-cell{animation:cm-pop .45s cubic-bezier(.3,1.6,.6,1) both;animation-delay:calc(var(--i) * 14ms)}
+.cm-arrive .cm-cell{animation:cm-pop .45s cubic-bezier(.3,1.6,.6,1) backwards;animation-delay:calc(var(--i) * 14ms)}
 .lv-celebrate{animation:lv-bounce .7s cubic-bezier(.3,1.6,.6,1) both}
 .lv-celebrate::after{content:'';position:absolute;inset:-2px;border-radius:18px;border:2px solid hsl(var(--primary));animation:lv-ring 1s ease-out .15s both}
 .lv-celebrate .lv-burst i{animation:lv-fly .9s cubic-bezier(.2,.7,.3,1) both;animation-delay:calc(.12s + var(--d))}
@@ -60,7 +69,7 @@ export function checkMapHtml(result: ScanResult, cardClass: string): string {
           return cell;
         })
         .join('');
-      return `<div class="grid grid-cols-[2.25rem_1fr_auto] items-center gap-x-3 sm:grid-cols-[2.25rem_12rem_1fr_auto] lg:grid-cols-[2.25rem_16rem_1fr_auto]"><a class="font-mono text-xs text-muted-foreground hover:text-foreground" href="#group-${escapeHtml(group.id)}">${escapeHtml(group.id)}</a><span class="hidden truncate text-sm text-muted-foreground sm:block" title="${escapeHtml(group.title)}">${escapeHtml(group.title)}</span><span class="flex flex-wrap gap-1">${cells}</span><span class="w-10 text-right font-mono text-xs tabular-nums text-muted-foreground">${score === null ? '–' : String(score)}</span></div>`;
+      return `<div class="cm-row"><a class="${identifier} text-xs text-muted-foreground hover:text-foreground" href="#group-${escapeHtml(group.id)}">${escapeHtml(group.id)}</a><span class="cm-title text-sm text-muted-foreground" title="${escapeHtml(group.title)}">${escapeHtml(group.title)}</span><span class="cm-cells">${cells}</span><span class="cm-score w-10 text-right font-mono text-xs leading-5 tabular-nums text-muted-foreground">${score === null ? '–' : String(score)}</span></div>`;
     })
     .join('');
   const key = (['pass', 'warn', 'fail', 'skip'] as const)
@@ -69,7 +78,7 @@ export function checkMapHtml(result: ScanResult, cardClass: string): string {
         `<span class="cm-key"><span class="cm-cell" data-v="${verdict}"></span>${VERDICT_WORD[verdict]}</span>`,
     )
     .join('');
-  return `<section class="${cardClass} mt-3 p-5 sm:p-6" id="check-map" aria-label="Check map"><div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2"><h2 class="text-base font-semibold tracking-tight">Check map</h2><p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">${key}<span>section score</span></p></div><div class="cm-grid mt-4 grid gap-2">${rows}</div><p class="cm-done-slot mt-3 text-sm text-muted-foreground" aria-live="polite"></p></section>`;
+  return `<section class="${cardClass} mt-3 p-4 sm:p-6" id="check-map" aria-label="Check map"><div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2"><h2 class="text-base font-semibold tracking-tight">Check map</h2><p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">${key}<span>section score</span></p></div><div class="cm-grid mt-4 grid gap-2">${rows}</div><p class="cm-done-slot mt-3 text-sm text-muted-foreground" aria-live="polite"></p></section>`;
 }
 
 /**

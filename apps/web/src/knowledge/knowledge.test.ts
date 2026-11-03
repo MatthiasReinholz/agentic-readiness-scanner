@@ -1,5 +1,6 @@
 import { catalog } from '@agentic-readiness/catalog';
 import { knowledge } from '@agentic-readiness/catalog/knowledge';
+import { HtmlDocument } from '@agentic-readiness/core';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../app.js';
@@ -151,8 +152,13 @@ describe('knowledge base', () => {
     const home = await (await testApp().request('/')).text();
     for (const group of catalog.groups)
       expect(home).toContain(`href="/knowledge-base/${groupSlug(group)}"`);
-    expect(home).toContain(
-      'An experiment by <a href="https://matthiasreinholz.com/about/" rel="author">Matthias Reinholz</a>',
+    expect(home).toContain('An experiment by');
+    expect(new HtmlDocument(home).anchors()).toContainEqual(
+      expect.objectContaining({
+        href: 'https://matthiasreinholz.com/about/',
+        text: 'Matthias Reinholz',
+        inFooter: true,
+      }),
     );
     expect(home).not.toContain('Automattic');
     expect(home).not.toContain('open data');

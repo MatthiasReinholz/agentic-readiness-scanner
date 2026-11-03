@@ -8,7 +8,18 @@
 import { catalog, type CheckDefinition, type Group } from '@agentic-readiness/catalog';
 import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
-import { badge, button, card, codeInline, icon, input } from '@agentic-readiness/ui';
+import {
+  badge,
+  button,
+  card,
+  codeInline,
+  codeBlock,
+  icon,
+  input,
+  identifier,
+  panel,
+  cn,
+} from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
 import { AUTHOR, jsonLd, metadataHead, siteGraph, socialImage, webPage } from '../metadata.js';
@@ -113,7 +124,7 @@ function gateSentence(checkId: string): string {
 function checkLink(id: string): string {
   const article = articleFor(id);
   return article
-    ? `<a class="font-medium text-primary underline-offset-4 hover:underline" href="${articlePath(article)}">${escapeHtml(id)}</a>`
+    ? `<a class="${identifier} font-medium text-primary underline-offset-4 hover:underline" href="${articlePath(article)}">${escapeHtml(id)}</a>`
     : escapeHtml(id);
 }
 
@@ -165,7 +176,7 @@ function breadcrumbLd(config: AppConfig, items: { name: string; path: string }[]
 }
 
 function scanCta(): string {
-  return `<section class="${card} relative mt-12 overflow-hidden p-6"><div class="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/10 blur-2xl" aria-hidden="true"></div><div class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-base font-semibold tracking-tight">See how your store does</h2><p class="mt-1 text-sm text-muted-foreground">One scan runs every check in this knowledge base against your site and ends with a prioritised fix list.</p></div><a class="${button()}" href="/">Scan a store${icon('arrow-right')}</a></div></section>`;
+  return `<section class="${panel} relative mt-12 overflow-hidden"><div class="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/10 blur-2xl" aria-hidden="true"></div><div class="relative flex flex-wrap items-center justify-between gap-4"><div class="min-w-0 flex-1 basis-80"><h2 class="text-base font-semibold tracking-tight">See how your store does</h2><p class="mt-1 text-sm text-muted-foreground">One scan runs every check in this knowledge base against your site and ends with a prioritised fix list.</p></div><a class="${button()} shrink-0" href="/">Scan a store${icon('arrow-right')}</a></div></section>`;
 }
 
 /** Shared <head> and script for every knowledge-base page. */
@@ -197,13 +208,13 @@ function checkRow(check: CheckDefinition): string {
   const text =
     `${check.id} ${check.title} ${title} ${article?.description ?? ''} ${article?.keywords.join(' ') ?? ''}`.toLowerCase();
   const gate = gateOf(check.id);
-  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="group -mx-3 flex gap-4 rounded-lg px-3 py-3.5 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="mt-0.5 w-10 shrink-0 font-mono text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
 }
 
 function groupSection(group: Group, headingLevel: 'h2' | 'h3'): string {
   const checks = catalog.checks.filter((check) => check.group === group.id);
   const index = catalog.groups.indexOf(group) + 1;
-  return `<section class="mt-10 scroll-mt-6" id="${escapeHtml(group.id)}" data-kb-section><div class="flex items-center gap-3"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary">${index}</span><div class="min-w-0 flex-1"><${headingLevel} class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="/knowledge-base/${groupSlug(group)}">${escapeHtml(group.title)}</a></${headingLevel}><p class="text-xs uppercase tracking-wider text-muted-foreground">${escapeHtml(group.id)} · ${escapeHtml(JOURNEY_STEP[group.id] ?? '')} · ${checks.length} checks</p></div></div><p class="mt-3 max-w-[70ch] text-sm leading-6 text-muted-foreground">${escapeHtml(group.description)}</p><ul class="mt-2">${checks.map(checkRow).join('')}</ul></section>`;
+  return `<section class="mt-10 scroll-mt-6" id="${escapeHtml(group.id)}" data-kb-section><div class="flex items-center gap-3"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary">${index}</span><div class="min-w-0 flex-1"><${headingLevel} class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="/knowledge-base/${groupSlug(group)}">${escapeHtml(group.title)}</a></${headingLevel}><p class="text-xs uppercase tracking-wider text-muted-foreground">${escapeHtml(group.id)} · ${escapeHtml(JOURNEY_STEP[group.id] ?? '')} · ${checks.length} checks</p></div></div><p class="mt-3 max-w-[70ch] text-sm leading-6 text-muted-foreground">${escapeHtml(group.description)}</p><ul class="kb-check-list mt-2">${checks.map(checkRow).join('')}</ul></section>`;
 }
 
 /** /knowledge-base */
@@ -213,7 +224,7 @@ export function knowledgeIndexPage(config: AppConfig): string {
   const tiers = (Object.keys(TIER_TEXT) as Tier[])
     .map(
       (tier) =>
-        `<li class="flex items-start gap-3"><span class="${TIER_BADGE[tier]} mt-0.5 shrink-0">${TIER_TEXT[tier]}</span><span class="text-sm leading-6 text-muted-foreground">${TIER_HELP[tier]}</span></li>`,
+        `<li class="flex flex-wrap items-start gap-3"><span class="${TIER_BADGE[tier]} mt-0.5 shrink-0">${TIER_TEXT[tier]}</span><span class="text-sm leading-6 text-muted-foreground">${TIER_HELP[tier]}</span></li>`,
     )
     .join('');
   const levels = [...catalog.levels]
@@ -226,7 +237,7 @@ export function knowledgeIndexPage(config: AppConfig): string {
   const chips = (Object.keys(TIER_TEXT) as Tier[])
     .map(
       (tier) =>
-        `<button type="button" class="kb-chip inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground" data-tier="${tier}" aria-pressed="false"><span class="size-2 rounded-full ${TIER_DOT[tier]}" aria-hidden="true"></span>${TIER_TEXT[tier]}</button>`,
+        `<button type="button" class="${cn(button({ variant: 'outline', size: 'sm' }), 'kb-chip whitespace-nowrap rounded-full text-xs')}" data-tier="${tier}" aria-pressed="false"><span class="size-2 rounded-full ${TIER_DOT[tier]}" aria-hidden="true"></span>${TIER_TEXT[tier]}</button>`,
     )
     .join('');
   const hero = `
@@ -236,14 +247,14 @@ export function knowledgeIndexPage(config: AppConfig): string {
   const body = `
 ${breadcrumbs([{ label: 'Home', href: '/' }, { label: 'Knowledge base' }])}
 
-<section class="${card} mt-8 p-5" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
-<div class="kb-filter-bar sticky top-0 z-10 mt-8 border-b border-border bg-background/85 py-3 backdrop-blur"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-[14rem] flex-1"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd aria-hidden="true" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-[0.7rem] text-muted-foreground">/</kbd></label><div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
+<section class="${panel} mt-8" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
+<div class="kb-filter-bar md:sticky top-0 z-10 mt-8 border-b border-border bg-background/85 py-3 backdrop-blur"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-0 basis-full flex-1 md:basis-56"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd aria-hidden="true" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-xs text-muted-foreground">/</kbd></label><div class="flex min-w-0 flex-wrap gap-2" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
 ${catalog.groups.map((group) => groupSection(group, 'h2')).join('')}
 <div class="mt-12 grid gap-3 md:grid-cols-2">
-<section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">How to read priorities</h2><ul class="mt-3 space-y-2.5">${tiers}</ul></section>
-<section class="${card} p-5"><h2 class="text-base font-semibold tracking-tight">Readiness levels</h2><ul class="mt-3 space-y-2">${levels}</ul></section>
+<section class="${panel}"><h2 class="text-base font-semibold tracking-tight">How to read priorities</h2><ul class="mt-3 space-y-2.5">${tiers}</ul></section>
+<section class="${panel}"><h2 class="text-base font-semibold tracking-tight">Readiness levels</h2><ul class="mt-3 space-y-2">${levels}</ul></section>
 </div>
-<section class="${card} mt-3 p-5"><h2 class="text-base font-semibold tracking-tight">For agents</h2><p class="mt-2 text-sm leading-6 text-muted-foreground">Every page is also Markdown: append <code class="${codeInline}">.md</code> or send <code class="${codeInline}">Accept: text/markdown</code>. The whole knowledge base is in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/llms-full.txt">/llms-full.txt</a>, the index as data in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base.json">/knowledge-base.json</a>, and the MCP server at <code class="${codeInline}">/mcp</code> answers <code class="${codeInline}">explain_check</code>. Cite articles by their canonical URL.</p></section>
+<section class="${panel} mt-3"><h2 class="text-base font-semibold tracking-tight">For agents</h2><p class="mt-2 text-sm leading-6 text-muted-foreground">Every page is also Markdown: append <code class="${codeInline}">.md</code> or send <code class="${codeInline}">Accept: text/markdown</code>. The whole knowledge base is in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/llms-full.txt">/llms-full.txt</a>, the index as data in <a class="font-medium text-primary underline-offset-4 hover:underline" href="/knowledge-base.json">/knowledge-base.json</a>, and the MCP server at <code class="${codeInline}">/mcp</code> answers <code class="${codeInline}">explain_check</code>. Cite articles by their canonical URL.</p></section>
 ${scanCta()}
 ${jsonLd({
   '@context': 'https://schema.org',
@@ -312,7 +323,7 @@ ${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: gr
 <div class="mt-5">${journeyRail(group.id)}</div>
 
 <div class="mt-5">${checkStrip(undefined, group.id)}</div>
-<ul class="mt-6">${checks.map(checkRow).join('')}</ul>
+<ul class="kb-check-list mt-6">${checks.map(checkRow).join('')}</ul>
 <nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Other sections">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
 ${scanCta()}
 ${jsonLd({
@@ -359,11 +370,11 @@ ${jsonLd({
 
 function fixCard(check: CheckDefinition): string {
   const { fix } = check;
-  return `<section class="${card} mt-12 scroll-mt-6 border-primary/30 p-6" id="fix" aria-labelledby="fix-heading"><div class="flex items-center gap-2"><span class="grid size-7 place-items-center rounded-full bg-success/15 text-success">${icon('check', 'size-4')}</span><h2 id="fix-heading" class="text-xl font-semibold tracking-tight">The fix in one step</h2></div><p class="mt-3 leading-7 text-muted-foreground">${escapeHtml(fix.summary)}</p>${
+  return `<section class="${panel} mt-12 scroll-mt-6 border-primary/30" id="fix" aria-labelledby="fix-heading"><div class="flex items-center gap-2"><span class="grid size-7 shrink-0 place-items-center rounded-full bg-success/15 text-success">${icon('check', 'size-4')}</span><h2 id="fix-heading" class="text-xl font-semibold tracking-tight">The fix in one step</h2></div><p class="mt-3 leading-7 text-muted-foreground">${escapeHtml(fix.summary)}</p>${
     fix.snippet
-      ? `<pre class="mt-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-[0.82rem] leading-6" data-language="${escapeHtml(fix.snippet_language ?? 'text')}"><code>${escapeHtml(fix.snippet)}</code></pre>`
+      ? `<pre class="${codeBlock} mt-4" tabindex="0" aria-label="Code example" data-language="${escapeHtml(fix.snippet_language ?? 'text')}"><code>${escapeHtml(fix.snippet)}</code></pre>`
       : ''
-  }<details class="group mt-4 rounded-lg border border-border"><summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">Prompt for a coding agent${icon('chevron-down', 'size-4 transition-transform group-open:rotate-180')}</summary><p class="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">${escapeHtml(fix.agent_prompt)}</p></details></section>`;
+  }<details class="group mt-4 rounded-lg border border-border"><summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">Prompt for a coding agent${icon('chevron-down', 'size-4 transition-transform group-open:rotate-180')}</summary><p class="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">${escapeHtml(fix.agent_prompt)}</p></details></section>`;
 }
 
 /** /knowledge-base/<article-slug> */

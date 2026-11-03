@@ -26,7 +26,7 @@ export const SCAN_CONSOLE_STYLE = `
 @view-transition{navigation:auto}
 #sc-grid{view-transition-name:check-map}
 .sc-radar.sc-handoff{view-transition-name:level-badge}
-.sc-cell{display:grid;place-items:center;font:700 10px/1 ui-monospace,monospace;color:hsl(var(--background));width:16px;height:16px;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:background .25s,border-color .25s}
+.sc-cell{display:grid;place-items:center;font:700 10px/1 ui-monospace,monospace;color:hsl(var(--background));width:1rem;height:1rem;flex:none;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:background .25s,border-color .25s}
 .sc-cell[data-v]{animation:sc-pop .35s ease-out}
 .sc-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .sc-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}
@@ -78,10 +78,10 @@ export function scanConsoleMarkup(): string {
   const phases = PHASES.map(
     ([id, label]) => `<span class="sc-phase" data-phase="${id}">${escapeHtml(label)}</span>`,
   ).join('');
-  return `<section id="scan-console" class="${card} mt-6 hidden p-5 sm:p-6" aria-live="polite" aria-busy="true">
-<div class="flex items-center gap-4">
+  return `<section id="scan-console" class="${card} mt-6 hidden p-4 sm:p-6" aria-live="polite" aria-busy="true">
+<div class="scan-console-header flex flex-wrap items-center gap-4">
 <div class="sc-radar" aria-hidden="true"><div class="sc-sweep"></div><div id="sc-blips"></div></div>
-<div class="min-w-0 flex-1">
+<div class="min-w-0 flex-1 basis-40">
 <p class="text-sm text-muted-foreground" id="sc-status">Starting the scan</p>
 <h2 class="mt-0.5 truncate text-lg font-semibold tracking-tight" id="sc-host"></h2>
 <p class="mt-1 font-mono text-xs text-muted-foreground"><span id="sc-elapsed">0.0 s</span> · <span id="sc-requests">0</span> requests · <span id="sc-checks">0/${catalog.checks.length}</span> checks</p>
