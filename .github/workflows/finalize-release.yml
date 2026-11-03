@@ -64,6 +64,9 @@ jobs:
       - name: Verify versions match the branch
         run: node scripts/release/bump-version.mjs --verify "${{ steps.version.outputs.value }}"
 
+      - name: Install browser for layout tests
+        run: pnpm --filter @agentic-readiness/web exec playwright install --with-deps chromium
+
       - name: Full validation
         run: pnpm check
 
