@@ -17,6 +17,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:layout": "pnpm --filter @agentic-readiness/web test:layout",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "format": "prettier . --write",
@@ -25,7 +26,7 @@
     "check:catalog": "pnpm --filter @agentic-readiness/catalog validate",
     "check:docs": "bash scripts/ci/check-docs-parity.sh",
     "check:repo": "bash scripts/ci/check-forbidden-files.sh && bash scripts/ci/check-action-pins.sh && node scripts/ci/check-markdown-links.mjs",
-    "check": "pnpm check:repo && pnpm format:check && pnpm lint:md && pnpm build && pnpm lint && pnpm type-check && pnpm test && pnpm check:catalog && pnpm check:docs",
+    "check": "pnpm check:repo && pnpm format:check && pnpm lint:md && pnpm build && pnpm lint && pnpm type-check && pnpm test && pnpm test:layout && pnpm check:catalog && pnpm check:docs",
     "docs:generate": "pnpm --filter @agentic-readiness/catalog docs",
     "dev": "pnpm --filter @agentic-readiness/web dev",
     "scan": "node packages/cli/bin/agentic-readiness.js scan",

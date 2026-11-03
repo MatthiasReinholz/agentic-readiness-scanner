@@ -26,7 +26,7 @@ Hero text stays transparent over the network. Preserve contrast with the network
 
 The scan console and report keep the `check-map` and `level-badge` view-transition names and the path-scoped `ars-arrived` handoff. A shared link or reload does not replay the arrival. Verdict maps use symbols as well as colour and report cells have 24px targets; skipped cells remain dashed. Do not replace real progress with decorative particles or delay the report to finish an ambient animation.
 
-For UI changes, run `pnpm check` and review rendered home, scanning, report, knowledge index/section/article, history, monitoring and error pages in both themes. Include 320px widths, long URLs, keyboard focus, reduced motion, cached scans, direct report links and a standalone report opened without hosted assets. Rebuild after changing templates or CSS before inspecting the development server.
+For UI changes, run `pnpm check` (which includes `pnpm test:layout`, the browser suite that automates the audit's invariants) and review rendered home, scanning, report, knowledge index/section/article, history, monitoring and error pages in both themes. Include 320px widths, long URLs, keyboard focus, reduced motion, cached scans, direct report links and a standalone report opened without hosted assets. Rebuild after changing templates or CSS before inspecting the development server.
 
 ## How the build works
 

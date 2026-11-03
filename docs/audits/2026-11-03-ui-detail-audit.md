@@ -96,3 +96,7 @@ These checks exercise the current embedded browser and representative content;
 they are evidence of the audited layouts, rather than a claim about every possible
 browser, translation or future content string. No dependencies or scanning rules
 were changed for this visual audit.
+
+## Follow-up
+
+The invariants above (page-level overflow, atomic identifiers, 44px controls, the shared shell, the scan handoff and reduced motion) are automated in `apps/web/e2e` and run in CI as `pnpm test:layout`, at five widths in both themes and at 200% text.
