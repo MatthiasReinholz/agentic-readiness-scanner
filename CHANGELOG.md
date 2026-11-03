@@ -30,6 +30,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - UI consistency across page types: catalog IDs and badges stay on one line, forms adapt to their actual available width, tablet score cards balance, and panels, text, controls and code examples share consistent sizing. Narrow and enlarged-text layouts reflow result/knowledge rows and level summaries; hover/focus no longer overlaps map cells or gets held by completed arrival animations. Monitoring dialogs keep their close action and fields usable, and wide examples/tables have keyboard-accessible scroll regions.
 
+- Patched the build-only social-image dependency `fflate` from 0.7.3 to 0.7.5 through a narrow override, resolving GHSA-px8p-9vwx-vf98 while preserving generated image output.
+
 - The homepage headline no longer paints a purple rectangle over the animated network. A shared feathered network mask and lower intensity on narrow screens preserve text contrast without covering the decoration; compact hero metadata and level descriptions retain readable line lengths.
 
 ## [0.9.0] - 2026-11-02
