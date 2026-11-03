@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-03
+
 ### Added
 
 - **A data processing and privacy page** at `/data-processing` (also `.md`; `/privacy` redirects there), linked from every page's footer. A short version with the most important facts comes first: public pages only, an honest user agent and robots.txt, the request budget and scan limit, public profiles for root URLs and their retention, unsaved one-time scans, no cookies or tracking, and email only for monitoring. The details follow: what a scan fetches, every stored record with what it holds and how long it is kept, browser storage, hosting, options for store owners, and rights under the GDPR. Numbers come from the configuration, and the monitoring section appears only when monitoring is on. The home page links to it in place of the scan policy paragraph.
