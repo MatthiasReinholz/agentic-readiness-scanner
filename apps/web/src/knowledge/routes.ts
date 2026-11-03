@@ -65,6 +65,7 @@ export function knowledgeIndexLines(config: AppConfig): string {
 function sitemapXml(config: AppConfig): string {
   const urls = [
     '/',
+    '/data-processing',
     '/knowledge-base',
     ...catalog.groups.map((group) => `/knowledge-base/${groupSlug(group)}`),
     LEGAL_HUB_PATH,

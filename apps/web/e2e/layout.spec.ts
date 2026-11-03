@@ -9,6 +9,7 @@ import { expectSoundLayout, THEMES, useTheme, watchErrors, WIDTHS } from './layo
  */
 const ROUTES = [
   '/',
+  '/data-processing',
   '/knowledge-base',
   '/knowledge-base/discoverability',
   '/knowledge-base/robots-txt-exists-and-parses',
