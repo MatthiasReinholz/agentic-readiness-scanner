@@ -91,8 +91,9 @@ function jobStatusJson(config: AppConfig, outcome: ScanOutcome): Record<string, 
 function waitingPage(config: AppConfig, outcome: PendingOutcome) {
   const { job } = outcome;
   // The page drives the scan while it is open; without JavaScript it reloads and the
-  // app and the sweeper cron advance the scan in between.
-  const script = `(function(){var id=${JSON.stringify(job.id)};function go(){fetch('/api/scan/jobs/'+id+'/continue',{method:'POST',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(j.status==='running'){var el=document.getElementById('job-progress');if(el)el.textContent=j.decided+' of '+j.total+' checks decided';setTimeout(go,j.busy?3000:300)}else location.reload()}).catch(function(){setTimeout(go,3000)})}go()})();`;
+  // app and the sweeper cron advance the scan in between. The script is constant: it
+  // reads the job id from its own URL.
+  const script = `(function(){var id=location.pathname.split('/').pop();function go(){fetch('/api/scan/jobs/'+id+'/continue',{method:'POST',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(j.status==='running'){var el=document.getElementById('job-progress');if(el)el.textContent=j.decided+' of '+j.total+' checks decided';setTimeout(go,j.busy?3000:300)}else location.reload()}).catch(function(){setTimeout(go,3000)})}go()})();`;
   return page(
     config,
     {
