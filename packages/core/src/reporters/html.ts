@@ -1,6 +1,9 @@
 import {
   composeAgentPrompt,
   getCheck,
+  PLATFORM_LABEL,
+  platformLabel,
+  requiredPlatform,
   type CheckResult,
   type ScanResult,
 } from '@agentic-readiness/catalog';
@@ -40,8 +43,8 @@ import {
   escapeHtml,
   failedResults,
   groupResults,
-  leftOutSentence,
   nextGateSentence,
+  platformResults,
   scopeLines,
   scoreText,
   type GroupedResults,
@@ -141,6 +144,31 @@ function promptFor(result: ScanResult, item: CheckResult, reportUrl?: string): s
   });
 }
 
+/** A tag on a check that ran because of the recognised platform, naming that platform. */
+function platformBadge(item: CheckResult): string {
+  const definition = getCheck(item.id);
+  const platform = definition ? requiredPlatform(definition) : null;
+  return platform
+    ? ` <span class="${badge({ variant: 'outline', class: 'ml-1 max-w-full shrink !whitespace-normal align-middle' })}" data-platform-check>${escapeHtml(PLATFORM_LABEL[platform])}</span>`
+    : '';
+}
+
+/**
+ * The recognised platform, shown under the site's name, with links to the checks that
+ * ran because of it. Checks for other platforms are never mentioned.
+ */
+function platformHero(result: ScanResult): string {
+  const label = platformLabel(result.target.platform);
+  const name = result.target.platform === 'woocommerce' ? 'WooCommerce on WordPress' : label;
+  const checks = platformResults(result);
+  const detail = !label
+    ? 'Only the checks that apply to any site ran.'
+    : checks.length === 0
+      ? 'The checks that apply to any site ran.'
+      : `${String(checks.length)} platform-specific check${checks.length === 1 ? '' : 's'} included: ${checks.map((item) => `<a href="#${escapeHtml(item.id)}">${escapeHtml(item.id)}</a>`).join(', ')}.`;
+  return `<div class="hero-platform" data-platform="${escapeHtml(result.target.platform)}"><span class="hero-platform-chip"><span class="hero-platform-label">Platform</span><strong>${escapeHtml(name ?? 'Not recognised')}</strong></span><span class="hero-platform-detail">${detail}</span></div>`;
+}
+
 function renderCheck(result: ScanResult, item: CheckResult, options: HtmlReportOptions): string {
   const skip =
     item.verdict === 'skip' && item.skip_reason
@@ -160,7 +188,7 @@ function renderCheck(result: ScanResult, item: CheckResult, options: HtmlReportO
         }<div class="flex flex-wrap items-center gap-2"><span class="text-sm text-muted-foreground">Brief for a coding agent</span>${copyButton(promptId, 'Copy brief')}</div><textarea class="${textarea}" id="${promptId}" readonly aria-label="Brief for a coding agent">${escapeHtml(prompt)}</textarea></div></details>`
       : '';
   const evidence = `<details class="group/fix mt-2"><summary class="${DISCLOSURE_SUMMARY_CLASS}">${disclosureChevron('fix')}Evidence</summary><pre class="${codeBlock} mt-2.5" tabindex="0" aria-label="Check evidence"><code>${escapeHtml(JSON.stringify(item.evidence, null, 2))}</code></pre></details>`;
-  return `<li class="result-row px-4 py-4 sm:px-5" id="${escapeHtml(item.id)}"><div class="result-verdict">${VERDICT_BADGE[item.verdict]}</div><div class="min-w-0"><div class="font-semibold"><code class="${codeInline} ${identifier} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}${skip}</div>${item.message ? `<div class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(item.message)}</div>` : ''}${fix}${evidence}</div><div class="result-weight whitespace-nowrap text-xs leading-5 text-muted-foreground">weight ${item.weight === 'info' ? 'info' : String(item.weight)}</div></li>`;
+  return `<li class="result-row px-4 py-4 sm:px-5" id="${escapeHtml(item.id)}"><div class="result-verdict">${VERDICT_BADGE[item.verdict]}</div><div class="min-w-0"><div class="font-semibold"><code class="${codeInline} ${identifier} mr-1.5">${escapeHtml(item.id)}</code>${escapeHtml(item.title)}${skip}${platformBadge(item)}</div>${item.message ? `<div class="mt-1 text-sm leading-6 text-muted-foreground">${escapeHtml(item.message)}</div>` : ''}${fix}${evidence}</div><div class="result-weight whitespace-nowrap text-xs leading-5 text-muted-foreground">weight ${item.weight === 'info' ? 'info' : String(item.weight)}</div></li>`;
 }
 
 const TIER_BADGE: Record<Tier, string> = {
@@ -281,7 +309,6 @@ function renderGroup(
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
   const counts = countVerdicts(result);
-  const leftOut = leftOutSentence(result);
   const priorities = prioritize(result);
   const openCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
     .filter((tier) => priorities.counts[tier] > 0)
@@ -301,7 +328,7 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(options.displayUrl ?? result.target.url)}</h1><p class="hero-meta">Platform ${escapeHtml(result.target.platform)} · profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(options.displayUrl ?? result.target.url)}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">
@@ -312,7 +339,7 @@ ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?', ceilingSentence(result, 'ingestion'))}
 ${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?', ceilingSentence(result, 'commerce'))}
-<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div>${leftOut ? `<div class="mt-1 text-sm text-muted-foreground" data-left-out>${escapeHtml(leftOut)}</div>` : ''}</div>
+<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A commerce score above 60 needs a checkout an agent can use to be advertised. It never means a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}

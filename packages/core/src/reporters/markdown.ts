@@ -1,6 +1,9 @@
 import {
   AGENT_WORKING_RULES,
   getCheck,
+  PLATFORM_LABEL,
+  platformLabel,
+  requiredPlatform,
   type CheckResult,
   type ScanResult,
 } from '@agentic-readiness/catalog';
@@ -11,7 +14,7 @@ import {
   ceilingSentence,
   countVerdicts,
   groupResults,
-  leftOutSentence,
+  platformSentence,
   nextGateSentence,
   scopeLines,
   scoreText,
@@ -65,7 +68,14 @@ function verdictLine(item: CheckResult): string {
   const detail = item.message ? ` — ${item.message}` : '';
   const skip =
     item.verdict === 'skip' && item.skip_reason ? ` (${item.skip_reason.replace(/_/g, ' ')})` : '';
-  return `- **${verdictSymbol(item.verdict)}** ${item.id} ${item.title}${skip}${detail}`;
+  return `- **${verdictSymbol(item.verdict)}** ${item.id} ${item.title}${platformTag(item)}${skip}${detail}`;
+}
+
+/** " [Shopify]" on a check that ran because of the recognised platform. */
+function platformTag(item: CheckResult): string {
+  const definition = getCheck(item.id);
+  const platform = definition ? requiredPlatform(definition) : null;
+  return platform ? ` [${PLATFORM_LABEL[platform]}]` : '';
 }
 
 function fixSection(priority: Priority): string[] {
@@ -126,6 +136,8 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   ];
   lines.push(`# Agentic readiness report for ${result.target.url}`);
   lines.push('');
+  lines.push(`**Platform:** ${platformSentence(result)}`);
+  lines.push('');
   lines.push(`**Level ${result.level.value}: ${result.level.name}.** ${nextGateSentence(result)}`);
   lines.push('');
   for (const [label, dimension] of [
@@ -139,10 +151,7 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     const score = dimensionScore(result.scores, dimension);
     if (score.state === 'incomplete') lines.push(`- ${incompleteScoreSentence(score)}`);
   }
-  const leftOut = leftOutSentence(result);
-  lines.push(
-    `- Platform: ${result.target.platform}, profile: ${result.target.profile}${leftOut ? `. ${leftOut}` : ''}`,
-  );
+  lines.push(`- Profile: ${result.target.profile}`);
   lines.push(
     `- Checks: ${[`${counts.pass} pass`, `${counts.warn} warn`, `${counts.fail} fail`, ...skipPhrases(result)].join(' · ')}`,
   );
@@ -227,7 +236,7 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     lines.push('## Working rules for coding agents');
     lines.push('');
     lines.push(
-      `These findings come from the Agentic Readiness Scanner (https://github.com/MatthiasReinholz/agentic-readiness-scanner), an open-source tool that checks whether AI shopping agents and crawlers can find, read, trust and buy from a web store using public signals only. A scan of ${result.target.url} on ${result.scanned_at.slice(0, 10)}${result.target.platform === 'unknown' ? '' : ` (detected platform: ${result.target.platform})`} produced them.${options.reportUrl ? ` Full report: ${options.reportUrl}` : ''}`,
+      `These findings come from the Agentic Readiness Scanner (https://github.com/MatthiasReinholz/agentic-readiness-scanner), an open-source tool that checks whether AI shopping agents and crawlers can find, read, trust and buy from a web store using public signals only. A scan of ${result.target.url} on ${result.scanned_at.slice(0, 10)}${platformLabel(result.target.platform) ? ` (detected platform: ${platformLabel(result.target.platform) ?? ''})` : ''} produced them.${options.reportUrl ? ` Full report: ${options.reportUrl}` : ''}`,
     );
     lines.push('');
     AGENT_WORKING_RULES.forEach((rule, index) => lines.push(`${index + 1}. ${rule}`));

@@ -67,7 +67,7 @@
     "group": "A4",
     "title": "MCP endpoint reachable",
     "question": "Does the advertised MCP endpoint answer like an MCP server?",
-    "method": "POST a JSON-RPC server/discover request (the read-only method the 2026-07-28 specification makes mandatory) to the endpoint from the server card, with the 2026-07-28 headers. Pass when the answer is a JSON-RPC message, whatever the status: a result, or the errors the Streamable HTTP transport prescribes (404 with -32601 from an older server that does not implement server/discover, 400 with -32020 on a header mismatch), or an event stream, or 401 with a WWW-Authenticate header (an authorized server). Fail on a 404 or other error without a JSON-RPC body, on 5xx, on 405, or on an HTML page. A 429, a gateway error or no response is inconclusive and skipped. This is the only request the scanner sends with a body; it creates nothing on the server.",
+    "method": "POST a JSON-RPC server/discover request (the read-only method the 2026-07-28 specification makes mandatory) to the endpoint from the server card, with the 2026-07-28 headers. Pass when the answer is a JSON-RPC message, whatever the status: a result, or the errors the Streamable HTTP transport prescribes (404 with -32601 from an older server that does not implement server/discover, 400 with -32020 on a header mismatch), or an event stream, or 401 with a WWW-Authenticate header (an authorized server). Fail on a 404 or other error without a JSON-RPC body, on 5xx, on 405, or on an HTML page. A 429, a gateway error or no response is inconclusive and skipped. This is the only request the scanner sends with a body; it creates nothing on the server. A server on the 2025 session transport that refuses server/discover with a plain HTTP 400 gets the initialize handshake once instead.",
     "weight": 1,
     "depends_on": ["A4.1"],
     "spec": [
@@ -114,6 +114,59 @@
       {
         "title": "OpenAI: Using site tools in the ChatGPT desktop app",
         "url": "https://help.openai.com/en/articles/20001423-using-site-tools-in-the-chatgpt-desktop-app"
+      }
+    ]
+  },
+  {
+    "id": "A4.7",
+    "group": "A4",
+    "title": "WordPress REST API readable",
+    "question": "Can an agent read the WordPress site's content through its REST API without signing in?",
+    "method": "On a WordPress site (WooCommerce included), take the REST API root the page advertises with the api.w.org link relation (in the head or the Link header, else /wp-json/) and GET wp/v2/pages?per_page=1. Pass on 200 with a JSON array; fail on 401 or 403 (a security plugin or filter refuses anonymous reads, typically rest_not_logged_in), on 404 or on a non-JSON answer. Warn when robots.txt keeps the scanner from asking; skipped on 429 or a gateway error. WordPress advises against disabling the API, and the WooCommerce Store API runs on it.",
+    "weight": 1,
+    "requires": ["wordpress"],
+    "spec": [
+      {
+        "title": "WordPress REST API Handbook: Discovery",
+        "url": "https://developer.wordpress.org/rest-api/using-the-rest-api/discovery/"
+      },
+      {
+        "title": "WordPress REST API Handbook: Frequently asked questions",
+        "url": "https://developer.wordpress.org/rest-api/frequently-asked-questions/"
+      }
+    ]
+  },
+  {
+    "id": "A4.8",
+    "group": "A4",
+    "title": "Wix site MCP server answers",
+    "question": "Does the MCP server Wix runs for every site answer agents?",
+    "method": "On a Wix site, send the read-only JSON-RPC server/discover POST to /_api/mcp, where Wix documents an MCP server for every site that needs no authentication and that the generated llms.txt links. Pass on a JSON-RPC answer or an authorization challenge; fail when nothing answers; warn when robots.txt keeps the scanner from asking; skipped when the request fails. A server on the 2025 session transport that refuses server/discover with a plain HTTP 400 gets the initialize handshake once instead.",
+    "weight": 1,
+    "requires": ["wix"],
+    "spec": [
+      {
+        "title": "Wix Developers: About the Wix site MCP",
+        "url": "https://dev.wix.com/docs/develop-websites/articles/get-started/ai-agents/about-the-wix-site-mcp"
+      },
+      {
+        "title": "Model Context Protocol: Transports",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28/basic/transports"
+      }
+    ]
+  },
+  {
+    "id": "A4.9",
+    "group": "A4",
+    "title": "Shopware agentic files",
+    "question": "Has the Shopware sales channel published its agentic files?",
+    "method": "On a Shopware store, GET /.well-known/ai-catalog.json, one of the three agentic files (with /llms.txt and /agents.md) that Shopware 6.7.12 and later publishes when they are switched on for the sales channel. Pass on 200 with a JSON object; warn on 404 (the files are off, or the shop runs an older version) or a non-JSON answer, and when robots.txt keeps the scanner from asking; skipped on 429 or a gateway error.",
+    "weight": 1,
+    "requires": ["shopware"],
+    "spec": [
+      {
+        "title": "Shopware developer documentation: Agentic files",
+        "url": "https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/agentic-files.html"
       }
     ]
   }

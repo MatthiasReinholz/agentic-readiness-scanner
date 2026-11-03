@@ -133,5 +133,29 @@
         "url": "https://help.shopify.com/en/manual/online-sales-channels/agentic-storefronts"
       }
     ]
+  },
+  {
+    "id": "B1.9",
+    "group": "B1",
+    "title": "Adobe Commerce catalog over GraphQL",
+    "question": "Can an agent query the Magento catalog over GraphQL without a token?",
+    "method": "On an Adobe Commerce or Magento Open Source store, send one read-only catalog query to /graphql with GET, as Adobe documents for queries (products with search \"a\", one item, name, SKU and URL key). Pass on 200 with data.products.items; warn when the answer carries GraphQL errors or when robots.txt keeps the scanner from asking; fail on 401, 403, 404 or an HTML page (a firewall rule or redirect in front of /graphql); skipped on 429 or a gateway error. Anonymous REST access stays off by default and is not tested.",
+    "weight": 2,
+    "requires": ["magento"],
+    "depends_on": ["B1.1"],
+    "spec": [
+      {
+        "title": "Adobe Commerce GraphQL: Request headers and GET requests",
+        "url": "https://developer.adobe.com/commerce/webapi/graphql/usage/headers/"
+      },
+      {
+        "title": "Adobe Commerce GraphQL: Caching",
+        "url": "https://developer.adobe.com/commerce/webapi/graphql/usage/caching/"
+      },
+      {
+        "title": "Adobe Commerce GraphQL: products query",
+        "url": "https://developer.adobe.com/commerce/webapi/graphql/schema/products/queries/products/"
+      }
+    ]
   }
 ]

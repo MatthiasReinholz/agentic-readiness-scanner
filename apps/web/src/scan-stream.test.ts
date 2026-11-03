@@ -2,6 +2,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Script } from 'node:vm';
 
+import { catalog } from '@agentic-readiness/catalog';
 import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -75,12 +76,14 @@ describe('streamed scan', () => {
     expect(
       progress.filter((item) => item.data.type === 'phase').map((item) => item.data.phase),
     ).toEqual(['home', 'robots', 'sitemap', 'sample']);
-    expect(progress.filter((item) => item.data.type === 'check')).toHaveLength(64);
+    expect(progress.filter((item) => item.data.type === 'check')).toHaveLength(
+      catalog.checks.length,
+    );
     const done = events.at(-1);
     expect(done?.event).toBe('done');
     expect(done?.data).toMatchObject({ reused: false, level: { value: 5 } });
     expect(done?.data.report_url).toBe('/sites/ceramics.example');
-    expect(done?.data.results).toHaveLength(64);
+    expect(done?.data.results).toHaveLength(catalog.checks.length);
     expect(await store.latestForHost('ceramics.example')).not.toBeNull();
 
     // Inside the cooldown the stored result answers at once, ready to replay.
@@ -122,7 +125,7 @@ describe('streamed scan', () => {
     expect(html).toContain('id="scan-console"');
     expect(html).toContain('Built WooCommerce first. Works on any store.');
     expect(html).not.toContain('data-motion-toggle');
-    expect(html.match(/class="sc-cell"/g)).toHaveLength(64);
+    expect(html.match(/class="sc-cell"/g)).toHaveLength(catalog.checks.length);
     // Compiles without running: a syntax error in the inline script would break the page.
     expect(() => new Script(SCAN_CONSOLE_SCRIPT)).not.toThrow();
     // The form still posts without JavaScript.
@@ -149,7 +152,9 @@ describe('polled progress', () => {
       final: { event: string; data: { level: { value: number } } } | null;
     };
     expect(all.events.map((event) => event.seq)).toEqual(all.events.map((_, index) => index + 1));
-    expect(all.events.filter((event) => event.type === 'check')).toHaveLength(64);
+    expect(all.events.filter((event) => event.type === 'check')).toHaveLength(
+      catalog.checks.length,
+    );
     expect(all.final).toMatchObject({ event: 'done', data: { level: { value: 5 } } });
     const later = (await (await app.request(`/api/scan/progress/${token}?after=60`)).json()) as {
       events: { seq: number }[];

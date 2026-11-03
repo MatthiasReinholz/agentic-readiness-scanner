@@ -42,6 +42,8 @@ export interface Target {
   origin: string;
   hostname: string;
   platform: Platform;
+  /** The fingerprint that recognised the platform, e.g. "x-bc-store-id header". */
+  platformSignal?: string;
   profile: Profile;
   home: FetchedResponse;
   homeDoc: HtmlDocument;

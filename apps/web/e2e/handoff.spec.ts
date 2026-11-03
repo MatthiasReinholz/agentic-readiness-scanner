@@ -1,4 +1,4 @@
-import { catalog, requiredPlatform } from '@agentic-readiness/catalog';
+import { catalog, platformMatches, requiredPlatform } from '@agentic-readiness/catalog';
 import { expect, test, type Page } from '@playwright/test';
 
 import { LIVE_SCAN_HOST, SEEDED_HOST, STEPPED_SCAN_HOST } from './hosts.js';
@@ -9,8 +9,11 @@ import { watchErrors } from './layout.js';
  * view-transition names, the console leaves a path-scoped arrival marker, and the report
  * plays its completion once. A reload, a shared link or reduced motion never replays it.
  */
-/** The recorded blog runs no store platform, so the report leaves out every platform-bound check. */
-const BLOG_CHECKS = catalog.checks.filter((check) => requiredPlatform(check) === null).length;
+/** The recorded blog runs WordPress, so the report keeps the WordPress checks and drops every other platform's. */
+const BLOG_CHECKS = catalog.checks.filter((check) => {
+  const platform = requiredPlatform(check);
+  return platform === null || platformMatches(platform, 'wordpress');
+}).length;
 
 async function transitionName(page: Page, selector: string): Promise<string> {
   return page

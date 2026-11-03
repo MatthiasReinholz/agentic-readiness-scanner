@@ -11,7 +11,12 @@
  * Without JavaScript the form posts
  * to /scan as before, and a dropped stream falls back to that path too.
  */
-import { catalog, requiredPlatform } from '@agentic-readiness/catalog';
+import {
+  catalog,
+  PLATFORM_LABEL,
+  platformsMatching,
+  requiredPlatform,
+} from '@agentic-readiness/catalog';
 import { escapeHtml } from '@agentic-readiness/core';
 import { card } from '@agentic-readiness/ui';
 
@@ -71,7 +76,7 @@ export function scanConsoleMarkup(): string {
         .filter((check) => check.group === group.id)
         .map((check) => {
           const platform = requiredPlatform(check);
-          return `<span class="sc-cell" data-id="${escapeHtml(check.id)}"${platform ? ` data-platform="${platform}"` : ''} title="${escapeHtml(`${check.id} ${check.title}`)}"></span>`;
+          return `<span class="sc-cell" data-id="${escapeHtml(check.id)}"${platform ? ` data-platforms="${platformsMatching(platform).join(' ')}"` : ''} title="${escapeHtml(`${check.id} ${check.title}`)}"></span>`;
         })
         .join('');
       return `<div class="flex items-center gap-2"><span class="w-7 shrink-0 font-mono text-xs text-muted-foreground" title="${escapeHtml(group.title)}">${escapeHtml(group.id)}</span><span class="flex flex-wrap gap-1">${cells}</span></div>`;
@@ -130,7 +135,7 @@ function cell(id,v){var el=box.querySelector('.sc-cell[data-id="'+id+'"]');if(el
 var TAG={pass:['PASS','sc-pass'],warn:['WARN','sc-warn'],fail:['FAIL','sc-fail'],skip:['SKIP','sc-skip']};
 function onProgress(e){$('sc-requests').textContent=e.requests+'/'+e.budget;
 if(e.type==='phase'){var r=PH[e.phase];if(r){target(r[0],r[1]);shown=Math.max(shown,r[0])}log([[e.detail,'']]);var order=['home','robots','sitemap','sample','checks'];setPhase(order[order.indexOf(e.phase)+1]||'checks')}
-else if(e.type==='target'){total=e.checks;box.querySelectorAll('.sc-cell[data-platform]').forEach(function(c){if(c.getAttribute('data-platform')!==e.platform)c.style.display='none'});setPhase('checks');$('sc-status').textContent='Running '+e.checks+' checks'+(e.platform==='unknown'?'':' on a '+e.platform+' store')+' · profile '+e.profile.replace(/-/g,' ');target(20,24);log([['target ','sc-t'],[e.origin+' · '+e.products+' product page(s) · '+e.policies+' policy page(s)','']])}
+else if(e.type==='target'){total=e.checks;box.querySelectorAll('.sc-cell[data-platforms]').forEach(function(c){if(c.getAttribute('data-platforms').split(' ').indexOf(e.platform)<0)c.style.display='none'});setPhase('checks');$('sc-status').textContent='Running '+e.checks+' checks'+(e.platform==='unknown'?'':' on '+(${JSON.stringify(PLATFORM_LABEL)}[e.platform]||e.platform))+' · profile '+e.profile.replace(/-/g,' ');target(20,24);log([['target ','sc-t'],[e.origin+' · '+e.products+' product page(s) · '+e.policies+' policy page(s)','']])}
 else if(e.type==='check'){checks=e.index;$('sc-checks').textContent=e.index+'/'+e.total;cell(e.id,e.verdict);if(e.verdict!=='skip'||Math.random()<0.4)blip(e.verdict);var pr=20+80*e.index/e.total;target(pr,Math.min(99,pr+80/e.total));shown=Math.max(shown,pr);var t=TAG[e.verdict]||TAG.skip;var parts=[[t[0]+' ',t[1]],[e.id+' ','sc-t'],[e.title,'']];if((e.verdict==='fail'||e.verdict==='warn')&&e.message)parts.push([' — '+e.message,'sc-t']);log(parts)}}
 function finish(d){done=true;clearTimeout(pollTimer);box.setAttribute('aria-busy','false');clearInterval(quipTimer);var replay=d.reused?d.results.filter(function(r){var el=box.querySelector('.sc-cell[data-id="'+r.id+'"]');return el&&!el.getAttribute('data-v')}):[];var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var step=reduce?0:Math.max(8,Math.min(30,900/Math.max(1,replay.length)));

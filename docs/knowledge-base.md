@@ -100,6 +100,11 @@ No raw HTML, no images, no nested lists, no headings below `###`.
 | A2.5  | user-triggered-fetchers-allowed         |
 | A2.6  | no-directives-blocking-ai-answers       |
 | A2.7  | render-resources-not-blocked            |
+| A2.8  | wordpress-search-engine-visibility      |
+| A2.9  | squarespace-ai-crawler-setting          |
+| A2.10 | webflow-traffic-control                 |
+| A2.11 | square-online-search-visibility         |
+| A2.12 | salesforce-robots-txt-staging-preset    |
 | A3.1  | markdown-copy-of-product-pages          |
 | A3.2  | server-rendered-product-content         |
 | A3.3  | page-weight-crawler-limits              |
@@ -111,12 +116,17 @@ No raw HTML, no images, no nested lists, no headings below `###`.
 | A3.9  | conditional-requests                    |
 | A3.10 | mobile-viewport                         |
 | A3.11 | well-formed-document-head               |
+| A3.12 | prestashop-friendly-urls                |
+| A3.13 | ecwid-clean-store-urls                  |
 | A4.1  | mcp-server-discovery                    |
 | A4.2  | api-catalog                             |
 | A4.3  | oauth-discovery-for-mcp                 |
 | A4.4  | mcp-endpoint-reachable                  |
 | A4.5  | a2a-agent-card                          |
 | A4.6  | webmcp-tool-declarations                |
+| A4.7  | wordpress-rest-api-readable             |
+| A4.8  | wix-site-mcp-server                     |
+| A4.9  | shopware-agentic-files                  |
 | B1.1  | ecommerce-platform-detection            |
 | B1.2  | store-api-reachable                     |
 | B1.3  | store-api-rate-limits                   |
@@ -125,6 +135,7 @@ No raw HTML, no images, no nested lists, no headings below `###`.
 | B1.6  | product-feed-freshness                  |
 | B1.7  | sitemap-matches-store-api               |
 | B1.8  | shopify-products-json                   |
+| B1.9  | adobe-commerce-graphql-catalog          |
 | B2.1  | product-json-ld                         |
 | B2.2  | offer-price-currency-availability       |
 | B2.3  | product-variants-markup                 |
@@ -149,3 +160,4 @@ No raw HTML, no images, no nested lists, no headings below `###`.
 | B5.4  | acp-feed-fields                         |
 | B5.7  | guest-checkout-and-cart-api             |
 | B5.8  | shopify-agentic-storefront              |
+| B5.9  | bigcommerce-storefront-mcp              |

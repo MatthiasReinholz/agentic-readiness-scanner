@@ -1,3 +1,5 @@
+import { platformLabel } from '@agentic-readiness/catalog';
+
 import { contentType, type FetchedResponse, type Fetcher } from '../../http/types.js';
 import { looksLikeProductSitemap } from '../../parsers/sitemap.js';
 import { type StoreApiProduct, storeApiProducts, storeApiUrl } from '../shared.js';
@@ -15,16 +17,17 @@ import type { Target } from '../../target/types.js';
 export const woocommerceDetected = defineCheck('B1.1', ({ target }) => {
   const evidence = {
     platform: target.platform,
+    signal: target.platformSignal ?? null,
     generator: target.homeDoc.meta('generator'),
-    body_classes: target.homeDoc.bodyClasses().filter((c) => /woocommerce|shopify/i.test(c)),
   };
-  const names: Record<string, string> = {
-    woocommerce: 'WooCommerce detected',
-    shopify: 'Shopify detected',
-    wordpress: 'WordPress detected without WooCommerce',
-    unknown: 'no known platform detected',
-  };
-  return pass(names[target.platform] ?? `platform: ${target.platform}`, evidence);
+  const label = platformLabel(target.platform);
+  if (!label) return pass('no known platform detected', evidence);
+  return pass(
+    target.platform === 'wordpress'
+      ? 'WordPress detected without WooCommerce'
+      : `${label} detected`,
+    evidence,
+  );
 });
 
 export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher }) => {

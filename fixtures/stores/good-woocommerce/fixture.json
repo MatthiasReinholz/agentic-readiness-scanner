@@ -313,6 +313,13 @@
         "content-type": "text/html; charset=utf-8"
       },
       "body_file": "category-mugs.html"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wp/v2/pages?per_page=1&_fields=id%2Clink",
+      "headers": {
+        "content-type": "application/json; charset=UTF-8"
+      },
+      "body_file": "wp-pages.json"
     }
   ]
 }

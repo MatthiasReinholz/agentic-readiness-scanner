@@ -11,7 +11,7 @@ import { renderBadge } from './badge.js';
 import { renderHtml } from './html.js';
 import { scoreTone, THEME_STORAGE_KEY } from './html-theme.js';
 import { renderMarkdown } from './markdown.js';
-import { ceilingSentence, escapeHtml, shownResults } from './shared.js';
+import { ceilingSentence, escapeHtml, platformResults, shownResults } from './shared.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'fixtures', 'stores', name);
@@ -124,7 +124,7 @@ describe('check map', () => {
 });
 
 describe('platform-bound checks', () => {
-  it('leaves the checks of other platforms out of the HTML and Markdown reports', async () => {
+  it('names the platform at the top, lists its checks and never mentions other platforms', async () => {
     const woo = await scan('https://ceramics.example/', {
       fetcher: fixtureFetcher(fixture('good-woocommerce')),
     });
@@ -135,24 +135,40 @@ describe('platform-bound checks', () => {
     });
     const html = renderHtml(woo);
     const markdown = renderMarkdown(woo);
+    const platformIds = platformResults(woo).map((item) => item.id);
+    // WooCommerce runs on WordPress, so the WordPress checks run too.
+    expect(platformIds).toEqual(expect.arrayContaining(['B1.2', 'B5.7', 'A2.8', 'A4.7']));
+    expect(html).toContain('data-platform="woocommerce"');
+    expect(html).toContain('<strong>WooCommerce on WordPress</strong>');
+    expect(html).toContain('<a href="#B1.2">B1.2</a>');
+    expect(html).toContain('data-platform-check>WooCommerce</span>');
+    expect(markdown).toContain('**Platform:** WooCommerce on WordPress.');
+    expect(markdown).toContain('B1.2 Store API reachable [WooCommerce]');
     for (const report of [html, markdown]) {
       expect(report).not.toContain('Shopify agentic storefront active');
       expect(report).not.toContain('Shopify products.json readable');
-      expect(report).toContain(
-        '2 Shopify check(s) left out, because the scan detected WooCommerce.',
-      );
+      expect(report).not.toContain('Magento');
+      expect(report).not.toContain('left out');
     }
-    expect(html).toContain('id="B1.2"');
 
     const shopify = await scan('https://boots.example/', {
       fetcher: fixtureFetcher(fixture('shopify-store')),
     });
     const shopifyHtml = renderHtml(shopify);
     expect(shopifyHtml).not.toContain('id="B1.2"');
+    expect(shopifyHtml).not.toContain('id="A4.7"');
     expect(shopifyHtml).toContain('id="B5.8"');
-    expect(shopifyHtml).toContain(
-      '5 WooCommerce check(s) left out, because the scan detected Shopify.',
-    );
+    expect(shopifyHtml).toContain('<strong>Shopify</strong>');
+    expect(shopifyHtml).not.toContain('WooCommerce');
+  });
+
+  it('says plainly when no platform was recognised', async () => {
+    const result = await scan('https://blog.example/', {
+      fetcher: fixtureFetcher(fixture('content-site')),
+    });
+    const html = renderHtml({ ...result, target: { ...result.target, platform: 'unknown' } });
+    expect(html).toContain('<strong>Not recognised</strong>');
+    expect(html).toContain('Only the checks that apply to any site ran.');
   });
 });
 

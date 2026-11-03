@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ScanResult } from '@agentic-readiness/catalog';
+import { catalog, type ScanResult } from '@agentic-readiness/catalog';
 import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import type { FetchLike } from '@agentic-readiness/core';
 import { describe, expect, it } from 'vitest';
@@ -228,7 +228,7 @@ describe('hosted scans in steps', () => {
     const events = (record?.events ?? []) as Json[];
     const checks = events.filter((event) => event.type === 'check').map((event) => event.id);
     expect(new Set(checks).size).toBe(checks.length);
-    expect(checks).toHaveLength(64);
+    expect(checks).toHaveLength(catalog.checks.length);
     const seqs = events.map((event) => Number(event.seq));
     expect(seqs).toEqual(seqs.map((_, index) => index + 1));
     expect(record?.final?.event).toBe('done');

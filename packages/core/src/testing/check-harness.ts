@@ -21,6 +21,7 @@ import {
 import type { FetchedResponse, Fetcher } from '../http/types.js';
 import { HtmlDocument } from '../parsers/html.js';
 import { parseRobotsTxt } from '../parsers/robots.js';
+import { selectProfile } from '../target/resolver.js';
 import type { SitemapSummary, Target } from '../target/types.js';
 
 /** A bare string is a 200 response with that body; a list holds conditional answers (see FixtureResponse.when). */
@@ -80,9 +81,7 @@ export interface TargetOptions {
 const EMPTY_HOME = '<!doctype html><html><head><title>Shop</title></head><body></body></html>';
 
 function defaultProfile(platform: Platform): string {
-  if (platform === 'woocommerce') return 'woocommerce-store';
-  if (platform === 'shopify') return 'other-store';
-  return 'content-site';
+  return selectProfile(platform, false).id;
 }
 
 /** A resolved Target without resolving anything: every field is what the options say. */

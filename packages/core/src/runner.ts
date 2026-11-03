@@ -2,6 +2,8 @@ import {
   catalog as defaultCatalog,
   checksForProfile,
   fixForPlatform,
+  PLATFORM_LABEL,
+  platformMatches,
   type Catalog,
   type CheckDefinition,
   type CheckResult,
@@ -111,9 +113,11 @@ export function orderByDependencies(
 /** The first requirement the target does not meet, or null when the check applies. */
 function unmetRequirement(definition: CheckDefinition, target: Target): Requirement | null {
   for (const requirement of definition.requires) {
-    if (requirement === 'woocommerce' && target.platform !== 'woocommerce') return requirement;
-    if (requirement === 'shopify' && target.platform !== 'shopify') return requirement;
-    if (requirement === 'products' && target.sampled.products.length === 0) return requirement;
+    if (requirement === 'products') {
+      if (target.sampled.products.length === 0) return requirement;
+    } else if (!platformMatches(requirement, target.platform)) {
+      return requirement;
+    }
   }
   return null;
 }
@@ -130,11 +134,11 @@ function runsWhenHomeBlocked(id: string, target: Target): boolean {
   return false;
 }
 
-const UNMET_MESSAGES: Record<Requirement, string> = {
-  woocommerce: 'requires WooCommerce, which was not detected',
-  shopify: 'requires Shopify, which was not detected',
-  products: 'no product pages were found to sample',
-};
+function unmetMessage(requirement: Requirement): string {
+  return requirement === 'products'
+    ? 'no product pages were found to sample'
+    : `requires ${PLATFORM_LABEL[requirement]}, which was not detected`;
+}
 
 function toResult(
   definition: CheckDefinition,
@@ -216,7 +220,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       record(definition, {
         verdict: 'skip',
         skipReason: 'not_applicable',
-        message: unmet ? UNMET_MESSAGES[unmet] : 'does not apply to this profile',
+        message: unmet ? unmetMessage(unmet) : 'does not apply to this profile',
         evidence: {},
       });
       continue;

@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 
+import { KNOWN_PLATFORMS } from './platform-ids.js';
 import {
   CHECK_ID_PATTERN,
   FixSchema,
@@ -15,7 +16,12 @@ import {
 
 export const RESULT_SCHEMA_ID = 'agentic-readiness-scanner/1';
 
-export const PlatformSchema = z.enum(['woocommerce', 'wordpress', 'shopify', 'unknown']);
+/**
+ * The platform the scan recognised, or `unknown`. The set grows as the scanner learns to
+ * recognise more platforms (decision 0019); a consumer treats a value it does not know
+ * as `unknown`.
+ */
+export const PlatformSchema = z.enum([...KNOWN_PLATFORMS, 'unknown']);
 export type Platform = z.infer<typeof PlatformSchema>;
 
 export const PolicyKindSchema = z.enum([

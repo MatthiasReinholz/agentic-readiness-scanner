@@ -300,6 +300,19 @@ describe('score ceilings', () => {
     expect(scores.ceilings?.commerce?.id).toBe('not-crawlable');
   });
 
+  it('needs evidence for a cap: a gate the scan could not evaluate holds the level, not the score', () => {
+    // No product page was found to sample, so server rendering could not be checked.
+    const results = store([]).map((item) =>
+      item.id === 'A3.2'
+        ? { ...item, verdict: 'skip' as const, skip_reason: 'not_applicable' as const }
+        : item,
+    );
+    const scores = computeScores(results, catalog, woo);
+    expect(scores.ceilings).toBeUndefined();
+    expect(scores.ingestion).toBeGreaterThan(95);
+    expect(computeLevel(results, catalog, woo)).toMatchObject({ value: 0, next_gate: ['A3.2'] });
+  });
+
   it('records a ceiling that holds even when the raw score is already below it', () => {
     const failing = catalog.checks.filter((check) => check.group.startsWith('B')).map((c) => c.id);
     const scores = computeScores(store(failing), catalog, woo);

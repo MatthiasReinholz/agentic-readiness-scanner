@@ -2,15 +2,27 @@
   {
     "id": "woocommerce-store",
     "title": "WooCommerce store",
-    "description": "All checks, including those that read the WooCommerce Store API.",
+    "description": "All checks, including those that read the WooCommerce Store API and the WordPress REST API. Checks for other platforms drop out.",
     "dimensions": ["ingestion", "commerce"],
-    "unsatisfied_requirements": ["shopify"],
+    "unsatisfied_requirements": [
+      "shopify",
+      "bigcommerce",
+      "wix",
+      "magento",
+      "squarespace",
+      "square",
+      "prestashop",
+      "salesforce",
+      "shopware",
+      "ecwid",
+      "webflow"
+    ],
     "max_level": 5
   },
   {
     "id": "other-store",
     "title": "Other store",
-    "description": "Any e-commerce site. Checks that depend on the WooCommerce Store API drop out.",
+    "description": "Any other e-commerce site. Checks that depend on the WooCommerce Store API drop out; checks for the recognised platform apply.",
     "dimensions": ["ingestion", "commerce"],
     "unsatisfied_requirements": ["woocommerce"],
     "max_level": 5

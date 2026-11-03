@@ -5,6 +5,7 @@
 import {
   catalog as defaultCatalog,
   checksForProfile,
+  requiredPlatform,
   type AppliedCeiling,
   type Catalog,
   type CheckResult,
@@ -195,7 +196,10 @@ function ceilingFor(
     const value = ceiling.values[dimension];
     if (value === undefined || (applied && applied.value <= value)) continue;
     const unmet = ceiling.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile));
-    if (unmet.length === 0) continue;
+    // A cap says agents cannot do something, so it needs evidence: a gate that could not
+    // be evaluated (no product page to sample, a budget cut) holds the level back but not
+    // the score.
+    if (!unmet.some((gate) => gateFailed(gate, byId, inProfile))) continue;
     applied = {
       id: ceiling.id,
       value,
@@ -205,6 +209,27 @@ function ceilingFor(
     };
   }
   return applied;
+}
+
+/**
+ * True when an unmet gate has evidence against it: an alternative failed or warned, or
+ * was skipped because a check it depends on failed.
+ */
+function gateFailed(
+  gate: readonly string[],
+  results: ReadonlyMap<string, CheckResult>,
+  inProfile: ReadonlySet<string> | null,
+): boolean {
+  return gate.some((id) => {
+    if (inProfile && !inProfile.has(id)) return false;
+    const result = results.get(id);
+    if (!result) return false;
+    return (
+      result.verdict === 'fail' ||
+      result.verdict === 'warn' ||
+      (result.verdict === 'skip' && result.skip_reason === 'dependency_failed')
+    );
+  });
 }
 
 function profileChecks(profile: Profile, catalog: Catalog): Set<string> {
@@ -224,9 +249,7 @@ function actionable(
   catalog: Catalog,
 ): string[] {
   const platformBound = new Set(
-    catalog.checks
-      .filter((check) => check.requires.some((req) => req === 'woocommerce' || req === 'shopify'))
-      .map((check) => check.id),
+    catalog.checks.filter((check) => requiredPlatform(check) !== null).map((check) => check.id),
   );
   const ids = gates
     .flatMap((gate) => [...gate])

@@ -245,5 +245,100 @@
         "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a"
       }
     ]
+  },
+  {
+    "id": "A2.8",
+    "group": "A2",
+    "title": "WordPress search engine visibility",
+    "question": "Has the WordPress site asked search engines to stay away?",
+    "method": "On a WordPress site (WooCommerce included), read the robots meta tag and the X-Robots-Tag header of the home page. Fail when either carries noindex (or none) for all crawlers; the message says whether it is the exact \"noindex, nofollow\" tag WordPress core prints when Settings > Reading > Search engine visibility is ticked, which also turns off the core sitemap. Pass otherwise. No extra request.",
+    "weight": 1,
+    "requires": ["wordpress"],
+    "spec": [
+      {
+        "title": "WordPress: Settings Reading screen",
+        "url": "https://wordpress.org/documentation/article/settings-reading-screen/"
+      },
+      {
+        "title": "WordPress developer reference: wp_robots_no_robots()",
+        "url": "https://developer.wordpress.org/reference/functions/wp_robots_no_robots/"
+      }
+    ]
+  },
+  {
+    "id": "A2.9",
+    "group": "A2",
+    "title": "Squarespace AI crawler setting",
+    "question": "Does Squarespace's AI crawler block shut out the crawlers behind AI answers?",
+    "method": "On a Squarespace site, evaluate robots.txt for the 26 user agents Squarespace documents for Settings > Crawlers > \"Block known artificial intelligence crawlers\". The setting is taken as on when at least 60% of them are disallowed at the root. Pass when it is off, or on but blocking only training crawlers; warn when it is on and also disallows agents that feed AI answers (DuckAssistBot, YouBot). Blocking training crawlers is a licensing choice and never loses points. Not applicable when robots.txt could not be read. No extra request.",
+    "weight": 1,
+    "requires": ["squarespace"],
+    "spec": [
+      {
+        "title": "Squarespace: Request that AI models exclude your site",
+        "url": "https://support.squarespace.com/hc/en-us/articles/360022347072-Request-that-AI-models-exclude-your-site"
+      },
+      {
+        "title": "RFC 9309: Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      }
+    ]
+  },
+  {
+    "id": "A2.10",
+    "group": "A2",
+    "title": "Webflow traffic control",
+    "question": "Has a Webflow Traffic control switch shut search engines or AI bots out?",
+    "method": "On a Webflow site, evaluate robots.txt for the two bot groups Webflow documents under Site settings > SEO > Indexing > Traffic control: search engine crawlers (Googlebot, Bingbot, OAI-SearchBot and ten more) and AI bots (ChatGPT-User, Claude-User, PerplexityBot, GPTBot and fifteen more). A group counts as switched off when at least 60% of it is disallowed at the root. Fail when either group is off, because the AI group includes the fetchers that read pages for ChatGPT, Claude and Perplexity answers; pass when both are allowed, which is Webflow's default. Not applicable when robots.txt could not be read. No extra request.",
+    "weight": 1,
+    "requires": ["webflow"],
+    "spec": [
+      {
+        "title": "Webflow: Disable search engine indexing (Traffic control)",
+        "url": "https://help.webflow.com/hc/en-us/articles/33961368603539-Disable-search-engine-indexing"
+      },
+      {
+        "title": "Webflow: Set robots.txt rules",
+        "url": "https://help.webflow.com/hc/en-us/articles/41954080897683-Set-robots-txt-rules"
+      }
+    ]
+  },
+  {
+    "id": "A2.11",
+    "group": "A2",
+    "title": "Square Online search visibility",
+    "question": "Is the Square Online site hidden from search engines?",
+    "method": "On a Square Online site, read the home page's robots meta tag and X-Robots-Tag header and the robots.txt rules for Googlebot and Bingbot. Fail when the home page carries noindex or robots.txt disallows both crawlers everywhere, which is what Square's \"Hidden from search engine results\" setting asks for; pass otherwise. Search indexes feed the AI answers built on them. No extra request.",
+    "weight": 1,
+    "requires": ["square"],
+    "spec": [
+      {
+        "title": "Square: SEO settings for Square Online",
+        "url": "https://squareup.com/help/us/en/article/6874-seo-settings-for-square-online-store"
+      },
+      {
+        "title": "Google Search Central: Block indexing with noindex",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/block-indexing"
+      }
+    ]
+  },
+  {
+    "id": "A2.12",
+    "group": "A2",
+    "title": "Salesforce robots.txt not on the staging preset",
+    "question": "Has a Salesforce Commerce Cloud storefront kept the robots.txt meant for staging instances?",
+    "method": "On a Salesforce B2C Commerce storefront, evaluate robots.txt. Fail when it disallows Googlebot and Bingbot everywhere, which is what the Business Manager option \"All Spiders Disallowed to Access Any Static Resources\" for development and staging instances produces (robots.txt is a site preference and is replicated from staging to production), or when it disallows /on/demandware.static/, where SFRA storefronts serve their scripts, styles and images. Pass otherwise. No extra request.",
+    "weight": 1,
+    "requires": ["salesforce"],
+    "spec": [
+      {
+        "title": "Salesforce Trailhead: Generate a robots.txt file (B2C Commerce)",
+        "url": "https://trailhead.salesforce.com/content/learn/modules/b2c-xml-sitemaps/b2c-xml-sitemaps-generate-robots"
+      },
+      {
+        "title": "Google Search Central: Robots.txt introduction (resources pages need)",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+      }
+    ]
   }
 ]

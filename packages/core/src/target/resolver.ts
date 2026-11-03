@@ -22,6 +22,7 @@ import {
   parseSitemap,
   type SitemapEntry,
 } from '../parsers/sitemap.js';
+import { matchPlatform } from './platforms.js';
 import { sample } from './sampling.js';
 import {
   LASTMOD_SAMPLE_LIMIT,
@@ -141,34 +142,7 @@ export const ACCOUNT_AREA_PATTERN =
   /\/(my-account|account|accounts|customer|login|log-in|signin|sign-in|wp-login\.php|wp-admin|cart|checkout)(\/|$)/i;
 
 export function detectPlatform(doc: HtmlDocument, response: FetchedResponse): Platform {
-  const generator = (doc.meta('generator') ?? '').toLowerCase();
-  const classes = doc.bodyClasses().map((c) => c.toLowerCase());
-  const body = response.body.toLowerCase();
-  // Platform fingerprints only, never trust decisions.
-  const assetHosts = doc.assetHosts(response.finalUrl);
-  if (
-    classes.includes('woocommerce') ||
-    generator.includes('woocommerce') ||
-    body.includes('wc-block') ||
-    body.includes('/wp-json/wc/')
-  ) {
-    return 'woocommerce';
-  }
-  if (
-    generator.includes('shopify') ||
-    assetHosts.has('cdn.shopify.com') ||
-    body.includes('shopify.theme')
-  ) {
-    return 'shopify';
-  }
-  if (
-    generator.includes('wordpress') ||
-    doc.links().some((link) => link.rel === 'https://api.w.org/') ||
-    body.includes('/wp-content/')
-  ) {
-    return 'wordpress';
-  }
-  return 'unknown';
+  return matchPlatform(doc, response).platform;
 }
 
 /**
@@ -615,6 +589,18 @@ export async function discoverProductsBySampling(
   return found;
 }
 
+/** Platforms that only run shops; a site builder or WordPress may host a content site. */
+const STORE_PLATFORMS: ReadonlySet<Platform> = new Set([
+  'shopify',
+  'bigcommerce',
+  'magento',
+  'shopware',
+  'prestashop',
+  'salesforce',
+  'square',
+  'ecwid',
+]);
+
 export function selectProfile(
   platform: Platform,
   storeSignals: boolean,
@@ -628,7 +614,7 @@ export function selectProfile(
   const id =
     platform === 'woocommerce'
       ? 'woocommerce-store'
-      : platform === 'shopify' || storeSignals
+      : STORE_PLATFORMS.has(platform) || storeSignals
         ? 'other-store'
         : 'content-site';
   const profile = getProfile(id);
@@ -670,7 +656,8 @@ export async function resolveTarget(
   const origin = new URL(home.finalUrl).origin;
   const hostname = new URL(origin).hostname;
   const homeDoc = new HtmlDocument(blocked ? '' : home.body);
-  const platform = blocked ? 'unknown' : detectPlatform(homeDoc, home);
+  const match = blocked ? null : matchPlatform(homeDoc, home);
+  const platform = match?.platform ?? 'unknown';
   const shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
   if (shopifyHosted === false) {
     warnings.push(
@@ -817,6 +804,7 @@ export async function resolveTarget(
     origin,
     hostname,
     platform,
+    ...(match?.signal ? { platformSignal: match.signal } : {}),
     profile,
     home,
     homeDoc,

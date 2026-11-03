@@ -48,6 +48,7 @@ import {
   woocommerceDetected,
 } from './b1/index.js';
 import { shopifyProductsJsonReadable } from './b1/shopify.js';
+import { platformChecks } from './platforms/index.js';
 import {
   markupMatchesPage,
   offerComplete,
@@ -151,6 +152,7 @@ export const builtInChecks: readonly Check[] = [
   acpFeedFields,
   guestCheckoutAndCartApi,
   shopifyAgenticStorefront,
+  ...platformChecks,
 ];
 
 export function implementedCheckIds(checks: readonly Check[] = builtInChecks): string[] {
