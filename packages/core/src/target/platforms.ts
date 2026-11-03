@@ -20,6 +20,9 @@ interface Fingerprint {
   test: (page: Page) => boolean;
 }
 
+/** Wix's generator meta: "Wix.com Website Builder". */
+export const WIX_GENERATOR = /^wix\.com website builder/i;
+
 const hostMatches = (page: Page, pattern: RegExp): boolean =>
   [...page.hosts].some((host) => pattern.test(host));
 
@@ -141,7 +144,7 @@ const FINGERPRINTS: readonly (readonly [KnownPlatform, readonly Fingerprint[]])[
         signal: 'x-wix-request-id header',
         test: (p) => p.headers['x-wix-request-id'] !== undefined,
       },
-      { signal: 'Wix generator', test: (p) => p.generator.includes('wix.com') },
+      { signal: 'Wix generator', test: (p) => WIX_GENERATOR.test(p.generator) },
       {
         signal: 'Wix static assets',
         test: (p) => p.hosts.has('static.parastorage.com') || p.hosts.has('static.wixstatic.com'),

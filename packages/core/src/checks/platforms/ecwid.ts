@@ -1,3 +1,4 @@
+import { WIX_GENERATOR } from '../../target/platforms.js';
 import { defineCheck, pass, warn } from '../types.js';
 
 /** A store link Ecwid builds without clean URLs: /store/#!/product-name/p/123456 */
@@ -20,7 +21,7 @@ export const ecwidCleanUrls = defineCheck('A3.13', ({ target }) => {
     ? 'Instant Site'
     : generator.includes('wordpress') || body.includes('/wp-content/')
       ? 'WordPress'
-      : generator.includes('wix.com') || target.home.headers['x-wix-request-id'] !== undefined
+      : WIX_GENERATOR.test(generator) || target.home.headers['x-wix-request-id'] !== undefined
         ? 'Wix'
         : null;
   const evidence = { host, clean_urls_configured: configured, hashbang_links: hashbangLinks };
