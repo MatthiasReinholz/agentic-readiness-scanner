@@ -80,8 +80,25 @@ export const ScoresSchema = z.object({
   ingestion: z.number().int().min(0).max(100),
   /** Null for profiles without the commerce dimension. */
   commerce: z.number().int().min(0).max(100).nullable(),
-  /** One score per catalog group, keyed by group id; null when no check in the group applied. */
+  /**
+   * One score per catalog group, keyed by group id; null when no check in the group applied
+   * or when fewer than half of its applicable weight could be answered.
+   */
   groups: z.record(z.string(), GroupScoreSchema),
+  /**
+   * Share of each dimension's applicable weight that the scan answered, 0 to 100. A check
+   * counts as unanswered when it applied but could not run (time or request budget, an
+   * error, not implemented, or a parent that could not run). Below 50 the dimension is
+   * incomplete: commerce is null and ingestion is reported but must not be read as a
+   * result. Null when nothing in the dimension applied. Absent on results written before
+   * scoring 0.5.0.
+   */
+  coverage: z
+    .object({
+      ingestion: z.number().int().min(0).max(100).nullable(),
+      commerce: z.number().int().min(0).max(100).nullable(),
+    })
+    .optional(),
 });
 export type Scores = z.infer<typeof ScoresSchema>;
 

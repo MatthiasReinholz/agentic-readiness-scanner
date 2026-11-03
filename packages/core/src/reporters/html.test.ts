@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { scan } from '../scan.js';
+import { computeScores } from '../scoring.js';
 import { fixtureFetcher } from '../testing/index.js';
+import { renderBadge } from './badge.js';
 import { renderHtml } from './html.js';
 import { scoreTone, THEME_STORAGE_KEY } from './html-theme.js';
 import { renderMarkdown } from './markdown.js';
@@ -116,5 +118,35 @@ describe('check map', () => {
     expect(() => new Script(CHECK_MAP_SCRIPT)).not.toThrow();
     // The animation is opt-in per arrival: the script checks the handed-over path.
     expect(CHECK_MAP_SCRIPT).toContain("v.split('|')[0]!==location.pathname");
+  });
+});
+
+describe('incomplete scores', () => {
+  it('says a dimension is incomplete instead of printing a score that stands on one check', async () => {
+    const full = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(fixture('good-woocommerce')),
+    });
+    // What a slow store produced: the time budget ran out after one commerce check passed.
+    const results = full.results.map((item) =>
+      item.group.startsWith('B') && item.id !== 'B1.2' && item.applies
+        ? {
+            ...item,
+            verdict: 'skip' as const,
+            skip_reason: 'budget_exhausted' as const,
+            evidence: {},
+          }
+        : item,
+    );
+    const result = { ...full, results, scores: computeScores(results) };
+    expect(result.scores.commerce).toBeNull();
+
+    const html = renderHtml(result, { appName: 'Scanner' });
+    expect(html).toContain('>Incomplete<');
+    expect(html).toContain('of the weighted checks could be answered');
+    expect(html).not.toContain('Not scored for this profile');
+
+    const markdown = renderMarkdown(result);
+    expect(markdown).toMatch(/- Commerce score: incomplete \(\d+% of weighted checks answered\)/);
+    expect(renderBadge(result)).toContain('/–');
   });
 });

@@ -2,7 +2,15 @@ import type { CheckResult } from '@agentic-readiness/catalog';
 import { catalog, checksForProfile, getProfile, type Profile } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
-import { computeLevel, computeScores, scoreDimension, scoreGroup } from './scoring.js';
+import {
+  computeLevel,
+  computeScores,
+  dimensionScore,
+  isUnanswered,
+  scoreDimension,
+  scoreGroup,
+} from './scoring.js';
+import { defined } from './testing/index.js';
 
 function result(id: string, verdict: CheckResult['verdict']): CheckResult {
   const definition = catalog.checks.find((check) => check.id === id);
@@ -179,5 +187,62 @@ describe('next_gate and profiles', () => {
     expect(level.value).toBe(1);
     expect(level.next_gate).toEqual(['A1.3', 'B1.8', 'B1.5', 'B5.8']);
     expect(level.next_gate).not.toContain('B1.2');
+  });
+});
+
+describe('score coverage', () => {
+  const skipped = (id: string, reason: CheckResult['skip_reason'], dependency?: string) => ({
+    ...result(id, 'skip'),
+    skip_reason: reason,
+    evidence: dependency ? { dependency } : {},
+  });
+  const commerceIds = catalog.checks
+    .filter((check) => check.group.startsWith('B') && check.weight !== 'info')
+    .map((check) => check.id);
+
+  it('does not score a dimension the scan barely answered', () => {
+    // quickjewelryrepairs.com: the time budget ran out after B1.2 passed, so commerce read 100.
+    const results = commerceIds.map((id) =>
+      id === 'B1.2' ? result(id, 'pass') : skipped(id, 'budget_exhausted'),
+    );
+    const scores = computeScores(results);
+    expect(scores.commerce).toBeNull();
+    expect(scores.coverage?.commerce).toBeLessThan(10);
+    expect(scores.groups.B1).toBeNull();
+    expect(dimensionScore(scores, 'commerce')).toMatchObject({ state: 'incomplete', value: null });
+  });
+
+  it('treats a dependent of an unanswered parent as unanswered, and of a failed parent as answered', () => {
+    const byId = new Map(
+      [
+        skipped('B2.1', 'budget_exhausted'),
+        skipped('B2.2', 'dependency_failed', 'B2.1'),
+        result('A1.2', 'fail'),
+        skipped('A1.3', 'dependency_failed', 'A1.2'),
+      ].map((item) => [item.id, item]),
+    );
+    expect(isUnanswered(defined(byId.get('B2.2')), byId)).toBe(true);
+    expect(isUnanswered(defined(byId.get('A1.3')), byId)).toBe(false);
+  });
+
+  it('keeps scoring when a few checks could not run', () => {
+    const results = commerceIds.map((id, index) =>
+      index === 0 ? skipped(id, 'error') : result(id, 'pass'),
+    );
+    const scores = computeScores(results);
+    expect(scores.commerce).toBe(100);
+    expect(scores.coverage?.commerce).toBeGreaterThan(90);
+    expect(dimensionScore(scores, 'commerce').state).toBe('scored');
+  });
+
+  it('reads a profile without commerce as not applicable, and old results without coverage as scored', () => {
+    expect(dimensionScore({ ingestion: 80, commerce: null, groups: {} }, 'commerce').state).toBe(
+      'not_applicable',
+    );
+    expect(dimensionScore({ ingestion: 80, commerce: 70, groups: {} }, 'commerce')).toEqual({
+      value: 70,
+      state: 'scored',
+      coverage: null,
+    });
   });
 });

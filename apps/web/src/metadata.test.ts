@@ -204,7 +204,7 @@ describe('server-rendered discovery and sharing metadata', () => {
     copy.scores.commerce = null;
     copy.target.url = 'https://ceramics.example/private-path?token=private-token#private-fragment';
     const metadata = reportMetadata(config, storedScan(copy));
-    expect(metadata.description).toContain('commerce not scored');
+    expect(metadata.description).toContain('commerce not applicable');
     expect(metadata.description).toContain('checkout not verified');
     expect(metadata.head).not.toMatch(/private-path|private-token|private-fragment/);
     const dataset = graphOf(metadata.head).find((node) => node['@type'] === 'Dataset');

@@ -213,6 +213,18 @@ function isPolicyWord(token: string): boolean {
   return Object.values(POLICY_PATTERNS).some((pattern) => pattern.test(token));
 }
 
+/**
+ * Labels that navigate rather than name a page: "Return to shop", "Back to cart",
+ * "Zurück zum Shop", "Retour à la boutique". Their verb happens to be a policy keyword in
+ * some languages, but the link never leads to the policy.
+ */
+const NAVIGATION_LABEL =
+  /^\s*(?:return|go back|back|zurück|retour(?:ner)?|volver|regresar|tornare|torna|voltar)\s+(?:to|zu|zum|zur|à|au|aux|a|al|alla|ao|para)\b/i;
+
+/** A last path segment that names a policy document outright: /return-policy, /refund-policy. */
+const POLICY_DOCUMENT_SEGMENT =
+  /(?:^|[-_])(?:polic(?:y|ies)|richtlinien?|politique|pol(?:í|i)tica)(?:$|[-_])/i;
+
 function lastSegment(pathname: string): string {
   const segments = pathname.split('/').filter(Boolean);
   return (segments[segments.length - 1] ?? '').replace(/\.[a-z0-9]{1,5}$/i, '');
@@ -222,8 +234,10 @@ function lastSegment(pathname: string): string {
  * How strongly an anchor looks like the policy link of a kind: 0 when neither its label
  * nor the last path segment names the kind; otherwise a label match counts most and more
  * when every word in the label belongs to a policy label, a footer position counts next,
- * a matching path segment last. "Shipping & returns" in the footer at /shipping-policy
- * scores 7; a product named "WooCommerce Shipping" in the same footer scores 5.
+ * a matching path segment last, twice when the segment names a policy document
+ * (/return-policy). "Shipping & returns" in the footer at /shipping-policy scores 8; a
+ * product named "WooCommerce Shipping" in the same footer scores 5. A navigation label
+ * ("Return to shop") never counts as a label match.
  */
 export function policyLinkScore(
   anchor: Anchor,
@@ -234,7 +248,7 @@ export function policyLinkScore(
 ): number {
   const pattern = POLICY_PATTERNS[kind];
   const text = anchor.text;
-  const labelMatches = pattern.test(text);
+  const labelMatches = pattern.test(text) && !NAVIGATION_LABEL.test(text);
   const segment = lastSegment(pathname);
   // A path segment that carries the site's own brand next to a policy word is a product of
   // that brand (/woocommerce-shipping/), never the policy: it does not count as a path
@@ -262,7 +276,7 @@ export function policyLinkScore(
     score += 2 + 2 * (tokens.length > 0 ? known / tokens.length : 0);
   }
   if (anchor.inFooter) score += 2;
-  if (pathMatches) score += 1;
+  if (pathMatches) score += POLICY_DOCUMENT_SEGMENT.test(segment) ? 2 : 1;
   return score;
 }
 
@@ -288,7 +302,10 @@ export function findPolicyLinks(
   return result;
 }
 
-/** Score 4 and above means the link's label names the policy; below it only the path did. */
+/**
+ * Score 4 and above means the link's label names the policy, or a footer link's path names
+ * the policy document (/refund-policy); below it only a path or a stray word matched.
+ */
 export const LABELLED_POLICY_SCORE = 4;
 
 export function rankPolicyLinks(

@@ -21,6 +21,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Scores never stand on a sliver of the catalog (scoring 0.5.0). Each dimension records the share of its applicable weight the scan answered (`scores.coverage`); below half, commerce and group scores are `null` and every report says "Incomplete" with the share instead of printing a number. A slow store whose scan ran out of time after one passing commerce check used to read 100 for commerce. Checks now run level gates and blocking checks first, so a short time budget leaves optional probes unanswered rather than the gates, and a dependent of a check the budget never reached is reported as unanswered, not as blocked by a failure.
+- A navigation button is never taken for a policy link: "Return to shop" no longer counts as a returns-policy label, and a footer link whose path names the policy document (`/return-policy/`) ranks above a stray word in a body button.
+
 - Removed the homepage animation pause control and its saved preference; background signals continue to respect OS reduced motion and active scan state. The hero copy now reads “Built WooCommerce first. Works on any store.”
 
 - Shared Signal Network design across the homepage, reports, knowledge base, history, monitoring and error pages: full-width Woo-purple headers, an uppercase lime-accented homepage headline, responsive scan controls, an icon theme toggle with dark mode by default, accessible links and focus states, and background signals that respect reduced motion. Offline reports retain the same self-contained design and the existing progress-to-report handoff; check maps add verdict symbols and larger targets.

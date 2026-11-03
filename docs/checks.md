@@ -2,7 +2,7 @@
 
 <!-- Generated from packages/catalog by `pnpm docs:generate`. Edit the data files, not this file. -->
 
-Catalog version **0.4.0**, scoring version **0.4.0**.
+Catalog version **0.4.0**, scoring version **0.5.0**.
 
 64 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected; checks marked products run only when product pages were found.
 

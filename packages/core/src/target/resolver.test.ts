@@ -201,13 +201,34 @@ describe('findPolicyLinks ranking', () => {
     const anchor = (text: string, inFooter = false) => ({ href: '/x', text, inFooter });
     expect(
       policyLinkScore(anchor('Shipping & returns', true), '/shipping-policy/', 'shipping'),
-    ).toBe(7);
+    ).toBe(8);
     expect(
       policyLinkScore(anchor('WooCommerce Shipping', true), '/woocommerce-shipping/', 'shipping'),
     ).toBe(6);
     expect(policyLinkScore(anchor('Shipping'), '/pages/about', 'shipping')).toBe(4);
     expect(policyLinkScore(anchor('About us'), '/shipping/', 'shipping')).toBe(1);
     expect(policyLinkScore(anchor('About us'), '/about/', 'shipping')).toBe(0);
+  });
+
+  it('never takes a navigation button for a policy link', () => {
+    const anchor = (text: string, inFooter = false) => ({ href: '/x', text, inFooter });
+    expect(policyLinkScore(anchor('Return to shop'), '/repair/', 'returns')).toBe(0);
+    expect(policyLinkScore(anchor('Zurück zum Shop'), '/shop/', 'returns')).toBe(0);
+    expect(policyLinkScore(anchor('Returns'), '/returns/', 'returns')).toBeGreaterThan(0);
+  });
+
+  it('prefers a footer link to the policy document over a body button whose verb matches', () => {
+    // quickjewelryrepairs.com: "Return to shop" led to the repair catalogue, while the
+    // returns policy sat in the footer at /return-policy/ under the label "30-Day Guarantee".
+    const doc = new HtmlDocument(
+      `<html><body><main><a href="https://shop.example/repair/">Return to shop</a></main>
+       <footer><a href="/return-policy/">30-Day Guarantee</a>
+       <a href="/insurance-policy/">Shipping &amp; Insurance</a></footer></body></html>`,
+    );
+    expect(findPolicyLinks(doc, 'https://shop.example')).toMatchObject({
+      returns: 'https://shop.example/return-policy/',
+      shipping: 'https://shop.example/insurance-policy/',
+    });
   });
 });
 
