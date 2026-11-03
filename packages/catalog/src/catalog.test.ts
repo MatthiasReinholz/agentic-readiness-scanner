@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { parseFixMarkdown } from './fixes.js';
-import { parseKnowledgeMarkdown } from './knowledge.js';
-import { loadCatalogFromDisk, loadKnowledgeFromDisk } from './load.js';
+import { parseGuideMarkdown, parseKnowledgeMarkdown } from './knowledge.js';
+import { loadCatalogFromDisk, loadGuidesFromDisk, loadKnowledgeFromDisk } from './load.js';
 import { validateCatalogIntegrity } from './schema.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -121,6 +121,54 @@ keywords: one, two, three
     expect(() =>
       parseKnowledgeMarkdown(valid.replace('a-valid-slug', 'Bad Slug'), 'A1.1.md'),
     ).toThrow(/slug/);
+  });
+
+  it('loads the guides, whose related checks exist and whose links resolve', () => {
+    const guides = loadGuidesFromDisk(
+      packageRoot,
+      catalog,
+      loadKnowledgeFromDisk(packageRoot, catalog),
+    );
+    expect(guides.length).toBeGreaterThan(0);
+    expect(guides.map((guide) => guide.slug)).toContain('crawler-blocks-and-browser-scans');
+  });
+
+  it('rejects guides without an answer first or public sources last', () => {
+    const valid = `---
+slug: a-guide
+headline: A guide headline long enough
+description: ${'x'.repeat(120)}
+keywords: one, two, three
+related: A2.4
+---
+
+## In short
+## One topic
+## Another topic
+## Sources
+- [First](https://example.com/one)
+- [Second](https://example.com/two)
+`;
+    expect(parseGuideMarkdown(valid, 'a-guide.md')).toMatchObject({
+      slug: 'a-guide',
+      related: ['A2.4'],
+    });
+    expect(() => parseGuideMarkdown(valid, 'other.md')).toThrow(/file name/);
+    expect(() =>
+      parseGuideMarkdown(valid.replace('## In short', '## Intro'), 'a-guide.md'),
+    ).toThrow(/first section/);
+    expect(() =>
+      parseGuideMarkdown(valid.replace('## Sources', '## Further reading'), 'a-guide.md'),
+    ).toThrow(/last section/);
+    expect(() =>
+      parseGuideMarkdown(valid.replace('- [Second](https://example.com/two)', ''), 'a-guide.md'),
+    ).toThrow(/at least two/);
+    expect(() =>
+      parseGuideMarkdown(
+        valid.replace('## Sources', '## FAQ\n### Only one?\n## Sources'),
+        'a-guide.md',
+      ),
+    ).toThrow(/three to six/);
   });
 });
 

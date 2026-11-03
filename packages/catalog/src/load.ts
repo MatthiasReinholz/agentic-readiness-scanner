@@ -9,7 +9,14 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 import { parseFixMarkdown } from './fixes.js';
-import { articleLinks, parseKnowledgeMarkdown, type KnowledgeArticle } from './knowledge.js';
+import {
+  articleLinks,
+  guideLinks,
+  parseGuideMarkdown,
+  parseKnowledgeMarkdown,
+  type KnowledgeArticle,
+  type KnowledgeGuide,
+} from './knowledge.js';
 import {
   CatalogSchema,
   CheckDefinitionSchema,
@@ -142,6 +149,56 @@ export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): Kn
     for (const link of articleLinks(article))
       if (!slugs.has(link))
         problems.push(`${article.id}: link to unknown article /knowledge/${link}`);
+  for (const reserved of RESERVED_SLUGS)
+    if (slugs.has(reserved))
+      problems.push(`slug ${reserved} is reserved for a knowledge-base page`);
   if (problems.length > 0) throw new CatalogLoadError(problems);
   return articles;
+}
+
+/** Article slugs that would shadow a hub page under /knowledge-base. */
+const RESERVED_SLUGS = ['guides', 'legal-signals'];
+
+/**
+ * Loads `knowledge/guides/`: articles about topics no single check covers, sorted by
+ * slug, with unique slugs, related checks that exist and links that resolve, in both
+ * directions: guides to articles and articles to guides.
+ */
+export function loadGuidesFromDisk(
+  packageRoot: string,
+  catalog: Catalog,
+  articles: readonly KnowledgeArticle[],
+): KnowledgeGuide[] {
+  const dir = join(packageRoot, 'knowledge', 'guides');
+  const problems: string[] = [];
+  const guides: KnowledgeGuide[] = [];
+  for (const file of readdirSync(dir)
+    .filter((name) => name.endsWith('.md'))
+    .sort()) {
+    try {
+      guides.push(parseGuideMarkdown(readFileSync(join(dir, file), 'utf8'), file));
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  const checkIds = new Set([...catalog.checks, ...catalog.legal.checks].map((check) => check.id));
+  const articleSlugs = new Set(articles.map((article) => article.slug));
+  const guideSlugs = new Set(guides.map((guide) => guide.slug));
+  for (const guide of guides) {
+    for (const id of guide.related)
+      if (!checkIds.has(id))
+        problems.push(`guides/${guide.slug}: related check ${id} does not exist`);
+    for (const link of articleLinks(guide))
+      if (!articleSlugs.has(link))
+        problems.push(`guides/${guide.slug}: link to unknown article /knowledge-base/${link}`);
+    for (const link of guideLinks(guide))
+      if (!guideSlugs.has(link))
+        problems.push(`guides/${guide.slug}: link to unknown guide /knowledge-base/guides/${link}`);
+  }
+  for (const article of articles)
+    for (const link of guideLinks(article))
+      if (!guideSlugs.has(link))
+        problems.push(`${article.id}: link to unknown guide /knowledge-base/guides/${link}`);
+  if (problems.length > 0) throw new CatalogLoadError(problems);
+  return guides;
 }

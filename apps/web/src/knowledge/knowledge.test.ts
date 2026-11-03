@@ -1,5 +1,5 @@
 import { catalog } from '@agentic-readiness/catalog';
-import { knowledge } from '@agentic-readiness/catalog/knowledge';
+import { guides, knowledge } from '@agentic-readiness/catalog/knowledge';
 import { HtmlDocument } from '@agentic-readiness/core';
 import { describe, expect, it } from 'vitest';
 
@@ -221,5 +221,63 @@ describe('knowledge base', () => {
     expect(html).toContain('Check 2 of 7 in Bot access control · 10 of 64 overall');
     expect(html).toContain('<section aria-labelledby="in-short">');
     expect(html).toContain('class="kb-progress"');
+  });
+});
+
+describe('knowledge-base guides', () => {
+  const guide = guides.find((item) => item.slug === 'crawler-blocks-and-browser-scans');
+
+  it('lists the guides on their hub and on the index, as HTML and Markdown', async () => {
+    const app = testApp();
+    const hub = await app.request('/knowledge-base/guides');
+    expect(hub.status).toBe(200);
+    const hubHtml = await hub.text();
+    for (const item of guides) expect(hubHtml).toContain(`/knowledge-base/guides/${item.slug}`);
+    expect(await (await app.request('/knowledge-base')).text()).toContain('id="guides-heading"');
+    const md = await app.request('/knowledge-base/guides.md');
+    expect(md.headers.get('content-type')).toContain('text/markdown');
+    expect(await (await app.request('/knowledge-base.md')).text()).toContain('## Guides');
+    expect((await app.request('/knowledge-base/guides/')).status).toBe(301);
+  });
+
+  it('renders a guide with its related checks, sources as citations and FAQ data', async () => {
+    if (!guide) throw new Error('expected the crawler-block guide');
+    const app = testApp();
+    const response = await app.request(`/knowledge-base/guides/${guide.slug}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('link')).toContain(`/knowledge-base/guides/${guide.slug}.md`);
+    const html = await response.text();
+    expect(html).toContain('Checks this guide is about');
+    expect(html).toContain('href="/knowledge-base/no-block-on-honest-fetch"');
+    const graph = ldGraph(html);
+    const article = graph.find((node) => node['@type'] === 'TechArticle');
+    expect(article?.articleSection).toBe('Guides');
+    expect((article?.citation as string[]).length).toBeGreaterThanOrEqual(2);
+    expect(graph.some((node) => node['@type'] === 'FAQPage')).toBe(true);
+    const markdown = await (await app.request(`/knowledge-base/guides/${guide.slug}.md`)).text();
+    expect(markdown).toContain('category: guide');
+    expect(markdown).toContain('related_checks: [A2.4');
+    expect((await app.request('/knowledge-base/guides/no-such-guide')).status).toBe(404);
+  });
+
+  it('links each related check article back to the guide', async () => {
+    if (!guide) throw new Error('expected the crawler-block guide');
+    const app = testApp();
+    const html = await (await app.request('/knowledge-base/no-block-on-honest-fetch')).text();
+    expect(html).toContain('Guides on this topic');
+    expect(html).toContain(`/knowledge-base/guides/${guide.slug}`);
+  });
+
+  it('puts guides in the sitemap, llms.txt, llms-full.txt and the JSON index', async () => {
+    if (!guide) throw new Error('expected the crawler-block guide');
+    const app = testApp();
+    const path = `/knowledge-base/guides/${guide.slug}`;
+    expect(await (await app.request('/sitemap.xml')).text()).toContain(path);
+    expect(await (await app.request('/llms.txt')).text()).toContain(`${path}.md`);
+    expect(await (await app.request('/llms-full.txt')).text()).toContain(`# ${guide.headline}`);
+    const index = (await (await app.request('/knowledge-base.json')).json()) as {
+      guides: { url: string; related_checks: string[] }[];
+    };
+    expect(index.guides.map((item) => item.url)).toContain(`https://scanner.example${path}`);
   });
 });

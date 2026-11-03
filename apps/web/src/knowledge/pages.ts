@@ -1,6 +1,6 @@
 /**
- * The knowledge base: an index at /knowledge-base, one page per catalog section and one
- * article per check. Articles come from @agentic-readiness/catalog/knowledge; everything
+ * The knowledge base: an index at /knowledge-base, one page per catalog section, one
+ * article per check, and guides on topics no single check covers (/knowledge-base/guides). Articles come from @agentic-readiness/catalog/knowledge; everything
  * else on the page (priority, the levels a check gates, its dependencies, the fix and
  * the specifications) is read from the catalog, so the two can never disagree. Every page
  * also exists as Markdown for agents, and carries schema.org structured data for search.
@@ -15,7 +15,13 @@ import {
   type Group,
   type Law,
 } from '@agentic-readiness/catalog';
-import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
+import {
+  guides,
+  guidesForCheck,
+  knowledge,
+  type KnowledgeArticle,
+  type KnowledgeGuide,
+} from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
 import {
   alert,
@@ -48,7 +54,7 @@ import {
 } from './nav.js';
 
 /** When the articles were last reviewed as a whole; bump with substantive rewrites. */
-export const KNOWLEDGE_UPDATED = '2026-11-02';
+export const KNOWLEDGE_UPDATED = '2026-11-03';
 
 const TIER_TEXT: Record<Tier, string> = {
   blocking: 'Blocking',
@@ -96,6 +102,15 @@ export function isLegalCheck(check: Pick<CheckDefinition, 'group'>): boolean {
 }
 
 export const LEGAL_HUB_PATH = '/knowledge-base/legal-signals';
+export const GUIDES_HUB_PATH = '/knowledge-base/guides';
+
+export function guidePath(guide: KnowledgeGuide): string {
+  return `${GUIDES_HUB_PATH}/${guide.slug}`;
+}
+
+export function guideBySlug(slug: string): KnowledgeGuide | undefined {
+  return guides.find((guide) => guide.slug === slug);
+}
 
 /** The canonical article URL for a check, for reports that link into the knowledge base. */
 export function knowledgeUrlFor(config: AppConfig, checkId: string): string | undefined {
@@ -276,6 +291,7 @@ ${breadcrumbs([{ label: 'Home', href: '/' }, { label: 'Knowledge base' }])}
 
 <section class="${panel} mt-8" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
 <div class="kb-filter-bar md:sticky top-0 z-10 mt-8 border-b border-border bg-background/85 py-3 backdrop-blur"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-0 basis-full flex-1 md:basis-56"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd aria-hidden="true" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-xs text-muted-foreground">/</kbd></label><div class="flex min-w-0 flex-wrap gap-2" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
+${guidesCard()}
 ${catalog.groups.map((group) => groupSection(group, 'h2')).join('')}
 ${legalHubCard()}
 <div class="mt-12 grid gap-3 md:grid-cols-2">
@@ -477,6 +493,7 @@ ${articleSidebar(check, group, rendered.headings)}
 <details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
 <div class="max-w-[72ch]">${rendered.html}</div>
 ${fixCard(check)}
+${relatedGuides(check.id)}
 <section class="mt-10 scroll-mt-6" id="sources" aria-labelledby="sources-heading"><h2 id="sources-heading" class="text-xl font-semibold tracking-tight">Sources and specifications</h2><ul class="mt-4 list-disc space-y-2 pl-6 text-sm leading-6 marker:text-muted-foreground/70">${sources}</ul></section>
 <nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Previous and next check">${neighbour(previous, 'Previous', '')}${neighbour(next, 'Next', 'sm:text-right')}</nav>
 ${scanCta()}
@@ -660,6 +677,12 @@ export function knowledgeIndexMarkdown(config: AppConfig): string {
 
 By ${AUTHOR.name} (${AUTHOR.url}). Each article is also an HTML page at the same URL without .md. The index as data: ${config.baseUrl}/knowledge-base.json. Everything in one file: ${config.baseUrl}/llms-full.txt.
 
+## Guides
+
+Topics that span checks or explain how the scanner works.
+
+${guides.map((guide) => guideListItem(config, guide)).join('\n')}
+
 ${sections}
 `;
 }
@@ -677,6 +700,15 @@ export function knowledgeIndexJson(config: AppConfig) {
     levels: [...catalog.levels]
       .sort((a, b) => a.value - b.value)
       .map((level) => ({ value: level.value, name: level.name, description: level.description })),
+    guides: guides.map((guide) => ({
+      slug: guide.slug,
+      headline: guide.headline,
+      description: guide.description,
+      related_checks: guide.related,
+      keywords: guide.keywords,
+      url: `${config.baseUrl}${guidePath(guide)}`,
+      markdown_url: `${config.baseUrl}${guidePath(guide)}.md`,
+    })),
     sections: catalog.groups.map((group) => ({
       id: group.id,
       title: group.title,
@@ -712,6 +744,7 @@ export function knowledgeIndexJson(config: AppConfig) {
 export function knowledgeFullMarkdown(config: AppConfig): string {
   return [
     knowledgeIndexMarkdown(config),
+    ...guides.map((guide) => guideMarkdown(config, guide)),
     ...knowledge.map((article) => articleMarkdown(config, article)),
   ].join('\n\n---\n\n');
 }
@@ -957,6 +990,220 @@ ${fix.agent_prompt}
 ## Sources and specifications
 
 ${check.spec.map((ref) => `- [${ref.title}](${ref.url})`).join('\n')}
+
+Source: ${url} (${config.appName} knowledge base, by ${AUTHOR.name}).
+`;
+}
+
+function guideListItem(config: AppConfig, guide: KnowledgeGuide): string {
+  return `- [${guide.headline}](${config.baseUrl}${guidePath(guide)}.md): ${guide.description}`;
+}
+
+function guideRow(guide: KnowledgeGuide): string {
+  const text = `${guide.headline} ${guide.description} ${guide.keywords.join(' ')}`.toLowerCase();
+  return `<li data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${guidePath(guide)}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">Guide</span><span class="kb-check-copy min-w-0"><span class="font-semibold group-hover:text-primary">${escapeHtml(guide.headline)}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(guide.description)}</span>${guide.related.length > 0 ? `<span class="mt-1 block text-xs leading-5 text-muted-foreground">About ${guide.related.map(escapeHtml).join(', ')}</span>` : ''}</span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+}
+
+/** The guides on the index, above the sections. */
+function guidesCard(): string {
+  if (guides.length === 0) return '';
+  return `<section class="${panel} mt-10" aria-labelledby="guides-heading"><div class="flex flex-wrap items-baseline justify-between gap-2"><h2 id="guides-heading" class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="${GUIDES_HUB_PATH}">Guides</a></h2><span class="text-xs text-muted-foreground">Topics across checks and how the scanner works</span></div><ul class="kb-check-list mt-2">${guides.map(guideRow).join('')}</ul></section>`;
+}
+
+/** On a check's article: the guides that are about it. */
+function relatedGuides(checkId: string): string {
+  const related = guidesForCheck(checkId);
+  if (related.length === 0) return '';
+  return `<section class="mt-10" aria-labelledby="guides-heading"><h2 id="guides-heading" class="text-xl font-semibold tracking-tight">Guides on this topic</h2><ul class="kb-check-list mt-2">${related.map(guideRow).join('')}</ul></section>`;
+}
+
+/** /knowledge-base/guides */
+export function guidesHubPage(config: AppConfig): string {
+  const title = 'Guides to agentic readiness';
+  const description =
+    'Guides on topics that span several checks or explain how the Agentic Readiness Scanner works, with the sources behind every claim.';
+  const hero = `
+<p class="hero-eyebrow">Knowledge base · guides</p>
+<h1 class="hero-title">${title}</h1>
+<p class="hero-description">Every check has its own article. These guides cover what no single check does: how the scanner works, why it reports what it reports, and what to do about it.</p>
+`;
+  const body = `
+${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: 'Guides' }])}
+<ul class="kb-check-list mt-8">${guides.map(guideRow).join('')}</ul>
+${scanCta()}
+${jsonLd({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      ...webPage(config, GUIDES_HUB_PATH, title, description, 'knowledge'),
+      '@type': 'CollectionPage',
+      name: title,
+      description,
+      url: `${config.baseUrl}${GUIDES_HUB_PATH}`,
+      inLanguage: 'en',
+      dateModified: KNOWLEDGE_UPDATED,
+      author: { '@id': `${AUTHOR.url}#person` },
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: guides.length,
+        itemListElement: guides.map((guide, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${config.baseUrl}${guidePath(guide)}`,
+          name: guide.headline,
+        })),
+      },
+    },
+    breadcrumbLd(config, [
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: 'Guides', path: GUIDES_HUB_PATH },
+    ]),
+    ...siteGraph(config, 'knowledge'),
+  ],
+})}`;
+  return kbPage(
+    config,
+    title,
+    description,
+    headFor(config, GUIDES_HUB_PATH, title, description, 'website'),
+    body,
+    hero,
+  );
+}
+
+export function guidesHubMarkdown(config: AppConfig): string {
+  return `# Guides to agentic readiness\n\n> Topics that span several checks or explain how the ${config.appName} works.\n\n${guides.map((guide) => guideListItem(config, guide)).join('\n')}\n\nSource: ${config.baseUrl}${GUIDES_HUB_PATH}\n`;
+}
+
+/** The URLs a guide lists under Sources, for structured data. */
+function guideSources(guide: KnowledgeGuide): string[] {
+  return [...section(guide.body, 'Sources').matchAll(/\]\((https:\/\/[^)\s]+)\)/g)].map(
+    (match) => match[1] ?? '',
+  );
+}
+
+/** /knowledge-base/guides/<slug> */
+export function guidePage(config: AppConfig, guide: KnowledgeGuide): string {
+  const path = guidePath(guide);
+  const rendered = markdownToHtml(guide.body);
+  const faq = faqPairs(guide.body);
+  const title = guide.headline;
+  const checks = guide.related
+    .map((id) => getCheck(id))
+    .filter((check): check is CheckDefinition => check !== undefined);
+  const hero = `
+<p class="hero-eyebrow">Guide</p>
+<h1 class="hero-title">${escapeHtml(title)}</h1>
+<p class="hero-description">${escapeHtml(guide.description)}</p>
+<p class="mt-3 text-sm text-current">By <a class="underline underline-offset-4" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="underline underline-offset-4" href="${path}.md" type="text/markdown">Markdown</a></p>
+`;
+  const related =
+    checks.length > 0
+      ? `<section class="mt-10" aria-labelledby="related-checks-heading"><h2 id="related-checks-heading" class="text-xl font-semibold tracking-tight">Checks this guide is about</h2><ul class="mt-3 space-y-2 text-sm leading-6">${checks.map((check) => `<li>${checkLink(check.id)} <span class="text-muted-foreground">${escapeHtml(check.title)}</span></li>`).join('')}</ul></section>`
+      : '';
+  const body = `
+${breadcrumbs([
+  { label: 'Knowledge base', href: '/knowledge-base' },
+  { label: 'Guides', href: GUIDES_HUB_PATH },
+  { label: title },
+])}
+<div class="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+<aside class="hidden lg:block"><nav class="kb-toc sticky top-6 text-sm text-muted-foreground" aria-label="On this page">${tocLinks(rendered.headings)}</nav></aside>
+<article data-kb-article class="min-w-0">
+<details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
+<div class="max-w-[72ch]">${rendered.html}</div>
+${related}
+${scanCta()}
+</article>
+</div>
+${jsonLd({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'TechArticle',
+      '@id': `${config.baseUrl}${path}#article`,
+      headline: title,
+      description: guide.description,
+      abstract: plainText(section(guide.body, 'In short')),
+      keywords: guide.keywords.join(', '),
+      url: `${config.baseUrl}${path}`,
+      mainEntityOfPage: { '@id': `${config.baseUrl}${path}#webpage` },
+      inLanguage: 'en',
+      datePublished: KNOWLEDGE_UPDATED,
+      dateModified: KNOWLEDGE_UPDATED,
+      author: { '@id': `${AUTHOR.url}#person` },
+      publisher: { '@id': `${AUTHOR.url}#person` },
+      image: { '@id': `${socialImage(config, 'knowledge').url}#image` },
+      isAccessibleForFree: true,
+      articleSection: 'Guides',
+      isPartOf: {
+        '@id': `${config.baseUrl}/knowledge-base#webpage`,
+        '@type': 'CollectionPage',
+        name: 'Agentic readiness knowledge base',
+        url: `${config.baseUrl}/knowledge-base`,
+      },
+      citation: guideSources(guide),
+      encoding: {
+        '@type': 'MediaObject',
+        encodingFormat: 'text/markdown',
+        contentUrl: `${config.baseUrl}${path}.md`,
+      },
+    },
+    ...(faq.length > 0
+      ? [
+          {
+            '@type': 'FAQPage',
+            '@id': `${config.baseUrl}${path}#faq`,
+            isPartOf: { '@id': `${config.baseUrl}${path}#webpage` },
+            mainEntity: faq.map((pair) => ({
+              '@type': 'Question',
+              name: pair.question,
+              acceptedAnswer: { '@type': 'Answer', text: pair.answer },
+            })),
+          },
+        ]
+      : []),
+    breadcrumbLd(config, [
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: 'Guides', path: GUIDES_HUB_PATH },
+      { name: title, path },
+    ]),
+    {
+      ...webPage(config, path, title, guide.description, 'knowledge'),
+      mainEntity: { '@id': `${config.baseUrl}${path}#article` },
+    },
+    ...siteGraph(config, 'knowledge'),
+  ],
+})}`;
+  return kbPage(
+    config,
+    title,
+    guide.description,
+    `${headFor(config, path, title, guide.description, 'article')}\n<meta name="keywords" content="${escapeHtml(guide.keywords.join(', '))}">`,
+    body,
+    hero,
+  );
+}
+
+/** A guide as one Markdown document: front matter, then the guide. */
+export function guideMarkdown(config: AppConfig, guide: KnowledgeGuide): string {
+  const url = `${config.baseUrl}${guidePath(guide)}`;
+  return `---
+title: ${yaml(guide.headline)}
+description: ${yaml(guide.description)}
+canonical_url: ${url}
+category: guide
+related_checks: [${guide.related.join(', ')}]
+keywords: [${guide.keywords.map(yaml).join(', ')}]
+author: ${yaml(AUTHOR.name)}
+updated: ${KNOWLEDGE_UPDATED}
+---
+
+# ${guide.headline}
+
+> ${guide.description}
+
+${absolute(config, guide.body)}
 
 Source: ${url} (${config.appName} knowledge base, by ${AUTHOR.name}).
 `;
