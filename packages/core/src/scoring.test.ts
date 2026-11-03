@@ -26,6 +26,9 @@ function result(id: string, verdict: CheckResult['verdict']): CheckResult {
   };
 }
 
+/** The catalog without ceilings, for tests about the weighted arithmetic on partial results. */
+const uncapped = { ...catalog, ceilings: [] };
+
 function profileOrThrow(id: string): Profile {
   const profile = getProfile(id);
   if (!profile) throw new Error(`unknown profile ${id}`);
@@ -157,7 +160,7 @@ describe('scoreGroup', () => {
 
 describe('computeScores', () => {
   it('returns null commerce for ingestion-only results', () => {
-    expect(computeScores([result('A1.1', 'pass')])).toMatchObject({
+    expect(computeScores([result('A1.1', 'pass')], uncapped)).toMatchObject({
       ingestion: 100,
       commerce: null,
     });
@@ -229,7 +232,7 @@ describe('score coverage', () => {
     const results = commerceIds.map((id, index) =>
       index === 0 ? skipped(id, 'error') : result(id, 'pass'),
     );
-    const scores = computeScores(results);
+    const scores = computeScores(results, uncapped);
     expect(scores.commerce).toBe(100);
     expect(scores.coverage?.commerce).toBeGreaterThan(90);
     expect(dimensionScore(scores, 'commerce').state).toBe('scored');
@@ -244,5 +247,63 @@ describe('score coverage', () => {
       state: 'scored',
       coverage: null,
     });
+  });
+});
+
+describe('score ceilings', () => {
+  const woo = profileOrThrow('woocommerce-store');
+  const inProfile = new Set(checksForProfile(woo).map((check) => check.id));
+  /** Every check of the WooCommerce profile passes, except the ones named. */
+  const store = (failing: string[]): CheckResult[] =>
+    catalog.checks.map((check) =>
+      !inProfile.has(check.id)
+        ? { ...result(check.id, 'skip'), skip_reason: 'not_applicable' as const }
+        : result(check.id, failing.includes(check.id) ? 'fail' : 'pass'),
+    );
+
+  it('caps commerce at 60 when no checkout an agent can use is advertised', () => {
+    const results = store(['B5.1', 'B5.2', 'B5.3']);
+    const scores = computeScores(results, catalog, woo);
+    expect(scores.commerce).toBe(60);
+    expect(scores.ceilings?.commerce).toMatchObject({
+      id: 'no-checkout',
+      value: 60,
+      lifted_by: ['B5.2', 'B5.3'],
+    });
+    expect(scores.ceilings?.commerce?.raw).toBeGreaterThan(80);
+    expect(scores.ceilings?.ingestion).toBeUndefined();
+    // The level says the same: Level 4, with the checkout checks as the next gate.
+    expect(computeLevel(results, catalog, woo)).toMatchObject({
+      value: 4,
+      next_gate: ['B5.2', 'B5.3'],
+    });
+  });
+
+  it('does not count an empty UCP profile as a checkout', () => {
+    const scores = computeScores(store(['B5.2', 'B5.3']), catalog, woo);
+    expect(scores.ceilings?.commerce?.id).toBe('no-checkout');
+    expect(computeLevel(store(['B5.2', 'B5.3']), catalog, woo).value).toBe(4);
+  });
+
+  it('lifts the cap once a checkout capability is declared', () => {
+    const scores = computeScores(store(['B5.3']), catalog, woo);
+    expect(scores.ceilings).toBeUndefined();
+    expect(scores.commerce).toBeGreaterThan(95);
+    expect(computeLevel(store(['B5.3']), catalog, woo).value).toBe(5);
+  });
+
+  it('caps both dimensions when agents cannot reach the site, and the lower cap wins', () => {
+    const scores = computeScores(store(['A2.4', 'B5.1', 'B5.2', 'B5.3']), catalog, woo);
+    expect(scores.ingestion).toBe(40);
+    expect(scores.ceilings?.ingestion).toMatchObject({ id: 'not-crawlable', lifted_by: ['A2.4'] });
+    expect(scores.commerce).toBe(30);
+    expect(scores.ceilings?.commerce?.id).toBe('not-crawlable');
+  });
+
+  it('records a ceiling that holds even when the raw score is already below it', () => {
+    const failing = catalog.checks.filter((check) => check.group.startsWith('B')).map((c) => c.id);
+    const scores = computeScores(store(failing), catalog, woo);
+    expect(scores.commerce).toBe(0);
+    expect(scores.ceilings?.commerce).toMatchObject({ value: 60, raw: 0 });
   });
 });

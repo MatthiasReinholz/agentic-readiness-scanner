@@ -19,6 +19,7 @@ import {
 } from './knowledge.js';
 import {
   CatalogSchema,
+  CeilingSchema,
   CheckDefinitionSchema,
   GroupSchema,
   LawSchema,
@@ -54,6 +55,7 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
   const groups = z.array(GroupSchema).parse(readJson(join(dataDir, 'groups.json')));
   const levels = z.array(LevelSchema).parse(readJson(join(dataDir, 'levels.json')));
   const profiles = z.array(ProfileSchema).parse(readJson(join(dataDir, 'profiles.json')));
+  const ceilings = z.array(CeilingSchema).parse(readJson(join(dataDir, 'ceilings.json')));
 
   const fixFiles = new Set(readdirSync(fixesDir).filter((name) => name.endsWith('.md')));
   const readChecks = (dir: string) => {
@@ -102,6 +104,7 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
     groups,
     checks,
     levels,
+    ceilings,
     profiles,
     legal,
   });

@@ -1,6 +1,8 @@
 import {
+  catalog,
   fixForPlatform,
   getCheck,
+  getProfile,
   type CheckResult,
   type Platform,
   type ScanResult,
@@ -125,7 +127,10 @@ function rowToScan(row: Record<string, unknown>): StoredScan {
   // Rows stored before scores.groups existed get it recomputed; it is a pure function of results.
   const result = (parsed.scores as Partial<typeof parsed.scores>).groups
     ? parsed
-    : { ...parsed, scores: computeScores(parsed.results) };
+    : {
+        ...parsed,
+        scores: computeScores(parsed.results, catalog, getProfile(parsed.target.profile)),
+      };
   return {
     id: reader.string('id'),
     host: reader.string('host'),

@@ -35,6 +35,7 @@ import {
   type Tier,
 } from './priorities.js';
 import {
+  ceilingSentence,
   countVerdicts,
   escapeHtml,
   failedResults,
@@ -100,7 +101,12 @@ function copyButton(targetId: string, labelText: string): string {
   return `<button type="button" class="${button({ variant: 'outline', size: 'sm' })}" data-copy="${targetId}">${icon('copy')}<span data-copy-label>${labelText}</span></button>`;
 }
 
-function scoreCard(label: string, dimension: DimensionScore, scoredNote: string): string {
+function scoreCard(
+  label: string,
+  dimension: DimensionScore,
+  scoredNote: string,
+  ceiling: string | null = null,
+): string {
   const score = dimension.value;
   const tone = scoreTone(score);
   const note =
@@ -119,7 +125,7 @@ function scoreCard(label: string, dimension: DimensionScore, scoredNote: string)
     score === null
       ? ''
       : `<div class="mt-3 h-1.5 overflow-hidden rounded-full bg-muted ${tone}" aria-hidden="true"><i class="block h-full rounded-full bg-current" style="width:${score}%"></i></div>`;
-  return `<div class="${card} p-4"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">${escapeHtml(label)}</div>${value}${meter}<div class="mt-2 text-sm text-muted-foreground">${escapeHtml(note)}</div></div>`;
+  return `<div class="${card} p-4"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">${escapeHtml(label)}</div>${value}${meter}<div class="mt-2 text-sm text-muted-foreground">${escapeHtml(note)}</div>${ceiling ? `<div class="mt-2 text-sm leading-6" data-ceiling>${escapeHtml(ceiling)}</div>` : ''}</div>`;
 }
 
 function promptFor(result: ScanResult, item: CheckResult, reportUrl?: string): string | null {
@@ -304,11 +310,11 @@ ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>`;
   const body = `${checkMapHtml(result, card)}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
-${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?')}
-${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?')}
+${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?', ceilingSentence(result, 'ingestion'))}
+${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?', ceilingSentence(result, 'commerce'))}
 <div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div>${leftOut ? `<div class="mt-1 text-sm text-muted-foreground" data-left-out>${escapeHtml(leftOut)}</div>` : ''}</div>
 </section>
-${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
+${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A commerce score above 60 needs a checkout an agent can use to be advertised. It never means a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}
 ${options.afterScoresHtml ?? ''}
 <div class="mb-3 mt-10 flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>

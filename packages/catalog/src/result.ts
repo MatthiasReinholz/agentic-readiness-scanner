@@ -82,6 +82,21 @@ export type LevelResult = z.infer<typeof LevelResultSchema>;
 
 export const GroupScoreSchema = z.number().int().min(0).max(100).nullable();
 
+/** A score ceiling in force on one dimension (see the catalog's ceilings). */
+export const AppliedCeilingSchema = z.object({
+  /** The catalog ceiling's id. */
+  id: z.string(),
+  /** The highest score the dimension can show while the ceiling holds. */
+  value: z.number().int().min(0).max(100),
+  /** The weighted score before the cap; above `value` when the ceiling lowered it. */
+  raw: z.number().int().min(0).max(100),
+  /** The condition, phrased to follow "Capped at 60 while …". */
+  reason: z.string(),
+  /** Checks of which one passing per unmet gate lifts the ceiling, limited to the profile. */
+  lifted_by: z.array(z.string().regex(CHECK_ID_PATTERN)),
+});
+export type AppliedCeiling = z.infer<typeof AppliedCeilingSchema>;
+
 export const ScoresSchema = z.object({
   ingestion: z.number().int().min(0).max(100),
   /** Null for profiles without the commerce dimension. */
@@ -103,6 +118,18 @@ export const ScoresSchema = z.object({
     .object({
       ingestion: z.number().int().min(0).max(100).nullable(),
       commerce: z.number().int().min(0).max(100).nullable(),
+    })
+    .optional(),
+  /**
+   * Ceilings in force per dimension: while a capability gate is unmet (agents cannot reach
+   * the site, or cannot check out), the dimension's score is capped. Present only for
+   * dimensions with a score and an unmet gate. Absent on results written before scoring
+   * 0.6.0.
+   */
+  ceilings: z
+    .object({
+      ingestion: AppliedCeilingSchema.optional(),
+      commerce: AppliedCeilingSchema.optional(),
     })
     .optional(),
 });

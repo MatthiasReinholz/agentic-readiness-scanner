@@ -8,6 +8,7 @@ import {
 import { dimensionScore, incompleteScoreSentence, scoreGroup } from '../scoring.js';
 import { prioritize, skipPhrases, TIER_LABEL, type Priority } from './priorities.js';
 import {
+  ceilingSentence,
   countVerdicts,
   groupResults,
   leftOutSentence,
@@ -127,8 +128,13 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   lines.push('');
   lines.push(`**Level ${result.level.value}: ${result.level.name}.** ${nextGateSentence(result)}`);
   lines.push('');
-  lines.push(`- Ingestion score: ${scoreText(result, 'ingestion')}`);
-  lines.push(`- Commerce score: ${scoreText(result, 'commerce')}`);
+  for (const [label, dimension] of [
+    ['Ingestion', 'ingestion'],
+    ['Commerce', 'commerce'],
+  ] as const) {
+    const ceiling = ceilingSentence(result, dimension);
+    lines.push(`- ${label} score: ${scoreText(result, dimension)}${ceiling ? `. ${ceiling}` : ''}`);
+  }
   for (const dimension of ['ingestion', 'commerce'] as const) {
     const score = dimensionScore(result.scores, dimension);
     if (score.state === 'incomplete') lines.push(`- ${incompleteScoreSentence(score)}`);
