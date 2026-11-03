@@ -18,6 +18,8 @@
   "crons": [
     { "path": "/internal/cron/cleanup", "schedule": "daily" },
     { "path": "/internal/cron/monitor", "schedule": "daily" },
+    // Carries scans that need several steps when no page drives them (see routes/jobs.ts).
+    { "path": "/internal/cron/scan-jobs", "schedule": "* * * * *" },
   ],
   // Response headers are set by the worker (apps/web/src/app.ts); sf.jsonc header rules
   // apply to static files only.

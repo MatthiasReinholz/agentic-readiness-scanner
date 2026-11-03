@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 import type { ScanResult } from '@agentic-readiness/catalog';
-import { fixtureFetcher } from '@agentic-readiness/core/testing';
+import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from './app.js';
@@ -46,10 +46,11 @@ function harness(options: { redirect?: string; fail?: boolean } = {}) {
     monitors,
     mailer,
     now: () => new Date(time),
-    fetcherFactory: () => {
+    minIntervalMs: 0,
+    fetchFactory: () => {
       scans++;
-      const f = fixtureFetcher(fixture);
-      return {
+      const f = fixtureFetcher(fixture, { budget: 1_000_000 });
+      return fetcherAsFetch({
         get budget() {
           return f.budget;
         },
@@ -62,11 +63,16 @@ function harness(options: { redirect?: string; fail?: boolean } = {}) {
           // Give each submitted starting path the same recorded storefront, preserving its scope.
           if (['/', '/de/', '/us/en/', '/one', '/two'].includes(parsed.pathname)) {
             const response = await f.fetch('https://ceramics.example/', fetchOptions);
-            return { ...response, url, finalUrl: options.redirect ?? url };
+            return {
+              ...response,
+              url,
+              finalUrl: options.redirect ?? url,
+              redirects: options.redirect ? 1 : response.redirects,
+            };
           }
           return f.fetch(url, fetchOptions);
         },
-      };
+      });
     },
   });
   function post(url: string, path = '/api/scan', extra: Record<string, unknown> = {}) {

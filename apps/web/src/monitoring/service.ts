@@ -30,6 +30,8 @@ export interface RunReport {
   checked: number;
   notified: number;
   failed: number;
+  /** Rescans still running in steps; their subscriptions stay due for the next run. */
+  pending: number;
 }
 
 /** Re-sending a confirmation is limited to once per address and host per this window. */
@@ -157,7 +159,7 @@ export class MonitoringService {
     const before = new Date(this.now().getTime() - intervalDays * 86_400_000).toISOString();
     const due = await this.deps.store.listDue(before, batchSize);
     const scansByHost = new Map<string, Promise<StoredScan>>();
-    const report: RunReport = { due: due.length, checked: 0, notified: 0, failed: 0 };
+    const report: RunReport = { due: due.length, checked: 0, notified: 0, failed: 0, pending: 0 };
     for (const monitor of due) {
       const nowIso = this.now().toISOString();
       // Claim the row first: an overlapping run then sees it as not due, and a failure
@@ -192,6 +194,12 @@ export class MonitoringService {
         }
         await this.deps.store.update(next);
       } catch (error) {
+        if (error instanceof Error && error.name === 'ScanPendingError') {
+          // The scan finishes in steps after this run; the next run reuses its result.
+          await this.deps.store.update(monitor);
+          report.pending += 1;
+          continue;
+        }
         // A failed rescan or a mail provider error affects this subscriber only; the
         // baseline is kept so the change is reported on the next successful run.
         report.failed += 1;

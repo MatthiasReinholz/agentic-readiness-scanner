@@ -12,6 +12,7 @@ import {
 } from '../http/fixture-fetcher.js';
 
 export * from './check-harness.js';
+export * from './fetch-adapter.js';
 
 export interface FixtureManifestEntry {
   url: string;

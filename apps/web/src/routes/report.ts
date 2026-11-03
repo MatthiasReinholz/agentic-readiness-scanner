@@ -26,13 +26,16 @@ import { disposableReport } from '../pages/disposable-report.js';
 import { isRootInput, isRootScan, profileHost, siteProfilePath } from '../scan-scope.js';
 import { hostedFooterHtml, hostedHead } from '../pages/layout.js';
 import { MONITOR_SCRIPT, monitorDialog, monitorPanel } from '../pages/monitor.js';
-import { PROGRESS_TOKEN, type ProgressFinal } from '../progress/types.js';
+import { ProgressRecorder } from '../jobs/progress.js';
+import { PROGRESS_TOKEN } from '../progress/types.js';
 import {
+  donePayload,
   ScanRequestError,
   scanOrReuse,
   validateScanRequest,
   type ScanDependencies,
 } from '../scan-service.js';
+import { continueInBackground, outcomeJson } from './jobs.js';
 
 export interface ReportRouteDependencies {
   deps: ScanDependencies;
@@ -200,6 +203,10 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
       const outcome = await scanOrReuse(deps, request);
       if (outcome.persistence === 'disposable')
         return c.html(disposableReport(config, outcome.result));
+      if (outcome.persistence === 'pending') {
+        continueInBackground(c, config, outcome);
+        return c.redirect(`/scan/jobs/${outcome.job.id}`, 303);
+      }
       return c.redirect(siteProfilePath(outcome.scan.host), 303);
     } catch (error) {
       if (error instanceof ScanRequestError) {
@@ -225,20 +232,10 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
       );
       const outcome = await scanOrReuse(deps, request);
-      if (outcome.persistence === 'disposable') {
-        return c.json({ persistence: 'disposable', reused: false, result: outcome.result });
-      }
-      const { scan: stored, reused } = outcome;
-      return c.json({
-        persistence: 'stored',
-        id: stored.id,
-        profile_id: stored.host,
-        profile_url: `${config.baseUrl}${siteProfilePath(stored.host)}`,
-        snapshot_url: `${config.baseUrl}/r/${stored.id}`,
-        reused,
-        report_url: `${config.baseUrl}${siteProfilePath(stored.host)}`,
-        result: stored.result,
-      });
+      // A scan that needs more steps answers 202 with where to follow it; the steps run
+      // on without the caller (see continueInBackground and the sweeper cron).
+      continueInBackground(c, config, outcome);
+      return c.json(outcomeJson(config, outcome), outcome.persistence === 'pending' ? 202 : 200);
     } catch (error) {
       if (error instanceof ScanRequestError) {
         if (error.retryAfterSeconds) c.header('Retry-After', String(error.retryAfterSeconds));
@@ -252,7 +249,9 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
   // The same scan as /api/scan, streamed as server-sent events so the home page can show
   // what the scanner is doing: `progress` per phase and per check verdict, then `done`
   // with the report URL, or `failure` with the reason. A reused result answers `done` at
-  // once with its verdicts, so the page can replay them.
+  // once with its verdicts, so the page can replay them. A scan that needs more steps
+  // ends the stream with `paused` and its job; the page then calls the job's continue
+  // endpoint until it is done.
   app.post('/api/scan/stream', async (c) => {
     let body: unknown;
     try {
@@ -298,37 +297,15 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         if (!open) return;
         pending = pending.then(() => stream.writeSSE({ event, data: JSON.stringify(data) }));
       };
-      // The same events go to the progress store when the page asked for it: the platform
-      // holds the stream back until it ends, so the page polls the store to watch the scan.
-      // Writes are throttled; the final event is written before the stream closes.
-      const recorded: unknown[] = [];
-      let lastSaved = 0;
-      let saving: Promise<unknown> = Promise.resolve();
-      const save = (final: ProgressFinal | null): Promise<unknown> => {
-        if (!token || !deps.progress) return Promise.resolve();
-        const store = deps.progress;
-        const snapshot = [...recorded];
-        lastSaved = Date.now();
-        saving = saving.then(() =>
-          store
-            .save(token, { events: snapshot, final, updatedAt: new Date().toISOString() })
-            .catch((error: unknown) => {
-              console.error('[scan-progress]', error);
-            }),
-        );
-        return saving;
-      };
-      let seq = 0;
-      const emit = (data: Record<string, unknown>): void => {
-        seq += 1;
-        const event = { ...data, seq };
-        send('progress', event);
-        recorded.push(event);
-        if (Date.now() - lastSaved > 400) void save(null);
-      };
+      // The scan's steps write the same events to the progress record (the platform holds
+      // the stream back until it ends, so the page polls the record). Outcomes that ran no
+      // step, a reused result or a refusal, are written here.
       const finish = async (event: 'done' | 'failure', data: unknown): Promise<void> => {
         send(event, data);
-        await save({ event, data });
+        if (token && deps.progress) {
+          const recorder = await ProgressRecorder.open(deps.progress, token);
+          await recorder.finish(event, data);
+        }
       };
       // A comment every few seconds keeps intermediaries from holding the stream while a
       // slow store takes its time between events.
@@ -336,31 +313,18 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         if (open) pending = pending.then(() => stream.write(': keep-alive\n\n'));
       }, 5000);
       try {
-        const outcome = await scanOrReuse(deps, request, (progress) => {
-          emit(progress);
-        });
-        const result = outcome.persistence === 'stored' ? outcome.scan.result : outcome.result;
-        await finish('done', {
-          persistence: outcome.persistence,
-          ...(outcome.persistence === 'stored'
-            ? {
-                id: outcome.scan.id,
-                report_url: siteProfilePath(outcome.scan.host),
-                host: outcome.scan.host,
-              }
-            : { result }),
-          reused: outcome.reused,
-          scanned_at: result.scanned_at,
-          level: result.level,
-          scores: {
-            ingestion: result.scores.ingestion,
-            commerce: result.scores.commerce,
-            ...(result.scores.coverage ? { coverage: result.scores.coverage } : {}),
+        const outcome = await scanOrReuse(
+          deps,
+          { ...request, ...(token ? { progressToken: token } : {}) },
+          (event) => {
+            send('progress', event);
           },
-          requests: result.requests,
-          duration_ms: result.duration_ms,
-          results: result.results.map((item) => ({ id: item.id, verdict: item.verdict })),
-        });
+        );
+        if (outcome.persistence === 'pending') {
+          // The page drives the next steps; the app and the sweeper cron do when it closes.
+          continueInBackground(c, config, outcome);
+          send('paused', outcomeJson(config, outcome));
+        } else await finish('done', donePayload(outcome));
       } catch (error) {
         if (error instanceof ScanRequestError)
           await finish('failure', { message: error.message, status: error.status });

@@ -7,6 +7,7 @@ import type { ExecutionContext } from 'hono';
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { SqlHistoryStore } from './history/sql.js';
+import { SqlScanJobStore } from './jobs/sql.js';
 import { createMcpRoute } from './mcp-route.js';
 import { createMailer } from './monitoring/mailer.js';
 import { SqlMonitorStore } from './monitoring/sql.js';
@@ -31,17 +32,19 @@ function appFor(env: FunctionsEnv, requestUrl: string) {
   const history = new SqlHistoryStore(env.DB);
   const mailer = createMailer(config.monitoring);
   const limiter = new SqlScanLimiter(env.DB);
+  const jobs = new SqlScanJobStore(env.DB);
   const app = createApp({
     config,
     store,
     limiter,
+    jobs,
     targets: new SqlTargetRegistry(env.DB),
     history,
     progress: new SqlProgressStore(env.DB),
     monitors: new SqlMonitorStore(env.DB),
     ...(mailer ? { mailer } : {}),
   });
-  app.route('/mcp', createMcpRoute({ config, store, history, limiter }));
+  app.route('/mcp', createMcpRoute({ config, store, history, limiter, jobs }));
   cached = { app, db: env.DB };
   return app;
 }

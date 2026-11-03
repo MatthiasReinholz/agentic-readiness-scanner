@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { fixtureFetcher } from '@agentic-readiness/core/testing';
+import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
@@ -40,7 +40,8 @@ function harness(options: { provider?: 'console' | null; adminToken?: string } =
     monitors,
     mailer,
     targets,
-    fetcherFactory: () => fixtureFetcher(fixture),
+    fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+    minIntervalMs: 0,
     now: () => new Date(clock),
   });
   return {
@@ -182,7 +183,8 @@ describe('weekly check', () => {
     const baseApp = createApp({
       config,
       store,
-      fetcherFactory: () => fixtureFetcher(fixture),
+      fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+      minIntervalMs: 0,
       now: () => new Date(clock),
     });
     const firstId = await scanOnce(baseApp);
@@ -215,7 +217,7 @@ describe('weekly check', () => {
 
     clock += 8 * 86_400_000;
     const report = await service.runDue();
-    expect(report).toEqual({ due: 1, checked: 1, notified: 1, failed: 0 });
+    expect(report).toEqual({ due: 1, checked: 1, notified: 1, failed: 0, pending: 0 });
     expect(mailer.sent).toHaveLength(2);
     const email = mailer.sent[1];
     expect(email?.subject).toContain('Level');
@@ -229,7 +231,13 @@ describe('weekly check', () => {
 
     // Unsubscribed monitors are never due again; a second run does nothing.
     clock += 8 * 86_400_000;
-    expect(await service.runDue()).toEqual({ due: 0, checked: 0, notified: 0, failed: 0 });
+    expect(await service.runDue()).toEqual({
+      due: 0,
+      checked: 0,
+      notified: 0,
+      failed: 0,
+      pending: 0,
+    });
   });
 
   it('keeps going when a rescan fails and retries only next interval', async () => {
@@ -241,7 +249,12 @@ describe('weekly check', () => {
     });
     let clock = Date.parse('2026-10-31T12:00:00Z');
     const store = new MemoryResultStore();
-    const baseApp = createApp({ config, store, fetcherFactory: () => fixtureFetcher(fixture) });
+    const baseApp = createApp({
+      config,
+      store,
+      fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+      minIntervalMs: 0,
+    });
     const first = await stored(store, await scanOnce(baseApp));
     const service = new MonitoringService({
       config,
@@ -255,9 +268,59 @@ describe('weekly check', () => {
     const [, , , id, token] = linkIn(mailer.sent[0]?.text ?? '', '/monitor/confirm').split('/');
     await service.confirm(id ?? '', token ?? '');
     clock += 8 * 86_400_000;
-    expect(await service.runDue()).toEqual({ due: 1, checked: 0, notified: 0, failed: 1 });
-    expect(await service.runDue()).toEqual({ due: 0, checked: 0, notified: 0, failed: 0 });
+    expect(await service.runDue()).toEqual({
+      due: 1,
+      checked: 0,
+      notified: 0,
+      failed: 1,
+      pending: 0,
+    });
+    expect(await service.runDue()).toEqual({
+      due: 0,
+      checked: 0,
+      notified: 0,
+      failed: 0,
+      pending: 0,
+    });
     expect(mailer.sent).toHaveLength(1);
+  });
+});
+
+describe('weekly check with a scan in steps', () => {
+  it('keeps the subscription due while its rescan is still running', async () => {
+    const monitors = new MemoryMonitorStore();
+    const mailer = new MemoryMailer();
+    const config = configFromEnv({
+      APP_BASE_URL: 'https://scanner.example',
+      MAIL_PROVIDER: 'console',
+    });
+    let clock = Date.parse('2026-10-31T12:00:00Z');
+    const store = new MemoryResultStore();
+    const baseApp = createApp({
+      config,
+      store,
+      fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+      minIntervalMs: 0,
+    });
+    const first = await stored(store, await scanOnce(baseApp));
+    let running = true;
+    const pendingError = Object.assign(new Error('still running'), { name: 'ScanPendingError' });
+    const service = new MonitoringService({
+      config,
+      store: monitors,
+      mailer,
+      latestScan: () => Promise.resolve(first),
+      rescan: () => (running ? Promise.reject(pendingError) : Promise.resolve(first)),
+      now: () => new Date(clock),
+    });
+    await service.subscribe('owner@example.com', first);
+    const [, , , id, token] = linkIn(mailer.sent[0]?.text ?? '', '/monitor/confirm').split('/');
+    await service.confirm(id ?? '', token ?? '');
+    clock += 8 * 86_400_000;
+    expect(await service.runDue()).toMatchObject({ due: 1, checked: 0, failed: 0, pending: 1 });
+    running = false;
+    clock += 86_400_000;
+    expect(await service.runDue()).toMatchObject({ due: 1, checked: 1, failed: 0, pending: 0 });
   });
 });
 
@@ -290,7 +353,8 @@ describe('monitoring limits', () => {
       store,
       monitors: new MemoryMonitorStore(),
       mailer: new MemoryMailer(),
-      fetcherFactory: () => fixtureFetcher(fixture),
+      fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+      minIntervalMs: 0,
     });
     const id = await scanOnce(app);
     expect(await (await app.request(`/r/${id}`)).text()).not.toContain('id="monitor"');
@@ -305,7 +369,12 @@ describe('monitoring limits', () => {
     });
     let clock = Date.parse('2026-10-31T12:00:00Z');
     const store = new MemoryResultStore();
-    const baseApp = createApp({ config, store, fetcherFactory: () => fixtureFetcher(fixture) });
+    const baseApp = createApp({
+      config,
+      store,
+      fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+      minIntervalMs: 0,
+    });
     const first = await stored(store, await scanOnce(baseApp));
     const flipped: StoredScan = {
       ...first,

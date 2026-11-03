@@ -8,3 +8,5 @@ export const SEEDED_HOST = 'ceramics.example';
 export const LIVE_SCAN_HOST = 'blog.example';
 /** A recorded product page; a path scan yields a disposable report. */
 export const DISPOSABLE_SCAN_URL = 'https://boots.example/products/trail-boot';
+/** Answers slowly (the recorded blog, renamed), so its scan needs several steps. */
+export const STEPPED_SCAN_HOST = 'slow.example';

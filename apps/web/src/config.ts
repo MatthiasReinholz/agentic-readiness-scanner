@@ -36,10 +36,17 @@ export interface AppConfig {
   /** True when APP_BASE_URL was set, false when the base URL was derived from a request. */
   baseUrlExplicit: boolean;
   appName: string;
-  /** Requests per scan. */
+  /** Requests per scan, across all its steps. */
   scanBudget: number;
-  /** Wall-clock budget per scan in milliseconds, below the platform's request limit (30 s on Spacefast Functions). */
-  scanDeadlineMs: number;
+  /**
+   * Wall-clock allowance of one scan step in milliseconds. A step runs inside one request,
+   * and Spacefast Functions answer within 30 s, so it leaves room to store the state.
+   */
+  scanStepMs: number;
+  /** Steps after which a scan finishes with the checks it could not reach marked not run. */
+  scanMaxSteps: number;
+  /** Active scanning time across steps after which a scan finishes the same way. */
+  scanMaxActiveMs: number;
   /** Seconds a stored result is reused before a target is scanned again. */
   targetCooldownSeconds: number;
   /** Days a stored result is kept. */
@@ -67,8 +74,12 @@ export function configFromEnv(
     baseUrl: (env.APP_BASE_URL ?? fallbackBase).replace(/\/$/, ''),
     baseUrlExplicit: Boolean(env.APP_BASE_URL),
     appName: env.APP_NAME ?? 'Agentic Readiness Scanner',
-    scanBudget: positiveInt('SCAN_BUDGET', env.SCAN_BUDGET, 40),
-    scanDeadlineMs: positiveInt('SCAN_DEADLINE_MS', env.SCAN_DEADLINE_MS, 24_000),
+    scanBudget: positiveInt('SCAN_BUDGET', env.SCAN_BUDGET, 60),
+    // SCAN_DEADLINE_MS was the whole scan's budget before scans ran in steps; it is read
+    // as the step allowance so an existing setting keeps a step inside the request limit.
+    scanStepMs: positiveInt('SCAN_STEP_MS', env.SCAN_STEP_MS ?? env.SCAN_DEADLINE_MS, 20_000),
+    scanMaxSteps: positiveInt('SCAN_MAX_STEPS', env.SCAN_MAX_STEPS, 12),
+    scanMaxActiveMs: positiveInt('SCAN_MAX_ACTIVE_MS', env.SCAN_MAX_ACTIVE_MS, 180_000),
     targetCooldownSeconds: Math.max(
       60,
       positiveInt('TARGET_COOLDOWN_SECONDS', env.TARGET_COOLDOWN_SECONDS, 60),

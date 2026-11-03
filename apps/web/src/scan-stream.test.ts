@@ -2,7 +2,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Script } from 'node:vm';
 
-import { fixtureFetcher } from '@agentic-readiness/core/testing';
+import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
@@ -28,7 +28,8 @@ function testApp() {
     config: configFromEnv({ APP_BASE_URL: 'https://scanner.example' }),
     store,
     progress,
-    fetcherFactory: () => fixtureFetcher(fixture),
+    fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+    minIntervalMs: 0,
     now: () => new Date('2026-10-30T12:00:00Z'),
   });
   return { app, store, progress };

@@ -1,7 +1,7 @@
 import { catalog } from '@agentic-readiness/catalog';
 import { expect, test, type Page } from '@playwright/test';
 
-import { LIVE_SCAN_HOST, SEEDED_HOST } from './hosts.js';
+import { LIVE_SCAN_HOST, SEEDED_HOST, STEPPED_SCAN_HOST } from './hosts.js';
 import { watchErrors } from './layout.js';
 
 /**
@@ -34,6 +34,21 @@ test('a root scan streams in the console and arrives at its report once', async 
   await page.reload();
   await expect(page.locator('.cm-done-slot')).toHaveText('');
   await expect(page.locator('.lv-badge')).not.toHaveClass(/lv-celebrate/);
+  expect(errors).toEqual([]);
+});
+
+test('a scan that needs several steps keeps going in the console until its report', async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.goto('/');
+  await page.locator('#scan-form input[name="url"]').fill(`https://${STEPPED_SCAN_HOST}/`);
+  await page.locator('#scan-form button[type="submit"]').click();
+  await expect(page.locator('#sc-log')).toContainText('continuing in the next step', {
+    timeout: 15_000,
+  });
+  await page.waitForURL(`**/sites/${STEPPED_SCAN_HOST}`, { timeout: 45_000 });
+  await expect(page.locator('.cm-grid .cm-cell')).toHaveCount(catalog.checks.length);
   expect(errors).toEqual([]);
 });
 

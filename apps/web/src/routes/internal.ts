@@ -10,6 +10,8 @@ import type { MonitorStore } from '../monitoring/types.js';
 import type { ResultStore } from '../store/types.js';
 import type { TargetRegistry } from '../targets/types.js';
 import type { ScanLimiter } from '../rate-limit/types.js';
+import type { ScanJobStore } from '../jobs/types.js';
+import type { SweepReport } from '../scan-service.js';
 
 export interface InternalRouteDependencies {
   config: AppConfig;
@@ -21,8 +23,16 @@ export interface InternalRouteDependencies {
   limiter?: ScanLimiter;
   /** Null when monitoring is off: no monitor cron, nothing to purge. */
   monitoring: MonitoringService | null;
+  jobs: ScanJobStore;
+  /** Runs steps of scans nobody advanced lately, within the time given. */
+  sweep: (budgetMs: number) => Promise<SweepReport>;
   now: () => Date;
 }
+
+/** Time the sweeper spends per run: Functions requests answer within 30 seconds. */
+const SWEEP_BUDGET_MS = 26_000;
+/** A scan still running after this long is given up; its steps would have finished long ago. */
+const JOB_EXPIRY_MS = 30 * 60 * 1000;
 
 /** Floor between monitoring runs on this isolate; see the cron route. */
 const MIN_MONITOR_RUN_INTERVAL_MS = 10 * 60 * 1000;
@@ -98,6 +108,14 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     }
   });
 
+  // The third trigger after the page and the app itself: every minute, the next step of
+  // each scan nobody advanced lately. Overlapping fires are skipped by the platform and
+  // job leases keep a step from running twice, so the header gate is enough.
+  app.get('/cron/scan-jobs', async (c) => {
+    if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
+    return c.json(await deps.sweep(SWEEP_BUDGET_MS));
+  });
+
   app.get('/cron/cleanup', async (c) => {
     if (!c.req.header('x-spacefast-cron')) return c.text('cron only', 403);
     const cutoff = new Date(Date.now() - config.retentionDays * 86_400_000).toISOString();
@@ -109,7 +127,25 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     const limitsRemoved = deps.limiter
       ? await deps.limiter.deleteOlderThan(new Date(now().getTime() - 86_400_000).toISOString())
       : 0;
-    return c.json({ removed, cutoff, pendingRemoved, progressRemoved, limitsRemoved });
+    const nowMs = now().getTime();
+    const jobsExpired = await deps.jobs.expireRunning(
+      new Date(nowMs - JOB_EXPIRY_MS).toISOString(),
+      now().toISOString(),
+    );
+    const jobsRemoved = await deps.jobs.deleteOlderThan(new Date(nowMs - 86_400_000).toISOString());
+    const cacheRemoved = await deps.jobs.cacheDeleteOlderThan(
+      new Date(nowMs - 2 * 3_600_000).toISOString(),
+    );
+    return c.json({
+      removed,
+      cutoff,
+      pendingRemoved,
+      progressRemoved,
+      limitsRemoved,
+      jobsExpired,
+      jobsRemoved,
+      cacheRemoved,
+    });
   });
 
   return app;

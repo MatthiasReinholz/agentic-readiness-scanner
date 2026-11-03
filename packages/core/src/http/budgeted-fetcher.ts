@@ -39,6 +39,8 @@ export interface BudgetedFetcherOptions {
    * Hosted scans set it below the platform's request limit. Unset means no deadline.
    */
   deadlineMs?: number;
+  /** The message requests carry once `deadlineMs` is used up, when another limit set it. */
+  deadlineReason?: string;
   /**
    * Resumable scans: the wall-clock allowance of this step, from construction. When it is
    * used up a request throws StepDeadlineError instead of DeadlineExhaustedError, so the
@@ -286,6 +288,7 @@ export class BudgetedFetcher implements Fetcher {
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
   private readonly deadlineMs: number | null;
+  private readonly deadlineReason: string | undefined;
   private readonly startedAt = Date.now();
   private readonly maxBodyBytes: number;
   private readonly maxRedirects: number;
@@ -311,6 +314,7 @@ export class BudgetedFetcher implements Fetcher {
     this.budget = options.budget ?? 40;
     this.timeoutMs = options.timeoutMs ?? 10_000;
     this.deadlineMs = options.deadlineMs ?? null;
+    this.deadlineReason = options.deadlineReason;
     this.maxBodyBytes = options.maxBodyBytes ?? 2 * 1024 * 1024;
     this.maxRedirects = options.maxRedirects ?? 5;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
@@ -441,7 +445,7 @@ export class BudgetedFetcher implements Fetcher {
       throw new RateLimitedError(this.persistentRateLimits);
     }
     if (this.deadlineMs !== null && this.remainingMs() <= 0) {
-      throw new DeadlineExhaustedError(this.deadlineMs);
+      throw new DeadlineExhaustedError(this.deadlineMs, this.deadlineReason);
     }
     const wait = this.lastSentAt + this.intervalMs - Date.now();
     if (wait > 0) await sleep(Math.min(wait, this.remainingMs(), this.stepRemainingMs()));
@@ -449,7 +453,7 @@ export class BudgetedFetcher implements Fetcher {
       throw new StepDeadlineError('time');
     }
     if (this.deadlineMs !== null && this.remainingMs() <= 0) {
-      throw new DeadlineExhaustedError(this.deadlineMs);
+      throw new DeadlineExhaustedError(this.deadlineMs, this.deadlineReason);
     }
     this.sentThisStep += 1;
     if (!refill) {

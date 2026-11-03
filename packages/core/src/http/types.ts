@@ -87,8 +87,12 @@ export class RateLimitedError extends BudgetExhaustedError {
  * with the whole report.
  */
 export class DeadlineExhaustedError extends BudgetExhaustedError {
-  constructor(public readonly deadlineMs: number) {
-    super(0, `the scan's time budget of ${Math.round(deadlineMs / 1000)} s was used up`);
+  constructor(
+    public readonly deadlineMs: number,
+    /** What ran out, when it is not this one deadline (a resumable scan's overall limits). */
+    reason?: string,
+  ) {
+    super(0, reason ?? `the scan's time budget of ${Math.round(deadlineMs / 1000)} s was used up`);
     this.name = 'DeadlineExhaustedError';
   }
 }

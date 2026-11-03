@@ -16,7 +16,7 @@ export function disposableReport(config: AppConfig, result: ScanResult): string 
     appName: config.appName,
     homeUrl: `${config.baseUrl}/`,
     head: `<meta name="robots" content="noindex, nofollow">${hostedHead()}`,
-    afterScoresHtml: `<aside class="${alert()} mt-6">${icon('info')}<div class="min-w-0 [overflow-wrap:anywhere]"><strong>One-time scan · not saved</strong><p class="mt-1 text-sm">Started from ${escapeHtml(result.target.input_url)}. This scan includes site-wide signals and sampled pages; it is not limited to this path. Results stay in this browser tab and cannot be shared or recovered after closing it. No store profile, history or monitoring was created.</p></div></aside>`,
+    afterScoresHtml: `<aside class="${alert()} mt-6">${icon('info')}<div class="min-w-0 [overflow-wrap:anywhere]"><strong>One-time scan · not saved</strong><p class="mt-1 text-sm">Started from ${escapeHtml(result.target.input_url)}. This scan includes site-wide signals and sampled pages; it is not limited to this path. Results stay in this browser tab and cannot be shared or recovered after closing it; the server kept the scan's progress only until this page received it. No store profile, history or monitoring was created.</p></div></aside>`,
     footerHtml: hostedFooterHtml(config),
     // No URL to hang a /legal page on, so the legal signals close this noindex document.
     endHtml: result.legal
