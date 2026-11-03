@@ -1,6 +1,8 @@
 import {
   catalog as defaultCatalog,
   type Catalog,
+  type CheckResult,
+  type LegalResult,
   type Market,
   type ScanResult,
   RESULT_SCHEMA_ID,
@@ -15,6 +17,7 @@ import { runLegalChecks } from './legal/run.js';
 import { runChecks } from './runner.js';
 import { computeLevel, computeScores } from './scoring.js';
 import { resolveTarget } from './target/resolver.js';
+import type { Target } from './target/types.js';
 import { SCANNER_VERSION } from './version.js';
 import { emitProgress, type ProgressListener, type ScanProgress } from './progress.js';
 
@@ -109,34 +112,68 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
           ...(options.legalChecks ? { checks: options.legalChecks } : {}),
         });
 
+  return assembleResult({
+    inputUrl,
+    target,
+    catalog,
+    results,
+    ...(legal ? { legal } : {}),
+    requests: fetcher.requestCount,
+    durationMs: Date.now() - started,
+    scannedAt: now().toISOString(),
+    blocked: fetcher.blocked,
+    failures: fetcher.failures,
+  });
+}
+
+/** Everything a finished scan reports, whether it ran in one call or in steps. */
+export interface ResultParts {
+  inputUrl: string;
+  target: Target;
+  catalog: Catalog;
+  results: CheckResult[];
+  legal?: LegalResult;
+  requests: number;
+  durationMs: number;
+  scannedAt: string;
+  /** URLs robots.txt kept the scanner from fetching. */
+  blocked: readonly string[];
+  failures: readonly FetchFailure[];
+  /** Resumable scans: how many steps it took. */
+  steps?: number;
+}
+
+export function assembleResult(parts: ResultParts): ScanResult {
+  const { target, catalog, results, blocked } = parts;
   return {
     schema: RESULT_SCHEMA_ID,
     catalog_version: catalog.version,
     scoring_version: catalog.scoring_version,
     scanner_version: SCANNER_VERSION,
     target: {
-      input_url: inputUrl,
+      input_url: parts.inputUrl,
       url: target.origin,
       platform: target.platform,
       profile: target.profile.id,
       sampled: target.sampled,
     },
-    scanned_at: now().toISOString(),
-    requests: fetcher.requestCount,
-    duration_ms: Date.now() - started,
+    scanned_at: parts.scannedAt,
+    requests: parts.requests,
+    duration_ms: parts.durationMs,
+    ...(parts.steps !== undefined ? { steps: parts.steps } : {}),
     level: computeLevel(results, catalog, target.profile),
     scores: computeScores(results, catalog),
     results,
     warnings: [
       ...target.warnings,
-      ...(fetcher.blocked.length > 0
+      ...(blocked.length > 0
         ? [
-            `robots.txt disallows ${fetcher.blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${listSome(fetcher.blocked)}`,
+            `robots.txt disallows ${blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${listSome(blocked)}`,
           ]
         : []),
-      ...failureWarnings(fetcher.failures),
+      ...failureWarnings(parts.failures),
     ],
-    ...(legal ? { legal } : {}),
+    ...(parts.legal ? { legal: parts.legal } : {}),
   };
 }
 

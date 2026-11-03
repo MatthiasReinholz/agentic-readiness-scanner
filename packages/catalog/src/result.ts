@@ -140,7 +140,10 @@ export const ScanResultSchema = z.object({
   target: ResultTargetSchema,
   scanned_at: z.iso.datetime(),
   requests: z.number().int().min(0),
+  /** Active scanning time; for a resumable scan, the sum of its steps without the gaps. */
   duration_ms: z.number().int().min(0),
+  /** Resumable scans: the number of steps the scan took. Absent for a scan run in one call. */
+  steps: z.number().int().min(1).optional(),
   level: LevelResultSchema,
   scores: ScoresSchema,
   results: z.array(CheckResultSchema),

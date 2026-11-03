@@ -8,7 +8,7 @@ import {
   type Requirement,
 } from '@agentic-readiness/catalog';
 
-import { BudgetExhaustedError, type Fetcher } from './http/types.js';
+import { BudgetExhaustedError, StepDeadlineError, type Fetcher } from './http/types.js';
 import type { Check, CheckOutcome } from './checks/types.js';
 import type { Target } from './target/types.js';
 import { emitProgress, type ProgressListener } from './progress.js';
@@ -20,11 +20,21 @@ export interface RunOptions {
   catalog?: Catalog;
   /** Receives a check event as each verdict is decided. */
   onProgress?: ProgressListener;
+  /**
+   * Resumable scans: outcomes an earlier step already decided. They are taken as they
+   * are, in their place in the order, and their checks do not run again.
+   */
+  prior?: ReadonlyMap<string, CheckOutcome>;
 }
 
 export interface RunOutput {
   results: CheckResult[];
   outcomes: Map<string, CheckOutcome>;
+  /**
+   * True when a step deadline stopped the run: `outcomes` holds what was decided, the
+   * interrupted check and those after it run in the next step, and `results` is not final.
+   */
+  interrupted: boolean;
 }
 
 /** Stable topological order: dependencies first, catalog order otherwise. */
@@ -174,10 +184,16 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     });
   };
   let budgetExhausted = false;
+  let interrupted = false;
   let stopReason = 'request budget exhausted before this check ran';
 
   const gates = new Set(catalog.levels.flatMap((level) => level.gates.flat()));
   for (const definition of orderByDependencies(catalog.checks, gates)) {
+    const decided = options.prior?.get(definition.id);
+    if (decided) {
+      record(definition, decided);
+      continue;
+    }
     // A home page that refused the scanner leaves nothing to read: only robots.txt, the
     // sitemap and the refusal itself can be judged. Everything else would report the
     // absence of things the scanner never saw.
@@ -247,26 +263,25 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       });
       continue;
     }
-    if (budgetExhausted) {
-      record(definition, {
-        verdict: 'skip',
-        skipReason: 'budget_exhausted',
-        message: stopReason,
-        evidence: {},
-      });
-      continue;
-    }
+    // Once the budget or deadline is gone a check still runs: one that only reads pages
+    // already fetched gets its answer from the cache, one that needs a new request throws
+    // at once and is skipped below. Costs milliseconds, never a request.
     try {
       record(definition, await implementation.run({ target, fetcher, definition, outcomes }));
     } catch (error) {
+      if (error instanceof StepDeadlineError) {
+        interrupted = true;
+        break;
+      }
       if (error instanceof BudgetExhaustedError) {
+        const first = !budgetExhausted;
         budgetExhausted = true;
-        if (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError')
+        if (first && (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError'))
           stopReason = `not run: ${error.message} before this check`;
         record(definition, {
           verdict: 'skip',
           skipReason: 'budget_exhausted',
-          message: error.message,
+          message: first ? error.message : stopReason,
           evidence: {},
         });
       } else {
@@ -291,5 +306,5 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     const applies = outcome.skipReason !== 'not_applicable';
     return toResult(definition, outcome, applies);
   });
-  return { results, outcomes };
+  return { results, outcomes, interrupted };
 }
