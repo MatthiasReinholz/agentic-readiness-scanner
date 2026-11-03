@@ -22,7 +22,12 @@ function run(target: Target, fetcher: Fetcher): Promise<CheckOutcome> {
     requires: [],
     depends_on: [],
     spec: [{ title: 'placeholder', url: 'https://example.com/spec' }],
-    fix: { summary: 'placeholder', agent_prompt: 'placeholder', auto_fix: false },
+    fix: {
+      summary: 'placeholder',
+      agent_prompt: 'placeholder',
+      auto_fix: false,
+      platform_notes: [],
+    },
   };
   return shopifyProductsJsonReadable.run({ target, fetcher, definition, outcomes: new Map() });
 }

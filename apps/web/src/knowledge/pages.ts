@@ -14,6 +14,9 @@ import {
   type CheckDefinition,
   type Group,
   type Law,
+  PLATFORM_LABEL,
+  requiredPlatform,
+  type FixPlatform,
 } from '@agentic-readiness/catalog';
 import {
   guides,
@@ -243,6 +246,43 @@ function kbPage(
   );
 }
 
+/** "Shopify only" for a check bound to one platform, null for one that runs anywhere. */
+function platformScope(check: CheckDefinition): string | null {
+  const platform = requiredPlatform(check);
+  return platform ? `${PLATFORM_LABEL[platform]} only` : null;
+}
+
+function platformSentence(check: CheckDefinition): string {
+  const platform = requiredPlatform(check);
+  return platform
+    ? ` Runs only when the scan detects ${PLATFORM_LABEL[platform]}; on any other platform it is left out of the report and never scored.`
+    : '';
+}
+
+/** A WordPress note also holds on WooCommerce, which runs on WordPress. */
+const NOTE_LABEL: Record<FixPlatform, string> = {
+  wordpress: 'WordPress and WooCommerce',
+  woocommerce: 'WooCommerce',
+  shopify: 'Shopify',
+};
+
+function platformNotesHtml(check: CheckDefinition): string {
+  const notes = check.fix.platform_notes;
+  if (notes.length === 0) return '';
+  return `<h3 class="mt-5 text-sm font-semibold">By platform</h3><dl class="mt-2 space-y-2 text-sm leading-6">${notes
+    .map(
+      (note) =>
+        `<div><dt class="font-medium">${NOTE_LABEL[note.platform]}</dt><dd class="text-muted-foreground">${escapeHtml(note.text)}</dd></div>`,
+    )
+    .join('')}</dl>`;
+}
+
+function platformNotesMarkdown(check: CheckDefinition): string {
+  const notes = check.fix.platform_notes;
+  if (notes.length === 0) return '';
+  return `\n### By platform\n\n${notes.map((note) => `- **${NOTE_LABEL[note.platform]}:** ${note.text}`).join('\n')}\n`;
+}
+
 function checkRow(check: CheckDefinition): string {
   const article = articleFor(check.id);
   const tier = tierOf(check.weight);
@@ -250,7 +290,8 @@ function checkRow(check: CheckDefinition): string {
   const text =
     `${check.id} ${check.title} ${title} ${article?.description ?? ''} ${article?.keywords.join(' ') ?? ''}`.toLowerCase();
   const gate = gateOf(check.id);
-  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+  const scope = platformScope(check);
+  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}${scope ? `<span class="${badge({ variant: 'outline' })}" data-platform-scope>${scope}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
 }
 
 function groupSection(group: Group, headingLevel: 'h2' | 'h3'): string {
@@ -418,7 +459,7 @@ function fixCard(check: CheckDefinition): string {
     fix.snippet
       ? `<pre class="${codeBlock} mt-4" tabindex="0" aria-label="Code example" data-language="${escapeHtml(fix.snippet_language ?? 'text')}"><code>${escapeHtml(fix.snippet)}</code></pre>`
       : ''
-  }<details class="group mt-4 rounded-lg border border-border"><summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">Prompt for a coding agent${icon('chevron-down', 'size-4 transition-transform group-open:rotate-180')}</summary><p class="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">${escapeHtml(fix.agent_prompt)}</p></details></section>`;
+  }${platformNotesHtml(check)}<details class="group mt-4 rounded-lg border border-border"><summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium">Prompt for a coding agent${icon('chevron-down', 'size-4 transition-transform group-open:rotate-180')}</summary><p class="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">${escapeHtml(fix.agent_prompt)}</p></details></section>`;
 }
 
 /** /knowledge-base/<article-slug> */
@@ -447,6 +488,7 @@ export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticl
       `<span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span> <span class="text-muted-foreground">${TIER_HELP[tier]}</span>`,
     ],
     ['Readiness level', escapeHtml(gateSentence(check.id))],
+    ...(requiredPlatform(check) ? [['Platform', escapeHtml(platformSentence(check).trim())]] : []),
     ['The question', escapeHtml(check.question)],
     ...(check.depends_on.length > 0
       ? [
@@ -612,14 +654,14 @@ updated: ${KNOWLEDGE_UPDATED}
 
 > ${article.description}
 
-Check ${check.id} (${check.title}) in section ${group.id}, ${group.title}. Priority: ${TIER_TEXT[tier].toLowerCase()}. ${TIER_HELP[tier]} ${gateSentence(check.id)}${check.depends_on.length > 0 ? ` Runs after ${check.depends_on.join(', ')}.` : ''}
+Check ${check.id} (${check.title}) in section ${group.id}, ${group.title}. Priority: ${TIER_TEXT[tier].toLowerCase()}. ${TIER_HELP[tier]} ${gateSentence(check.id)}${platformSentence(check)}${check.depends_on.length > 0 ? ` Runs after ${check.depends_on.join(', ')}.` : ''}
 
 ${absolute(config, article.body)}
 
 ## The fix in one step
 
 ${fix.summary}
-${fix.snippet ? `\n\`\`\`${fix.snippet_language ?? ''}\n${fix.snippet}\n\`\`\`\n` : ''}
+${fix.snippet ? `\n\`\`\`${fix.snippet_language ?? ''}\n${fix.snippet}\n\`\`\`\n` : ''}${platformNotesMarkdown(check)}
 ### Prompt for a coding agent
 
 ${fix.agent_prompt}
@@ -982,7 +1024,7 @@ ${absolute(config, article.body)}
 ## The fix in one step
 
 ${fix.summary}
-${fix.snippet ? `\n\`\`\`${fix.snippet_language ?? ''}\n${fix.snippet}\n\`\`\`\n` : ''}
+${fix.snippet ? `\n\`\`\`${fix.snippet_language ?? ''}\n${fix.snippet}\n\`\`\`\n` : ''}${platformNotesMarkdown(check)}
 ### Prompt for a coding agent
 
 ${fix.agent_prompt}

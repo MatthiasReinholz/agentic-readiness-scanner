@@ -10,6 +10,7 @@ import { renderBadge } from './badge.js';
 import { renderHtml } from './html.js';
 import { scoreTone, THEME_STORAGE_KEY } from './html-theme.js';
 import { renderMarkdown } from './markdown.js';
+import { shownResults } from './shared.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'fixtures', 'stores', name);
@@ -109,7 +110,7 @@ describe('check map', () => {
     const html = renderHtml(result);
     const cells =
       html.match(/<a class="cm-cell" href="#[AB]\d\.\d+" data-v="(pass|warn|fail|skip)"/g) ?? [];
-    expect(cells).toHaveLength(result.results.length);
+    expect(cells).toHaveLength(shownResults(result).length);
     expect(html).toContain('id="check-map"');
     expect(html.indexOf('id="check-map"')).toBeLessThan(html.indexOf('aria-label="Scores"'));
     expect(html).toContain('class="lv-badge');
@@ -118,6 +119,39 @@ describe('check map', () => {
     expect(() => new Script(CHECK_MAP_SCRIPT)).not.toThrow();
     // The animation is opt-in per arrival: the script checks the handed-over path.
     expect(CHECK_MAP_SCRIPT).toContain("v.split('|')[0]!==location.pathname");
+  });
+});
+
+describe('platform-bound checks', () => {
+  it('leaves the checks of other platforms out of the HTML and Markdown reports', async () => {
+    const woo = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(fixture('good-woocommerce')),
+    });
+    expect(woo.results.find((item) => item.id === 'B5.8')).toMatchObject({
+      verdict: 'skip',
+      skip_reason: 'not_applicable',
+      message: 'requires Shopify, which was not detected',
+    });
+    const html = renderHtml(woo);
+    const markdown = renderMarkdown(woo);
+    for (const report of [html, markdown]) {
+      expect(report).not.toContain('Shopify agentic storefront active');
+      expect(report).not.toContain('Shopify products.json readable');
+      expect(report).toContain(
+        '2 Shopify check(s) left out, because the scan detected WooCommerce.',
+      );
+    }
+    expect(html).toContain('id="B1.2"');
+
+    const shopify = await scan('https://boots.example/', {
+      fetcher: fixtureFetcher(fixture('shopify-store')),
+    });
+    const shopifyHtml = renderHtml(shopify);
+    expect(shopifyHtml).not.toContain('id="B1.2"');
+    expect(shopifyHtml).toContain('id="B5.8"');
+    expect(shopifyHtml).toContain(
+      '5 WooCommerce check(s) left out, because the scan detected Shopify.',
+    );
   });
 });
 

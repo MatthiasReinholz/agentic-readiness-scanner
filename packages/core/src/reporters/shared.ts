@@ -1,5 +1,8 @@
 import {
   catalog as defaultCatalog,
+  forOtherPlatform,
+  PLATFORM_LABEL,
+  requiredPlatform,
   type Catalog,
   type CheckResult,
   type Dimension,
@@ -29,6 +32,46 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function definitionOf(id: string, catalog: Catalog) {
+  return catalog.checks.find((check) => check.id === id);
+}
+
+/**
+ * The results a rendered report lists: every check except those bound to a platform the
+ * target does not run (a Shopify check on a WooCommerce store). Those never ran and say
+ * nothing about this site; the JSON result keeps them, as its contract lists every check.
+ */
+export function shownResults(result: ScanResult, catalog: Catalog = defaultCatalog): CheckResult[] {
+  return result.results.filter((item) => {
+    const definition = definitionOf(item.id, catalog);
+    return !definition || !forOtherPlatform(definition, result.target.platform);
+  });
+}
+
+/** One sentence naming the platform checks a report leaves out, or null when none are. */
+export function leftOutSentence(
+  result: ScanResult,
+  catalog: Catalog = defaultCatalog,
+): string | null {
+  const counts = new Map<'woocommerce' | 'shopify', number>();
+  for (const item of result.results) {
+    const definition = definitionOf(item.id, catalog);
+    if (!definition || !forOtherPlatform(definition, result.target.platform)) continue;
+    const platform = requiredPlatform(definition);
+    if (platform) counts.set(platform, (counts.get(platform) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  const parts = [...counts].map(([platform, count]) => `${count} ${PLATFORM_LABEL[platform]}`);
+  const detected = result.target.platform;
+  const reason =
+    detected === 'unknown'
+      ? counts.size > 1
+        ? 'neither platform was detected'
+        : 'the platform was not detected'
+      : `the scan detected ${detected === 'wordpress' ? 'WordPress without WooCommerce' : PLATFORM_LABEL[detected]}`;
+  return `${parts.join(' and ')} check(s) left out, because ${reason}.`;
+}
+
 export interface GroupedResults {
   id: string;
   title: string;
@@ -44,7 +87,7 @@ export function groupResults(
     id: group.id,
     title: group.title,
     dimension: group.dimension,
-    results: result.results.filter((item) => item.group === group.id),
+    results: shownResults(result, catalog).filter((item) => item.group === group.id),
   }));
 }
 
@@ -80,7 +123,7 @@ export function failedResults(result: ScanResult): CheckResult[] {
 
 export function countVerdicts(result: ScanResult): Record<CheckResult['verdict'], number> {
   const counts = { pass: 0, warn: 0, fail: 0, skip: 0 };
-  for (const item of result.results) counts[item.verdict] += 1;
+  for (const item of shownResults(result)) counts[item.verdict] += 1;
   return counts;
 }
 

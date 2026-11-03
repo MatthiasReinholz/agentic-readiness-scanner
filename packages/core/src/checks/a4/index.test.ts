@@ -15,6 +15,7 @@ import {
   resourceMetadataUrl,
   serverCardUrl,
   summarizeLinkset,
+  webMcpDisabled,
   webMcpSignals,
   webMcpToolDeclarations,
 } from './index.js';
@@ -796,11 +797,19 @@ describe('A4.6 WebMCP tool declarations', () => {
   </body></html>`;
   const imperative = `<!doctype html><html><body>
     <script src="/app.js"></script>
-    <script>if (navigator.modelContext) { navigator.modelContext.registerTool({ name: 'checkout' }); }</script>
+    <script>if (document.modelContext) { document.modelContext.registerTool({ name: 'checkout' }); }</script>
     <script>document.modelContextMenu = 1;</script>
   </body></html>`;
+  const undescribed = `<!doctype html><html><body>
+    <form toolname="newsletter"><input name="email"></form>
+  </body></html>`;
+  const page = (body: string, policy?: string) => ({
+    status: 200,
+    headers: { 'content-type': 'text/html', ...(policy ? { 'permissions-policy': policy } : {}) },
+    body,
+  });
 
-  it('passes naming the declarative tools and scripts found across home and product pages', async () => {
+  it('passes naming the form tools and scripts found across home and product pages', async () => {
     const outcome = await runCheck(
       webMcpToolDeclarations,
       targetFor({ homeHtml: declarative, products: [product] }),
@@ -808,40 +817,89 @@ describe('A4.6 WebMCP tool declarations', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'WebMCP declarations found: 2 declarative tool(s): search_products, add_to_cart; 1 inline script(s) using modelContext',
+      'WebMCP declarations found: 1 declarative tool(s): search_products; 1 inline script(s) using modelContext',
     );
     expect(outcome.evidence).toEqual({
       pages_scanned: 2,
-      declarative_tools: 2,
-      tool_names: ['search_products', 'add_to_cart'],
+      declarative_tools: 1,
+      tool_names: ['search_products'],
+      unregistered_forms: [],
       tool_param_descriptions: 1,
       scripts_with_model_context: 1,
       pages_with_declarations: [`${origin}/`, product],
+      disabled_by_permissions_policy: [],
     });
   });
 
-  it('skips as not applicable when nothing is declared', async () => {
-    const outcome = await runCheck(webMcpToolDeclarations, targetFor(), mapFetcher({}));
-    expect(outcome.verdict).toBe('skip');
-    expect(outcome.skipReason).toBe('not_applicable');
-    expect(outcome.message).toBe('no WebMCP declarations; optional');
-    expect(outcome.evidence).toMatchObject({
+  it('warns about a form with toolname but no tooldescription, which is never registered', async () => {
+    const outcome = await runCheck(
+      webMcpToolDeclarations,
+      targetFor({ homeHtml: undescribed }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      '1 form(s) carry toolname without tooldescription, so the browser does not register them: newsletter',
+    );
+    expect(outcome.evidence).toMatchObject({ unregistered_forms: ['newsletter'] });
+  });
+
+  it('warns when Permissions-Policy turns WebMCP off on a page that declares tools', async () => {
+    const outcome = await runCheck(
+      webMcpToolDeclarations,
+      targetFor({ products: [product] }),
+      mapFetcher({ [product]: page(declarative, 'camera=(), tools=()') }),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      'Permissions-Policy tools=() turns WebMCP off on 1 page(s) that declare tools; WebMCP declarations found: 1 declarative tool(s): search_products',
+    );
+    expect(outcome.evidence).toMatchObject({ disabled_by_permissions_policy: [product] });
+  });
+
+  it('reads tools=(self) as allowed', async () => {
+    const outcome = await runCheck(
+      webMcpToolDeclarations,
+      targetFor({ products: [product] }),
+      mapFetcher({ [product]: page(declarative, 'tools=(self)') }),
+    );
+    expect(outcome.verdict).toBe('pass');
+  });
+
+  it('skips as not applicable when nothing is declared, noting a policy that turns WebMCP off', async () => {
+    const plain = await runCheck(webMcpToolDeclarations, targetFor(), mapFetcher({}));
+    expect(plain.verdict).toBe('skip');
+    expect(plain.skipReason).toBe('not_applicable');
+    expect(plain.message).toBe('no WebMCP declarations in the HTML; optional');
+    expect(plain.evidence).toMatchObject({
       pages_scanned: 1,
       declarative_tools: 0,
       scripts_with_model_context: 0,
       pages_with_declarations: [],
     });
+    const off = await runCheck(
+      webMcpToolDeclarations,
+      targetFor({ products: [product] }),
+      mapFetcher({ [product]: page('<!doctype html><html><body></body></html>', 'tools=()') }),
+    );
+    expect(off.skipReason).toBe('not_applicable');
+    expect(off.message).toBe(
+      'no WebMCP declarations in the HTML; optional, and Permissions-Policy tools=() turns WebMCP off',
+    );
   });
 
-  it('ignores external scripts and unrelated modelContext look-alikes', () => {
+  it('reads forms only, and ignores external scripts and modelContext look-alikes', () => {
     expect(webMcpSignals(new HtmlDocument(imperative))).toEqual({
       tools: [],
+      incomplete: [],
       parameters: 0,
       scripts: 1,
     });
-    expect(webMcpSignals(new HtmlDocument(declarative)).tools).toEqual([
-      'search_products',
-      'add_to_cart',
-    ]);
+    expect(webMcpSignals(new HtmlDocument(declarative)).tools).toEqual(['search_products']);
+    expect(webMcpDisabled({ 'permissions-policy': 'geolocation=(), tools=()' })).toBe(true);
+    expect(webMcpDisabled({ 'permissions-policy': 'tools=(self "https://a.example")' })).toBe(
+      false,
+    );
+    expect(webMcpDisabled({})).toBe(false);
   });
 });

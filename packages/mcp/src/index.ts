@@ -3,7 +3,13 @@
  * to stdio, the hosted app to Streamable HTTP. Tools return the same result object the
  * JSON report uses, so an agent gets the full contract, not a summary.
  */
-import { catalog, composeAgentPrompt, getCheck, type ScanResult } from '@agentic-readiness/catalog';
+import {
+  catalog,
+  composeAgentPrompt,
+  fixForPlatform,
+  getCheck,
+  type ScanResult,
+} from '@agentic-readiness/catalog';
 import { renderLegalMarkdown, renderMarkdown, SCANNER_VERSION } from '@agentic-readiness/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -91,15 +97,19 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     {
       title: 'Get the fix for a check',
       description:
-        'Returns the fix for a check id in all three forms: summary, snippet and a prompt for a coding agent, plus the specs the check is grounded in.',
+        'Returns the fix for a check id in all three forms: summary, snippet and a prompt for a coding agent, plus the specs the check is grounded in. Pass the platform from the scan result to get the advice for that platform in the prompt.',
       inputSchema: {
         check_id: z
           .string()
           .regex(/^[AB][1-5]\.\d{1,2}$/)
           .describe('Check id, e.g. B3.1'),
+        platform: z
+          .enum(['woocommerce', 'wordpress', 'shopify', 'unknown'])
+          .optional()
+          .describe('Detected platform from the scan result (target.platform)'),
       },
     },
-    ({ check_id }) => {
+    ({ check_id, platform }) => {
       const check = getCheck(check_id);
       if (!check) {
         return { content: [{ type: 'text', text: `Unknown check ${check_id}` }], isError: true };
@@ -115,9 +125,11 @@ export function createMcpServer(options: McpServerOptions): McpServer {
               method: check.method,
               weight: check.weight,
               spec: check.spec,
-              fix: check.fix,
+              fix: fixForPlatform(check.fix, platform),
+              /** Advice per platform; the fix's prompt already carries the one for `platform`. */
+              platform_notes: check.fix.platform_notes,
               /** The fix's agent prompt wrapped in context and working rules, ready to hand to an agent. */
-              agent_brief: composeAgentPrompt(check),
+              agent_brief: composeAgentPrompt(check, platform ? { platform } : {}),
             }),
           },
         ],

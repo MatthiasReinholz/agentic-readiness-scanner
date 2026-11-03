@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { scan } from '../scan.js';
 import { fixtureFetcher } from '../testing/index.js';
 import { countSkips, groupIsOptional, prioritize, tierOf } from './priorities.js';
+import { shownResults } from './shared.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'fixtures', 'stores', name);
@@ -69,7 +70,7 @@ describe('prioritize', () => {
     const skips = countSkips(result);
     expect(skips.not_applicable).toBeGreaterThan(0);
     expect(skips.not_applicable + skips.dependency_failed + skips.unanswered).toBe(
-      result.results.filter((r) => r.verdict === 'skip').length,
+      shownResults(result).filter((r) => r.verdict === 'skip').length,
     );
     expect(groupIsOptional(result.results.filter((r) => r.group === 'A4'))).toBe(true);
     expect(groupIsOptional(result.results.filter((r) => r.group === 'A2'))).toBe(false);

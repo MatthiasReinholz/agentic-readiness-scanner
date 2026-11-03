@@ -10,6 +10,7 @@ import { prioritize, skipPhrases, TIER_LABEL, type Priority } from './priorities
 import {
   countVerdicts,
   groupResults,
+  leftOutSentence,
   nextGateSentence,
   scopeLines,
   scoreText,
@@ -132,7 +133,10 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     const score = dimensionScore(result.scores, dimension);
     if (score.state === 'incomplete') lines.push(`- ${incompleteScoreSentence(score)}`);
   }
-  lines.push(`- Platform: ${result.target.platform}, profile: ${result.target.profile}`);
+  const leftOut = leftOutSentence(result);
+  lines.push(
+    `- Platform: ${result.target.platform}, profile: ${result.target.profile}${leftOut ? `. ${leftOut}` : ''}`,
+  );
   lines.push(
     `- Checks: ${[`${counts.pass} pass`, `${counts.warn} warn`, `${counts.fail} fail`, ...skipPhrases(result)].join(' · ')}`,
   );

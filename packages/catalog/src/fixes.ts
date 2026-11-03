@@ -14,13 +14,27 @@
  *   ```
  *   ## Agent prompt
  *   ...
+ *   ## On WordPress     (optional; also On WooCommerce, On Shopify)
+ *   ...
+ *
+ * A platform section holds advice that is true only on that platform. Reports add it to
+ * the agent prompt only when the scan detected the platform; a WordPress section also
+ * applies to WooCommerce.
  */
-import { FixSchema, type Fix } from './schema.js';
+import {
+  CatalogFixSchema,
+  FixPlatformSchema,
+  type CatalogFix,
+  type PlatformNote,
+} from './schema.js';
+
+const PLATFORM_SECTION = /^on (.+)$/;
+const KNOWN_SECTIONS = new Set(['summary', 'snippet', 'agent prompt']);
 
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n/;
 const FENCE = /```([\w-]*)\n([\s\S]*?)```/;
 
-export function parseFixMarkdown(source: string, fileName: string): Fix {
+export function parseFixMarkdown(source: string, fileName: string): CatalogFix {
   const frontMatter = FRONT_MATTER.exec(source);
   if (!frontMatter) {
     throw new Error(`${fileName}: missing front matter`);
@@ -65,14 +79,24 @@ export function parseFixMarkdown(source: string, fileName: string): Fix {
     snippet = fence[2]?.replace(/\n$/, '');
   }
 
+  const platformNotes: PlatformNote[] = [];
+  for (const [heading, text] of sections) {
+    if (KNOWN_SECTIONS.has(heading)) continue;
+    const platform = FixPlatformSchema.safeParse(PLATFORM_SECTION.exec(heading)?.[1]);
+    if (!platform.success) throw new Error(`${fileName}: unknown section "${heading}"`);
+    if (!text) throw new Error(`${fileName}: empty section "${heading}"`);
+    platformNotes.push({ platform: platform.data, text });
+  }
+
   const candidate = {
     summary: sections.get('summary'),
     ...(snippet !== undefined ? { snippet } : {}),
     ...(snippetLanguage !== undefined ? { snippet_language: snippetLanguage } : {}),
     agent_prompt: sections.get('agent prompt'),
     auto_fix: meta.auto_fix === 'true',
+    platform_notes: platformNotes,
   };
-  const parsed = FixSchema.safeParse(candidate);
+  const parsed = CatalogFixSchema.safeParse(candidate);
   if (!parsed.success) {
     throw new Error(
       `${fileName}: ${parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ')}`,
