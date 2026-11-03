@@ -108,7 +108,7 @@ export interface ScanOrReuseOptions {
 export class ScanPendingError extends Error {
   constructor(public readonly outcome: PendingOutcome) {
     super(
-      `The scan of ${outcome.job.host} is still running (${outcome.decided} of ${outcome.total} checks decided); it continues on the server.`,
+      `The scan of ${outcome.job.host} is still running (${String(Math.round((100 * outcome.decided) / Math.max(1, outcome.total)))}% of the checks decided); it continues on the server.`,
     );
     this.name = 'ScanPendingError';
   }
@@ -338,6 +338,7 @@ export function donePayload(outcome: FinishedOutcome): Record<string, unknown> {
     requests: result.requests,
     duration_ms: result.duration_ms,
     ...(result.steps !== undefined ? { steps: result.steps } : {}),
+    platform: result.target.platform,
     results: result.results.map((item) => ({ id: item.id, verdict: item.verdict })),
   };
 }

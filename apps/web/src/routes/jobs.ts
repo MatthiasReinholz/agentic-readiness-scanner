@@ -93,7 +93,7 @@ function waitingPage(config: AppConfig, outcome: PendingOutcome) {
   // The page drives the scan while it is open; without JavaScript it reloads and the
   // app and the sweeper cron advance the scan in between. The script is constant: it
   // reads the job id from its own URL.
-  const script = `(function(){var id=location.pathname.split('/').pop();function go(){fetch('/api/scan/jobs/'+id+'/continue',{method:'POST',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(j.status==='running'){var el=document.getElementById('job-progress');if(el)el.textContent=j.decided+' of '+j.total+' checks decided';setTimeout(go,j.busy?3000:300)}else location.reload()}).catch(function(){setTimeout(go,3000)})}go()})();`;
+  const script = `(function(){var id=location.pathname.split('/').pop();function go(){fetch('/api/scan/jobs/'+id+'/continue',{method:'POST',cache:'no-store'}).then(function(r){return r.json()}).then(function(j){if(j.status==='running'){var el=document.getElementById('job-progress');if(el)el.textContent=Math.round(100*j.decided/Math.max(1,j.total))+'% of the checks decided';setTimeout(go,j.busy?3000:300)}else location.reload()}).catch(function(){setTimeout(go,3000)})}go()})();`;
   return page(
     config,
     {
@@ -102,7 +102,7 @@ function waitingPage(config: AppConfig, outcome: PendingOutcome) {
       hero: `<p class="hero-eyebrow">Agentic readiness</p><h1 class="hero-title">Scanning ${escapeHtml(job.host)}</h1>`,
       scripts: [script],
     },
-    `<section class="space-y-3"><p aria-live="polite"><span id="job-progress">${outcome.decided} of ${outcome.total} checks decided</span>. This scan runs in steps; the page opens the report when it is done.</p></section>`,
+    `<section class="space-y-3"><p aria-live="polite"><span id="job-progress">${String(Math.round((100 * outcome.decided) / Math.max(1, outcome.total)))}% of the checks decided</span>. This scan runs in steps; the page opens the report when it is done.</p></section>`,
   );
 }
 
