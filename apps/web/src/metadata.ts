@@ -1,6 +1,6 @@
 /** Hosted-page discovery and sharing metadata. Values describe public, visible content only. */
 import { catalog } from '@agentic-readiness/catalog';
-import { escapeHtml, SCANNER_VERSION } from '@agentic-readiness/core';
+import { escapeHtml, SCANNER_VERSION, scoreText } from '@agentic-readiness/core';
 import {
   SOCIAL_IMAGES,
   SOCIAL_IMAGE_WIDTH,
@@ -182,7 +182,7 @@ export function reportMetadata(
   const path = pagePath;
   const url = `${config.baseUrl}${path}`;
   const title = `Agentic readiness report for ${hostname}`;
-  const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${result.scores.ingestion}/100; commerce ${result.scores.commerce === null ? 'not scored' : `${result.scores.commerce}/100`}. Public signals only; checkout not verified.`;
+  const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${scoreText(result, 'ingestion')}; commerce ${scoreText(result, 'commerce')}. Public signals only; checkout not verified.`;
   const graph = [
     {
       ...webPage(config, path, title, description, 'report'),

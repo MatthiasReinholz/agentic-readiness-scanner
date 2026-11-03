@@ -1,5 +1,6 @@
 import type { ScanResult } from '@agentic-readiness/catalog';
 
+import { dimensionScore } from '../scoring.js';
 import { escapeHtml } from './shared.js';
 
 const LEVEL_COLORS = ['#9f1239', '#c2410c', '#b45309', '#4d7c0f', '#15803d', '#0f766e'];
@@ -7,7 +8,10 @@ const LEVEL_COLORS = ['#9f1239', '#c2410c', '#b45309', '#4d7c0f', '#15803d', '#0
 /** A flat SVG badge: "agentic readiness | Level 3 · 71/54". Cacheable, no external fonts. */
 export function renderBadge(result: Pick<ScanResult, 'level' | 'scores'>): string {
   const label = 'agentic readiness';
-  const value = `Level ${result.level.value} · ${result.scores.ingestion}${result.scores.commerce === null ? '' : `/${result.scores.commerce}`}`;
+  const ingestion = dimensionScore(result.scores, 'ingestion');
+  const commerce = dimensionScore(result.scores, 'commerce');
+  const part = (score: typeof ingestion) => (score.state === 'scored' ? String(score.value) : '–');
+  const value = `Level ${result.level.value} · ${part(ingestion)}${commerce.state === 'not_applicable' ? '' : `/${part(commerce)}`}`;
   const labelWidth = 6 * label.length + 20;
   const valueWidth = 6.5 * value.length + 20;
   const width = Math.round(labelWidth + valueWidth);

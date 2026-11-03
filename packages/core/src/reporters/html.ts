@@ -17,7 +17,12 @@ import {
   panel,
 } from '@agentic-readiness/ui';
 
-import { scoreGroup } from '../scoring.js';
+import {
+  dimensionScore,
+  incompleteScoreSentence,
+  scoreGroup,
+  type DimensionScore,
+} from '../scoring.js';
 import { CHECK_MAP_CSS, CHECK_MAP_SCRIPT, checkMapHtml } from './check-map.js';
 import { htmlDocument, pageHero, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
@@ -36,6 +41,7 @@ import {
   groupResults,
   nextGateSentence,
   scopeLines,
+  scoreText,
   type GroupedResults,
 } from './shared.js';
 
@@ -93,12 +99,21 @@ function copyButton(targetId: string, labelText: string): string {
   return `<button type="button" class="${button({ variant: 'outline', size: 'sm' })}" data-copy="${targetId}">${icon('copy')}<span data-copy-label>${labelText}</span></button>`;
 }
 
-function scoreCard(label: string, score: number | null, note: string): string {
+function scoreCard(label: string, dimension: DimensionScore, scoredNote: string): string {
+  const score = dimension.value;
   const tone = scoreTone(score);
+  const note =
+    dimension.state === 'incomplete'
+      ? incompleteScoreSentence(dimension)
+      : dimension.state === 'not_applicable'
+        ? 'Not scored for this profile'
+        : scoredNote;
   const value =
-    score === null
-      ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">n/a</div>`
-      : `<div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none ${tone}">${score}<small class="text-sm font-semibold text-muted-foreground">/ 100</small></div>`;
+    dimension.state === 'incomplete'
+      ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">Incomplete</div>`
+      : score === null
+        ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">n/a</div>`
+        : `<div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none ${tone}">${score}<small class="text-sm font-semibold text-muted-foreground">/ 100</small></div>`;
   const meter =
     score === null
       ? ''
@@ -287,8 +302,8 @@ ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>`;
   const body = `${checkMapHtml(result, card)}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
-${scoreCard('Agentic ingestion', result.scores.ingestion, 'Can agents find and read the site?')}
-${scoreCard('Agentic commerce', result.scores.commerce, result.scores.commerce === null ? 'Not scored for this profile' : 'Can agents trust and buy?')}
+${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?')}
+${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?')}
 <div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
@@ -312,7 +327,7 @@ ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeH
       heroHtml: pageHero(hero),
       description:
         options.description ??
-        `Level ${result.level.value} (${result.level.name}); ingestion ${result.scores.ingestion}, commerce ${result.scores.commerce ?? 'n/a'}.`,
+        `Level ${result.level.value} (${result.level.name}); ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}.`,
       head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
       scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],
     },

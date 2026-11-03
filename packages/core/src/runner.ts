@@ -28,8 +28,51 @@ export interface RunOutput {
 }
 
 /** Stable topological order: dependencies first, catalog order otherwise. */
-export function orderByDependencies(definitions: readonly CheckDefinition[]): CheckDefinition[] {
+/**
+ * How early a check runs when time or requests may run out: level gates and blocking
+ * checks first, then expected, nice to have and informational ones. Output order does not
+ * change (results follow the catalog); only which checks a short budget reaches does.
+ */
+function urgency(definition: CheckDefinition, gates: ReadonlySet<string>): number {
+  if (gates.has(definition.id) || definition.weight === 3) return 0;
+  if (definition.weight === 2) return 1;
+  if (definition.weight === 1) return 2;
+  return 3;
+}
+
+/**
+ * Dependency order with the most urgent checks first. A parent inherits the urgency of
+ * its most urgent dependent, so a blocking check never waits behind optional probes for
+ * the parent it needs. Ties keep catalog order, so the order is deterministic.
+ */
+export function orderByDependencies(
+  definitions: readonly CheckDefinition[],
+  gates: ReadonlySet<string> = new Set(),
+): CheckDefinition[] {
   const byId = new Map(definitions.map((definition) => [definition.id, definition]));
+  const position = new Map(definitions.map((definition, index) => [definition.id, index]));
+  const children = new Map<string, string[]>();
+  for (const definition of definitions) {
+    for (const parent of definition.depends_on) {
+      if (!byId.has(parent)) continue;
+      children.set(parent, [...(children.get(parent) ?? []), definition.id]);
+    }
+  }
+  const effective = new Map<string, number>();
+  const effectiveUrgency = (id: string, visiting: Set<string> = new Set()): number => {
+    const known = effective.get(id);
+    if (known !== undefined) return known;
+    const definition = byId.get(id);
+    if (!definition || visiting.has(id)) return 3;
+    visiting.add(id);
+    let value = urgency(definition, gates);
+    for (const child of children.get(id) ?? []) {
+      value = Math.min(value, effectiveUrgency(child, visiting));
+    }
+    visiting.delete(id);
+    effective.set(id, value);
+    return value;
+  };
   const ordered: CheckDefinition[] = [];
   const placed = new Set<string>();
   const visiting = new Set<string>();
@@ -44,7 +87,12 @@ export function orderByDependencies(definitions: readonly CheckDefinition[]): Ch
     placed.add(definition.id);
     ordered.push(definition);
   };
-  for (const definition of definitions) visit(definition);
+  const byUrgency = [...definitions].sort(
+    (a, b) =>
+      effectiveUrgency(a.id) - effectiveUrgency(b.id) ||
+      (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+  );
+  for (const definition of byUrgency) visit(definition);
   return ordered;
 }
 
@@ -126,7 +174,8 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   let budgetExhausted = false;
   let stopReason = 'request budget exhausted before this check ran';
 
-  for (const definition of orderByDependencies(catalog.checks)) {
+  const gates = new Set(catalog.levels.flatMap((level) => level.gates.flat()));
+  for (const definition of orderByDependencies(catalog.checks, gates)) {
     // A home page that refused the scanner leaves nothing to read: only robots.txt, the
     // sitemap and the refusal itself can be judged. Everything else would report the
     // absence of things the scanner never saw.
@@ -158,6 +207,16 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       // A parent that had nothing to evaluate (an optional file that is absent, say)
       // leaves its dependents with nothing to evaluate either; that is not a failure.
       const parentSkip = outcomes.get(failedParent)?.skipReason;
+      if (parentSkip === 'budget_exhausted') {
+        // The parent never ran, so neither can this check: it is unanswered, not blocked.
+        record(definition, {
+          verdict: 'skip',
+          skipReason: 'budget_exhausted',
+          message: `not run: ${failedParent} could not run before the budget ran out`,
+          evidence: { dependency: failedParent },
+        });
+        continue;
+      }
       record(
         definition,
         parentSkip === 'not_applicable'

@@ -8,6 +8,10 @@ For each dimension: sum of weights of passed checks ÷ sum of weights of applica
 
 The commerce score is `null` for profiles without the commerce dimension.
 
+**Coverage.** Dropping skipped checks must not let a sliver of the catalog stand for the whole. Each dimension records `scores.coverage`: the share of its applicable weight the scan actually answered. A check is unanswered when it applied but could not run (time or request budget, an error, not implemented) or when its parent could not run; a dependent of a parent that failed is answered, because the parent carries the finding. Below 50% coverage a dimension is **incomplete**: commerce is `null`, group scores are `null`, and reports print "Incomplete" with the share instead of a number. Ingestion stays a number in JSON for compatibility, but reports mark it incomplete the same way. Before scoring 0.5.0 a store whose scan ran out of time after one passing commerce check read 100 for commerce.
+
+**Order under a budget.** Checks run in dependency order with level gates and blocking checks first, then expected, nice to have and informational ones; a parent inherits the urgency of its most urgent dependent. When a slow store uses up the time budget, what is left unanswered is the optional probes, not the gates. Results are still listed in catalog order.
+
 Two rules about what is never scored: a decision to block AI training crawlers never costs points (A2.1 passes on any stated decision, allow or disallow), and checks on optional conventions without a documented consumer (llms.txt, Content Signals, security.txt, WebMCP) carry weight 1 or are informational and skip when the file is absent.
 
 The same formula is applied per catalog group and carried as `scores.groups` (keyed by group id, `null` when no check in the group applied). Reports show it as a score per section so a merchant can see at a glance which area needs work; the dimension scores remain the headline numbers.

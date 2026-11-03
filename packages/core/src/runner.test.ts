@@ -134,3 +134,35 @@ describe('runChecks on a refused home page', () => {
     expect(byId.get('A3.2')?.message).toMatch(/see A2.4/);
   });
 });
+
+describe('check order under a budget', () => {
+  it('runs level gates and blocking checks before optional probes, parents first', async () => {
+    const order: string[] = [];
+    const record = (id: string) => defineCheck(id, () => (order.push(id), pass('ran')));
+    await run(
+      builtInChecks.map((check) => record(check.id)),
+      { products: ['https://shop.example/product/mug/'] },
+    );
+    const index = (id: string) => order.indexOf(id);
+    // Blocking commerce checks no longer wait behind the optional protocol probes.
+    expect(index('B2.1')).toBeLessThan(index('A4.1'));
+    expect(index('B4.1')).toBeLessThan(index('A4.2'));
+    // Dependencies still come first, and B4.6 still reads B4.1 and B4.2.
+    expect(index('B2.1')).toBeLessThan(index('B2.2'));
+    expect(index('B4.1')).toBeLessThan(index('B4.6'));
+    expect(index('B4.2')).toBeLessThan(index('B4.6'));
+  });
+
+  it('marks a dependent of a check the budget never reached as unanswered, not blocked', async () => {
+    const { result } = await run(
+      [
+        defineCheck('B2.1', () => {
+          throw new BudgetExhaustedError(40);
+        }),
+        defineCheck('B2.2', () => pass('never runs')),
+      ],
+      { products: ['https://shop.example/product/mug/'] },
+    );
+    expect(result('B2.2')).toMatchObject({ verdict: 'skip', skip_reason: 'budget_exhausted' });
+  });
+});

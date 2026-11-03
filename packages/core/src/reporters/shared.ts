@@ -5,6 +5,20 @@ import {
   type ScanResult,
 } from '@agentic-readiness/catalog';
 
+import { dimensionScore, type DimensionScore } from '../scoring.js';
+
+/**
+ * One dimension's score as text: "83/100", "incomplete (6% of weighted checks answered)"
+ * or "not applicable", the same on every surface.
+ */
+export function scoreText(result: ScanResult, dimension: 'ingestion' | 'commerce'): string {
+  const score: DimensionScore = dimensionScore(result.scores, dimension);
+  if (score.state === 'incomplete')
+    return `incomplete (${String(score.coverage)}% of weighted checks answered)`;
+  if (score.state === 'not_applicable') return 'not applicable';
+  return `${String(score.value)}/100`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

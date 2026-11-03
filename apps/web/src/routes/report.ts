@@ -299,6 +299,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
           scores: {
             ingestion: result.scores.ingestion,
             commerce: result.scores.commerce,
+            ...(result.scores.coverage ? { coverage: result.scores.coverage } : {}),
           },
           requests: result.requests,
           duration_ms: result.duration_ms,

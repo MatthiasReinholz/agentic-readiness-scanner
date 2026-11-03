@@ -5,13 +5,14 @@ import {
   type ScanResult,
 } from '@agentic-readiness/catalog';
 
-import { scoreGroup } from '../scoring.js';
+import { dimensionScore, incompleteScoreSentence, scoreGroup } from '../scoring.js';
 import { prioritize, skipPhrases, TIER_LABEL, type Priority } from './priorities.js';
 import {
   countVerdicts,
   groupResults,
   nextGateSentence,
   scopeLines,
+  scoreText,
   verdictSymbol,
 } from './shared.js';
 
@@ -125,10 +126,12 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   lines.push('');
   lines.push(`**Level ${result.level.value}: ${result.level.name}.** ${nextGateSentence(result)}`);
   lines.push('');
-  lines.push(`- Ingestion score: ${result.scores.ingestion}/100`);
-  lines.push(
-    `- Commerce score: ${result.scores.commerce === null ? 'not applicable' : `${result.scores.commerce}/100`}`,
-  );
+  lines.push(`- Ingestion score: ${scoreText(result, 'ingestion')}`);
+  lines.push(`- Commerce score: ${scoreText(result, 'commerce')}`);
+  for (const dimension of ['ingestion', 'commerce'] as const) {
+    const score = dimensionScore(result.scores, dimension);
+    if (score.state === 'incomplete') lines.push(`- ${incompleteScoreSentence(score)}`);
+  }
   lines.push(`- Platform: ${result.target.platform}, profile: ${result.target.profile}`);
   lines.push(
     `- Checks: ${[`${counts.pass} pass`, `${counts.warn} warn`, `${counts.fail} fail`, ...skipPhrases(result)].join(' · ')}`,
