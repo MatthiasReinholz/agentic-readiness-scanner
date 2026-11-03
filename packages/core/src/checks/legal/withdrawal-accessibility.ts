@@ -10,6 +10,7 @@ import {
   ACCESSIBILITY_LABEL,
   CANCELLATION_LABEL,
   OVERLAY_VENDORS,
+  vendorsIn,
   officialWithdrawalLanguage,
   SUBSCRIPTION_WORDING,
   WITHDRAWAL_WORDING,
@@ -316,11 +317,10 @@ export const staticAccessibilityBasics = defineLegalCheck('C4.2', async ({ targe
 });
 
 export const accessibilityOverlay = defineLegalCheck('C4.3', ({ target }) => {
-  const sources = [...target.homeDoc.externalScripts(), ...target.homeDoc.inlineScripts()].join(
-    '\n',
-  );
-  const vendors = OVERLAY_VENDORS.filter((vendor) => vendor.pattern.test(sources)).map(
-    (vendor) => vendor.name,
+  const vendors = vendorsIn(
+    target.homeDoc.externalScripts(),
+    target.homeDoc.inlineScripts(),
+    OVERLAY_VENDORS,
   );
   if (vendors.length > 0) {
     return warn(

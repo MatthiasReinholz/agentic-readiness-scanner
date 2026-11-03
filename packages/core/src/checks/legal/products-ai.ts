@@ -7,6 +7,7 @@ import { elementText, type HtmlDocument } from '../../parsers/html.js';
 import { asString, extractJsonLd, productNodes, type JsonLdNode } from '../../parsers/jsonld.js';
 import {
   CHAT_VENDORS,
+  vendorsIn,
   EMAIL_PATTERN,
   GENERIC_GREEN_CLAIMS,
   MANUFACTURER_WORDING,
@@ -170,11 +171,10 @@ export const swissPriceDisplay = defineLegalCheck('C5.5', async ({ target, fetch
 });
 
 export const aiChatAssistant = defineLegalCheck('C6.1', ({ target }) => {
-  const sources = [...target.homeDoc.externalScripts(), ...target.homeDoc.inlineScripts()].join(
-    '\n',
-  );
-  const vendors = CHAT_VENDORS.filter((vendor) => vendor.pattern.test(sources)).map(
-    (vendor) => vendor.name,
+  const vendors = vendorsIn(
+    target.homeDoc.externalScripts(),
+    target.homeDoc.inlineScripts(),
+    CHAT_VENDORS,
   );
   if (vendors.length > 0) {
     return warn(

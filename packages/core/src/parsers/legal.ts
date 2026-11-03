@@ -106,24 +106,16 @@ export function isValidNit(value: string): boolean {
   return expected === Number(match[2]);
 }
 
-/** The shared mod 11 scheme of the Argentine CUIT and the Peruvian RUC (11 digits). */
-function mod11Eleven(value: string, ten: number | null): boolean {
+/** Argentine CUIT or CUIL: 11 digits, mod 11; a check value of 10 is not issued. */
+export function isValidCuit(value: string): boolean {
+  if (!/^(?:20|23|24|27|30|33|34)/.test(value.replace(/\D/g, ''))) return false;
   const digits = digitsOf(value);
   if (digits.length !== 11) return false;
   const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
   const sum = weights.reduce((total, weight, index) => total + weight * (digits[index] ?? 0), 0);
-  let expected = 11 - (sum % 11);
-  if (expected === 11) expected = 0;
-  if (expected === 10) {
-    if (ten === null) return false;
-    expected = ten;
-  }
-  return expected === digits[10];
-}
-
-/** Argentine CUIT or CUIT-style CUIL: 11 digits, mod 11. */
-export function isValidCuit(value: string): boolean {
-  return /^(?:20|23|24|27|30|33|34)/.test(value.replace(/\D/g, '')) && mod11Eleven(value, null);
+  const expected = 11 - (sum % 11);
+  if (expected === 10) return false;
+  return (expected === 11 ? 0 : expected) === digits[10];
 }
 
 /** Peruvian RUC: 11 digits starting 10, 15, 16, 17 or 20, mod 11 (10 maps to 0). */
@@ -236,39 +228,100 @@ export const CCPA_OPT_OUT_LABEL =
 export const ACCESSIBILITY_LABEL =
   /\b(accessibilit(?:y|é|à)|barrierefrei\w*|erklärung zur barrierefreiheit|accesibilidad|acessibilidade|toegankelijkheid|tillgänglighet\w*|saavutettavuus\w*|dostępność|přístupnost)\b/i;
 
-/** Accessibility overlay vendors, by the host or file their loader comes from. */
-export const OVERLAY_VENDORS: readonly { name: string; pattern: RegExp }[] = [
-  { name: 'accessiBe', pattern: /acsbapp\.com|accessibe\.com/i },
-  { name: 'UserWay', pattern: /userway\.org/i },
-  { name: 'AudioEye', pattern: /audioeye\.com/i },
-  { name: 'EqualWeb', pattern: /equalweb\.com|nagich\.co/i },
-  { name: 'Max Access', pattern: /maxaccess\.io/i },
-  { name: 'eSSENTIAL Accessibility', pattern: /essentialaccessibility\.com/i },
-  { name: 'Recite Me', pattern: /reciteme\.com/i },
-  { name: 'Eye-Able', pattern: /eye-able\.com|eye-able-cdn\.com/i },
-  { name: 'Enable', pattern: /enable\.co\.il/i },
+/**
+ * A third-party script by where it loads from: its host (or a subdomain of it) and,
+ * where the host serves other things too, a path. Matched on parsed URLs, never on raw
+ * text, so a lookalike host or a host named in a query string does not count.
+ */
+export interface Vendor {
+  name: string;
+  hosts: readonly string[];
+  path?: RegExp;
+}
+
+/** Accessibility overlay vendors. */
+export const OVERLAY_VENDORS: readonly Vendor[] = [
+  { name: 'accessiBe', hosts: ['acsbapp.com', 'accessibe.com'] },
+  { name: 'UserWay', hosts: ['userway.org'] },
+  { name: 'AudioEye', hosts: ['audioeye.com'] },
+  { name: 'EqualWeb', hosts: ['equalweb.com', 'nagich.co'] },
+  { name: 'Max Access', hosts: ['maxaccess.io'] },
+  { name: 'eSSENTIAL Accessibility', hosts: ['essentialaccessibility.com'] },
+  { name: 'Recite Me', hosts: ['reciteme.com'] },
+  { name: 'Eye-Able', hosts: ['eye-able.com', 'eye-able-cdn.com'] },
+  { name: 'Enable', hosts: ['enable.co.il'] },
 ];
 
-/** Chat and AI assistant vendors, by the host or file their loader comes from. */
-export const CHAT_VENDORS: readonly { name: string; pattern: RegExp }[] = [
-  { name: 'Intercom', pattern: /widget\.intercom\.io|js\.intercomcdn\.com/i },
-  { name: 'Zendesk', pattern: /static\.zdassets\.com|zopim\.com/i },
-  { name: 'Gorgias', pattern: /gorgias\.chat|config\.gorgias\.io/i },
-  { name: 'Tidio', pattern: /code\.tidio\.co/i },
-  { name: 'Drift', pattern: /js\.driftt\.com|drift\.com\/include/i },
-  { name: 'LivePerson', pattern: /lpsnmedia\.net|liveperson\.net/i },
-  { name: 'Ada', pattern: /static\.ada\.support/i },
-  { name: 'Crisp', pattern: /client\.crisp\.chat/i },
-  { name: 'HubSpot chat', pattern: /js\.usemessages\.com/i },
-  { name: 'Freshchat', pattern: /wchat\.freshchat\.com|freshworks\.com\/live-chat/i },
-  { name: 'Shopify Inbox', pattern: /shopify-chat|cdn\.shopify\.com\/extensions\/[^"']*inbox/i },
-  { name: 'Re:amaze', pattern: /cdn\.reamaze\.com/i },
-  { name: 'Chatbase', pattern: /chatbase\.co\/embed/i },
-  { name: 'Voiceflow', pattern: /cdn\.voiceflow\.com/i },
-  { name: 'Botpress', pattern: /cdn\.botpress\.cloud/i },
-  { name: 'Kustomer', pattern: /cdn\.kustomerapp\.com/i },
-  { name: 'Salesforce Embedded Service', pattern: /embeddedservice|salesforceliveagent\.com/i },
+/** Chat and AI assistant vendors. */
+export const CHAT_VENDORS: readonly Vendor[] = [
+  { name: 'Intercom', hosts: ['widget.intercom.io', 'js.intercomcdn.com'] },
+  { name: 'Zendesk', hosts: ['static.zdassets.com', 'zopim.com'] },
+  { name: 'Gorgias', hosts: ['gorgias.chat', 'config.gorgias.io'] },
+  { name: 'Tidio', hosts: ['code.tidio.co'] },
+  { name: 'Drift', hosts: ['js.driftt.com'] },
+  { name: 'LivePerson', hosts: ['lpsnmedia.net', 'liveperson.net'] },
+  { name: 'Ada', hosts: ['static.ada.support'] },
+  { name: 'Crisp', hosts: ['client.crisp.chat'] },
+  { name: 'HubSpot chat', hosts: ['js.usemessages.com'] },
+  { name: 'Freshchat', hosts: ['wchat.freshchat.com'] },
+  {
+    name: 'Shopify Inbox',
+    hosts: ['cdn.shopify.com'],
+    path: /shopify-chat|\/extensions\/.*inbox/i,
+  },
+  { name: 'Re:amaze', hosts: ['cdn.reamaze.com'] },
+  { name: 'Chatbase', hosts: ['chatbase.co', 'www.chatbase.co'], path: /^\/embed/i },
+  { name: 'Voiceflow', hosts: ['cdn.voiceflow.com'] },
+  { name: 'Botpress', hosts: ['cdn.botpress.cloud'] },
+  { name: 'Kustomer', hosts: ['cdn.kustomerapp.com'] },
+  {
+    name: 'Salesforce Embedded Service',
+    hosts: ['salesforceliveagent.com', 'force.com', 'salesforce.com'],
+    path: /embeddedservice|liveagent/i,
+  },
 ];
+
+/** URLs written in script text: absolute and protocol-relative ones. */
+const URL_IN_TEXT = /(?:https?:)?\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s"'<>\\)]*)?/gi;
+
+function hostMatches(hostname: string, host: string): boolean {
+  return hostname === host || hostname.endsWith(`.${host}`);
+}
+
+/** The vendor a URL loads from, or undefined. */
+export function vendorOfUrl(
+  url: string,
+  vendors: readonly Vendor[],
+  base = 'https://localhost/',
+): Vendor | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url, base);
+  } catch {
+    return undefined;
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  return vendors.find(
+    (vendor) =>
+      vendor.hosts.some((host) => hostMatches(hostname, host)) &&
+      (vendor.path === undefined || vendor.path.test(parsed.pathname)),
+  );
+}
+
+/** Vendors loaded by script URLs or named by URL inside inline scripts. */
+export function vendorsIn(
+  scriptUrls: readonly string[],
+  inlineScripts: readonly string[],
+  vendors: readonly Vendor[],
+): string[] {
+  const urls = [...scriptUrls, ...inlineScripts.flatMap((text) => text.match(URL_IN_TEXT) ?? [])];
+  const found = new Set<string>();
+  for (const url of urls) {
+    const vendor = vendorOfUrl(url, vendors);
+    if (vendor) found.add(vendor.name);
+  }
+  return [...found];
+}
 
 /** Cookies set server-side on a first response that track for advertising. */
 export const ADVERTISING_COOKIES =
@@ -277,21 +330,19 @@ export const ADVERTISING_COOKIES =
 export const ANALYTICS_COOKIES =
   /^(?:_ga|_ga_[A-Z0-9]+|_gid|_gat\w*|_hjSessionUser_\d+|_hjSession_\d+|_clck|_clsk|mp_[a-f0-9]+_mixpanel|ajs_anonymous_id|_pk_id\.\d+\.\w+|_pk_ses\.\d+\.\w+)$/;
 
-/** Tracker loaders by script host or inline call. */
-export const TRACKERS: readonly { name: string; pattern: RegExp }[] = [
-  {
-    name: 'Google tag',
-    pattern: /googletagmanager\.com\/gtag\/js|google-analytics\.com\/(?:analytics|ga)\.js/i,
-  },
-  { name: 'Google Tag Manager', pattern: /googletagmanager\.com\/gtm\.js/i },
-  { name: 'Meta pixel', pattern: /connect\.facebook\.net\/[^"']*fbevents\.js/i },
-  { name: 'TikTok pixel', pattern: /analytics\.tiktok\.com/i },
-  { name: 'LinkedIn Insight', pattern: /snap\.licdn\.com/i },
-  { name: 'Pinterest tag', pattern: /s\.pinimg\.com\/ct\/core\.js/i },
-  { name: 'Microsoft Advertising UET', pattern: /bat\.bing\.com\/bat\.js/i },
-  { name: 'Hotjar', pattern: /static\.hotjar\.com/i },
-  { name: 'Microsoft Clarity', pattern: /clarity\.ms\/tag/i },
-  { name: 'Snap pixel', pattern: /sc-static\.net\/scevent\.min\.js/i },
+/** Tracker loaders. */
+export const TRACKERS: readonly Vendor[] = [
+  { name: 'Google tag', hosts: ['googletagmanager.com'], path: /^\/gtag\/js/ },
+  { name: 'Google Analytics', hosts: ['google-analytics.com'], path: /^\/(?:analytics|ga)\.js/ },
+  { name: 'Google Tag Manager', hosts: ['googletagmanager.com'], path: /^\/gtm\.js/ },
+  { name: 'Meta pixel', hosts: ['connect.facebook.net'], path: /fbevents\.js$/ },
+  { name: 'TikTok pixel', hosts: ['analytics.tiktok.com'] },
+  { name: 'LinkedIn Insight', hosts: ['snap.licdn.com'] },
+  { name: 'Pinterest tag', hosts: ['s.pinimg.com'], path: /^\/ct\/core\.js/ },
+  { name: 'Microsoft Advertising UET', hosts: ['bat.bing.com'], path: /^\/bat\.js/ },
+  { name: 'Hotjar', hosts: ['static.hotjar.com'] },
+  { name: 'Microsoft Clarity', hosts: ['clarity.ms', 'www.clarity.ms'], path: /^\/tag/ },
+  { name: 'Snap pixel', hosts: ['sc-static.net'], path: /scevent\.min\.js$/ },
 ];
 
 /** Attributes and defaults a consent manager uses to hold a tag until consent. */

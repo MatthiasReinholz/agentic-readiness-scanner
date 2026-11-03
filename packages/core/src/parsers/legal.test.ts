@@ -8,7 +8,11 @@ import {
   isValidRuc,
   isValidRut,
   isValidSwissUid,
+  CHAT_VENDORS,
   officialWithdrawalLanguage,
+  TRACKERS,
+  vendorOfUrl,
+  vendorsIn,
 } from './legal.js';
 
 describe('identifier check digits', () => {
@@ -50,5 +54,35 @@ describe('official withdrawal labels', () => {
     expect(officialWithdrawalLanguage('“Withdraw from contract here”')).toBe('en');
     expect(officialWithdrawalLanguage('Renoncer au contrat ici')).toBe('fr');
     expect(officialWithdrawalLanguage('Widerrufsformular')).toBeNull();
+  });
+});
+
+describe('vendor detection', () => {
+  it('matches the vendor host and its subdomains, never a lookalike or a query string', () => {
+    expect(vendorOfUrl('https://widget.intercom.io/widget/abc', CHAT_VENDORS)?.name).toBe(
+      'Intercom',
+    );
+    expect(vendorOfUrl('//connect.facebook.net/en_US/fbevents.js', TRACKERS)?.name).toBe(
+      'Meta pixel',
+    );
+    expect(
+      vendorOfUrl('https://widget.intercom.io.evil.example/x.js', CHAT_VENDORS),
+    ).toBeUndefined();
+    expect(
+      vendorOfUrl('https://cdn.example/x.js?u=widget.intercom.io', CHAT_VENDORS),
+    ).toBeUndefined();
+    expect(vendorOfUrl('https://connect.facebook.net/en_US/sdk.js', TRACKERS)).toBeUndefined();
+  });
+
+  it('finds vendors named by URL inside inline scripts', () => {
+    expect(
+      vendorsIn(
+        [],
+        [
+          "(function(){var s=document.createElement('script');s.src='https://code.tidio.co/abc.js';})()",
+        ],
+        CHAT_VENDORS,
+      ),
+    ).toEqual(['Tidio']);
   });
 });

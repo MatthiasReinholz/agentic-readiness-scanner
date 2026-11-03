@@ -25,6 +25,7 @@ import {
   PRIVACY_LABEL,
   PRIVACY_ROLE,
   TRACKERS,
+  vendorsIn,
   type FoundIdentifier,
 } from '../../parsers/legal.js';
 import { attribute } from '../../parsers/html.js';
@@ -334,7 +335,8 @@ export const noTrackingBeforeConsent = defineLegalCheck('C2.5', ({ target }) => 
     const inline = src
       ? ''
       : element.children.map((child) => ('data' in child ? child.data : '')).join('');
-    const tracker = TRACKERS.find((item) => item.pattern.test(src) || item.pattern.test(inline));
+    const named = vendorsIn(src ? [src] : [], inline ? [inline] : [], TRACKERS);
+    const tracker = TRACKERS.find((item) => named.includes(item.name));
     if (!tracker) continue;
     const attributes = Object.entries(element.attribs)
       .map(([key, value]) => `${key}="${value}"`)
