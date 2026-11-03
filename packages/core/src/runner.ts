@@ -208,7 +208,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       record(definition, {
         verdict: 'skip',
         skipReason: 'dependency_failed',
-        message: `not evaluated: the home page refused the scanner (HTTP ${target.blocked.status}); see A2.4`,
+        message: `not evaluated: the home page refused the scanner (HTTP ${target.blocked.status}), see A2.4`,
         evidence: { dependency: 'A2.4' },
       });
       continue;

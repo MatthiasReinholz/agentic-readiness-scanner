@@ -34,7 +34,7 @@ export const bigcommerceStorefrontMcp = defineCheck('B5.9', async ({ target, fet
   switch (state) {
     case 'live':
       return pass(
-        `the Storefront MCP server the page advertises answers (${probe.detail}); agents can search, fill a cart and hand off to checkout`,
+        `the Storefront MCP server the page advertises answers (${probe.detail}). Agents can search, fill a cart and hand off to checkout`,
         evidence,
       );
     case 'robots':

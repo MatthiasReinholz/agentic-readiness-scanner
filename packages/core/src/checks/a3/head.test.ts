@@ -125,7 +125,7 @@ describe('A3.11 document head is well-formed', () => {
     );
     expect(refresh.verdict).toBe('fail');
     expect(refresh.message).toBe(
-      'the sampled product page redirects with a meta refresh of 0 s; crawlers treat the page as a redirect, not as content',
+      'the sampled product page redirects with a meta refresh of 0 s. Crawlers treat the page as a redirect, not as content',
     );
     const quirks = await runCheck(
       documentHeadWellFormed,
@@ -203,7 +203,7 @@ describe('A3.11 document head is well-formed', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'the sampled product page starts with the HTML doctype, declares its encoding and keeps title, canonical and directives inside a valid head; 1 sampled product page could not be fetched (HTTP 503)',
+      'the sampled product page starts with the HTML doctype, declares its encoding and keeps title, canonical and directives inside a valid head. 1 sampled product page could not be fetched (HTTP 503)',
     );
     expect(outcome.evidence).toMatchObject({
       total: 1,

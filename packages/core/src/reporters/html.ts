@@ -253,7 +253,7 @@ function renderPriorities(priorities: Priorities): string {
     parts.push(
       block(
         'Fix next',
-        'Expected by the channels and crawlers behind AI answers; each costs points.',
+        'Expected by the channels and crawlers behind AI answers. Each one costs points.',
         `<ol class="mt-2 divide-y divide-border">${priorities.next.map(priorityItemHtml).join('')}</ol>`,
       ),
     );
@@ -261,7 +261,7 @@ function renderPriorities(priorities: Priorities): string {
     parts.push(
       block(
         'Nice to have',
-        'Conventions and optional protocols with no documented consumer that requires them. Low weight; adopt them when they fit.',
+        'Conventions and optional protocols with no documented consumer that requires them. Low weight: adopt them when they fit.',
         `<ul class="mt-2 list-disc space-y-1 pl-5 text-sm">${priorities.optional.map(compactPriorityHtml).join('')}</ul>`,
       ),
     );
@@ -362,7 +362,7 @@ ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeH
       heroHtml: pageHero(hero),
       description:
         options.description ??
-        `Level ${result.level.value} (${result.level.name}); ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}.`,
+        `Level ${result.level.value} (${result.level.name}), ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}.`,
       head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
       scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],
     },

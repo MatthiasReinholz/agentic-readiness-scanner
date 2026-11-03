@@ -53,7 +53,7 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
     // The scanner itself did not read the endpoint: that is not evidence that it is off.
     if (blockedByRobots(response)) {
       return warn(
-        `products.json was not requested because the store's robots.txt disallows it for the scanner (${describeFailure(response)}); whether it is readable could not be verified`,
+        `products.json was not requested because the store's robots.txt disallows it for the scanner (${describeFailure(response)}), so whether it is readable could not be verified`,
         evidence,
       );
     }

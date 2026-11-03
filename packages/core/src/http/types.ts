@@ -75,7 +75,7 @@ export class RateLimitedError extends BudgetExhaustedError {
   constructor(public readonly count: number) {
     super(
       0,
-      `the store answered 429 Too Many Requests ${count} times after the scanner backed off and retried; the scan stopped to respect it`,
+      `the store answered 429 Too Many Requests ${count} times after the scanner backed off and retried, so the scan stopped to respect it`,
     );
     this.name = 'RateLimitedError';
   }
@@ -104,7 +104,7 @@ export class DeadlineExhaustedError extends BudgetExhaustedError {
  */
 export class StepDeadlineError extends Error {
   constructor(reason: string) {
-    super(`this scan step is out of ${reason}; the scan continues in the next step`);
+    super(`this scan step is out of ${reason}, so the scan continues in the next step`);
     this.name = 'StepDeadlineError';
   }
 }

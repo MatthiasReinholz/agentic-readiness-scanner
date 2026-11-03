@@ -67,7 +67,7 @@ export function validateContentSignal(value: string): SignalValidation {
       problems.push(`"${name}" must be set to yes or no`);
     }
   }
-  return problems.length > 0 ? invalid(problems.join('; ')) : { valid: true };
+  return problems.length > 0 ? invalid(problems.join(', ')) : { valid: true };
 }
 
 /**
@@ -104,7 +104,7 @@ export function validateContentUsage(
       problems.push(`"${key}" must be set to y or n`);
     }
   }
-  return problems.length > 0 ? invalid(problems.join('; ')) : { valid: true };
+  return problems.length > 0 ? invalid(problems.join(', ')) : { valid: true };
 }
 
 /** An absolute http(s) URL, as a policy or license reference must be. */
@@ -182,7 +182,7 @@ export function parseTdmrepJson(body: string): TdmrepDocument {
     }
   });
   if (problems.length > 0) {
-    return { kind: 'invalid', entries: parsed.length, problem: problems.slice(0, 5).join('; ') };
+    return { kind: 'invalid', entries: parsed.length, problem: problems.slice(0, 5).join(', ') };
   }
   return { kind: 'valid', entries: parsed.length };
 }

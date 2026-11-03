@@ -264,7 +264,7 @@ async function readLimited(
   } catch (error) {
     return {
       ...asText(),
-      error: `gzip body did not inflate (${error instanceof Error ? error.message : String(error)}); kept as raw text`,
+      error: `gzip body did not inflate (${error instanceof Error ? error.message : String(error)}), kept as raw text`,
     };
   }
 }
@@ -364,7 +364,7 @@ export class BudgetedFetcher implements Fetcher {
 
   /**
    * A 429 means the store wants fewer requests: the interval grows to a second, then to
-   * four, for the rest of the scan. Backing off is the honest answer to being told so.
+   * two, for the rest of the scan. Backing off is the honest answer to being told so.
    */
   private backOff(): void {
     this.persistentRateLimits += 1;

@@ -21,7 +21,7 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
   }
   if (response.status === 404) {
     return warn(
-      'robots.txt is missing; everything is allowed by default but intent is unstated',
+      'robots.txt is missing. Everything is allowed by default, but the site states no intent',
       evidence,
     );
   }
@@ -29,7 +29,7 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
   // access everything, so it is the same unstated-intent case as a missing file.
   if (response.status >= 400 && response.status < 500) {
     return warn(
-      `robots.txt returned HTTP ${response.status}; crawlers treat that as "allow all" but intent is unstated`,
+      `robots.txt returned HTTP ${response.status}. Crawlers treat that as "allow all", but the site states no intent`,
       evidence,
     );
   }
@@ -97,7 +97,7 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
       ? ` and none of the ${sitemap.childSitemaps.length} sitemap name(s) in the index looks like a product sitemap`
       : '';
   return fail(
-    `no product URL found: ${count} sitemap${count === 1 ? '' : 's'} read, starting with ${sitemap.url}; none of ${entries === 0 ? 'their entries (there are none)' : `their ${entries} entries`} matches a product URL pattern${named}`,
+    `no product URL found: ${count} sitemap${count === 1 ? '' : 's'} read, starting with ${sitemap.url}. None of ${entries === 0 ? 'their entries (there are none)' : `their ${entries} entries`} matches a product URL pattern${named}`,
     evidence,
   );
 });
@@ -112,7 +112,7 @@ export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) =>
   };
   // Optional file, no documented consumer among the major assistants: absence is not scored.
   if (response.status === 404 || response.status === 410) {
-    return skip('not_applicable', 'no llms.txt (optional; its absence is not scored)', evidence);
+    return skip('not_applicable', 'no llms.txt (optional, so its absence is not scored)', evidence);
   }
   if (response.status !== 200) {
     return fail(`llms.txt returned HTTP ${response.status}`, evidence);
@@ -316,7 +316,7 @@ export const sitemapLastmodPlausible = defineCheck('A1.7', ({ target }) => {
   // One entry cannot show a request-time stamp; two or more identical values can.
   if (valid.length > 1 && distinct === 1) {
     return warn(
-      `every lastmod of the ${valid.length} entries read is ${valid[0] ?? ''}; a value stamped at request time tells agents nothing`,
+      `every lastmod of the ${valid.length} entries read is ${valid[0] ?? ''}. A value stamped at request time tells agents nothing`,
       evidence,
     );
   }
@@ -427,7 +427,7 @@ export const listingLinksProductsAndPages = defineCheck('A1.8', async ({ target,
   }
   if (productLinks.length === 0) {
     return warn(
-      'no product link is in the server-rendered HTML of the listing page; crawlers that do not run scripts find no products there',
+      'no product link is in the server-rendered HTML of the listing page, so crawlers that do not run scripts find no products there',
       evidence,
     );
   }

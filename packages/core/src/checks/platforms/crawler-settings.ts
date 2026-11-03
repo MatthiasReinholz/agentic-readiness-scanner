@@ -111,12 +111,12 @@ export const squarespaceAiCrawlerSetting = defineCheck('A2.9', ({ target }) => {
   }
   if (answers.length === 0) {
     return pass(
-      `Block known artificial intelligence crawlers is on; it keeps ${blocked.length} training crawlers out and no crawler behind AI answers`,
+      `Block known artificial intelligence crawlers is on. It keeps ${blocked.length} training crawlers out and no crawler behind AI answers`,
       evidence,
     );
   }
   return warn(
-    `Block known artificial intelligence crawlers is on (${blocked.length} of ${SQUARESPACE_AI_CRAWLERS.length} agents disallowed); besides training crawlers it shuts out ${answers.join(', ')}, which feed AI answers`,
+    `Block known artificial intelligence crawlers is on (${blocked.length} of ${SQUARESPACE_AI_CRAWLERS.length} agents disallowed). Besides training crawlers it shuts out ${answers.join(', ')}, which feed AI answers`,
     evidence,
   );
 });
@@ -147,14 +147,14 @@ export const webflowTrafficControl = defineCheck('A2.10', ({ target }) => {
   }
   if (searchOff) {
     return fail(
-      `Traffic control has search engine crawlers off (${search.join(', ')} disallowed); search and the AI answers built on it lose the site`,
+      `Traffic control has search engine crawlers off (${search.join(', ')} disallowed), so search and the AI answers built on it lose the site`,
       evidence,
     );
   }
   if (aiOff) {
     const answers = ai.filter((token) => ANSWER_AGENTS.has(token.toLowerCase()));
     return fail(
-      `Traffic control has AI bots off; besides training crawlers that disallows ${answers.join(', ') || "the assistants' agents"}, which fetch pages for ChatGPT, Claude and Perplexity answers`,
+      `Traffic control has AI bots off. Besides training crawlers, that disallows ${answers.join(', ') || "the assistants' agents"}, which fetch pages for ChatGPT, Claude and Perplexity answers`,
       evidence,
     );
   }

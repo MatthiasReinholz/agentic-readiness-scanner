@@ -602,7 +602,7 @@ describe('A4.4 MCP endpoint reachable', () => {
     );
     expect(older.verdict).toBe('pass');
     expect(older.message).toBe(
-      'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven',
+      'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover. The transport is proven',
     );
     expect(older.evidence).toMatchObject({ status: 404, jsonrpc: true });
     const headerMismatch = await run(
@@ -756,7 +756,7 @@ describe('A4.5 A2A agent card', () => {
     });
     expect(adp.verdict).toBe('fail');
     expect(adp.message).toBe(
-      'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills); that path is also used by other agent-discovery drafts',
+      'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills). Other agent-discovery drafts use that path too',
     );
     expect(adp.evidence).toMatchObject({ legacy_status: 200, legacy_is_a2a: false, path: null });
     expect(isA2aAgentCard({ name: 'x', description: 'y', url: 'u', version: '1' })).toBe(false);
@@ -817,7 +817,7 @@ describe('A4.6 WebMCP tool declarations', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'WebMCP declarations found: 1 declarative tool(s): search_products; 1 inline script(s) using modelContext',
+      'WebMCP declarations found: 1 declarative tool(s): search_products. 1 inline script(s) using modelContext',
     );
     expect(outcome.evidence).toEqual({
       pages_scanned: 2,
@@ -852,7 +852,7 @@ describe('A4.6 WebMCP tool declarations', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'Permissions-Policy tools=() turns WebMCP off on 1 page(s) that declare tools; WebMCP declarations found: 1 declarative tool(s): search_products',
+      'Permissions-Policy tools=() turns WebMCP off on 1 page(s) that declare tools. WebMCP declarations found: 1 declarative tool(s): search_products',
     );
     expect(outcome.evidence).toMatchObject({ disabled_by_permissions_policy: [product] });
   });
@@ -870,7 +870,7 @@ describe('A4.6 WebMCP tool declarations', () => {
     const plain = await runCheck(webMcpToolDeclarations, targetFor(), mapFetcher({}));
     expect(plain.verdict).toBe('skip');
     expect(plain.skipReason).toBe('not_applicable');
-    expect(plain.message).toBe('no WebMCP declarations in the HTML; optional');
+    expect(plain.message).toBe('no WebMCP declarations in the HTML (optional)');
     expect(plain.evidence).toMatchObject({
       pages_scanned: 1,
       declarative_tools: 0,
@@ -884,7 +884,7 @@ describe('A4.6 WebMCP tool declarations', () => {
     );
     expect(off.skipReason).toBe('not_applicable');
     expect(off.message).toBe(
-      'no WebMCP declarations in the HTML; optional, and Permissions-Policy tools=() turns WebMCP off',
+      'no WebMCP declarations in the HTML (optional), and Permissions-Policy tools=() turns WebMCP off',
     );
   });
 

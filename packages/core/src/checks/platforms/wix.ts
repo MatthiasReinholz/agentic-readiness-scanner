@@ -16,7 +16,7 @@ export const wixSiteMcp = defineCheck('A4.8', async ({ target, fetcher }) => {
       );
     case 'robots':
       return warn(
-        `the site MCP server was not called because robots.txt disallows ${WIX_SITE_MCP_PATH} for the scanner; agents that honour robots.txt are kept out too`,
+        `the site MCP server was not called because robots.txt disallows ${WIX_SITE_MCP_PATH} for the scanner. Agents that honour robots.txt are kept out too`,
         evidence,
       );
     case 'unreachable':

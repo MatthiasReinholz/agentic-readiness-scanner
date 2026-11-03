@@ -117,7 +117,7 @@ describe('B2.1 Product JSON-LD on product pages', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      `2 of 2 sampled product page(s) carry Product JSON-LD; 2 lack Google's required Product properties: image on ${mug}, name and image on ${bowl}`,
+      `2 of 2 sampled product page(s) carry Product JSON-LD. 2 lack Google's required Product properties: image on ${mug}, name and image on ${bowl}`,
     );
     expect(outcome.evidence).toMatchObject({
       incomplete: 2,
@@ -198,7 +198,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 2 offer(s) on 2 product(s) carry price, currency and schema.org availability; missing: currency on 1, schema.org availability on 1',
+      '1 of 2 offer(s) on 2 product(s) carry price, currency and schema.org availability. Missing: currency on 1, schema.org availability on 1',
     );
     expect(outcome.evidence).toMatchObject({
       products: 2,
@@ -249,7 +249,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(some.verdict).toBe('warn');
     expect(some.message).toBe(
-      '1 of 2 offer(s) on 1 product(s) carry price, currency and schema.org availability (2 on variants); missing: schema.org availability on 1',
+      '1 of 2 offer(s) on 1 product(s) carry price, currency and schema.org availability (2 on variants). Missing: schema.org availability on 1',
     );
     const none = await runCheck(
       offerComplete,
@@ -268,7 +268,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 of 2 sampled page(s) could not be fetched',
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability. 1 of 2 sampled page(s) could not be fetched',
     );
     expect(outcome.evidence).toMatchObject({ unfetched: [bowl] });
     const allDown = await runCheck(
@@ -297,7 +297,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 product(s) use an AggregateOffer: eligible for product snippets, not for Google merchant listings, which require an Offer',
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability. Also: 1 product(s) use an AggregateOffer: eligible for product snippets, not for Google merchant listings, which require an Offer',
     );
     expect(outcome.evidence).toMatchObject({
       aggregate_offer_products: 1,
@@ -313,7 +313,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; 1 offer(s) have a price of 0 or below: merchant listing experiences require a price greater than zero',
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability. Also: 1 offer(s) have a price of 0 or below: merchant listing experiences require a price greater than zero',
     );
     expect(outcome.evidence).toMatchObject({
       non_positive_price: 1,
@@ -336,7 +336,7 @@ describe('B2.2 offers carry price, currency and availability', () => {
     );
     expect(past.verdict).toBe('warn');
     expect(past.message).toBe(
-      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability; priceValidUntil 2026-10-31 is in the past on 1 offer(s): Google says your listing may not display if the priceValidUntil property indicates a past date',
+      'all 1 offer(s) on 1 product(s) carry price, currency and schema.org availability. Also: priceValidUntil 2026-10-31 is in the past on 1 offer(s): Google says your listing may not display if the priceValidUntil property indicates a past date',
     );
     expect(past.evidence).toMatchObject({
       expired_price_valid_until: ['2026-10-31'],
@@ -475,7 +475,7 @@ describe('B2.3 variants modeled', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      `1 of 1 variable product(s) expose variants as a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations; variants under hasVariant lack a unique sku or gtin, ProductGroup lacks name, ProductGroup lacks productGroupID on ${mug}`,
+      `1 of 1 variable product(s) expose variants as a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations. Also: variants under hasVariant lack a unique sku or gtin, ProductGroup lacks name, ProductGroup lacks productGroupID on ${mug}`,
     );
     expect(outcome.evidence).toMatchObject({
       modeled: 1,
@@ -711,7 +711,7 @@ describe('B2.4 shipping and return details in markup', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '1 of 1 product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy; required fields missing: OfferShippingDetails lacks shippingDestination.addressCountry, deliveryTime; ShippingService lacks shippingConditions; MerchantReturnPolicy lacks applicableCountry, merchantReturnDays',
+      '1 of 1 product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy. Required fields missing: OfferShippingDetails lacks shippingDestination.addressCountry, deliveryTime. ShippingService lacks shippingConditions. MerchantReturnPolicy lacks applicableCountry, merchantReturnDays',
     );
     expect(outcome.evidence).toMatchObject({ complete: 1, total: 1 });
     // A merchantReturnLink alone satisfies the return policy.
@@ -902,7 +902,7 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      `1 of 1 product image(s) need attention: ${IMAGE}: no alt text on the rendered img; 1 below the recommended 1500 px (Google recommends 1500 px)`,
+      `1 of 1 product image(s) need attention: ${IMAGE}: no alt text on the rendered img. 1 are below the recommended 1500 px (Google recommends 1500 px)`,
     );
     expect(outcome.evidence).toMatchObject({
       warn: 1,
@@ -940,7 +940,7 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(sized.verdict).toBe('pass');
     expect(sized.message).toBe(
-      'all 1 product image(s) resolve with alt text; 1 below the recommended 1500 px (Google recommends 1500 px)',
+      'all 1 product image(s) resolve with alt text. 1 are below the recommended 1500 px (Google recommends 1500 px)',
     );
     expect(sized.evidence).toMatchObject({
       below_recommended: 1,
@@ -1093,7 +1093,7 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(mixed.verdict).toBe('pass');
     expect(mixed.message).toBe(
-      'all 1 product image(s) resolve with alt text; 1 could not be checked; 1 below the recommended 1500 px (Google recommends 1500 px)',
+      'all 1 product image(s) resolve with alt text. 1 could not be checked. 1 are below the recommended 1500 px (Google recommends 1500 px)',
     );
   });
 
@@ -1131,7 +1131,7 @@ describe('B2.5 images with alt text and resolution', () => {
     );
     expect(adequate.verdict).toBe('pass');
     expect(adequate.message).toBe(
-      'all 1 product image(s) resolve with alt text; 1 below the recommended 1500 px (Google recommends 1500 px)',
+      'all 1 product image(s) resolve with alt text. 1 are below the recommended 1500 px (Google recommends 1500 px)',
     );
     // WooCommerce's data-large_image_width describes the full-size image behind the thumbnail.
     const large = await runCheck(
@@ -1231,7 +1231,9 @@ describe('B2.6 markup matches the visible page', () => {
       [mug]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
     });
     expect(outcome.verdict).toBe('pass');
-    expect(outcome.message).toBe('price matches on 1 product page(s); availability matches on 1');
+    expect(outcome.message).toBe(
+      'price matches on 1 product page(s), and availability matches on 1',
+    );
     expect(outcome.evidence).toMatchObject({
       compared: 1,
       price_contradictions: [],
@@ -1291,7 +1293,7 @@ describe('B2.6 markup matches the visible page', () => {
     });
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'the JSON-LD price is not among the prices visible on 1 of 2 product page(s) (no readable price block contradicts it either); price matches on 1',
+      'the JSON-LD price is not among the prices visible on 1 of 2 product page(s) (no readable price block contradicts it either). The price matches on 1',
     );
     expect(outcome.evidence).toMatchObject({
       price_not_found: [mug],
@@ -1356,7 +1358,7 @@ describe('B2.6 markup matches the visible page', () => {
     });
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'price matches on 1 product page(s); availability could not be compared on 1',
+      'price matches on 1 product page(s), and availability could not be compared on 1',
     );
     expect(outcome.evidence).toMatchObject({
       availability_compared: 0,
@@ -1367,7 +1369,7 @@ describe('B2.6 markup matches the visible page', () => {
       [bowl]: pageWith(product(COMPLETE), `<p class="price">€24.00</p>${ADD_TO_CART}`),
     });
     expect(mixed.message).toBe(
-      'price matches on 2 product page(s); availability matches on 1 and could not be compared on 1',
+      'price matches on 2 product page(s), and availability matches on 1 and could not be compared on 1',
     );
   });
 

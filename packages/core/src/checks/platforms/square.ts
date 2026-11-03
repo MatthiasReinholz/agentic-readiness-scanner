@@ -14,7 +14,7 @@ export const squareSearchVisibility = defineCheck('A2.11', ({ target }) => {
     return pass('the site is not hidden from search engines', evidence);
   }
   return fail(
-    `the site is hidden from search engines (${[noindex ? 'the home page carries noindex' : '', robots ? 'robots.txt disallows Googlebot and Bingbot everywhere' : ''].filter(Boolean).join('; ')}): check "Hidden from search engine results" in the site's SEO settings`,
+    `the site is hidden from search engines (${[noindex ? 'the home page carries noindex' : '', robots ? 'robots.txt disallows Googlebot and Bingbot everywhere' : ''].filter(Boolean).join(', and ')}). Check "Hidden from search engine results" in the site's SEO settings`,
     evidence,
   );
 });

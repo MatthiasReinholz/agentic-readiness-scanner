@@ -49,7 +49,7 @@ export function defineLegalCheck(
       const names = wanted.map((market) => MARKET_NAMES[market]);
       return skip(
         'not_applicable',
-        `no sign this store sells to ${names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1] ?? ''}` : (names[0] ?? '')}; choose markets to include it`,
+        `no sign this store sells to ${names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1] ?? ''}` : (names[0] ?? '')}. Choose markets to include it`,
         { markets_wanted: wanted },
       );
     }

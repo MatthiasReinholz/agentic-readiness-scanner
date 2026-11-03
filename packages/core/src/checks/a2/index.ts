@@ -89,7 +89,7 @@ export const searchCrawlersAllowed = defineCheck('A2.2', ({ target }) => {
   const robots = target.robots;
   const path = target.sampled.products[0] ? pathOf(target.sampled.products[0]) : '/';
   if (!robots) {
-    return pass('no robots.txt rules; every crawler may read the page', { path, crawlers: {} });
+    return pass('no robots.txt rules, so every crawler may read the page', { path, crawlers: {} });
   }
   const crawlers: Record<string, { allowed: boolean; core: boolean; feeds: string }> = {};
   const blockedCore: string[] = [];
@@ -102,7 +102,7 @@ export const searchCrawlersAllowed = defineCheck('A2.2', ({ target }) => {
   const evidence = { path, crawlers, blocked: [...blockedCore, ...blockedOther] };
   if (blockedCore.length > 0) {
     return fail(
-      `${blockedCore.join(' and ')} disallowed on ${path}; the AI answers built on that index lose the site`,
+      `${blockedCore.join(' and ')} disallowed on ${path}, so the AI answers built on that index lose the site`,
       evidence,
     );
   }
@@ -122,7 +122,7 @@ export const userFetchersAllowed = defineCheck('A2.5', ({ target }) => {
   const robots = target.robots;
   const path = target.sampled.products[0] ? pathOf(target.sampled.products[0]) : '/';
   if (!robots) {
-    return pass('no robots.txt rules; user-triggered fetchers are not disallowed', {
+    return pass('no robots.txt rules, so user-triggered fetchers are not disallowed', {
       path,
       fetchers: {},
     });
@@ -137,7 +137,7 @@ export const userFetchersAllowed = defineCheck('A2.5', ({ target }) => {
   const evidence = { path, fetchers, blocked };
   if (blocked.length > 0) {
     return fail(
-      `${blocked.join(', ')} disallowed on ${path} (most fetch anyway when a person asks; the rule records intent)`,
+      `${blocked.join(', ')} disallowed on ${path} (most fetch anyway when a person asks, but the rule records intent)`,
       evidence,
     );
   }
@@ -246,10 +246,10 @@ export const noAnswerExclusionDirectives = defineCheck('A2.6', async ({ target, 
   if (blocking.length > 0) {
     const named = [...blockingDirectives].join(', ');
     const consequence = blockingDirectives.has('noindex')
-      ? 'the page leaves the search index that Google AI Overviews and AI Mode and Apple web answers are built on'
+      ? 'The page leaves the search index that Google AI Overviews and AI Mode and Apple web answers are built on'
       : 'Google documents that this keeps the page out of AI Overviews and AI Mode, and Apple generates no web answer from it';
     return fail(
-      `${blocking.length} sampled product page(s) carry ${named}; ${consequence}`,
+      `${blocking.length} sampled product page(s) carry ${named}. ${consequence}`,
       evidence,
     );
   }
@@ -367,7 +367,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     not_fetched: notFetched,
     blocked_policy_pages: blockedPolicy,
   };
-  const note = '; crawlers verified by published IP ranges or signed requests may be let through';
+  const note = '. Crawlers verified by published IP ranges or signed requests may be let through';
   const describe = (urls: string[]): string =>
     [...new Set(urls.map((url) => pages[url]?.detail).filter(Boolean))].join(', ');
   const what = [
@@ -379,7 +379,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
   ].join(', ');
   const unfetched =
     notFetched.length > 0
-      ? `; ${notFetched.length} page(s) could not be fetched (${describe(notFetched)})`
+      ? `. ${notFetched.length} page(s) could not be fetched (${describe(notFetched)})`
       : '';
   if (blockedGate.length > 0) {
     const gateChallenged = blockedGate.filter((url) => challenged.includes(url));
@@ -393,12 +393,12 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     const where = roles.join(' and ');
     if (gateChallenged.length > 0) {
       return fail(
-        `${where} answered an honestly identified client with ${describe(gateChallenged)}; the store is unreachable for any agent that is not on an allow list${note}`,
+        `${where} answered an honestly identified client with ${describe(gateChallenged)}. The store is unreachable for any agent that is not on an allow list${note}`,
         evidence,
       );
     }
     return fail(
-      `${where} refused an honestly identified client (${describe(blockedGate)}); the store is unreachable for any agent that is not on an allow list${note}`,
+      `${where} refused an honestly identified client (${describe(blockedGate)}). The store is unreachable for any agent that is not on an allow list${note}`,
       evidence,
     );
   }
@@ -413,7 +413,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
   }
   if (blockedPolicy.length > 0) {
     return pass(
-      `no block or challenge on ${what}; ${blockedPolicy.length} policy page(s) refused the scanner (${describe(blockedPolicy)}), which B4.6 reports${unfetched}`,
+      `no block or challenge on ${what}. ${blockedPolicy.length} policy page(s) refused the scanner (${describe(blockedPolicy)}), which B4.6 reports${unfetched}`,
       evidence,
     );
   }
@@ -530,7 +530,7 @@ export const usagePreferenceSignalsParse = defineCheck('A2.3', async ({ target, 
   if (signals.length === 0) {
     return skip(
       'not_applicable',
-      'no usage-preference signal declared (Content-Signal, Content-Usage, RSL or TDMRep); optional',
+      'no usage-preference signal declared (Content-Signal, Content-Usage, RSL or TDMRep). It is optional',
       evidence,
     );
   }

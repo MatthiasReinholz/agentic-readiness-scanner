@@ -124,7 +124,7 @@ export interface StartScanOptions extends ResumableScanOptions {
 /** The state was written by another scanner, catalog or scoring version, or is not a state. */
 export class ScanStateMismatchError extends Error {
   constructor(reason: string) {
-    super(`cannot continue this scan: ${reason}; start it again`);
+    super(`cannot continue this scan: ${reason}. Start it again`);
     this.name = 'ScanStateMismatchError';
   }
 }

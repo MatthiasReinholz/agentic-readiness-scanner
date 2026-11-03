@@ -140,6 +140,15 @@ describe('Wix site MCP', () => {
     ).toBe('pass');
     expect((await runCheck(wixSiteMcp, target, mapFetcher({}))).verdict).toBe('fail');
   });
+
+  it('skips instead of failing when the endpoint is rate limited', async () => {
+    const target = targetFor({ platform: 'wix' });
+    const fetcher = mapFetcher({
+      [`${ORIGIN}/_api/mcp`]: { status: 429, body: 'Too Many Requests' },
+    });
+    const outcome = await runCheck(wixSiteMcp, target, fetcher);
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+  });
 });
 
 describe('crawler settings of site builders', () => {

@@ -4,7 +4,7 @@
     "group": "A1",
     "title": "robots.txt exists and parses",
     "question": "Can an agent fetch /robots.txt and parse it?",
-    "method": "GET /robots.txt. Pass on a 200 text response that parses under RFC 9309; warn on 404 (everything allowed by default, but intent is unstated); fail on 5xx, a challenge page or unparseable content.",
+    "method": "GET /robots.txt. Pass on a 200 response whose body is a robots file, not HTML (the RFC 9309 parser is lenient, so an empty file passes). Warn on 404 or any other 4xx: crawlers then treat everything as allowed, but intent is unstated. Fail on 5xx, on no response, or on a 200 that carries an HTML document (a challenge page or a soft 404).",
     "weight": 3,
     "spec": [
       {
@@ -22,7 +22,7 @@
     "group": "A1",
     "title": "Sitemap declared and reachable",
     "question": "Is there a sitemap an agent can fetch?",
-    "method": "Collect Sitemap: lines from robots.txt, then try /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml. Pass when one returns parseable XML with at least one URL or child sitemap.",
+    "method": "Try the Sitemap: lines from robots.txt, then /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml, on the store's own origin only and with at most four sitemap requests in all. The first that answers 200 with parseable sitemap XML is used. Pass when it lists at least one URL or child sitemap, warn when it lists neither, fail when no candidate answers with a sitemap.",
     "weight": 2,
     "spec": [
       {
@@ -36,7 +36,7 @@
     "group": "A1",
     "title": "Product URLs in sitemap",
     "question": "Does the sitemap list product pages?",
-    "method": "Pass when the sitemap index contains a product sitemap (WooCommerce: product-sitemap.xml or wp-sitemap-posts-product-*.xml) or the URL set contains URLs matching product path patterns.",
+    "method": "Read the sitemap found by A1.2 and, in a sitemap index, its child sitemaps with product sitemaps first (WooCommerce wp-sitemap-posts-product-*.xml, product-sitemap.xml, Shopify sitemap_products_1.xml and similar names). Pass when at least one product URL is read: any entry of a product sitemap, or an entry whose path has a product segment such as /product/ or /products/. Warn when the index lists a child sitemap with \"product\" in its URL but no product URL could be read within the request limit. Fail otherwise.",
     "weight": 2,
     "depends_on": ["A1.2"],
     "spec": [
@@ -51,7 +51,7 @@
     "group": "A1",
     "title": "Link response headers",
     "question": "Does the site point agents at its machine-readable resources through Link headers?",
-    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version), and the <link> elements in the home page's head. Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, and which Hydrogen storefronts declare as <link rel=\"ucp\" href=\"/.well-known/ucp\"> in the head), license with type application/rsl+xml, api-catalog, service-desc, describedby, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp; the rest are conventions, hence weight 1.",
+    "method": "Read the Link response headers of the home page and one sampled product page, parsed per RFC 8288 (a multi-member header with parameters such as version), and the <link> elements in the home page's head. Pass when a relation an agent can use is present: ucp (the relation Shopify Online Store sends on every response, and which Hydrogen storefronts declare as <link rel=\"ucp\" href=\"/.well-known/ucp\"> in the head, the only relation read from the head), llms-txt, api-catalog, service-desc, describedby, license with type application/rsl+xml, or alternate with type text/markdown. Fail when none is. The only relation a shipping consumer reads today is ucp. The rest are conventions, hence weight 1.",
     "weight": 1,
     "spec": [
       {
@@ -77,7 +77,7 @@
     "group": "A1",
     "title": "llms.txt is valid when present",
     "question": "If the site publishes llms.txt, is it a usable file?",
-    "method": "GET /llms.txt. A 404 or 410 skips the check as not applicable: the file is optional and no major assistant documents reading it (Google states that Search does not use it), so its absence is never scored. On a 200 the body must be text, not HTML (a soft 404 fails), and must start with an H1, the only element the proposal requires; warn when it has no links; pass otherwise. Stricter than Lighthouse on the content type, more lenient on links (Lighthouse fails a file without a Markdown link or under 50 characters).",
+    "method": "GET /llms.txt. A 404 or 410 skips the check as not applicable: the file is optional and no major assistant documents reading it (Google states that Search does not use it), so its absence is never scored. Any other status than 200, or no response, fails. On a 200 the body must be text, not HTML (a soft 404 fails), and must contain an H1 line (# Title), the only element the proposal requires. Warn when it has no Markdown links, pass otherwise. Stricter than Lighthouse on the content type, more lenient on links (Lighthouse fails a file without a Markdown link or under 50 characters).",
     "weight": 1,
     "spec": [
       {
@@ -99,7 +99,7 @@
     "group": "A1",
     "title": "llms.txt links to the catalog",
     "question": "Does llms.txt lead an agent to the catalog as data?",
-    "method": "When llms.txt is present and valid, pass when one of its links points at a product feed, a product API, a product sitemap, the shop index, a UCP profile or an MCP endpoint (Shopify's generated file names /.well-known/ucp and /api/ucp/mcp), so an agent that reads the file reaches the catalog as data. Fail when it links only to prose pages. Skipped when there is no llms.txt. A convention with no documented reader: weight 1.",
+    "method": "When llms.txt is present and valid, pass when one of its Markdown links points at a product feed, a product API, a product sitemap, the shop index, a UCP profile or an MCP endpoint (Shopify's generated file names /.well-known/ucp and /api/ucp/mcp), so an agent that reads the file reaches the catalog as data. Fail when it links only to prose pages, or has no links. Skipped when there is no llms.txt or it failed A1.5. A convention with no documented reader: weight 1.",
     "weight": 1,
     "depends_on": ["A1.5"],
     "spec": [
@@ -114,7 +114,7 @@
     "group": "A1",
     "title": "Sitemap lastmod is present and plausible",
     "question": "Can an agent tell from the sitemap what changed and when?",
-    "method": "Read <lastmod> in the sitemaps fetched. Pass when at least 80 percent of entries carry a valid W3C datetime and the values differ from one another; warn when fewer entries carry one, or when every value is identical (a timestamp generated at request time, which crawlers learn to ignore); fail when none carry one. Bing names lastmod a key signal for how fast changes reach its AI answers; Google uses it when it is consistently accurate.",
+    "method": "Read <lastmod> in the first 5,000 entries of the sitemaps fetched. Pass when at least 80 percent of entries carry a valid W3C datetime and the values differ from one another. Warn when fewer entries carry one, or when every value is identical (a timestamp generated at request time, which crawlers learn to ignore). Fail when none carry a valid one. Skipped when no sitemap was found or the sitemaps list no URL entries. Bing names lastmod a key signal for how fast changes reach its AI answers, and Google uses it when it is consistently accurate.",
     "weight": 1,
     "depends_on": ["A1.2"],
     "spec": [
@@ -137,7 +137,7 @@
     "group": "A1",
     "title": "Listing pages link to products and further pages",
     "question": "Can a crawler walk from a category page to every product and to the next page with plain links?",
-    "method": "GET the sampled listing page (a collection or category page linked from the home page, the most-linked concrete one; never a product page). Count same-origin anchors to product URLs and look for crawlable pagination: a rel=next link, or anchors whose URL names a page number (/page/2/, ?page=2, ?p=2, ?paged=2). Pass when the page links to two or more products and either paginates with links or shows no pagination at all. Warn when products are listed but the only way to more of them is a button or infinite scroll (Google's crawlers do not click or scroll, and Bing asks for standard anchor links), when the page links to exactly one product, or when no product link is found in the HTML. Not applicable when no listing page was found, or when the sampled page is a category index: no product link and three or more links to further category pages.",
+    "method": "GET the sampled listing page (a collection or category page linked from the home page, the most-linked concrete one, never a product page). Count same-origin anchors to product URLs and look for crawlable pagination: a rel=next link, or anchors whose URL names a page number (/page/2/, ?page=2, ?p=2, ?paged=2, ?pg=2). Pass when the page links to two or more products and either paginates with links or has no load-more control. Warn when products are listed but the only way to more of them is a load-more button or infinite scroll (Google's crawlers do not click or scroll, and Bing asks for standard anchor links), when the page links to exactly one product, when no product link is found in the HTML, or when the page cannot be fetched or answers an error. Not applicable when no listing page was found, or when the sampled page is a category index: no product link and three or more links to further category pages.",
     "weight": 1,
     "spec": [
       {

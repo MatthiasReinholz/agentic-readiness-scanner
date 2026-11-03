@@ -128,7 +128,7 @@ export const documentHeadWellFormed = defineCheck('A3.11', async ({ target, fetc
   if (firstRefresh) {
     const { phrase, plural } = judgedPages(sampled, refreshing.length, judged);
     return fail(
-      `${phrase} redirect${plural ? '' : 's'} with a meta refresh of ${firstRefresh.meta_refresh_seconds} s; crawlers treat the page as a redirect, not as content${note}`,
+      `${phrase} redirect${plural ? '' : 's'} with a meta refresh of ${firstRefresh.meta_refresh_seconds} s. Crawlers treat the page as a redirect, not as content${note}`,
       evidence,
     );
   }

@@ -8,17 +8,17 @@ related: A2.4, A2.5, A2.2, A1.1
 
 ## In short
 
-The scanner fetches a store from a server and says who it is in every request. When the store's bot protection refuses that honest request, the report says so and the store gets Level 0: an AI agent that is not on an allow list meets the same wall. Scanning from the visitor's browser instead is not possible for a web page, because browsers do not let one site read another site's pages.
+The scanner fetches a store from a server and says who it is in every request. When the store's bot protection (a service that filters automated visitors) refuses that honest request, the report says so and the store gets Level 0: an AI agent that is not on an allow list meets the same wall. Scanning from the visitor's browser instead is not possible for a web page, because browsers do not let one site read another site's pages.
 
 ## How the scanner fetches a store
 
-Every request carries the user agent `AgenticReadinessScanner` with a link to its documentation. The scanner reads robots.txt first and respects it, sends its requests one after another with a pause between them, and stops at a fixed request budget. On the hosted app a scan runs in short steps on the server until it is done, and each site can be scanned at most once a minute.
+Every request carries the user agent (the name a client sends with each request) `AgenticReadinessScanner`, with its version and a link to its documentation. The scanner reads robots.txt (the file that tells crawlers what they may fetch) first and respects it. It sends its requests one after another with a pause between them, and stops at a fixed request budget. On the hosted scanner a scan runs in short steps on the server until it is done, and each site can be scanned at most once a minute.
 
-The scanner never pretends to be a browser or a known crawler. What it receives is what any agent that identifies itself honestly receives.
+The scanner never pretends to be a browser or a known crawler. It does not run JavaScript and never signs in. What it receives is what any agent that identifies itself honestly receives.
 
 ## Why a crawler block is a finding
 
-Many stores sit behind bot protection from their host or a security service. Some of it refuses every client it cannot verify: it answers 403 Forbidden, 429 Too Many Requests or a challenge page instead of the store. The scanner treats such answers on the home page, robots.txt or a product page as a block, and names the product behind it when the response does (Cloudflare, Akamai, DataDome, Vercel, Imperva, HUMAN, AWS WAF).
+Many stores sit behind bot protection from their host or a security service. Some of it refuses every client it cannot verify: it answers 403 Forbidden, 429 Too Many Requests or a challenge page instead of the store. The scanner treats such answers on the home page, robots.txt or a product page as a block, and names the product behind it when the response does (Cloudflare, Akamai, DataDome, Vercel, Imperva, HUMAN, AWS WAF, Fastly).
 
 A block is reported, not worked around, for three reasons:
 
@@ -36,7 +36,7 @@ It would seem natural to run the scan in the visitor's browser: a real browser, 
 
 Under the same-origin policy, a script on one site can send a request to another site but cannot read the answer, unless the other site allows it with Cross-Origin Resource Sharing (CORS) headers. Without that permission the browser hands the script an error, or with the `no-cors` mode an opaque response with no status and no body. This is what stops any page you open from reading your webmail or your bank in the background with your login.
 
-Stores do not send CORS permission for their pages, robots.txt or sitemaps. When we tested this from the hosted app on 3 November 2026, every one of them was unreadable. Only a few APIs that opt in on purpose could be read, such as the WordPress REST API index, Shopify's `products.json` and a published commerce profile. A scan needs far more than those.
+Stores do not send CORS permission for their pages, robots.txt or sitemaps. In a test from the hosted scanner on 3 November 2026, every one of them was unreadable. Only a few APIs that opt in on purpose could be read, such as the WordPress REST API index, Shopify's `products.json` and a published commerce profile. A scan needs far more than those.
 
 ### Iframes and windows do not help
 
@@ -58,7 +58,7 @@ A rule that trusts a user agent also lets in anything that copies the string, so
 
 ### Why does my store get Level 0 when it works fine in my browser?
 
-Your browser passes the bot protection's checks; an honest automated client does not. Level 0 says that agents cannot read the store, which is true for every agent the protection does not verify.
+Your browser passes the bot protection's checks. An honest automated client does not. Level 0 says that agents cannot read the store, which is true for every agent the protection does not verify.
 
 ### Can the scanner use my browser so that the block does not matter?
 

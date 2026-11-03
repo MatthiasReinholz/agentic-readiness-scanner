@@ -72,7 +72,7 @@ export function unfetched(target: Target, pages: ProductPage[]): string[] {
 export function fetchNote(target: Target, pages: ProductPage[]): string {
   const failed = unfetched(target, pages).length;
   if (failed === 0) return '';
-  return `; ${failed} of ${target.sampled.products.length} sampled page(s) could not be fetched`;
+  return `. ${failed} of ${target.sampled.products.length} sampled page(s) could not be fetched`;
 }
 
 /**
@@ -90,7 +90,7 @@ export async function readableProductPages(
   if (all.length === 0)
     return { pages, unavailable: skip('not_applicable', 'no product pages sampled') };
   if (pages.length === 0) {
-    const reasons = all.map((page) => `${page.url} (${page.failure ?? 'unknown'})`).join('; ');
+    const reasons = all.map((page) => `${page.url} (${page.failure ?? 'unknown'})`).join(', ');
     return {
       pages,
       unavailable: skip('error', `no sampled product page could be fetched: ${reasons}`, {

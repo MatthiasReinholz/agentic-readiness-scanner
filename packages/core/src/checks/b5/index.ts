@@ -133,7 +133,7 @@ export const guestCheckoutAndCartApi = defineCheck('B5.7', async ({ target, fetc
   if (checkoutResponse.status !== 200) {
     evidence.login_required = null;
     return pass(
-      `anonymous cart API works; checkout page returned HTTP ${checkoutResponse.status}, so guest checkout was not verified`,
+      `anonymous cart API works, but the checkout page returned HTTP ${checkoutResponse.status}, so guest checkout was not verified`,
       evidence,
     );
   }
@@ -277,7 +277,7 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
   }
   const summary = `UCP profile version ${profile.version} with ${serviceIds.length} service(s), ${capabilityIds.length} capability set(s) and ${handlerIds.length} payment handler(s)`;
   if (warnings.length > 0) {
-    return warn(`${summary}, but ${warnings.join('; ')}`, evidence);
+    return warn(`${summary}, but ${warnings.join(', and ')}`, evidence);
   }
   return pass(summary, evidence);
 });
@@ -369,7 +369,7 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
       ? warn(`${summary}, but ${endpointProblem}`, evidence)
       : pass(`${summary}${endpointNote}`, evidence);
   }
-  if (endpointProblem) endpointNote = `; ${endpointProblem}`;
+  if (endpointProblem) endpointNote = `, and ${endpointProblem}`;
   if (checkout) {
     return warn(
       `UCP profile declares checkout but no payment handler with id and version${endpointNote}`,
@@ -446,7 +446,7 @@ export const acpDiscoveryDocument = defineCheck('B5.3', async ({ target, fetcher
     return fail(`ACP discovery document is missing ${missing.join(', ')}`, evidence);
   }
   return pass(
-    `ACP ${String(protocol.version)} discovery document with a REST API at ${String(root.api_base_url)} (the document is a merged proposal in the ACP repository; OpenAI does not document probing it)`,
+    `ACP ${String(protocol.version)} discovery document with a REST API at ${String(root.api_base_url)} (a merged proposal in the ACP repository, which OpenAI does not document probing)`,
     evidence,
   );
 });
@@ -762,7 +762,7 @@ export const shopifyAgenticStorefront = defineCheck('B5.8', async ({ target, fet
   }
   if (linkDeclared && notRequested) {
     return warn(
-      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${probe.detail}); the endpoint could not be verified`,
+      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${probe.detail}), so the endpoint could not be verified`,
       evidence,
     );
   }

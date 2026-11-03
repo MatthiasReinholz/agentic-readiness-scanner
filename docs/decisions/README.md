@@ -1,21 +1,21 @@
 # Architecture decision records
 
-Short records of decisions that shaped the project, in the order they were made. A new record supersedes an old one explicitly; old records stay.
+Short records of the decisions that shaped the project, in the order they were made. Each record keeps what was decided and why, as it was at the time. A later record supersedes or amends an earlier one explicitly, and the earlier record stays, with a line under its status that points to the change.
 
-- [0001 TypeScript core](0001-typescript-core.md)
-- [0002 Two repositories](0002-two-repositories.md)
-- [0003 Catalog as data](0003-catalog-as-data.md)
-- [0004 Spacefast Functions runtime](0004-spacefast-functions-runtime.md)
-- [0005 Deploy through Spacefast's GitHub integration](0005-deploy-through-git-integration.md)
-- [0006 Monitoring by weekly rescan with double opt-in](0006-monitoring-by-weekly-rescan.md)
-- [0007 No companion plugin](0007-no-companion-plugin.md)
+- [0001 The engine is TypeScript, not PHP](0001-typescript-core.md)
+- [0002 The WordPress plugin lives in its own repository](0002-two-repositories.md)
+- [0003 The check catalog is data, not code](0003-catalog-as-data.md)
+- [0004 The hosted app targets the Spacefast Functions runtime with Hono](0004-spacefast-functions-runtime.md)
+- [0005 The hosted app deploys through Spacefast's GitHub integration](0005-deploy-through-git-integration.md)
+- [0006 Monitoring is a weekly rescan with an email on change, behind double opt-in](0006-monitoring-by-weekly-rescan.md)
+- [0007 There is no companion plugin](0007-no-companion-plugin.md)
 - [0008 UI standard: Tailwind and the token contract, without the app framework](0008-ui-standard.md)
-- [0009 Result storage in three tiers; history records states, not scans](0009-result-storage-tiers.md)
-- [0010 The scanner identifies itself and never impersonates an agent](0010-honest-fetch.md)
+- [0009 Results are stored in three tiers, and history records states rather than scans](0009-result-storage-tiers.md)
+- [0010 The scanner identifies itself on every request and never impersonates an agent](0010-honest-fetch.md)
 - [0011 Conventional technical SEO is scored only where a documented AI surface depends on it](0011-technical-seo-scope.md)
 - [0012 Reports lead with priorities, and a page the scanner did not read is never scored](0012-priorities-and-honest-non-answers.md)
 - [0013 Two published packages: the CLI with the MCP server inside, and the engine](0013-two-published-packages.md)
-- [0014 Root URLs have stable profiles; path scans are disposable](0014-root-profiles-and-disposable-scans.md)
+- [0014 Root URLs have stable profiles, and path scans are disposable](0014-root-profiles-and-disposable-scans.md)
 - [0015 Legal signals are reported on their own page, never scored and never crawled](0015-legal-signals.md)
 - [0016 Resumable scans re-resolve each step and keep bodies out of the state](0016-resumable-scans.md)
 - [0017 Hosted scans run as stepped jobs on the server, not in the visitor's browser](0017-stepped-hosted-scans.md)

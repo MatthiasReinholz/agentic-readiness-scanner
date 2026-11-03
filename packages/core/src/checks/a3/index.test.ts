@@ -115,7 +115,7 @@ describe('A3.2 server-rendered product content', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      '1 of 1 sampled product page(s) carry title, price and description in raw HTML; 1 sampled product page could not be fetched (HTTP 503)',
+      '1 of 1 sampled product page(s) carry title, price and description in raw HTML. 1 sampled product page could not be fetched (HTTP 503)',
     );
     expect(outcome.evidence).toMatchObject({
       complete: 1,
@@ -357,7 +357,7 @@ describe('A3.3 page weight and response time', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'the sampled product page is under 1 MB and answered in under 3 s (largest 1 KB, slowest response time 1 ms); 1 sampled product page could not be fetched (no response)',
+      'the sampled product page is under 1 MB and answered in under 3 s (largest 1 KB, slowest response time 1 ms). 1 sampled product page could not be fetched (no response)',
     );
     expect(outcome.evidence).toMatchObject({ failed: { [bowl]: { status: 0 } } });
     expect(Object.keys(outcome.evidence.pages as object)).toEqual([mug]);
@@ -635,7 +635,7 @@ describe('A3.4 canonical and hreflang', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'rel=canonical on the sampled product page is absolute and names the page itself; 1 sampled product page could not be fetched (HTTP 404)',
+      'rel=canonical on the sampled product page is absolute and names the page itself. 1 sampled product page could not be fetched (HTTP 404)',
     );
     expect(outcome.evidence).toMatchObject({
       total: 1,
@@ -823,7 +823,7 @@ describe('A3.5 accessible main content', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'main landmark present on the sampled product page with no cookie or consent banner before it; 1 sampled product page could not be fetched (HTTP 429)',
+      'main landmark present on the sampled product page with no cookie or consent banner before it. 1 sampled product page could not be fetched (HTTP 429)',
     );
     expect(outcome.evidence).toMatchObject({ total: 1, failed: { [bowl]: { status: 429 } } });
   });
@@ -1211,7 +1211,7 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(stale.verdict).toBe('fail');
     expect(stale.message).toBe(
-      'the sitemap lists https://shop.example/product/bowl/, which answers HTTP 404; Google and Bing ask for sitemaps that list only live, canonical URLs',
+      'the sitemap lists https://shop.example/product/bowl/, which answers HTTP 404. Google and Bing ask for sitemaps that list only live, canonical URLs',
     );
     expect(stale.evidence).toMatchObject({ stale_sitemap_entries: [bowl] });
     const gone = await runCheck(
@@ -1229,7 +1229,7 @@ describe('A3.7 product URLs answer directly', () => {
     );
     expect(gone.verdict).toBe('fail');
     expect(gone.message).toBe(
-      'the sitemap lists https://shop.example/product/mug/ and 1 more sampled URL, which answer HTTP 410; Google and Bing ask for sitemaps that list only live, canonical URLs',
+      'the sitemap lists https://shop.example/product/mug/ and 1 more sampled URL, which answer HTTP 410. Google and Bing ask for sitemaps that list only live, canonical URLs',
     );
     // A product URL taken from the home page's links is not a sitemap entry: still a warn.
     const linked = await runCheck(
@@ -1718,7 +1718,7 @@ describe('A3.8 title and description present', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'all 2 sampled page(s) carry a distinct title and a meta description; 1 sampled product page could not be fetched (HTTP 404)',
+      'all 2 sampled page(s) carry a distinct title and a meta description. 1 sampled product page could not be fetched (HTTP 404)',
     );
     expect(outcome.evidence).toMatchObject({
       total: 2,
@@ -1805,7 +1805,7 @@ describe('A3.9 conditional requests supported', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'the product page answers 304 Not Modified to a conditional request with its ETag; the first sampled product page could not be fetched (HTTP 503), so the next one was judged',
+      'the product page answers 304 Not Modified to a conditional request with its ETag. The first sampled product page could not be fetched (HTTP 503), so the next one was judged',
     );
     expect(outcome.evidence).toMatchObject({ url: bowl, etag: '"bowl"' });
     const none = await runCheck(
@@ -2025,7 +2025,7 @@ describe('A3.10 mobile viewport declared', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'the sampled product page declares width=device-width; 1 sampled product page could not be fetched (HTTP 502)',
+      'the sampled product page declares width=device-width. 1 sampled product page could not be fetched (HTTP 502)',
     );
     expect(outcome.evidence).toMatchObject({
       total: 1,

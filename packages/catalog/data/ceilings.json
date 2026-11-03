@@ -1,7 +1,7 @@
 [
   {
     "id": "not-crawlable",
-    "reason": "agents cannot reach and read the site (the Level 1 gates)",
+    "reason": "agents cannot reach and read the site (a Level 1 check failed)",
     "gates": [["A1.1"], ["A2.2"], ["A2.4"], ["A3.2"]],
     "values": { "ingestion": 40, "commerce": 30 }
   },

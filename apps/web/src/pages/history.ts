@@ -163,7 +163,7 @@ export function historyPage(config: AppConfig, input: HistoryPageInput): string 
         .join(' ');
       const report = withinRetention(config, entry.lastAt, input.now)
         ? `<a class="text-primary hover:underline" href="/r/${escapeHtml(entry.lastScanId)}">Report</a>`
-        : '<span class="text-muted-foreground" title="Full results are kept for a limited time; the state itself is kept for good">Report expired</span>';
+        : '<span class="text-muted-foreground" title="Full results are kept for a limited time. The level and scores stay in the history for good">Report expired</span>';
       return `<tr class="align-top"><td class="whitespace-nowrap py-3 pr-4 text-sm">${period(entry)}<div class="mt-0.5 text-xs text-muted-foreground">catalog ${escapeHtml(entry.catalogVersion)}${catalogChanged ? ' · changed' : ''}</div></td><td class="py-3 pr-4 text-sm"><span class="${badge({ variant: 'secondary' })}">Level ${entry.snapshot.level}</span>${previous && diff?.level ? arrow(diff.level.from, diff.level.to) : ''}</td><td class="py-3 pr-4 text-sm tabular-nums">${score(entry.snapshot.ingestion)} ${arrow(previous?.snapshot.ingestion ?? null, entry.snapshot.ingestion)}</td><td class="py-3 pr-4 text-sm tabular-nums">${score(entry.snapshot.commerce)} ${arrow(previous?.snapshot.commerce ?? null, entry.snapshot.commerce)}</td><td class="py-3 pr-4"><div class="flex max-w-[320px] flex-wrap gap-1">${groups}</div></td><td class="py-3 pr-4 text-sm">${changeList({ entry, previous, diff, catalogChanged })}</td><td class="whitespace-nowrap py-3 text-sm">${report}</td></tr>`;
     })
     .join('');

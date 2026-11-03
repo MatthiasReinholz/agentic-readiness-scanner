@@ -85,16 +85,16 @@ function llmsTxt(config: AppConfig): string {
 
 - [Scan form](${config.baseUrl}/): submit a URL, get a report
 - [JSON API](${config.baseUrl}/): POST {"url": "https://example.com"} to ${config.baseUrl}/api/scan and receive the result object (GET is not served)
-- [MCP server](${config.baseUrl}/mcp): Streamable HTTP with tools scan_store, get_history, get_fix, explain_check and list_checks; server card at ${config.baseUrl}/mcp/server-card, listed in ${config.baseUrl}/.well-known/ai-catalog.json
-- [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
-- Root profiles: use profile_url (or report_url) returned by a root scan, /sites/<host>, for the latest report. Use /sites/<host>/report.json or /report.md for its exports. Profile reads never run a scan. Subdomains are separate; www and the bare host share one profile.
-- Snapshots: snapshot_url, /r/<id>, identifies one immutable scan; append .json or .md for exports. Full results expire under the ${config.retentionDays}-day retention policy; stable profiles retain recorded history. Stored reports and profiles are public and search-indexable.
-- One-time scans: a submitted path, query or non-default port returns persistence="disposable" and the result directly, with no report/profile URL. It is a site scan started at that URL, including origin-wide signals and sampled pages, not a strict subtree audit. No result, history, monitoring or progress record is saved. A one-time scan that needs several steps answers 202 with status_url; its state stays on the server only until the result is fetched, two hours at most. In the web UI the result stays in the browser tab.
+- [MCP server](${config.baseUrl}/mcp): Streamable HTTP with the tools scan_store, get_history, get_fix, explain_check and list_checks. Its server card is at ${config.baseUrl}/mcp/server-card and is listed in ${config.baseUrl}/.well-known/ai-catalog.json
+- [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them. Append .json for data
+- Root profiles: use profile_url (or report_url) returned by a root scan, /sites/<host>, for the latest report. Use /sites/<host>/report.json or /report.md for its exports. Profile reads never run a scan. Each subdomain has its own profile, but www and the bare host share one.
+- Snapshots: snapshot_url, /r/<id>, identifies one scan that never changes. Append .json or .md for exports. Full results are deleted after ${config.retentionDays} days, while profiles keep their recorded history. Stored reports and profiles are public and search-indexable.
+- One-time scans: a submitted path, query or non-default port returns persistence="disposable" and the result directly, with no report/profile URL. It is a site scan started at that URL, including origin-wide signals and sampled pages, not a strict subtree audit. No result, history, monitoring or progress record is saved. A one-time scan that needs several steps answers 202 with a status_url. Its state stays on the server only until the result is fetched, two hours at most. In the web UI the result stays in the browser tab.
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
 ## Knowledge base
 
-One article per check: what it looks at, why agents care, how the scanner decides and how to fix it. Each link is Markdown; drop .md for the HTML page. Everything at once: ${config.baseUrl}/llms-full.txt
+One article per check: what it looks at, why agents care, how the scanner decides and how to fix it. Each link is Markdown. Drop .md for the HTML page. Everything at once: ${config.baseUrl}/llms-full.txt
 
 ${knowledgeIndexLines(config)}
 
@@ -107,7 +107,7 @@ ${knowledgeIndexLines(config)}
 ## How the scanner behaves on your site
 
 - Identifies itself as AgenticReadinessScanner/${SCANNER_VERSION} on every request and never sends another agent's user agent
-- Honours robots.txt for that token, makes at most ${config.scanBudget} sequential requests per scan, and starts at most one scan per host every ${config.targetCooldownSeconds} seconds across all paths and interfaces. Root cache hits replay a stored root result without fetching. Cooldown rejections return 429 and retry guidance; failed scans consume the minute too. Only the host and reservation timestamp/token are retained for this admission limit, not path data.
+- Honours robots.txt for that token, makes at most ${config.scanBudget} sequential requests per scan, and starts at most one scan per host every ${config.targetCooldownSeconds} seconds across all paths and interfaces. Root cache hits replay a stored root result without fetching. A scan refused by this limit gets HTTP 429 and says when to retry. Failed scans count towards the limit too. For this limit the scanner keeps only the host and the time of the reservation, never the path.
 `;
 }
 

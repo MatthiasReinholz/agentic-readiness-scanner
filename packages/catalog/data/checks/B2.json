@@ -4,7 +4,7 @@
     "group": "B2",
     "title": "Product JSON-LD on product pages",
     "question": "Do product pages carry schema.org Product markup?",
-    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node that carries name and image, the properties Google requires besides offers; warn when some pages do or when name or image is missing; fail when none do. Product markup earns rich results, free-listing eligibility and automatic Merchant Center submission on Google and grounding data on Bing; Google's AI Overviews and AI Mode need no particular markup beyond an indexed, snippet-eligible page, and ChatGPT shopping reads feeds and third-party metadata, so the weight rests on the Merchant Center and Bing basis.",
+    "method": "Parse all application/ld+json blocks on sampled product pages. Pass when every sampled page has a Product or ProductGroup node and every such page carries name and image (on the node or its variants), the properties Google requires besides offers. Warn when only some pages have the markup, or when name or image is missing. Fail when no page has it. Product markup earns rich results, free-listing eligibility and automatic Merchant Center submission on Google and grounding data on Bing. Google's AI Overviews and AI Mode need no particular markup beyond an indexed, snippet-eligible page, and ChatGPT shopping reads feeds and third-party metadata, so the weight rests on the Merchant Center and Bing basis.",
     "weight": 3,
     "spec": [
       {
@@ -31,7 +31,7 @@
     "group": "B2",
     "title": "Offer with price, currency and availability",
     "question": "Does the markup state what the product costs and whether it is in stock?",
-    "method": "Each Product must carry an Offer (or AggregateOffer) with price (or lowPrice), priceCurrency and an availability value that is a schema.org ItemAvailability URL; offers on the hasVariant Products of a ProductGroup count as the product's offers. Pass when every offer found is complete; warn when some are, when a price is 0 or below (merchant listing experiences require a price greater than zero) or when priceValidUntil names a past date (Google says the listing may not display); fail when none is complete. An AggregateOffer passes but is noted: it is eligible for product snippets, not for Google merchant listings, which require an Offer.",
+    "method": "Each Product must carry an Offer (or AggregateOffer) with price (or lowPrice), priceCurrency and an availability value that is a schema.org ItemAvailability URL. Offers on the hasVariant Products of a ProductGroup count as the product's offers. Pass when every offer found is complete. Warn when only some are, or when all are but a price is 0 or below (merchant listing experiences require a price greater than zero) or priceValidUntil names a past date (Google says the listing may not display). Fail when there is no offer or none is complete. An AggregateOffer passes but is noted: it is eligible for product snippets, not for Google merchant listings, which require an Offer.",
     "weight": 3,
     "depends_on": ["B2.1"],
     "spec": [
@@ -53,9 +53,9 @@
   {
     "id": "B2.3",
     "group": "B2",
-    "title": "Variants modeled",
+    "title": "Variants modelled",
     "question": "Are variable products exposed as a ProductGroup with variants?",
-    "method": "For products that appear variable (variation form, Store API type variable, a ProductGroup with hasVariant, or a Product whose isVariantOf names a ProductGroup), expect a ProductGroup with hasVariant, a Product with isVariantOf, or Store API variations. Warn when the variants under hasVariant lack a unique sku or gtin among them, or the ProductGroup lacks name or productGroupID. Skip when no variable product was sampled.",
+    "method": "A sampled product appears variable when its page has a WooCommerce variations form, the Store API reports type variable, or the JSON-LD has a ProductGroup with hasVariant or a Product whose isVariantOf names a ProductGroup. It is modelled when the page has a ProductGroup with hasVariant, a Product with isVariantOf, or the Store API lists its variations. Pass when every variable product is modelled, warn when some are, fail when none are. A pass becomes a warn when the variants under hasVariant lack a unique sku or gtin among them, or the ProductGroup lacks name or productGroupID. Skipped when no variable product was sampled.",
     "weight": 2,
     "depends_on": ["B2.1"],
     "spec": [
@@ -75,7 +75,7 @@
     "group": "B2",
     "title": "Shipping and return details in markup",
     "question": "Can an agent read shipping cost and return terms from the offer?",
-    "method": "Pass when each product has shipping details (OfferShippingDetails on the Offer or Product, or a ShippingService on an Organization or OnlineStore node of the product page or home page, the place Google now documents for the standard policy) and a MerchantReturnPolicy (on the Offer, Product or that Organization node); warn when only one is present, or when a policy lacks what Google requires: MerchantReturnPolicy needs merchantReturnLink, or applicableCountry and returnPolicyCategory (and merchantReturnDays for a finite window); OfferShippingDetails needs shippingDestination with addressCountry, shippingRate and deliveryTime; ShippingService needs shippingConditions. The missing fields are named.",
+    "method": "For each sampled product with an Offer, look for shipping details (OfferShippingDetails on the Offer, Product or variants, or a ShippingService on an Organization node of the product page or home page, the place Google now documents for the standard policy) and a MerchantReturnPolicy (on the Offer, Product, variants or that Organization node). Organization includes subtypes such as OnlineStore, Store and LocalBusiness. Pass when every product has both and no policy lacks a required field. Warn when every product has both but a policy lacks what Google requires, or when only some products have both or only one. Fail when no product has either. Required: MerchantReturnPolicy needs merchantReturnLink, or applicableCountry and returnPolicyCategory (and merchantReturnDays for a finite window). OfferShippingDetails needs shippingDestination with addressCountry, shippingRate and deliveryTime. ShippingService needs shippingConditions. The missing fields are named.",
     "weight": 2,
     "depends_on": ["B2.2"],
     "spec": [
@@ -103,7 +103,7 @@
     "group": "B2",
     "title": "Images with alt text and resolution",
     "question": "Is the primary product image usable by an agent?",
-    "method": "The Product image must resolve, and the rendered img tag must carry alt text. The rendered img is matched by URL path with size parameters and size suffixes removed, across src, srcset, data-src, data-srcset and picture sources; one-pixel and aria-hidden images are ignored. Warn when the image is smaller than 500 px on its longest side (Google Merchant Center's minimum for every product from 2027-01-31; 1500 px is recommended and a smaller image is noted), or when the store's robots.txt keeps Googlebot or Googlebot-Image from a same-origin image, since products whose images are blocked stop showing in free listings. A HEAD request that gets no response is inconclusive and is not scored.",
+    "method": "Take the first image of the Product JSON-LD on each sampled page. Fail when there is none, when it is not an absolute http or https URL, or when it answers with an error status. Its size comes from the JSON-LD ImageObject or the rendered img, and only when neither gives one does a HEAD request check that it resolves. The rendered img is matched by URL path with size parameters and size suffixes removed, across src, srcset, data-src, data-srcset and picture sources, and one-pixel and aria-hidden images are ignored. Warn when the image is not rendered as an img, has no alt text, is smaller than 500 px on its longest side (Google Merchant Center's minimum for every product from 2027-01-31, with 1500 px recommended and a smaller image noted), or when the store's robots.txt keeps Googlebot or Googlebot-Image from a same-origin image, since products whose images are blocked stop showing in free listings. The check fails when any image fails and warns when any warns. A HEAD request that gets no response is inconclusive and is not scored.",
     "weight": 1,
     "depends_on": ["B2.1"],
     "spec": [
@@ -123,7 +123,7 @@
     "group": "B2",
     "title": "Markup matches visible page",
     "question": "Does the structured data say the same thing as the page?",
-    "method": "Compare the JSON-LD price (including variant offers) with the prices visible in the page text, and the availability with the add-to-cart state. Pass when a markup price is visible; fail when a price block shows other amounts and none matches; warn when the price is not found in readable text, or on an availability mismatch.",
+    "method": "Compare the JSON-LD prices (price, lowPrice and highPrice, including variant offers) with the amounts next to a currency sign or code in the page text, within one cent, and the availability with the add-to-cart state. Fail when no markup price is visible and a price block (an element whose class names a price) shows other amounts. Warn when no markup price is visible and no price block contradicts it, or when the price matches but the markup availability contradicts the add-to-cart control or out-of-stock wording. Pass when a markup price is visible on every compared page and availability does not contradict it.",
     "weight": 2,
     "depends_on": ["B2.2", "A3.2"],
     "spec": [

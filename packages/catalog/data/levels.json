@@ -2,19 +2,19 @@
   {
     "value": 0,
     "name": "Not reachable",
-    "description": "robots.txt blocks the crawlers behind AI answers, an honest fetch is challenged, or product pages are not server-rendered.",
+    "description": "Agents cannot reach or read the store: robots.txt blocks the crawlers behind AI answers, the scanner's honest request is challenged, or product pages need JavaScript to show their content.",
     "gates": []
   },
   {
     "value": 1,
     "name": "Crawlable",
-    "description": "robots.txt parses, the search and assistant crawlers may read product pages, an honestly identified agent is not challenged, and product content is in the HTML.",
+    "description": "robots.txt can be read, the crawlers behind AI answers may read product pages, an agent that names itself honestly is not challenged, and product content is in the HTML.",
     "gates": [["A1.1"], ["A2.2"], ["A2.4"], ["A3.2"]]
   },
   {
     "value": 2,
     "name": "Readable catalog",
-    "description": "Level 1, and the catalog is enumerable (product sitemap, platform API, public feed or Shopify's UCP catalog), product pages stay eligible for snippets, and they carry Product JSON-LD with a complete Offer.",
+    "description": "Level 1, and an agent can list the catalog (a product sitemap, a platform API, a public feed or Shopify's agent catalog). Product pages may appear in AI answers and carry Product structured data with a complete offer.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
@@ -29,7 +29,7 @@
   {
     "value": 3,
     "name": "Identifiable products",
-    "description": "Level 2, and products carry a GTIN (valid) or brand plus MPN, and the brand as an entity.",
+    "description": "Level 2, and products carry a valid GTIN or a brand with the maker's part number, and name the brand as an entity.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
@@ -47,7 +47,7 @@
   {
     "value": 4,
     "name": "Trusted merchant",
-    "description": "Level 3, and the return, shipping, privacy and terms pages plus a contact channel are findable.",
+    "description": "Level 3, and an agent can find the return, shipping, privacy and terms pages and a way to contact the merchant.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
@@ -69,7 +69,7 @@
   {
     "value": 5,
     "name": "Transactable",
-    "description": "Level 4, and a checkout an agent can use is advertised: a UCP profile declaring a checkout capability and a payment handler, an ACP discovery document, or an active Shopify agentic storefront. Transactable means the public prerequisites are in place, not that a checkout was exercised.",
+    "description": "Level 4, and the store advertises a checkout an agent can use: a UCP profile with a checkout capability and a payment handler, an ACP discovery document, or an active Shopify agentic storefront. This means the public prerequisites are in place. It does not mean a purchase was tested.",
     "gates": [
       ["A1.1"],
       ["A2.2"],

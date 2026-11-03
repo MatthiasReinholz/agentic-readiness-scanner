@@ -149,7 +149,7 @@ describe('B1.8 Shopify products.json readable', () => {
     );
     expect(blocked.verdict).toBe('warn');
     expect(blocked.message).toBe(
-      "products.json was not requested because the store's robots.txt disallows it for the scanner (blocked by robots.txt for AgenticReadinessScanner); whether it is readable could not be verified",
+      "products.json was not requested because the store's robots.txt disallows it for the scanner (blocked by robots.txt for AgenticReadinessScanner), so whether it is readable could not be verified",
     );
     expect(blocked.evidence).toMatchObject({
       status: 0,

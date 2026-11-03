@@ -4,7 +4,7 @@
     "group": "C4",
     "title": "Accessibility statement linked",
     "question": "Does the store link an accessibility statement?",
-    "method": "Found when the home page links a page whose label or path names accessibility in the page language (accessibility, Barrierefreiheit, accessibilité, accesibilidad, acessibilidade, toegankelijkheid, accessibilità) or, for Brazil, shows the accessibility symbol; not found otherwise. Microenterprises are exempt from the European Accessibility Act, which the scan cannot tell.",
+    "method": "Found when the home page links a page whose label or path names accessibility in the page language (accessibility, Barrierefreiheit, accessibilité, accesibilidad, acessibilidade, toegankelijkheid, accessibilità and the like), or shows a link, button or image labelled \"Acessibilidade\" or \"accessibility symbol\", as the accessibility symbol Brazil asks for usually is. Not found otherwise. Microenterprises that provide services are exempt from the European Accessibility Act, which the scan cannot tell.",
     "weight": "info",
     "markets": ["EU", "BR", "CA"],
     "laws": ["eu-eaa", "de-bfsg", "br-lbi-art63", "ca-on-aoda"],
@@ -20,7 +20,7 @@
     "group": "C4",
     "title": "Static accessibility basics",
     "question": "Do the pages read pass the accessibility basics that can be checked without rendering?",
-    "method": "On the home page and sampled product pages: the html element declares a language, the page has a title, content images have alt text (empty alt for decoration is fine), form controls have a label or an accessible name, links and buttons have an accessible name, and the viewport does not disable zoom (user-scalable=no or maximum-scale below 2). Found when every page passes; review when some items fail; not found when most fail. Automated checks find a minority of barriers; contrast, keyboard use and focus need a rendered page.",
+    "method": "On the home page and the sampled product pages, check that the html element declares a language, the page has a title, images have an alt attribute (an empty alt for decoration is fine), form controls have a label or an accessible name, links and buttons have an accessible name, and the viewport does not disable zoom (user-scalable=no or maximum-scale below 2). Found when every page passes. Not found when more than half of the pages each miss three or more of these basics. Review otherwise. Automated checks find only a minority of barriers. Contrast, keyboard use and focus need a rendered page.",
     "weight": "info",
     "laws": ["eu-eaa", "us-ada-title3", "ca-on-aoda", "uk-equality-act", "au-dda", "br-lbi-art63"],
     "spec": [
@@ -36,7 +36,7 @@
     "group": "C4",
     "title": "Accessibility overlay detected",
     "question": "Does the store rely on an accessibility overlay widget?",
-    "method": "Review when the static HTML loads a known overlay (accessiBe, UserWay, AudioEye, EqualWeb, Max Access and the like); found (none detected) otherwise. An overlay does not make a site conformant; regulators and courts have said so.",
+    "method": "Review when the static HTML of the home page loads a known overlay (accessiBe, UserWay, AudioEye, EqualWeb, Max Access and the like), and name it. Found (none detected) otherwise. An overlay does not make a site conformant. Regulators and courts have said so.",
     "weight": "info",
     "laws": ["eu-eaa", "us-ada-title3"],
     "spec": [

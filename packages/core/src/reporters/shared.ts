@@ -43,7 +43,7 @@ export function ceilingSentence(
           .join(' or ')}.`
       : '';
   return ceiling.raw > ceiling.value
-    ? `Capped at ${String(ceiling.value)} while ${ceiling.reason}; ${String(ceiling.raw)} without the cap.${lift}`
+    ? `Capped at ${String(ceiling.value)} while ${ceiling.reason}. Without the cap it would be ${String(ceiling.raw)}.${lift}`
     : `Cannot exceed ${String(ceiling.value)} while ${ceiling.reason}.${lift}`;
 }
 
@@ -142,7 +142,7 @@ export function nextGateSentence(result: ScanResult, catalog: Catalog = defaultC
     return found ? `${id} ${found.title}` : id;
   });
   const count = gates.length === 1 ? 'One check stands' : `${gates.length} checks stand`;
-  return `${count} between you and Level ${next.value} (${next.name}): ${titles.join('; ')}.`;
+  return `${count} between you and Level ${next.value} (${next.name}): ${titles.join(' · ')}.`;
 }
 
 export function failedResults(result: ScanResult): CheckResult[] {
@@ -169,10 +169,10 @@ export function scopeLines(result: ScanResult): string[] {
       sampled.products.length > 0
         ? `, ${sampled.products.length} product page(s) (${sampled.products.join(', ')})`
         : ', no product pages (none were found to sample)'
-    }${policies.length > 0 ? `, and ${policies.length} policy page(s) (${policies.map(([kind, url]) => `${kind}: ${url}`).join('; ')})` : ', and no policy pages'}.`,
+    }${policies.length > 0 ? `, and ${policies.length} policy page(s) (${policies.map(([kind, url]) => `${kind}: ${url}`).join(', ')})` : ', and no policy pages'}.`,
   );
   lines.push(
-    `Method: ${result.requests} HTTP request(s) as AgenticReadinessScanner, honouring robots.txt, without running JavaScript, signing in, accepting cookies or impersonating any other agent. Content rendered in the browser, prices shown only after sign-in and region-specific variants are outside what this scan can see; a page it could not fetch is reported, never scored.`,
+    `Method: ${result.requests} HTTP request(s) as AgenticReadinessScanner, honouring robots.txt, without running JavaScript, signing in, accepting cookies or impersonating any other agent. Content rendered in the browser, prices shown only after sign-in and region-specific variants are outside what this scan can see. A page it could not fetch is reported, never scored.`,
   );
   return lines;
 }

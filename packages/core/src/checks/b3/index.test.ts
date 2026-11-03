@@ -60,7 +60,7 @@ describe('B3.1 GTIN present', () => {
       const without = total - withGtin;
       expect(outcome.message).toBe(
         verdict === 'fail'
-          ? `${withGtin} of ${total} sampled product(s) carry a GTIN; ${without} of the ${without} without one also lack brand plus mpn, Google's documented alternative`
+          ? `${withGtin} of ${total} sampled product(s) carry a GTIN. ${without} of the ${without} without one also lack brand plus mpn, Google's documented alternative`
           : `${withGtin} of ${total} sampled product(s) carry a GTIN`,
       );
     }
@@ -78,7 +78,7 @@ describe('B3.1 GTIN present', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      "0 of 2 sampled product(s) carry a GTIN; the 2 without one carry brand and mpn, Google's documented alternative to a GTIN",
+      "0 of 2 sampled product(s) carry a GTIN. The 2 without one carry brand and mpn, Google's documented alternative to a GTIN",
     );
     expect(outcome.evidence).toMatchObject({
       without_gtin_with_brand_and_mpn: 2,
@@ -94,7 +94,7 @@ describe('B3.1 GTIN present', () => {
     );
     expect(half.verdict).toBe('fail');
     expect(half.message).toBe(
-      "0 of 2 sampled product(s) carry a GTIN; 1 of the 2 without one also lack brand plus mpn, Google's documented alternative",
+      "0 of 2 sampled product(s) carry a GTIN. 1 of the 2 without one also lack brand plus mpn, Google's documented alternative",
     );
   });
 
@@ -164,7 +164,7 @@ describe('B3.1 GTIN present', () => {
     );
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe(
-      "1 of 2 sampled product(s) carry a GTIN; 1 gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: FG006780; 1 of the 1 without one also lack brand plus mpn, Google's documented alternative",
+      "1 of 2 sampled product(s) carry a GTIN. 1 gtin value(s) were not counted because they are not 8, 12, 13 or 14 digits: FG006780. 1 of the 1 without one also lack brand plus mpn, Google's documented alternative",
     );
     expect(outcome.evidence).toMatchObject({
       with_gtin: 1,
@@ -184,7 +184,7 @@ describe('B3.1 GTIN present', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      '1 of 1 sampled product(s) carry a GTIN; 1 of 2 sampled page(s) could not be fetched',
+      '1 of 1 sampled product(s) carry a GTIN. 1 of 2 sampled page(s) could not be fetched',
     );
     expect(outcome.evidence).toMatchObject({ sampled: 1, unfetched: [bowl] });
     const none = await runCheck(
@@ -574,7 +574,7 @@ describe('B3.5 SKU present and unique in sample', () => {
     );
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'all 1 sampled product(s) carry a distinct SKU; 1 of 2 sampled page(s) could not be fetched',
+      'all 1 sampled product(s) carry a distinct SKU. 1 of 2 sampled page(s) could not be fetched',
     );
     expect(outcome.evidence).toMatchObject({ sampled: 1, unfetched: [bowl] });
   });

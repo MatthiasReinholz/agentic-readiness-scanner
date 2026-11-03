@@ -4,7 +4,7 @@
     "group": "A3",
     "title": "Machine-readable copy of product pages",
     "question": "Can an agent get a product page as Markdown instead of HTML?",
-    "method": "GET a sampled product page with Accept: text/markdown, text/html;q=0.9. Pass when the response is text/markdown and names the product (warn when Vary: Accept is missing, because shared caches then serve Markdown to browsers). Also pass when the HTML links a Markdown alternate (link rel=alternate type=text/markdown) or the page URL with .md appended answers text/markdown. Fail when none applies, and fail when a response labelled text/markdown is HTML (its body opens with a tag or carries a doctype or <html>): converted Markdown starts with front matter or a heading, never with markup. Coding agents request Markdown today; search crawlers do not, hence the low weight.",
+    "method": "GET the first sampled product page with an Accept header that prefers text/markdown and accepts text/html at q=0.9. Pass when the response is text/markdown and names the product (its Product name or title appears in the body). Warn when that response sends no Vary: Accept (or Vary: *), because a shared cache may then serve Markdown to browsers. Otherwise follow a Markdown alternate the HTML links (link rel=alternate type=text/markdown), then the page URL with .md appended, within three requests in all, and pass when either answers text/markdown that names the product. Fail when none does, and fail when a response labelled text/markdown is HTML (its body opens with a tag or carries a doctype or <html> near the top): converted Markdown starts with front matter or a heading, never with markup. Skipped when no product page was sampled. Coding agents request Markdown today, but search crawlers do not, hence the low weight.",
     "weight": 1,
     "requires": ["products"],
     "spec": [
@@ -27,7 +27,7 @@
     "group": "A3",
     "title": "Server-rendered product content",
     "question": "Are title, price and description present in the raw HTML without JavaScript?",
-    "method": "Parse the raw HTML of the sampled product pages that answered. Pass when a title, a price-like value and a description are present as text or structured data; fail when the body is an empty app shell. Fail when a product URL lands on a sign-in or password page (it was redirected to a login or password path, or what answered is a password form with no product content): Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts. A product page that merely links to the account area is a product page. A page that could not be fetched is named and never scored.",
+    "method": "Parse the raw HTML of the sampled product pages that answered, without running JavaScript. A page is complete when it carries a title (a <title> or a Product name in JSON-LD), a price (a JSON-LD offer price, an amount with a currency in the text, or an element with a price class) and a description (a meta description, a JSON-LD description or more than 80 words of text). Pass when every page is complete, warn when only some are, fail when none is (an empty app shell). Fail as well when a product URL lands on a sign-in or password page (it was redirected to a login or password path, or what answered is a password form with no product content): Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts. A product page that merely links to the account area is a product page. A page that could not be fetched is named and never scored. Skipped when no product page was sampled or none could be fetched.",
     "weight": 3,
     "spec": [
       {
@@ -35,7 +35,7 @@
         "url": "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics"
       },
       {
-        "title": "Google Merchant Center: landing page requirements",
+        "title": "Google Merchant Center: the link attribute and its landing page requirements",
         "url": "https://support.google.com/merchants/answer/6324416"
       }
     ],
@@ -46,7 +46,7 @@
     "group": "A3",
     "title": "Page weight within crawler limits",
     "question": "Does a product page fit in what crawlers read, and answer quickly enough to be crawled at scale?",
-    "method": "Measure the uncompressed HTML of each sampled product page (the home page when none were sampled). Googlebot reads the first 2 MB of a document, headers included, and ignores every byte after it; the scanner reads the same 2 MB. Fail when a page reaches 2 MB: whatever follows the cutoff, including structured data placed at the end of the body, is not indexed. Warn above 1 MB or when the slowest response took 3 s or more. Pass below 1 MB and 3 s. Response time is a crawl-health hint, not an eligibility rule.",
+    "method": "Measure the uncompressed HTML of each sampled product page that answered (the home page when none were sampled) and its response time. Googlebot reads the first 2 MB of a document, headers included, and ignores every byte after it. The scanner stops reading at the same size. Fail when a page reaches 2 MB (2,000,000 bytes) or was cut off: whatever follows the cutoff, including structured data placed at the end of the body, is not indexed. Warn when a page is 1 MB or more, or when the slowest response took 3 s or more. Pass below 1 MB and 3 s. Response time is a crawl-health hint, not an eligibility rule. Skipped when product pages were sampled but none could be fetched.",
     "weight": 1,
     "spec": [
       {
@@ -64,7 +64,7 @@
     "group": "A3",
     "title": "Canonical is correct and hreflang is well-formed",
     "question": "Does each product page name itself as the URL to index, so the index holds the page the agent was sent to?",
-    "method": "Read rel=canonical from the HTML and from the Link response header of each sampled product page. Fail when a page carries none. Warn when a page carries several or conflicting canonicals, a relative canonical, a canonical on another origin or on http while the page is https, or a canonical naming a different URL than the one that answered (the sampled page is then a duplicate and the other URL is what gets indexed; sitemaps should list that one). For hreflang alternates: warn when they appear on some sampled pages only, when an alternate URL is relative, or when a page names fewer than two languages and no x-default. Reciprocity across alternates is not fetched. Pass when every sampled page's canonical is absolute and resolves to the page itself.",
+    "method": "Read rel=canonical from the HTML and from the Link response header of each sampled product page that answered. Problems are checked in this order, and the first one found sets the verdict. Fail when a page carries no canonical. Warn when a page carries several or conflicting canonicals, a relative canonical, a canonical on another host, a canonical on http while the page is https, or a canonical naming a different URL than the one that answered (the sampled page is then a duplicate and the other URL is what gets indexed, so sitemaps should list that one). For hreflang alternates, warn when they appear on some sampled pages only, when an alternate URL is relative, or when a page names fewer than two languages and no x-default. The alternate pages are not fetched, so reciprocity is not judged. Pass when every sampled page's canonical is absolute and resolves to the page itself. Skipped when no product page was sampled or none could be fetched.",
     "weight": 1,
     "spec": [
       {
@@ -86,8 +86,8 @@
     "id": "A3.5",
     "group": "A3",
     "title": "Accessible main content",
-    "question": "Is the product content inside a main landmark and not hidden behind an overlay in the HTML?",
-    "method": "Informational. Pass when a main or article landmark wraps the product content; warn when a cookie or consent banner precedes it in the DOM, naming the element (a cart drawer or a closed modal does not count). No answer engine documents depending on landmarks, so this is reported and never scored.",
+    "question": "Is the product content inside a main landmark, with no cookie or consent banner before it in the HTML?",
+    "method": "Informational. Read each sampled product page that answered (the home page when none were sampled). Pass when every page has a main landmark (a main element or an element with role=main) and no cookie or consent banner comes before it in document order. Warn when a page has no main landmark, or when a banner precedes it, naming the element. A banner is an element whose class or id contains cookie, consent, gdpr, privacy-banner or the token cmp. Elements that render nothing (script, style, template and similar) and generic names such as modal, overlay or drawer do not count, so a cart drawer or a closed modal is not reported. No answer engine documents depending on landmarks, so this is reported and never scored.",
     "weight": "info",
     "spec": [
       {
@@ -101,7 +101,7 @@
     "group": "A3",
     "title": "Unknown URLs answer 404",
     "question": "Does the site tell an agent honestly when a page does not exist?",
-    "method": "GET a random path under the origin that cannot exist. Pass on 404 or 410, whatever the body. Warn on a redirect to the home page. Fail when the server answers 200 with an HTML page (a soft 404): an agent then reads a page that does not exist as if it did, and every stale link it follows looks like content. When the probe is rate limited (429), meets a gateway error or gets no response, the check is skipped: such an answer says nothing about 404 handling, and a 429 is not a soft 404.",
+    "method": "GET a fixed path under the origin that cannot exist (/agentic-readiness-probe- plus a code derived from the host name). Pass on 404 or 410, whatever the body. Fail when the server answers 200 with an HTML page (a soft 404): an agent then reads a page that does not exist as if it did, and every stale link it follows looks like content. Warn on a redirect to the home page, on any other redirect, and on any other status (such as 403, 500 or a 200 that is not HTML). Skipped when the probe is rate limited (429), meets a gateway error (502, 503, 504) or gets no response: such an answer says nothing about 404 handling, and a 429 is not a soft 404.",
     "weight": 1,
     "spec": [
       {
@@ -119,7 +119,7 @@
     "group": "A3",
     "title": "Product URLs answer directly over HTTPS",
     "question": "Do the URLs the site publishes answer 200 at that address, and does every variant of the host lead to it?",
-    "method": "For each sampled product URL (taken from the sitemap or the home page), record the redirect hops to the final 200. Pass when every URL answers 200 at its own address. Warn when a published URL redirects (the sitemap or link should name the final URL; Bing asks for canonical URLs in sitemaps, and Google indexes the redirect target, not the listed page), or when the chain is longer than one hop. Fail when a chain exceeds the scanner's five hops (Google stops at ten) or when a redirect leaves HTTPS for HTTP. Then GET the http:// form of the origin and the other host variant (www or apex) and expect a redirect to the canonical origin; warn when either serves its own content or fails, since the index then holds duplicates. A sampled URL taken from the sitemap that answers 404 or 410 is a stale sitemap entry and fails: Google asks that sitemaps list only live, canonical URLs, and Bing asks publishers to remove deleted or redirected URLs promptly. When the home page stands in for product URLs, one redirect from / to a locale or landing path is not a finding; a host variant that redirects to another host of the same registrable domain is reported as consolidation elsewhere, and one that answers 429, a gateway error or nothing is inconclusive. Every redirect reported names the URL it left and the one it reached.",
+    "method": "Fetch each sampled product URL (taken from the sitemap or the home page, the home page itself when none was found) and record the redirect hops to the final answer. Then GET the http:// form of the origin and the other host variant (www or apex), which should each redirect to the canonical origin. Fail when a redirect leaves HTTPS for HTTP, when a chain exceeds the five hops the scanner follows (Google stops at ten), or when a URL taken from the sitemap answers 404 or 410: Google asks that sitemaps list only live, canonical URLs, and Bing asks publishers to remove deleted or redirected URLs promptly. Warn when a published URL redirects before it answers, even by one hop (the sitemap or link should name the final URL, since Google indexes the redirect target and Bing asks for canonical URLs in sitemaps). Warn when a URL answers a status other than 200 without redirecting. Warn when a host variant serves its own content with 200, answers another status, or redirects to a host other than the canonical origin (a host of the same registrable domain is reported as consolidation elsewhere). Pass when every URL answers 200 at its own address and neither variant contradicts it. When the home page stands in for product URLs, a hop that changes the host plus one redirect from / to a locale or landing path is not a finding. A host variant that answers 429, a gateway error or nothing is inconclusive and not held against the store. Skipped when none of the sampled URLs could be fetched. Every redirect reported names the URL it left and the one it reached.",
     "weight": 2,
     "spec": [
       {
@@ -145,7 +145,7 @@
     "group": "A3",
     "title": "Title and description on every page",
     "question": "Does every page name itself, so a citation has a title and the index has a description?",
-    "method": "Read the <title> element and the meta description of the home page, the sampled listing page and each sampled product page. Fail when any page has no title or an empty one: the title is the one field every answer engine returns with a citation, and Bing ties missing titles to grounding eligibility. Warn when two sampled pages share a title, when a title is shorter than ten characters, or when a page has no meta description or an empty one (Bing names short or missing descriptions as reducing eligibility; Google uses the description for some snippets). Length maxima are not judged: no engine documents one.",
+    "method": "Read the <title> element and the meta description of the home page, the sampled listing page and each sampled product page that answered. Pages that did not answer are recorded, not judged. Fail when any page has no title or an empty one: the title is the one field every answer engine returns with a citation, and Bing ties missing titles to grounding eligibility. Warn, in this order, when two pages share a title (ignoring case and spacing), when a title is shorter than ten characters, or when a page has no meta description or an empty one. Bing names short or missing descriptions as reducing eligibility, and Google uses the description for some snippets. Length maxima are not judged: no engine documents one.",
     "weight": 2,
     "spec": [
       {
@@ -167,7 +167,7 @@
     "group": "A3",
     "title": "Conditional requests supported",
     "question": "Can a crawler ask whether a product page changed instead of downloading it again?",
-    "method": "Read the ETag and Last-Modified headers of the HTML response of the first sampled product page that answered (the home page when none were sampled), never of a Markdown copy negotiated with Accept: text/markdown, which converters serve without validators. When one is present, GET the page again with If-None-Match (or If-Modified-Since) and expect 304. Pass on 304. Warn when the server sends a validator but answers 200 to the conditional request (the validator is decorative), and when it sends no validator at all; Google's crawlers and Bing both name ETags as the way they detect unchanged pages. The second request is the only one in the scan that repeats a URL.",
+    "method": "Read the ETag and Last-Modified headers of the HTML response of the first sampled product page that answered (the home page when none were sampled). A Markdown copy negotiated with Accept: text/markdown is never judged, because converters serve it without validators. When a validator is present, GET the page again with If-None-Match (for an ETag) or If-Modified-Since (for a date) and expect 304. Pass on 304. Warn when the server answers 200 to the conditional request (the validator is decorative), when it answers another status, or when it sends no validator at all. Google's crawlers and Bing both name ETags as the way they detect unchanged pages. Skipped when the page or the conditional request could not be fetched.",
     "weight": 1,
     "spec": [
       {
@@ -189,7 +189,7 @@
     "group": "A3",
     "title": "Mobile viewport declared",
     "question": "Does the page declare itself usable on a phone, which is the device Google indexes with?",
-    "method": "Read the meta viewport of each sampled product page (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly; a site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width. Warn when a page has no viewport tag, a fixed pixel width, or a tag that forbids zooming (user-scalable=no or maximum-scale below 1 are recorded). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
+    "method": "Read the meta viewport of each sampled product page that answered (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly. A site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width and allows zooming. Warn when a page has no viewport tag, a tag without width=device-width (such as a fixed pixel width), or a tag that forbids zooming (user-scalable=no or 0, or maximum-scale below 1). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
     "weight": 1,
     "spec": [
       {
@@ -211,7 +211,7 @@
     "group": "A3",
     "title": "Document head is well-formed",
     "question": "Will a crawler see the title, canonical and directives where the page put them?",
-    "method": "Scan the raw HTML of each sampled product page (the home page when none were sampled) in document order. Google reads the head only up to the first element that does not belong there (anything but title, meta, link, script, style, base, noscript and template) and ignores metadata after it; browsers do the same when they close the head early. Fail when a <title>, rel=canonical, robots or description meta, or hreflang alternate appears after such an element or inside the body, or when a meta refresh with a delay of five seconds or less turns the page into a redirect. Warn when the document has no HTML doctype (quirks parsing), when no character encoding is declared in the Content-Type header or within the first 1024 bytes, or when the page is not served as text/html. Pass otherwise. Titles and metadata inside inline SVG or MathML are an icon's accessible name, not document metadata, and are ignored.",
+    "method": "Scan the raw HTML of each sampled product page that answered with a body (the home page when none were sampled) in document order. Google reads the head only up to the first element that does not belong there (anything but title, meta, link, script, style, base, noscript and template) and ignores metadata after it. Browsers do the same when they close the head early. Fail when a meta refresh that names a URL has a delay of five seconds or less, which turns the page into a redirect. Fail when a <title>, rel=canonical, robots or description meta, or hreflang alternate appears after such an element or inside the body. Warn when the page is not served as text/html (or application/xhtml+xml), when the document lacks the HTML doctype (<!doctype html>), or when no character encoding is declared in the Content-Type header or within the first 1024 bytes. The rules run in that order. Pass otherwise. Titles and metadata inside inline SVG or MathML are an icon's accessible name, not document metadata, and are ignored. Skipped when no page answered with a body.",
     "weight": 1,
     "spec": [
       {
@@ -237,7 +237,7 @@
     "group": "A3",
     "title": "PrestaShop friendly URLs",
     "question": "Do PrestaShop product URLs carry readable paths instead of query strings?",
-    "method": "On a PrestaShop store, look at the sampled product URLs. Pass when every one is a readable path; warn when any is a query-string URL (index.php or product.php with id_product or controller parameters), which PrestaShop builds when Friendly URL is off under Shop Parameters > Traffic & SEO. Readable URLs tell an agent what the page is before it fetches it and stay stable across parameters. No extra request.",
+    "method": "Runs only on PrestaShop stores. Look at the sampled product URLs. Pass when every one is a readable path. Warn when any is a query-string URL (one with an id_product or controller parameter, or an index.php path), which PrestaShop builds when Friendly URL is off under Shop Parameters > Traffic & SEO. Readable URLs tell an agent what the page is before it fetches it and stay stable across parameters. Skipped when no product page was sampled. No extra request.",
     "weight": 1,
     "requires": ["prestashop", "products"],
     "spec": [
@@ -256,7 +256,7 @@
     "group": "A3",
     "title": "Ecwid store pages have their own URLs",
     "question": "Do the Ecwid store's product pages have URLs a crawler can fetch?",
-    "method": "On a site running an Ecwid store, read the home page. Warn when store links use hashbang URLs (/store/#!/product-name/p/123456), because the part after #! never reaches the server, or when the store is embedded in a custom site whose integration code does not switch clean URLs on (window.ec.config.storefrontUrls.cleanUrls = true). Pass on Instant Site and on WordPress and Wix sites, where Ecwid documents clean URLs and static copies of product pages as automatic, or when the custom integration switches clean URLs on. No extra request.",
+    "method": "Runs only on sites with an Ecwid store. Read the home page. Warn when any store link uses a hashbang URL (/store/#!/product-name/p/123456), because the part after #! never reaches the server. Otherwise pass on Instant Site and on WordPress and Wix sites, where Ecwid documents clean URLs and static copies of product pages as automatic, or when the integration code switches clean URLs on (window.ec.config.storefrontUrls.cleanUrls = true). Warn when the store is embedded in a custom site whose integration code does not switch clean URLs on. No extra request.",
     "weight": 1,
     "requires": ["ecwid"],
     "spec": [

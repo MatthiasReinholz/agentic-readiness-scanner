@@ -204,7 +204,7 @@ describe('scan warnings about requests that did not succeed', () => {
       'request failed: https://ceramics.example/llms.txt (HTTP 429, Retry-After: 30)',
     );
     expect(result.warnings.filter((warning) => warning.includes('429 Too Many Requests'))).toEqual([
-      'the store answered 429 Too Many Requests on 1 URL(s); verdicts for those pages reflect the rate limit, not the page: https://ceramics.example/llms.txt',
+      'the store answered 429 Too Many Requests on 1 URL(s). Verdicts for those pages reflect the rate limit, not the page: https://ceramics.example/llms.txt',
     ]);
     expect(ScanResultSchema.safeParse(result).success).toBe(true);
   });

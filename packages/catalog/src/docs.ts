@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadCatalogFromDisk } from './load.js';
+import { PLATFORM_LABEL } from './platforms.js';
 import type { Catalog, CheckDefinition } from './schema.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,7 +34,7 @@ export function renderChecksDoc(catalog: Catalog): string {
   );
   lines.push('');
   lines.push(
-    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents; "info" checks are reported but never scored. Checks marked WC run only when WooCommerce is detected; checks marked products run only when product pages were found.`,
+    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found.`,
   );
   lines.push('');
   lines.push('## Levels');
@@ -82,7 +83,7 @@ export function renderChecksDoc(catalog: Catalog): string {
     lines.push('| --- | --- | --- | --- | --- | --- |');
     for (const check of checks) {
       const tags = check.requires.map((requirement) =>
-        requirement === 'woocommerce' ? 'WC' : requirement === 'shopify' ? 'Shopify' : requirement,
+        requirement === 'products' ? 'products' : PLATFORM_LABEL[requirement],
       );
       const wc = tags.length > 0 ? ` (${tags.join(', ')})` : '';
       const spec = check.spec.map((ref) => `[${escapeCell(ref.title)}](${ref.url})`).join(', ');
@@ -127,7 +128,7 @@ export function renderChecksDoc(catalog: Catalog): string {
   lines.push('## Fixes');
   lines.push('');
   lines.push(
-    'Every check ships a fix in three forms: a sentence, a snippet or file when one applies, and a brief for a coding agent. Fixes marked **mechanical** are file, setting or markup changes that a tool or agent can apply from existing store data; the others need product knowledge or copy. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.',
+    'Every check has a fix: a summary, a snippet or file when one applies, and a brief for a coding agent. Fixes marked **mechanical** are file, setting or markup changes that a tool or agent can apply from existing store data. The others need product knowledge or copywriting. The full text lives in `packages/catalog/fixes/<id>.md` and in the `fix` field of every failed check in a report.',
   );
   lines.push('');
   lines.push('| ID | Summary | Mechanical |');

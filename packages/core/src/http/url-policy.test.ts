@@ -25,6 +25,7 @@ describe('assertPublicUrl', () => {
     'http://169.254.169.254/latest/meta-data/',
     'http://[::1]/',
     'http://[fd00::1]/',
+    'http://[ff02::1]/',
     'http://[::ffff:127.0.0.1]/',
     'http://intranet/',
     'http://files.internal/',
