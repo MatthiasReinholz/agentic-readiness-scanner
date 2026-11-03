@@ -34,6 +34,7 @@ Useful during work:
 - `pnpm scan https://ceramics.example --fixture fixtures/stores/good-woocommerce` runs offline.
 - `pnpm dev` serves the hosted app locally.
 - UI work: markup lives in `packages/core/src/reporters` (report) and `apps/web/src/pages` (hosted pages) and composes the recipes of `packages/ui`; `pnpm build` recompiles the stylesheet from them. Write class names as complete literals, see [packages/ui/README.md](packages/ui/README.md).
+- `pnpm test:layout` runs the browser regression suite in `apps/web/e2e` (Playwright, Chromium; install the browser once with `pnpm --filter @agentic-readiness/web exec playwright install chromium`). It serves the app from the recorded fixture stores and checks every page family at 320 to 1440px in both themes and at 200% text for page-level horizontal scroll, wrapped or clipped catalog IDs, controls under 44px and the shared shell, plus the scan-to-report handoff, reduced motion, the knowledge-base filter, the theme toggle and the no-JavaScript homepage. When a layout change is intended, adjust the invariant in `e2e/layout.ts` in the same pull request and say why.
 
 ## Adding a check
 
@@ -58,7 +59,7 @@ A change to any check's definition, weight or fix is a catalog change: bump `ver
 
 ## What CI enforces
 
-`ci.yml` runs on every pull request: hygiene (no OS junk, no unpinned actions, no broken relative links), Prettier, markdownlint, build, ESLint, type-check, tests, catalog validation and generated-docs parity. `codeql.yml` and `dependency-review.yml` run alongside. Spacefast's GitHub integration builds every push on its own and reports a "Spacefast Builds" check with a preview URL for branches and pull requests; see [docs/hosting.md](docs/hosting.md).
+`ci.yml` runs on every pull request: hygiene (no OS junk, no unpinned actions, no broken relative links), Prettier, markdownlint, build, ESLint, type-check, tests, the layout regression suite, catalog validation and generated-docs parity. `codeql.yml` and `dependency-review.yml` run alongside. Spacefast's GitHub integration builds every push on its own and reports a "Spacefast Builds" check with a preview URL for branches and pull requests; see [docs/hosting.md](docs/hosting.md).
 
 ## Releases
 

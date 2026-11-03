@@ -18,3 +18,7 @@ Desktop.ini
 # Local tooling
 .claude/
 packages/ui/src/generated/
+
+# Browser regression suite output
+test-results/
+playwright-report/

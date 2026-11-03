@@ -60,6 +60,12 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Install browser for layout tests
+        run: pnpm --filter @agentic-readiness/web exec playwright install --with-deps chromium
+
+      - name: Layout regression tests
+        run: pnpm test:layout
+
       - name: Catalog validation
         run: pnpm check:catalog
 
