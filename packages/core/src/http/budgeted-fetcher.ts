@@ -8,6 +8,8 @@ import {
   type Fetcher,
   DeadlineExhaustedError,
   RateLimitedError,
+  StepDeadlineError,
+  type ResponseCache,
 } from './types.js';
 import { assertPublicUrl } from './url-policy.js';
 
@@ -37,6 +39,46 @@ export interface BudgetedFetcherOptions {
    * Hosted scans set it below the platform's request limit. Unset means no deadline.
    */
   deadlineMs?: number;
+  /**
+   * Resumable scans: the wall-clock allowance of this step, from construction. When it is
+   * used up a request throws StepDeadlineError instead of DeadlineExhaustedError, so the
+   * interrupted check runs again in the next step rather than being skipped.
+   */
+  stepDeadlineMs?: number;
+  /** Resumable scans: the most requests this step may send before StepDeadlineError. */
+  stepBudget?: number;
+  /**
+   * Resumable scans: requests already counted in earlier steps, by request key, with the
+   * number of sends each took (redirect hops and retries included). Sending one of them
+   * again refills the cache and is paced, but never counted twice.
+   */
+  counted?: Readonly<Record<string, number>>;
+  /** Resumable scans: the politeness state the previous step ended with. */
+  politeness?: PolitenessState;
+  /** Resumable scans: where responses are kept between steps, when the host has a place. */
+  cache?: ResponseCache;
+  /** Failures recorded by earlier steps, so the scan warnings list them once. */
+  failures?: readonly FetchFailure[];
+}
+
+/** What pacing and backing off need to carry from one step of a scan to the next. */
+export interface PolitenessState {
+  interval_ms: number;
+  rate_limits: number;
+  last_sent_at: number;
+}
+
+/**
+ * A short, stable key for one request (method, URL, headers, body): FNV-1a 64-bit in hex,
+ * computed with BigInt, so it is the same in Node and in workers.
+ */
+export function requestKey(raw: string): string {
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash ^= BigInt(raw.charCodeAt(index));
+    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
+  }
+  return hash.toString(16).padStart(16, '0');
 }
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -256,6 +298,13 @@ export class BudgetedFetcher implements Fetcher {
   private queue: Promise<unknown> = Promise.resolve();
   private lastSentAt = 0;
   private sent = 0;
+  private readonly stepDeadlineMs: number | null;
+  private readonly stepBudget: number | null;
+  private sentThisStep = 0;
+  private readonly responseCache: ResponseCache | null;
+  /** Sends per request key, for this step and the steps before. */
+  private readonly sends = new Map<string, number>();
+  private readonly countedBefore: ReadonlySet<string>;
 
   constructor(options: BudgetedFetcherOptions = {}) {
     this.fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
@@ -266,10 +315,38 @@ export class BudgetedFetcher implements Fetcher {
     this.maxRedirects = options.maxRedirects ?? 5;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.intervalMs = options.minIntervalMs ?? 150;
+    this.stepDeadlineMs = options.stepDeadlineMs ?? null;
+    this.stepBudget = options.stepBudget ?? null;
+    this.responseCache = options.cache ?? null;
+    for (const [key, count] of Object.entries(options.counted ?? {})) {
+      this.sends.set(key, count);
+      this.sent += count;
+    }
+    this.countedBefore = new Set(this.sends.keys());
+    if (options.politeness) {
+      this.intervalMs = options.politeness.interval_ms;
+      this.persistentRateLimits = options.politeness.rate_limits;
+      this.lastSentAt = options.politeness.last_sent_at;
+    }
+    this.failed.push(...(options.failures ?? []));
   }
 
   get requestCount(): number {
     return this.sent;
+  }
+
+  /** Requests counted so far, by key, with their sends: what a next step must not count again. */
+  countedRequests(): Record<string, number> {
+    return Object.fromEntries(this.sends);
+  }
+
+  /** The pacing and back-off state to hand to the next step. */
+  politenessState(): PolitenessState {
+    return {
+      interval_ms: this.intervalMs,
+      rate_limits: this.persistentRateLimits,
+      last_sent_at: this.lastSentAt,
+    };
   }
 
   /** The politeness interval in force now; grows after the store answers 429. */
@@ -305,10 +382,37 @@ export class BudgetedFetcher implements Fetcher {
     if (cached) {
       return { ...(await cached), fromCache: true };
     }
-    const pending = this.enqueue(() =>
-      this.perform(url, method, Object.fromEntries(headers), body),
-    );
+    const id = requestKey(key);
+    const pending = this.enqueue(async () => {
+      const stored = this.responseCache ? await this.responseCache.get(id) : null;
+      if (stored) return stored;
+      // A refill re-reads what an earlier step already recorded, failures included.
+      const recorded = this.failed.length;
+      const sendsBefore = this.sends.get(id);
+      const sentBefore = this.sent;
+      let response: FetchedResponse;
+      try {
+        response = await this.perform(url, method, Object.fromEntries(headers), body, id);
+      } catch (error) {
+        // Cut off mid-request (between redirect hops or before a retry): the next step
+        // sends the whole request again, so nothing of it counts in this one.
+        if (error instanceof StepDeadlineError) {
+          this.sent = sentBefore;
+          if (sendsBefore === undefined) this.sends.delete(id);
+          else this.sends.set(id, sendsBefore);
+          this.failed.length = recorded;
+        }
+        throw error;
+      }
+      if (this.countedBefore.has(id)) this.failed.length = recorded;
+      if (this.responseCache) await this.responseCache.set(id, response);
+      return response;
+    });
     this.cache.set(key, pending);
+    // A step that ends while this request waits must not leave it cached as an answer.
+    pending.catch(() => {
+      if (this.cache.get(key) === pending) this.cache.delete(key);
+    });
     return pending;
   }
 
@@ -318,9 +422,19 @@ export class BudgetedFetcher implements Fetcher {
     return run;
   }
 
-  /** Waits out the politeness interval, then counts the request against the budget. */
-  private async acquire(): Promise<void> {
-    if (this.sent >= this.budget) {
+  /**
+   * Waits out the politeness interval, then counts the request against the budget. A
+   * request an earlier step already counted (a refill) is paced but not counted again.
+   */
+  private async acquire(id: string): Promise<void> {
+    const refill = this.countedBefore.has(id);
+    if (this.stepBudget !== null && this.sentThisStep >= this.stepBudget) {
+      throw new StepDeadlineError('requests');
+    }
+    if (this.stepDeadlineMs !== null && this.stepRemainingMs() <= 0) {
+      throw new StepDeadlineError('time');
+    }
+    if (!refill && this.sent >= this.budget) {
       throw new BudgetExhaustedError(this.budget);
     }
     if (this.persistentRateLimits >= PERSISTENT_RATE_LIMIT_STOP) {
@@ -330,12 +444,25 @@ export class BudgetedFetcher implements Fetcher {
       throw new DeadlineExhaustedError(this.deadlineMs);
     }
     const wait = this.lastSentAt + this.intervalMs - Date.now();
-    if (wait > 0) await sleep(this.deadlineMs === null ? wait : Math.min(wait, this.remainingMs()));
+    if (wait > 0) await sleep(Math.min(wait, this.remainingMs(), this.stepRemainingMs()));
+    if (this.stepDeadlineMs !== null && this.stepRemainingMs() <= 0) {
+      throw new StepDeadlineError('time');
+    }
     if (this.deadlineMs !== null && this.remainingMs() <= 0) {
       throw new DeadlineExhaustedError(this.deadlineMs);
     }
-    this.sent += 1;
+    this.sentThisStep += 1;
+    if (!refill) {
+      this.sent += 1;
+      this.sends.set(id, (this.sends.get(id) ?? 0) + 1);
+    }
     this.lastSentAt = Date.now();
+  }
+
+  /** Milliseconds left of this step's allowance; large when the scan is not stepped. */
+  private stepRemainingMs(): number {
+    if (this.stepDeadlineMs === null) return Number.MAX_SAFE_INTEGER;
+    return this.startedAt + this.stepDeadlineMs - Date.now();
   }
 
   /** Milliseconds left of the wall-clock budget; large when there is none. */
@@ -344,16 +471,17 @@ export class BudgetedFetcher implements Fetcher {
     return this.startedAt + this.deadlineMs - Date.now();
   }
 
-  /** The per-request timeout, never past the scan's deadline. */
+  /** The per-request timeout, never past the scan's deadline or the step's. */
   private requestTimeoutMs(): number {
-    return Math.max(1, Math.min(this.timeoutMs, this.remainingMs()));
+    return Math.max(1, Math.min(this.timeoutMs, this.remainingMs(), this.stepRemainingMs()));
   }
 
   private async perform(
     url: string,
     method: FetchOptions['method'] & string,
     extraHeaders: Record<string, string>,
-    requestBody?: string,
+    requestBody: string | undefined,
+    id: string,
   ): Promise<FetchedResponse> {
     const started = Date.now();
     let current: URL;
@@ -366,14 +494,14 @@ export class BudgetedFetcher implements Fetcher {
 
     let retried = false;
     for (let hop = 0; hop <= this.maxRedirects; hop += 1) {
-      let attempt = await this.attempt(current, method, extraHeaders, requestBody);
+      let attempt = await this.attempt(current, method, extraHeaders, requestBody, id);
       const delay = retryDelayFor(attempt);
       const rateLimitedAgain =
         !('error' in attempt) && attempt.response.status === 429 && this.persistentRateLimits > 0;
       if (delay !== null && !retried && !rateLimitedAgain && this.sent < this.budget) {
         retried = true;
         await sleep(delay);
-        attempt = await this.attempt(current, method, extraHeaders, requestBody);
+        attempt = await this.attempt(current, method, extraHeaders, requestBody, id);
       }
       if ('error' in attempt) {
         return this.failure(url, current.href, started, attempt.error, hop, retried);
@@ -431,9 +559,10 @@ export class BudgetedFetcher implements Fetcher {
     current: URL,
     method: FetchOptions['method'] & string,
     extraHeaders: Record<string, string>,
-    requestBody?: string,
+    requestBody: string | undefined,
+    id: string,
   ): Promise<Attempt> {
-    await this.acquire();
+    await this.acquire(id);
     let response: Response;
     try {
       response = await this.fetchImpl(current.href, {

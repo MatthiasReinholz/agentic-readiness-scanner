@@ -93,6 +93,29 @@ export class DeadlineExhaustedError extends BudgetExhaustedError {
   }
 }
 
+/**
+ * One step of a resumable scan used up its own time or request allowance. Not a budget
+ * error: the check it interrupted is not skipped but runs again in the next step, so
+ * nothing that handles BudgetExhaustedError may catch it.
+ */
+export class StepDeadlineError extends Error {
+  constructor(reason: string) {
+    super(`this scan step is out of ${reason}; the scan continues in the next step`);
+    this.name = 'StepDeadlineError';
+  }
+}
+
+/**
+ * Where a resumable scan keeps response bodies between steps, decided by the host: a
+ * key-value store, object storage or nothing. Keys are opaque and stable for one request
+ * (method, URL, headers); scope them to one scan, since a hit is never counted as a
+ * request. Values are the responses as fetched, bodies included.
+ */
+export interface ResponseCache {
+  get(key: string): Promise<FetchedResponse | null | undefined>;
+  set(key: string, response: FetchedResponse): Promise<void>;
+}
+
 export class BlockedUrlError extends Error {
   constructor(url: string, reason: string) {
     super(`Refusing to fetch ${url}: ${reason}`);

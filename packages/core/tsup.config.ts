@@ -13,7 +13,17 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true,
-  dts: { resolve: ['@agentic-readiness/catalog', '@agentic-readiness/ui'] },
+  // The catalog and the visual system are private, so their types are inlined too. Mapping
+  // them to their sources lets the declaration bundler follow their relative imports;
+  // resolving the packages' built .d.ts would leave those imports dangling.
+  dts: {
+    compilerOptions: {
+      paths: {
+        '@agentic-readiness/catalog': ['../catalog/src/index.ts'],
+        '@agentic-readiness/ui': ['../ui/src/index.ts'],
+      },
+    },
+  },
   noExternal: [
     '@agentic-readiness/catalog',
     '@agentic-readiness/ui',

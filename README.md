@@ -73,6 +73,19 @@ console.log(result.level, result.scores);
 console.log(renderMarkdown(result));
 ```
 
+For hosts that must answer each invocation within a fixed time, a scan can run in steps that carry a small JSON state between invocations ([decision 0016](docs/decisions/0016-resumable-scans.md)):
+
+```ts
+import { startScan, continueScan } from '@agentic-readiness/core';
+
+let step = await startScan('https://example.com', { stepDeadlineMs: 15_000 });
+// store step.state (a few KiB), then in a later invocation:
+while (!step.done) step = await continueScan(step.state, { stepDeadlineMs: 15_000 });
+console.log(step.result.steps, step.result.level);
+```
+
+A check cut off by a step runs again in the next one; the request budget counts across steps, and `maxSteps`, `maxActiveMs` and a stall guard end the scan with the usual skips. Pass a `cache` (get and set by key) so later steps do not re-read the pages from the store.
+
 The engine uses web-standard APIs only (fetch, Request, Response), so it runs in Node, in workers and in tests. The published `@agentic-readiness/core` carries the catalog and the visual system inside it, so it needs nothing else from this repository; `@agentic-readiness/core/testing` adds the fixture fetcher for offline runs.
 
 ## How it works
