@@ -68,6 +68,9 @@ jobs:
           pnpm docs:generate
           pnpm format
 
+      - name: Install browser for layout tests
+        run: pnpm --filter @agentic-readiness/web exec playwright install --with-deps chromium
+
       - name: Validate bumped tree
         run: pnpm check
 
