@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { ScanResultSchema } from '@agentic-readiness/catalog';
 import { scan } from '@agentic-readiness/core';
-import { fixtureFetcher } from '@agentic-readiness/core/testing';
+import { fetcherAsFetch, fixtureFetcher } from '@agentic-readiness/core/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
@@ -30,7 +30,8 @@ function testApp() {
     config,
     store,
     history,
-    fetcherFactory: () => fixtureFetcher(fixture),
+    fetchFactory: () => fetcherAsFetch(fixtureFetcher(fixture, { budget: 1_000_000 })),
+    minIntervalMs: 0,
     now: () => new Date('2026-10-30T12:00:00Z'),
   });
   return { app, store, history };

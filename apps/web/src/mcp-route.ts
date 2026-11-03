@@ -9,7 +9,9 @@ import { Hono } from 'hono';
 import { hostKey } from './hosts.js';
 import { articleByCheckId, articleMarkdown } from './knowledge/pages.js';
 import { historyJson } from './pages/history.js';
-import { scanOrReuse, type ScanDependencies } from './scan-service.js';
+import { continueInBackground } from './routes/jobs.js';
+import { siteProfilePath } from './scan-scope.js';
+import { ScanPendingError, scanOrReuse, type ScanDependencies } from './scan-service.js';
 
 export function createMcpRoute(deps: ScanDependencies): Hono {
   const route = new Hono();
@@ -22,6 +24,17 @@ export function createMcpRoute(deps: ScanDependencies): Hono {
           url,
           ...(profile !== undefined ? { profile } : {}),
         });
+        if (outcome.persistence === 'pending') {
+          // The tool answers with an error the agent can act on; asking again runs the next
+          // step, and the scan carries on meanwhile.
+          continueInBackground(c, deps.config, outcome);
+          const where = outcome.job.persistent
+            ? ` The result will be at ${deps.config.baseUrl}${siteProfilePath(outcome.job.host)}.`
+            : '';
+          throw new Error(
+            `${new ScanPendingError(outcome).message} Call scan_store again with the same URL in about a minute.${where}`,
+          );
+        }
         return outcome.persistence === 'stored' ? outcome.scan.result : outcome.result;
       },
       ...(history

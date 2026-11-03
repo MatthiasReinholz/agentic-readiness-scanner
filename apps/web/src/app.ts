@@ -17,7 +17,20 @@ import { messagePage } from './pages/layout.js';
 import { createInternalRoutes } from './routes/internal.js';
 import { createMonitorRoutes } from './routes/monitor.js';
 import { createReportRoutes } from './routes/report.js';
-import { scanOrReuse, type ScanDependencies } from './scan-service.js';
+import { createJobRoutes } from './routes/jobs.js';
+import {
+  jobsFor,
+  ScanPendingError,
+  scanOrReuse,
+  sweepJobs,
+  type ScanDependencies,
+} from './scan-service.js';
+
+/**
+ * Monitoring reuses a stored root scan up to this old: a scan that needed more steps than
+ * one cron request allows finishes in between, and the next daily run picks it up.
+ */
+const MONITOR_REUSE_SECONDS = 36 * 3600;
 import { isRootInput } from './scan-scope.js';
 
 export interface AppDependencies extends ScanDependencies {
@@ -40,7 +53,11 @@ function createMonitoring(deps: AppDependencies): MonitoringService | null {
     latestScan: (host) => deps.store.latestForHost(host),
     rescan: async (url) => {
       if (!isRootInput(url)) throw new Error('Monitoring requires a root URL');
-      const outcome = await scanOrReuse(deps, { url });
+      // A scan that needs more steps finishes after this run; the next run picks it up.
+      const outcome = await scanOrReuse(deps, { url }, undefined, {
+        reuseWithinSeconds: MONITOR_REUSE_SECONDS,
+      });
+      if (outcome.persistence === 'pending') throw new ScanPendingError(outcome);
       if (outcome.persistence !== 'stored') throw new Error('Monitoring requires a root URL');
       return outcome.scan;
     },
@@ -122,6 +139,7 @@ function robotsTxt(baseUrl: string): string {
     'Disallow: /api/',
     'Disallow: /internal/',
     'Disallow: /monitor/',
+    'Disallow: /scan/',
     // Legal signals are a technical evaluation, not advice: never crawled or indexed.
     'Disallow: /sites/*/legal',
     'Disallow: /r/*/legal',
@@ -243,6 +261,7 @@ export function createApp(deps: AppDependencies): Hono {
   );
 
   app.route('/', createReportRoutes({ deps, monitoring }));
+  app.route('/', createJobRoutes(deps));
   if (monitoring) {
     app.route('/monitor', createMonitorRoutes({ config, service: monitoring, scans: store }));
   }
@@ -253,6 +272,8 @@ export function createApp(deps: AppDependencies): Hono {
       store,
       monitoring,
       now,
+      jobs: jobsFor(deps),
+      sweep: (budgetMs) => sweepJobs(deps, budgetMs),
       ...(deps.targets ? { targets: deps.targets } : {}),
       ...(deps.history ? { history: deps.history } : {}),
       ...(deps.progress ? { progress: deps.progress } : {}),

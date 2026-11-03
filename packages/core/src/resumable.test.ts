@@ -14,36 +14,15 @@ import {
   type StartScanOptions,
 } from './resumable.js';
 import { scan } from './scan.js';
-import { fixtureFetcher } from './testing/index.js';
+import { fetcherAsFetch, fixtureFetcher } from './testing/index.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'fixtures', 'stores', name);
 
-/**
- * A platform fetch that answers from a recorded store, so a scan goes through the real
- * BudgetedFetcher (budget, pacing, redirects, step limits). Recorded redirects become a
- * 301 to the final URL, which then answers with the recorded body. Counts calls.
- */
+/** The recorded store behind a platform fetch that counts its calls. */
 function recordedFetch(name: string): { fetch: FetchLike; calls: () => number } {
-  const recording = fixtureFetcher(fixture(name), { budget: 1_000_000 });
-  const redirected = new Map<string, FetchedResponse>();
-  let calls = 0;
-  const fetch: FetchLike = async (input, init) => {
-    calls += 1;
-    const headers = Object.fromEntries(new Headers(init.headers).entries());
-    const method = (init.method ?? 'GET') as 'GET' | 'HEAD' | 'POST' | 'OPTIONS';
-    const recorded = redirected.get(input) ?? (await recording.fetch(input, { method, headers }));
-    if (recorded.status === 0) throw new TypeError(recorded.error ?? 'network error');
-    if (recorded.redirects > 0 && recorded.finalUrl !== input) {
-      redirected.set(recorded.finalUrl, { ...recorded, redirects: 0, url: recorded.finalUrl });
-      return new Response(null, { status: 301, headers: { location: recorded.finalUrl } });
-    }
-    // Statuses that cannot carry a body (204, 205, 304) and HEAD answers get none.
-    const body =
-      method === 'HEAD' || [204, 205, 304].includes(recorded.status) ? null : recorded.body;
-    return new Response(body, { status: recorded.status, headers: recorded.headers });
-  };
-  return { fetch, calls: () => calls };
+  const fetch = fetcherAsFetch(fixtureFetcher(fixture(name), { budget: 1_000_000 }));
+  return { fetch, calls: fetch.calls };
 }
 
 /** Runs a resumable scan to the end, sending the state through JSON between steps. */
@@ -255,4 +234,53 @@ describe('resumable scans', () => {
     expect(steps).toBeLessThan(50);
     expect(result.results.some((item) => item.skip_reason === 'budget_exhausted')).toBe(true);
   }, 60_000);
+
+  it('report progress across steps, with requests counted across them', async () => {
+    const events: { type: string; id?: string; requests: number }[] = [];
+    const { result } = await stepped('https://ceramics.example/', {
+      fetch: recordedFetch('good-woocommerce').fetch,
+      cache: memoryCache(),
+      minIntervalMs: 0,
+      stepDeadlineMs: 60_000,
+      stepBudget: 3,
+      maxSteps: 100,
+      now: NOW,
+      onProgress: (event) => {
+        events.push({
+          type: event.type,
+          ...(event.type === 'check' ? { id: event.id } : {}),
+          requests: event.requests,
+        });
+      },
+    });
+    const checks = new Set(events.filter((e) => e.type === 'check').map((e) => e.id));
+    expect(checks.size).toBe(result.results.length);
+    // The legal pass sends the last requests and reports no events of its own.
+    const counted = events.map((e) => e.requests);
+    expect(counted).toEqual([...counted].sort((a, b) => a - b));
+    expect(Math.max(...counted)).toBeGreaterThan(20);
+    expect(Math.max(...counted)).toBeLessThanOrEqual(result.requests);
+  });
+
+  it('name the limit that ended a scan in the checks it could not reach', async () => {
+    const recorded = recordedFetch('good-woocommerce');
+    const slow: FetchLike = async (input, init) => {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      return recorded.fetch(input, init);
+    };
+    const { result } = await stepped('https://ceramics.example/', {
+      fetch: slow,
+      cache: memoryCache(),
+      minIntervalMs: 0,
+      stepDeadlineMs: 150,
+      maxSteps: 2,
+      now: NOW,
+    });
+    const messages = result.results
+      .filter((item) => item.skip_reason === 'budget_exhausted')
+      .map((item) => item.message ?? '');
+    expect(messages.length).toBeGreaterThan(0);
+    expect(messages[0]).toContain("the scan's limit of 2 steps was reached");
+    expect(messages.every((message) => !message.includes('time budget'))).toBe(true);
+  });
 });

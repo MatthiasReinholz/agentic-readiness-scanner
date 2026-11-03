@@ -27,6 +27,7 @@ import { BudgetedFetcher, type FetchLike, type PolitenessState } from './http/bu
 import { RobotsGatedFetcher } from './http/robots-gate.js';
 import { StepDeadlineError, type FetchFailure, type ResponseCache } from './http/types.js';
 import { runLegalStep } from './legal/run.js';
+import { emitProgress, type ProgressListener, type ScanProgress } from './progress.js';
 import { runChecks } from './runner.js';
 import { assembleResult } from './scan.js';
 import { resolveTarget } from './target/resolver.js';
@@ -100,6 +101,12 @@ export interface ResumableScanOptions {
   legalChecks?: readonly Check[];
   catalog?: Catalog;
   now?: () => Date;
+  /**
+   * Receives the step's progress events, with requests and active time counted across
+   * steps. Every step resolves the target again and replays the outcomes earlier steps
+   * decided, so a host that shows events across steps keeps the first of each.
+   */
+  onProgress?: (progress: ScanProgress) => void;
 }
 
 export interface StartScanOptions extends ResumableScanOptions {
@@ -200,11 +207,16 @@ async function runStep(state: ScanState, options: ResumableScanOptions): Promise
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
   const remainingActive =
     options.maxActiveMs === undefined ? Infinity : options.maxActiveMs - state.active_ms;
-  // The last step the limits allow finishes the scan with the usual deadline semantics.
-  const final =
-    state.steps + 1 >= maxSteps ||
-    remainingActive <= options.stepDeadlineMs ||
-    state.stalled_steps >= (options.maxStalledSteps ?? 2);
+  // The last step the limits allow finishes the scan with the usual deadline semantics,
+  // and the checks it cannot reach say which limit that was.
+  const finalReason =
+    state.steps + 1 >= maxSteps
+      ? `the scan's limit of ${maxSteps} steps was reached`
+      : remainingActive <= options.stepDeadlineMs
+        ? `the scan's time budget of ${Math.round((options.maxActiveMs ?? 0) / 1000)} s was used up`
+        : state.stalled_steps >= (options.maxStalledSteps ?? 2)
+          ? 'the store answered too slowly for the scan to make progress'
+          : null;
   // Progress is a newly decided check or a newly counted request: with a cache, a check
   // too long for one step still advances, because what it read is there next time.
   const progress = (): number =>
@@ -222,8 +234,11 @@ async function runStep(state: ScanState, options: ResumableScanOptions): Promise
     ...(settings.timeoutMs !== undefined ? { timeoutMs: settings.timeoutMs } : {}),
     ...(settings.minIntervalMs !== undefined ? { minIntervalMs: settings.minIntervalMs } : {}),
     ...(settings.userAgent !== undefined ? { userAgent: settings.userAgent } : {}),
-    ...(final
-      ? { deadlineMs: Math.max(1, Math.min(options.stepDeadlineMs, remainingActive)) }
+    ...(finalReason !== null
+      ? {
+          deadlineMs: Math.max(1, Math.min(options.stepDeadlineMs, remainingActive)),
+          deadlineReason: finalReason,
+        }
       : {
           stepDeadlineMs: options.stepDeadlineMs,
           ...(options.stepBudget !== undefined ? { stepBudget: options.stepBudget } : {}),
@@ -231,6 +246,16 @@ async function runStep(state: ScanState, options: ResumableScanOptions): Promise
   });
   const fetcher = new RobotsGatedFetcher(inner);
   fetcher.blocked.push(...state.blocked);
+  const listener: ProgressListener | undefined = options.onProgress
+    ? (event) => {
+        options.onProgress?.({
+          ...event,
+          requests: inner.requestCount,
+          budget: settings.budget,
+          elapsed_ms: state.active_ms + (Date.now() - started),
+        });
+      }
+    : undefined;
 
   const pause = (): ScanStep => {
     state.steps += 1;
@@ -246,10 +271,21 @@ async function runStep(state: ScanState, options: ResumableScanOptions): Promise
 
   try {
     const target = await resolveTarget(state.input_url, fetcher, {
+      ...(listener ? { onProgress: listener } : {}),
       ...(settings.profile !== undefined ? { profile: settings.profile } : {}),
       ...(settings.sampleSize !== undefined ? { sampleSize: settings.sampleSize } : {}),
     });
+    emitProgress(listener, {
+      type: 'target',
+      origin: target.origin,
+      platform: target.platform,
+      profile: target.profile.id,
+      products: target.sampled.products.length,
+      policies: Object.keys(target.sampled.policies).length,
+      checks: catalog.checks.length,
+    });
     const run = await runChecks({
+      ...(listener ? { onProgress: listener } : {}),
       target,
       fetcher,
       checks: options.checks ?? builtInChecks,
