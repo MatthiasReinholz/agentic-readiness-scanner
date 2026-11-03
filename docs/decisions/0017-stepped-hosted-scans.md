@@ -27,7 +27,9 @@ Two ways out were considered: run the scan in steps on the server, or move the s
 
 - Most checks would still need the server, which would have to fetch for the browser as a proxy. That keeps the load on the server and the requests on its egress, and only moves the parsing.
 - The only browser-side route that reads cross-origin responses is a browser extension with host permissions. It cannot run for a visitor who has not installed it.
-- Results computed in a browser are whatever the browser sends. Storing them would need the safeguards considered for this (never overwrite a stored profile, rerun such results on the server), and even then a first, fake result could be published for any host nobody had scanned yet.
+- Results computed in a browser are whatever the browser sends, so anyone could submit fabricated ones. The safeguards considered against fake data (never let a browser result overwrite stored values, rerun the scan on the server instead, accept browser results only for hosts with no data yet) would still let anyone publish a fabricated first profile for any host nobody had scanned yet. Where the server is blocked, the block would stay the primary result and a browser result only an enrichment beside it.
+
+The reasoning for store owners and agents is the guide [Why the scanner reports crawler blocks instead of scanning from your browser](../../packages/catalog/knowledge/guides/crawler-blocks-and-browser-scans.md), published at `/knowledge-base/guides/crawler-blocks-and-browser-scans`.
 
 ## Consequences
 

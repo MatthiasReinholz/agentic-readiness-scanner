@@ -4,7 +4,7 @@
  * first; the bare URL varies on Accept so caches keep the two apart.
  */
 import { catalog } from '@agentic-readiness/catalog';
-import { knowledge } from '@agentic-readiness/catalog/knowledge';
+import { guides, knowledge } from '@agentic-readiness/catalog/knowledge';
 import { Hono, type Context } from 'hono';
 
 import type { AppConfig } from '../config.js';
@@ -21,6 +21,13 @@ import {
   knowledgeIndexMarkdown,
   knowledgeIndexJson,
   groupMarkdown,
+  guideBySlug,
+  guideMarkdown,
+  guidePage,
+  guidePath,
+  GUIDES_HUB_PATH,
+  guidesHubMarkdown,
+  guidesHubPage,
   knowledgeIndexPage,
   KNOWLEDGE_UPDATED,
   LEGAL_HUB_PATH,
@@ -45,6 +52,10 @@ export function knowledgeIndexLines(config: AppConfig): string {
   return [
     `- [Knowledge base index](${config.baseUrl}/knowledge-base.md): every section and check in one list`,
     `- [Knowledge base as JSON](${config.baseUrl}/knowledge-base.json): sections, checks, priorities, level gates and URLs`,
+    ...guides.map(
+      (guide) =>
+        `- [Guide: ${guide.headline}](${config.baseUrl}${guidePath(guide)}.md): ${guide.description}`,
+    ),
     ...knowledge.map((article) => {
       return `- [${article.id} ${article.headline}](${config.baseUrl}${articlePath(article)}.md): ${article.description}`;
     }),
@@ -57,6 +68,8 @@ function sitemapXml(config: AppConfig): string {
     '/knowledge-base',
     ...catalog.groups.map((group) => `/knowledge-base/${groupSlug(group)}`),
     LEGAL_HUB_PATH,
+    GUIDES_HUB_PATH,
+    ...guides.map(guidePath),
     ...knowledge.map(articlePath),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -110,6 +123,24 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
       ? md(c, '/knowledge-base', knowledgeIndexMarkdown(config))
       : html(c, '/knowledge-base', knowledgeIndexPage(config)),
   );
+
+  app.get(`${GUIDES_HUB_PATH}.md`, (c) => md(c, GUIDES_HUB_PATH, guidesHubMarkdown(config)));
+  app.get(`${GUIDES_HUB_PATH}/`, (c) => c.redirect(GUIDES_HUB_PATH, 301));
+  app.get(GUIDES_HUB_PATH, (c) =>
+    wantsMarkdown(c)
+      ? md(c, GUIDES_HUB_PATH, guidesHubMarkdown(config))
+      : html(c, GUIDES_HUB_PATH, guidesHubPage(config)),
+  );
+  app.get(`${GUIDES_HUB_PATH}/:file`, (c) => {
+    const file = c.req.param('file');
+    const asMarkdown = file.endsWith('.md');
+    const guide = guideBySlug(asMarkdown ? file.slice(0, -3) : file);
+    if (!guide) return c.notFound();
+    const path = guidePath(guide);
+    return asMarkdown || wantsMarkdown(c)
+      ? md(c, path, guideMarkdown(config, guide))
+      : html(c, path, guidePage(config, guide));
+  });
 
   app.get('/knowledge-base/:file', (c) => {
     const file = c.req.param('file');

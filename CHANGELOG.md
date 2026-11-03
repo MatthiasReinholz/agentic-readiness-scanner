@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Knowledge-base guides** for topics no single check covers, at `/knowledge-base/guides/<slug>` with a hub at `/knowledge-base/guides` and a section at the top of the index. They are Markdown too, and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. A guide names the checks it is about, whose articles link back to it, opens with the answer and ends with at least two public sources, which become its citations. The catalog build validates them like articles. The first guide explains why a store that blocks honest crawlers is reported as unreachable, why a web page cannot scan another site from the visitor's browser, and how an owner can let the scanner through.
+
 ## [0.11.0] - 2026-11-03
 
 ### Changed

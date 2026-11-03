@@ -13,6 +13,8 @@ const ROUTES = [
   '/knowledge-base/discoverability',
   '/knowledge-base/robots-txt-exists-and-parses',
   '/knowledge-base/legal-signals',
+  '/knowledge-base/guides',
+  '/knowledge-base/guides/crawler-blocks-and-browser-scans',
   '/knowledge-base/eu-withdrawal-button',
   `/sites/${SEEDED_HOST}`,
   `/sites/${SEEDED_HOST}/legal`,
