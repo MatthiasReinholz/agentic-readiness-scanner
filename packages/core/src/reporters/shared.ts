@@ -23,6 +23,30 @@ export function scoreText(result: ScanResult, dimension: 'ingestion' | 'commerce
   return `${String(score.value)}/100`;
 }
 
+/**
+ * The sentence that explains a capped dimension, or null when no ceiling holds: what the
+ * cap is, what the score would be without it, and which checks lift it.
+ */
+export function ceilingSentence(
+  result: ScanResult,
+  dimension: 'ingestion' | 'commerce',
+): string | null {
+  const ceiling = result.scores.ceilings?.[dimension];
+  if (!ceiling || dimensionScore(result.scores, dimension).state !== 'scored') return null;
+  const lift =
+    ceiling.lifted_by.length > 0
+      ? ` Lifted by ${ceiling.lifted_by
+          .map((id) => {
+            const found = result.results.find((item) => item.id === id);
+            return found ? `${id} ${found.title}` : id;
+          })
+          .join(' or ')}.`
+      : '';
+  return ceiling.raw > ceiling.value
+    ? `Capped at ${String(ceiling.value)} while ${ceiling.reason}; ${String(ceiling.raw)} without the cap.${lift}`
+    : `Cannot exceed ${String(ceiling.value)} while ${ceiling.reason}.${lift}`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

@@ -5,6 +5,7 @@
 import {
   catalog as defaultCatalog,
   checksForProfile,
+  type AppliedCeiling,
   type Catalog,
   type CheckResult,
   type Dimension,
@@ -137,25 +138,101 @@ export function scoreGroup(results: readonly CheckResult[], groupId: string): nu
 export function computeScores(
   results: readonly CheckResult[],
   catalog: Catalog = defaultCatalog,
+  profile?: Profile,
 ): Scores {
+  const byId = new Map(results.map((result) => [result.id, result]));
   const groups: Record<string, number | null> = {};
   for (const group of catalog.groups) groups[group.id] = scoreGroup(results, group.id);
   const ingestion = dimensionResults(results, 'ingestion', catalog);
   const commerce = scoreWithCoverage(dimensionResults(results, 'commerce', catalog), results);
+  // Every profile carries ingestion checks, so null only happens when none of them could
+  // be scored (all skipped, or a custom catalog). The contract keeps ingestion non-null
+  // because every consumer ranks on it; "nothing could be scored" reads as 0, not as a
+  // missing number, and a low coverage marks it incomplete. Commerce is null for profiles
+  // without that dimension and when too little of it was answered.
+  const rawIngestion = weighted(ingestion, byId).score ?? 0;
+  const ceilings = {
+    ingestion: ceilingFor('ingestion', rawIngestion, byId, catalog, profile),
+    commerce: ceilingFor('commerce', commerce.score, byId, catalog, profile),
+  };
+  const capped = (raw: number | null, ceiling: AppliedCeiling | null): number | null =>
+    raw === null || ceiling === null ? raw : Math.min(raw, ceiling.value);
   return {
-    // Every profile carries ingestion checks, so null only happens when none of them could
-    // be scored (all skipped, or a custom catalog). The contract keeps ingestion non-null
-    // because every consumer ranks on it; "nothing could be scored" reads as 0, not as a
-    // missing number, and a low coverage marks it incomplete. Commerce is null for profiles
-    // without that dimension and when too little of it was answered.
-    ingestion: weighted(ingestion, new Map(results.map((r) => [r.id, r]))).score ?? 0,
-    commerce: commerce.score,
+    ingestion: capped(rawIngestion, ceilings.ingestion) ?? 0,
+    commerce: capped(commerce.score, ceilings.commerce),
     groups,
     coverage: {
       ingestion: scoreWithCoverage(ingestion, results).coverage,
       commerce: commerce.coverage,
     },
+    ...(ceilings.ingestion || ceilings.commerce
+      ? {
+          ceilings: {
+            ...(ceilings.ingestion ? { ingestion: ceilings.ingestion } : {}),
+            ...(ceilings.commerce ? { commerce: ceilings.commerce } : {}),
+          },
+        }
+      : {}),
   };
+}
+
+/**
+ * The lowest catalog ceiling in force on a dimension: one of its gates is unmet. Null when
+ * no ceiling applies or the dimension has no score. The checks that lift it are the unmet
+ * gates' alternatives the owner can act on, as in next_gate.
+ */
+function ceilingFor(
+  dimension: ScoredDimension,
+  raw: number | null,
+  byId: ReadonlyMap<string, CheckResult>,
+  catalog: Catalog,
+  profile: Profile | undefined,
+): AppliedCeiling | null {
+  if (raw === null) return null;
+  const inProfile = profile ? profileChecks(profile, catalog) : null;
+  let applied: AppliedCeiling | null = null;
+  for (const ceiling of catalog.ceilings) {
+    const value = ceiling.values[dimension];
+    if (value === undefined || (applied && applied.value <= value)) continue;
+    const unmet = ceiling.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile));
+    if (unmet.length === 0) continue;
+    applied = {
+      id: ceiling.id,
+      value,
+      raw,
+      reason: ceiling.reason,
+      lifted_by: actionable(unmet, byId, inProfile, catalog),
+    };
+  }
+  return applied;
+}
+
+function profileChecks(profile: Profile, catalog: Catalog): Set<string> {
+  return new Set(checksForProfile(profile, catalog).map((definition) => definition.id));
+}
+
+/**
+ * The alternatives of unmet gates an owner can act on: alternatives outside the profile
+ * (a WooCommerce-only check on a Shopify store) and platform-bound checks that did not
+ * apply (a Shopify-only check on another platform) are left out; a missing product sample
+ * is something the owner can fix, so those checks stay.
+ */
+function actionable(
+  gates: readonly (readonly string[])[],
+  byId: ReadonlyMap<string, CheckResult>,
+  inProfile: ReadonlySet<string> | null,
+  catalog: Catalog,
+): string[] {
+  const platformBound = new Set(
+    catalog.checks
+      .filter((check) => check.requires.some((req) => req === 'woocommerce' || req === 'shopify'))
+      .map((check) => check.id),
+  );
+  const ids = gates
+    .flatMap((gate) => [...gate])
+    .filter((id) => (inProfile ? inProfile.has(id) : true))
+    .filter((id) => !(platformBound.has(id) && byId.get(id)?.skip_reason === 'not_applicable'));
+  return [...new Set(ids)];
 }
 
 export type ScoreState = 'scored' | 'incomplete' | 'not_applicable';
@@ -218,15 +295,8 @@ export function computeLevel(
   profile?: Profile,
 ): LevelResult {
   const byId = new Map(results.map((result) => [result.id, result]));
-  const platformBound = new Set(
-    catalog.checks
-      .filter((check) => check.requires.some((req) => req === 'woocommerce' || req === 'shopify'))
-      .map((check) => check.id),
-  );
   const maxLevel = profile?.max_level ?? 5;
-  const inProfile = profile
-    ? new Set(checksForProfile(profile, catalog).map((definition) => definition.id))
-    : null;
+  const inProfile = profile ? profileChecks(profile, catalog) : null;
   const levels = [...catalog.levels]
     .sort((a, b) => a.value - b.value)
     .filter((level) => level.value <= maxLevel);
@@ -239,16 +309,13 @@ export function computeLevel(
     return { value: 0, name: 'Not reachable', next_gate: [] };
   }
   const next = levels.find((level) => level.value === reached.value + 1);
-  // Alternatives outside the profile (a WooCommerce-only check on a Shopify store) are
-  // not something the owner can act on, so the gate lists only the ones that apply.
   const nextGate = next
-    ? next.gates
-        .filter((gate) => !gateSatisfied(gate, byId, inProfile))
-        .flatMap((gate) => [...gate])
-        .filter((id) => (inProfile ? inProfile.has(id) : true))
-        // A platform the target does not run (a Shopify-only check on another platform) is
-        // not something the owner can act on either; a missing product sample is.
-        .filter((id) => !(platformBound.has(id) && byId.get(id)?.skip_reason === 'not_applicable'))
+    ? actionable(
+        next.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile)),
+        byId,
+        inProfile,
+        catalog,
+      )
     : [];
-  return { value: reached.value, name: reached.name, next_gate: [...new Set(nextGate)] };
+  return { value: reached.value, name: reached.name, next_gate: nextGate };
 }

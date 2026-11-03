@@ -173,6 +173,29 @@ export const LevelSchema = z.object({
 });
 export type Level = z.infer<typeof LevelSchema>;
 
+/**
+ * A score ceiling: while any of its gates is unmet, a dimension cannot score above the
+ * value given for it. A weighted average rewards many small things done well; a ceiling
+ * ties the score to the capability that decides whether agents can use the store at all,
+ * so a store agents cannot reach or buy from never reads 90.
+ */
+export const CeilingSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  /** The condition, phrased to follow "Capped at 60 while …". */
+  reason: z.string().min(1),
+  /** Gates in the level sense: each needs one passing alternative. */
+  gates: z.array(LevelGateSchema).min(1),
+  values: z
+    .object({
+      ingestion: z.number().int().min(0).max(99).optional(),
+      commerce: z.number().int().min(0).max(99).optional(),
+    })
+    .refine((values) => values.ingestion !== undefined || values.commerce !== undefined, {
+      message: 'a ceiling caps at least one dimension',
+    }),
+});
+export type Ceiling = z.infer<typeof CeilingSchema>;
+
 export const ProfileSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   title: z.string().min(1),
@@ -199,6 +222,8 @@ export const CatalogSchema = z.object({
   groups: z.array(GroupSchema).min(1),
   checks: z.array(CheckDefinitionSchema).min(1),
   levels: z.array(LevelSchema).min(1),
+  /** Score ceilings; empty means scores are the plain weighted ratio. */
+  ceilings: z.array(CeilingSchema).default([]),
   profiles: z.array(ProfileSchema).min(1),
   /**
    * Legal signals: groups and checks of the `legal` dimension and the law registry they
@@ -281,6 +306,15 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
   }
   for (let value = 0; value <= 5; value += 1) {
     if (!levelValues.has(value)) problems.push(`missing level ${value}`);
+  }
+
+  const ceilingIds = new Set<string>();
+  for (const ceiling of catalog.ceilings) {
+    if (ceilingIds.has(ceiling.id)) problems.push(`duplicate ceiling id ${ceiling.id}`);
+    ceilingIds.add(ceiling.id);
+    for (const id of ceiling.gates.flat()) {
+      if (!checkIds.has(id)) problems.push(`ceiling ${ceiling.id}: unknown check ${id}`);
+    }
   }
 
   for (const group of catalog.groups) {

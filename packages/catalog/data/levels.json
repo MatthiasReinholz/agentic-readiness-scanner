@@ -69,7 +69,7 @@
   {
     "value": 5,
     "name": "Transactable",
-    "description": "Level 4, and a UCP profile or an ACP discovery document advertises a checkout protocol. Transactable means the public prerequisites are in place, not that a checkout was exercised.",
+    "description": "Level 4, and a checkout an agent can use is advertised: a UCP profile declaring a checkout capability and a payment handler, an ACP discovery document, or an active Shopify agentic storefront. Transactable means the public prerequisites are in place, not that a checkout was exercised.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
@@ -86,7 +86,7 @@
       ["B4.2"],
       ["B4.3"],
       ["B4.5"],
-      ["B5.1", "B5.3"]
+      ["B5.2", "B5.3", "B5.8"]
     ]
   }
 ]

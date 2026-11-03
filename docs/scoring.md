@@ -14,6 +14,15 @@ The commerce score is `null` for profiles without the commerce dimension.
 
 Two rules about what is never scored: a decision to block AI training crawlers never costs points (A2.1 passes on any stated decision, allow or disallow), and checks on optional conventions without a documented consumer (llms.txt, Content Signals, security.txt, WebMCP) carry weight 1 or are informational and skip when the file is absent.
 
+**Ceilings.** A weighted average rewards many small things done well, so a store agents cannot buy from could read 90 for commerce. Ceilings tie each score to the capability that decides whether agents can use the store at all. They are data in `packages/catalog/data/ceilings.json`: while any gate of a ceiling is unmet (gates work as in levels: one passing alternative each, alternatives outside the profile count as met), the dimension cannot score above the ceiling's value.
+
+| Ceiling       | Unmet gate                                                                  | Ingestion | Commerce |
+| ------------- | --------------------------------------------------------------------------- | --------- | -------- |
+| not-crawlable | the Level 1 gates: A1.1, A2.2, A2.4, A3.2                                   | 40        | 30       |
+| no-checkout   | a checkout an agent can use: B5.2 (UCP checkout capability) or B5.3 or B5.8 | –         | 60       |
+
+The lowest ceiling in force wins. The result records it in `scores.ceilings` with the raw weighted score, the reason and the checks that lift it, and every report says it next to the score: "Capped at 60 while no checkout an agent can use is advertised; 88 without the cap. Lifted by B5.2 … or B5.3 …". Group scores are never capped. Above 60, a commerce score therefore always means a checkout is advertised, and an ingestion score above 40 means agents can reach and read the site.
+
 The same formula is applied per catalog group and carried as `scores.groups` (keyed by group id, `null` when no check in the group applied). Reports show it as a score per section so a merchant can see at a glance which area needs work; the dimension scores remain the headline numbers.
 
 ## Levels
@@ -29,11 +38,11 @@ Requirements make this explicit in the catalog: a check may require `woocommerce
 | 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5 or B5.8), A2.6, B2.1, B2.2 |
 | 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3                     |
 | 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                                   |
-| 5     | Transactable          | Level 4 and (B5.1 or B5.3)                                           |
+| 5     | Transactable          | Level 4 and (B5.2 or B5.3 or B5.8)                                   |
 
 Each profile declares a maximum level: content sites stop at 1, and a profile may exclude checks that could never mean anything for it (a content site is not asked for product URLs in its sitemap). The report leads with the level and `next_gate`, the ids standing between the store and the next level; alternatives outside the profile are not listed, since the owner cannot act on them.
 
-A gate whose check is not implemented yet blocks the level, by design: the scanner never awards a level it could not verify. Level 1 includes A2.4 (no block or challenge on the scanner's honest fetch): a store that challenges every unverified client is unreachable for every agent that is not on an allow list; a refused home page still produces a Level 0 report that names the bot-management product, and a refused policy page alone does not cost the level ([decision 0012](decisions/0012-priorities-and-honest-non-answers.md)). Level 2 accepts Shopify's UCP catalog (B5.8) as a readable catalog next to a product sitemap, the Store API, products.json or a public feed. Level 2 includes A2.6 (no directive withdraws product pages from AI answers): Google builds AI Overviews and AI Mode only from pages eligible for a snippet, and Apple generates no web answer without one, so a catalog under `nosnippet` is not readable to them whatever its markup says. Level 5 means the public prerequisites of a checkout protocol are in place, never that a checkout was exercised. The reasons behind every gate are in the [check audit](audits/2026-10-31-check-audit.md) and the [technical SEO audit](audits/2026-11-01-technical-seo-audit.md).
+A gate whose check is not implemented yet blocks the level, by design: the scanner never awards a level it could not verify. Level 1 includes A2.4 (no block or challenge on the scanner's honest fetch): a store that challenges every unverified client is unreachable for every agent that is not on an allow list; a refused home page still produces a Level 0 report that names the bot-management product, and a refused policy page alone does not cost the level ([decision 0012](decisions/0012-priorities-and-honest-non-answers.md)). Level 2 accepts Shopify's UCP catalog (B5.8) as a readable catalog next to a product sitemap, the Store API, products.json or a public feed. Level 2 includes A2.6 (no directive withdraws product pages from AI answers): Google builds AI Overviews and AI Mode only from pages eligible for a snippet, and Apple generates no web answer without one, so a catalog under `nosnippet` is not readable to them whatever its markup says. Level 5 means the public prerequisites of a checkout protocol are in place: a UCP profile that declares a checkout capability and a payment handler (an empty profile is not enough), an ACP discovery document, or an active Shopify agentic storefront. It never means a checkout was exercised. The same gate lifts the commerce ceiling, so the level and the score agree on whether agents can buy. The reasons behind every gate are in the [check audit](audits/2026-10-31-check-audit.md) and the [technical SEO audit](audits/2026-11-01-technical-seo-audit.md).
 
 ## Profiles
 
@@ -55,4 +64,4 @@ Reports do not list findings in catalog order. Open findings are ordered by what
 
 ## What a score does not say
 
-A high commerce score means the public surface is in order. It does not say Merchant Center approved the products or that a checkout works. The report says so above the commerce section, and Level 5 is named Transactable, not Approved.
+A commerce score above 60 means the public surface is in order and a checkout an agent can use is advertised. It does not say Merchant Center approved the products or that a checkout works. The report says so above the commerce section, and Level 5 is named Transactable, not Approved.

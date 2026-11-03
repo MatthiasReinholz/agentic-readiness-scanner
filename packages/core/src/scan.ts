@@ -162,7 +162,7 @@ export function assembleResult(parts: ResultParts): ScanResult {
     duration_ms: parts.durationMs,
     ...(parts.steps !== undefined ? { steps: parts.steps } : {}),
     level: computeLevel(results, catalog, target.profile),
-    scores: computeScores(results, catalog),
+    scores: computeScores(results, catalog, target.profile),
     results,
     warnings: [
       ...target.warnings,

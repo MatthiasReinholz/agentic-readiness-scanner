@@ -5,7 +5,7 @@
     "title": "UCP business profile",
     "question": "Does the merchant publish a Universal Commerce Protocol profile?",
     "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 or later still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
-    "weight": 2,
+    "weight": 3,
     "spec": [
       {
         "title": "Universal Commerce Protocol: overview and business profile",
@@ -31,7 +31,7 @@
     "title": "UCP checkout capability and payment handler",
     "question": "Does the UCP profile declare a checkout an agent could use?",
     "method": "From the profile: pass when a dev.ucp.shopping.checkout capability or a dev.ucp.shopping service with a rest, mcp, a2a or embedded transport is declared and at least one payment handler carries id and version (spec is optional); warn when only one of the two is present; fail when neither. A handler whose environment is not production is named as such. When a rest service names an endpoint, GET it and record the status; a 404 or 405 on the base URL is normal (it has no GET resource), and only a host that does not answer or a 5xx adds a warning. An endpoint the scanner did not request because robots.txt disallows it is noted, not scored.",
-    "weight": 1,
+    "weight": 3,
     "depends_on": ["B5.1"],
     "spec": [
       {

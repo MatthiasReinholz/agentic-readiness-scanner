@@ -19,3 +19,4 @@ Short records of decisions that shaped the project, in the order they were made.
 - [0015 Legal signals are reported on their own page, never scored and never crawled](0015-legal-signals.md)
 - [0016 Resumable scans re-resolve each step and keep bodies out of the state](0016-resumable-scans.md)
 - [0017 Hosted scans run as stepped jobs on the server, not in the visitor's browser](0017-stepped-hosted-scans.md)
+- [0018 Scores are capped by the capability that decides whether agents can use the store](0018-score-ceilings.md)

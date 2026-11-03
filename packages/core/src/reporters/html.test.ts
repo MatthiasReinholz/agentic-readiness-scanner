@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { catalog, getProfile } from '@agentic-readiness/catalog';
 import { describe, expect, it } from 'vitest';
 
 import { scan } from '../scan.js';
@@ -10,7 +11,7 @@ import { renderBadge } from './badge.js';
 import { renderHtml } from './html.js';
 import { scoreTone, THEME_STORAGE_KEY } from './html-theme.js';
 import { renderMarkdown } from './markdown.js';
-import { shownResults } from './shared.js';
+import { ceilingSentence, escapeHtml, shownResults } from './shared.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'fixtures', 'stores', name);
@@ -152,6 +153,33 @@ describe('platform-bound checks', () => {
     expect(shopifyHtml).toContain(
       '5 WooCommerce check(s) left out, because the scan detected Shopify.',
     );
+  });
+});
+
+describe('score ceilings in reports', () => {
+  it('says why a score is capped and which checks lift it', async () => {
+    const full = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(fixture('good-woocommerce')),
+    });
+    expect(full.scores.ceilings).toBeUndefined();
+    // The same store without its UCP checkout capability and ACP document.
+    const results = full.results.map((item) =>
+      item.id === 'B5.2' || item.id === 'B5.3' ? { ...item, verdict: 'fail' as const } : item,
+    );
+    const result = {
+      ...full,
+      results,
+      scores: computeScores(results, catalog, getProfile(full.target.profile)),
+    };
+    const ceiling = result.scores.ceilings?.commerce;
+    expect(ceiling).toMatchObject({ id: 'no-checkout', value: 60 });
+    expect(result.scores.commerce).toBe(60);
+    const sentence = ceilingSentence(result, 'commerce');
+    expect(sentence).toBe(
+      `Capped at 60 while no checkout an agent can use is advertised: no UCP checkout capability, ACP discovery document or active Shopify agentic storefront; ${String(ceiling?.raw)} without the cap. Lifted by B5.2 UCP checkout capability and payment handler or B5.3 ACP discovery document.`,
+    );
+    expect(renderHtml(result)).toContain(`data-ceiling>${escapeHtml(sentence ?? '')}`);
+    expect(renderMarkdown(result)).toContain(`- Commerce score: 60/100. ${sentence ?? ''}`);
   });
 });
 
