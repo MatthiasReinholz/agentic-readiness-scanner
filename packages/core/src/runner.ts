@@ -1,9 +1,11 @@
 import {
   catalog as defaultCatalog,
   checksForProfile,
+  fixForPlatform,
   type Catalog,
   type CheckDefinition,
   type CheckResult,
+  type Platform,
   type Verdict,
   type Requirement,
 } from '@agentic-readiness/catalog';
@@ -138,6 +140,7 @@ function toResult(
   definition: CheckDefinition,
   outcome: CheckOutcome,
   applies: boolean,
+  platform: Platform,
 ): CheckResult {
   const includeFix = outcome.verdict === 'fail' || outcome.verdict === 'warn';
   return {
@@ -150,7 +153,7 @@ function toResult(
     ...(outcome.skipReason ? { skip_reason: outcome.skipReason } : {}),
     ...(outcome.message ? { message: outcome.message } : {}),
     evidence: outcome.evidence,
-    ...(includeFix ? { fix: definition.fix } : {}),
+    ...(includeFix ? { fix: fixForPlatform(definition.fix, platform) } : {}),
   };
 }
 
@@ -206,7 +209,9 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       });
       continue;
     }
-    const unmet = applicable.has(definition.id) ? unmetRequirement(definition, target) : null;
+    // The requirement names why a profile left a check out too: "requires Shopify, which
+    // was not detected" says more than "does not apply to this profile".
+    const unmet = unmetRequirement(definition, target);
     if (!applicable.has(definition.id) || unmet) {
       record(definition, {
         verdict: 'skip',
@@ -304,7 +309,7 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     // `applies` mirrors the contract in result.ts: false only for not_applicable, whether
     // the runner decided that (profile, platform) or the check did (nothing to sample).
     const applies = outcome.skipReason !== 'not_applicable';
-    return toResult(definition, outcome, applies);
+    return toResult(definition, outcome, applies, target.platform);
   });
   return { results, outcomes, interrupted };
 }

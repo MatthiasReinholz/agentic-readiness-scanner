@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseFixMarkdown } from './fixes.js';
 import { parseGuideMarkdown, parseKnowledgeMarkdown } from './knowledge.js';
+import { fixForPlatform } from './platforms.js';
 import { loadCatalogFromDisk, loadGuidesFromDisk, loadKnowledgeFromDisk } from './load.js';
 import { validateCatalogIntegrity } from './schema.js';
 
@@ -64,6 +65,52 @@ describe('parseFixMarkdown', () => {
       snippet_language: 'txt',
       agent_prompt: 'Please do the thing.',
       auto_fix: true,
+      platform_notes: [],
+    });
+  });
+
+  const withNotes = [
+    '---',
+    'auto_fix: false',
+    '---',
+    '## Summary',
+    'Do the thing.',
+    '',
+    '## Agent prompt',
+    'Please do the thing.',
+    '',
+    '## On WordPress',
+    'Use a hook.',
+    '',
+    '## On Shopify',
+    'Use the theme editor.',
+  ].join('\n');
+
+  it('parses platform sections into notes', () => {
+    expect(parseFixMarkdown(withNotes, 'X.md').platform_notes).toEqual([
+      { platform: 'wordpress', text: 'Use a hook.' },
+      { platform: 'shopify', text: 'Use the theme editor.' },
+    ]);
+  });
+
+  it('rejects an unknown section, so a misspelled platform is caught', () => {
+    expect(() =>
+      parseFixMarkdown(withNotes.replace('## On Shopify', '## On Magento'), 'X.md'),
+    ).toThrow(/unknown section "on magento"/);
+  });
+
+  it("folds only the detected platform's notes into the agent prompt", () => {
+    const fix = parseFixMarkdown(withNotes, 'X.md');
+    expect(fixForPlatform(fix, 'woocommerce').agent_prompt).toBe(
+      'Please do the thing. On WordPress: Use a hook.',
+    );
+    expect(fixForPlatform(fix, 'shopify').agent_prompt).toBe(
+      'Please do the thing. On Shopify: Use the theme editor.',
+    );
+    expect(fixForPlatform(fix, 'unknown')).toEqual({
+      summary: 'Do the thing.',
+      agent_prompt: 'Please do the thing.',
+      auto_fix: false,
     });
   });
 

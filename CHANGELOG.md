@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - **Knowledge-base guides** for topics no single check covers, at `/knowledge-base/guides/<slug>` with a hub at `/knowledge-base/guides` and a section at the top of the index. They are Markdown too, and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. A guide names the checks it is about, whose articles link back to it, opens with the answer and ends with at least two public sources, which become its citations. The catalog build validates them like articles. The first guide explains why a store that blocks honest crawlers is reported as unreachable, why a web page cannot scan another site from the visitor's browser, and how an owner can let the scanner through.
 
+### Changed
+
+- **Platform-specific advice only reaches the platform it is for.** Fixes are platform-neutral, and advice for one platform lives in `## On WordPress`, `## On WooCommerce` or `## On Shopify` sections of the fix (catalog field `platform_notes`). A result's fix carries the notes for the detected platform in its agent prompt, so a Shopify store no longer reads "On WordPress/WooCommerce, prefer the platform's own hooks…" and WordPress paths left the snippets. The MCP `get_fix` tool takes an optional `platform`. The knowledge base lists every platform's note under "By platform". Catalog 0.6.0.
+- **Reports leave out the checks of other platforms.** A check that reads an interface only one platform has (the WooCommerce Store API and cart, Shopify's `products.json` and agent surface) never ran on another platform and was never scored there; the HTML and Markdown reports no longer list it or count it as "did not apply", and say in one line how many were left out and why. The JSON result keeps every check, as its contract requires, with the message "requires Shopify, which was not detected" in place of "does not apply to this profile". The knowledge base marks these checks "WooCommerce only" or "Shopify only".
+- **A4.6 WebMCP tool declarations** reads forms only, as the declarative API defines, and warns when a form carries `toolname` without `tooldescription` (Chrome registers no tool then) or when a page that declares tools sends `Permissions-Policy: tools=()`, which turns WebMCP off. It stays informational and never scored. The OpenAI help article on ChatGPT's site tools is now a source.
+
 ## [0.11.0] - 2026-11-03
 
 ### Changed

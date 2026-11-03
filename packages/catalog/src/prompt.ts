@@ -7,6 +7,8 @@
  * patch, verify). Kept in one place so every surface (HTML, Markdown, MCP) hands agents
  * the same brief.
  */
+import { fixForPlatform } from './platforms.js';
+import type { Platform } from './result.js';
 import type { CheckDefinition, Verdict } from './schema.js';
 
 export interface AgentPromptContext {
@@ -14,8 +16,8 @@ export interface AgentPromptContext {
   targetUrl?: string;
   /** ISO timestamp of the scan. */
   scannedAt?: string;
-  /** Detected platform, e.g. woocommerce. */
-  platform?: string;
+  /** Detected platform, e.g. woocommerce. Selects the fix's platform notes. */
+  platform?: Platform;
   /** The verdict the check produced. */
   verdict?: Verdict;
   /** The one-line message that came with the verdict. */
@@ -97,7 +99,7 @@ export function composeAgentPrompt(
   lines.push('');
   lines.push('## Your task');
   lines.push('');
-  lines.push(check.fix.agent_prompt);
+  lines.push(fixForPlatform(check.fix, context.platform).agent_prompt);
   lines.push('');
   lines.push('## How to work');
   lines.push('');

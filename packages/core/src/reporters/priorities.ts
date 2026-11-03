@@ -15,6 +15,8 @@ import {
   type ScanResult,
 } from '@agentic-readiness/catalog';
 
+import { shownResults } from './shared.js';
+
 /** Presentation tier of a check, from its catalog weight. */
 export type Tier = 'blocking' | 'expected' | 'nice_to_have' | 'informational';
 
@@ -124,7 +126,7 @@ export function countSkips(result: ScanResult): {
   let notApplicable = 0;
   let dependencyFailed = 0;
   let unanswered = 0;
-  for (const item of result.results) {
+  for (const item of shownResults(result)) {
     if (item.verdict !== 'skip') continue;
     if (item.skip_reason === 'not_applicable') notApplicable += 1;
     else if (item.skip_reason === 'dependency_failed') dependencyFailed += 1;

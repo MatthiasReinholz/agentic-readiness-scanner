@@ -100,7 +100,7 @@
     "group": "A4",
     "title": "WebMCP tool declarations",
     "question": "Does the site declare in-page tools for browser agents?",
-    "method": "Informational. On the home page and sampled product pages, look for the declarative WebMCP attributes (toolname, tooldescription, toolparamdescription on forms) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found; not applicable when the page declares none. The API is a W3C community draft with origin trials in Chrome and Edge and one shipping consumer (ChatGPT's site tools in its desktop browser); no shopping agent documents calling it on arbitrary stores, so this is reported and never scored.",
+    "method": "Informational. On the home page and sampled product pages, look for forms that declare a WebMCP tool (toolname and tooldescription, with toolparamdescription on fields) and for document.modelContext or navigator.modelContext in inline scripts. Pass when found. Warn when a form carries toolname without tooldescription (the browser does not register it) or when the page's Permissions-Policy turns WebMCP off with tools=(). Not applicable when the HTML declares none; tools registered from bundled scripts are invisible to a scan that does not run JavaScript. The API is a W3C community draft in origin trials in Chrome and Edge with one shipping consumer (ChatGPT's site tools in its desktop browser); no shopping agent documents calling it on arbitrary stores, so this is reported and never scored.",
     "weight": "info",
     "spec": [
       {
@@ -110,6 +110,10 @@
       {
         "title": "Chrome: WebMCP declarative API",
         "url": "https://developer.chrome.com/docs/ai/webmcp/declarative-api"
+      },
+      {
+        "title": "OpenAI: Using site tools in the ChatGPT desktop app",
+        "url": "https://help.openai.com/en/articles/20001423-using-site-tools-in-the-chatgpt-desktop-app"
       }
     ]
   }

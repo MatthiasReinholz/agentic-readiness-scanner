@@ -1,4 +1,4 @@
-import { catalog } from '@agentic-readiness/catalog';
+import { catalog, requiredPlatform } from '@agentic-readiness/catalog';
 import { expect, test, type Page } from '@playwright/test';
 
 import { LIVE_SCAN_HOST, SEEDED_HOST, STEPPED_SCAN_HOST } from './hosts.js';
@@ -9,6 +9,9 @@ import { watchErrors } from './layout.js';
  * view-transition names, the console leaves a path-scoped arrival marker, and the report
  * plays its completion once. A reload, a shared link or reduced motion never replays it.
  */
+/** The recorded blog runs no store platform, so the report leaves out every platform-bound check. */
+const BLOG_CHECKS = catalog.checks.filter((check) => requiredPlatform(check) === null).length;
+
 async function transitionName(page: Page, selector: string): Promise<string> {
   return page
     .locator(selector)
@@ -27,7 +30,7 @@ test('a root scan streams in the console and arrives at its report once', async 
 
   expect(await transitionName(page, '.cm-grid')).toBe('check-map');
   expect(await transitionName(page, '.lv-badge')).toBe('level-badge');
-  await expect(page.locator('.cm-grid .cm-cell')).toHaveCount(catalog.checks.length);
+  await expect(page.locator('.cm-grid .cm-cell')).toHaveCount(BLOG_CHECKS);
   await expect(page.locator('.lv-badge')).toHaveClass(/lv-celebrate/);
   await expect(page.locator('.cm-done-slot')).toContainText('Scan complete in');
 
@@ -48,7 +51,7 @@ test('a scan that needs several steps keeps going in the console until its repor
     timeout: 15_000,
   });
   await page.waitForURL(`**/sites/${STEPPED_SCAN_HOST}`, { timeout: 45_000 });
-  await expect(page.locator('.cm-grid .cm-cell')).toHaveCount(catalog.checks.length);
+  await expect(page.locator('.cm-grid .cm-cell')).toHaveCount(BLOG_CHECKS);
   expect(errors).toEqual([]);
 });
 

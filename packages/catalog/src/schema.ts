@@ -103,6 +103,27 @@ export const FixSchema = z.object({
 });
 export type Fix = z.infer<typeof FixSchema>;
 
+/** Platforms a fix can carry advice for. A wordpress note also applies to WooCommerce. */
+export const FixPlatformSchema = z.enum(['wordpress', 'woocommerce', 'shopify']);
+export type FixPlatform = z.infer<typeof FixPlatformSchema>;
+
+export const PlatformNoteSchema = z.object({
+  platform: FixPlatformSchema,
+  /** Advice that holds only on this platform, in one or two sentences. */
+  text: z.string().min(1),
+});
+export type PlatformNote = z.infer<typeof PlatformNoteSchema>;
+
+/**
+ * A fix as the catalog holds it: the platform-neutral fix plus advice per platform. A
+ * result carries the plain Fix, with the notes for the detected platform folded into its
+ * agent prompt (see fixForPlatform), so the published result contract is unchanged.
+ */
+export const CatalogFixSchema = FixSchema.extend({
+  platform_notes: z.array(PlatformNoteSchema).default([]),
+});
+export type CatalogFix = z.infer<typeof CatalogFixSchema>;
+
 export const GroupSchema = z.object({
   id: z.string().regex(GROUP_ID_PATTERN),
   title: z.string().min(1),
@@ -133,7 +154,7 @@ export const CheckDefinitionSchema = z.object({
    * the check only runs when the store appears to sell to one of them.
    */
   markets: z.array(MarketSchema).default([]),
-  fix: FixSchema,
+  fix: CatalogFixSchema,
 });
 export type CheckDefinition = z.infer<typeof CheckDefinitionSchema>;
 

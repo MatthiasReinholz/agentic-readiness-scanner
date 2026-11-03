@@ -1,4 +1,10 @@
-import { getCheck, type CheckResult, type ScanResult } from '@agentic-readiness/catalog';
+import {
+  fixForPlatform,
+  getCheck,
+  type CheckResult,
+  type Platform,
+  type ScanResult,
+} from '@agentic-readiness/catalog';
 import { computeScores } from '@agentic-readiness/core';
 
 import { RowReader, SqlStore, type SqlDatabase } from './sql-store.js';
@@ -17,10 +23,10 @@ function withoutFix(item: CheckResult): CheckResult {
   return copy;
 }
 
-function withFix(item: CheckResult): CheckResult {
+function withFix(item: CheckResult, platform: Platform): CheckResult {
   if (item.verdict !== 'fail' && item.verdict !== 'warn') return item;
   const definition = getCheck(item.id);
-  return definition ? { ...item, fix: definition.fix } : item;
+  return definition ? { ...item, fix: fixForPlatform(definition.fix, platform) } : item;
 }
 
 export function stripFixes(result: ScanResult): ScanResult {
@@ -34,11 +40,12 @@ export function stripFixes(result: ScanResult): ScanResult {
 }
 
 export function attachFixes(result: ScanResult): ScanResult {
+  const attach = (item: CheckResult): CheckResult => withFix(item, result.target.platform);
   return {
     ...result,
-    results: result.results.map(withFix),
+    results: result.results.map(attach),
     ...(result.legal
-      ? { legal: { ...result.legal, results: result.legal.results.map(withFix) } }
+      ? { legal: { ...result.legal, results: result.legal.results.map(attach) } }
       : {}),
   };
 }

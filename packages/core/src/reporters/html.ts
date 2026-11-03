@@ -39,6 +39,7 @@ import {
   escapeHtml,
   failedResults,
   groupResults,
+  leftOutSentence,
   nextGateSentence,
   scopeLines,
   scoreText,
@@ -274,6 +275,7 @@ function renderGroup(
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
   const counts = countVerdicts(result);
+  const leftOut = leftOutSentence(result);
   const priorities = prioritize(result);
   const openCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
     .filter((tier) => priorities.counts[tier] > 0)
@@ -304,7 +306,7 @@ ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 <section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
 ${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?')}
 ${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?')}
-<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
+<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div>${leftOut ? `<div class="mt-1 text-sm text-muted-foreground" data-left-out>${escapeHtml(leftOut)}</div>` : ''}</div>
 </section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A high commerce score means the public surface is in order. It does not mean a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}

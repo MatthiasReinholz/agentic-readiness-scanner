@@ -8,6 +8,8 @@ export { ADD_TO_CART, hasProductMarkup, looksLikeProductPage } from '../parsers/
 export interface ProductPage {
   url: string;
   status: number;
+  /** Response headers, lower-cased names. */
+  headers: Record<string, string>;
   doc: HtmlDocument;
   /** True when the page answered 2xx: its content can be judged. */
   readable: boolean;
@@ -50,6 +52,7 @@ export async function productPages(target: Target, fetcher: Fetcher): Promise<Pr
     pages.push({
       url,
       status: response.status,
+      headers: response.headers,
       doc: new HtmlDocument(response.body),
       readable,
       ...(readable ? {} : { failure: describeFailure(response) }),

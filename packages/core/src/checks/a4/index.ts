@@ -584,10 +584,14 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
 
 const MODEL_CONTEXT = /(?:document|navigator)\.modelContext\b/;
 const SCRIPT_TEXT_LIMIT = 200_000;
+/** Permissions-Policy tools=() turns WebMCP off for the document and its frames. */
+const TOOLS_DISABLED = /(?:^|,)\s*tools\s*=\s*\(\s*\)/i;
 
 export interface WebMcpSignals {
-  /** toolname values of the declarative tools on the page. */
+  /** toolname values of the forms that declare a tool (toolname and tooldescription). */
   tools: string[];
+  /** toolname values of forms without tooldescription, which the browser does not register. */
+  incomplete: string[];
   /** Elements carrying toolparamdescription. */
   parameters: number;
   /** Inline scripts referencing document.modelContext or navigator.modelContext. */
@@ -595,48 +599,86 @@ export interface WebMcpSignals {
 }
 
 export function webMcpSignals(doc: HtmlDocument): WebMcpSignals {
-  const tools = doc
-    .find('*', 'toolname', /\S/)
-    .map((element) => (attribute(element, 'toolname') ?? '').trim());
+  const forms = doc.find('form', 'toolname', /\S/);
+  const name = (element: (typeof forms)[number]) => (attribute(element, 'toolname') ?? '').trim();
+  const described = (element: (typeof forms)[number]) =>
+    /\S/.test(attribute(element, 'tooldescription') ?? '');
   const parameters = doc.find('*', 'toolparamdescription', /\S/).length;
   const scripts = doc
     .inlineScripts()
     .filter((text) => MODEL_CONTEXT.test(text.slice(0, SCRIPT_TEXT_LIMIT))).length;
-  return { tools, parameters, scripts };
+  return {
+    tools: forms.filter(described).map(name),
+    incomplete: forms.filter((form) => !described(form)).map(name),
+    parameters,
+    scripts,
+  };
+}
+
+/** True when the response's Permissions-Policy turns WebMCP off (tools=()). */
+export function webMcpDisabled(headers: Record<string, string>): boolean {
+  return TOOLS_DISABLED.test(headers['permissions-policy'] ?? '');
 }
 
 export const webMcpToolDeclarations = defineCheck('A4.6', async ({ target, fetcher }) => {
   const pages = [
-    { url: target.sampled.home, doc: target.homeDoc },
+    { url: target.sampled.home, doc: target.homeDoc, headers: target.home.headers },
     ...(await productPages(target, fetcher)),
   ];
   const names = new Set<string>();
+  const unregistered = new Set<string>();
   const pagesWithDeclarations: string[] = [];
+  const disabledOn: string[] = [];
   let tools = 0;
   let parameters = 0;
   let scripts = 0;
+  let declaredWhereDisabled = 0;
   for (const page of pages) {
     const signals = webMcpSignals(page.doc);
-    if (signals.tools.length > 0 || signals.scripts > 0) pagesWithDeclarations.push(page.url);
+    const declares =
+      signals.tools.length > 0 || signals.incomplete.length > 0 || signals.scripts > 0;
+    const disabled = webMcpDisabled(page.headers);
+    if (declares) pagesWithDeclarations.push(page.url);
+    if (disabled) disabledOn.push(page.url);
+    if (declares && disabled) declaredWhereDisabled += 1;
     tools += signals.tools.length;
     parameters += signals.parameters;
     scripts += signals.scripts;
     for (const name of signals.tools) names.add(name);
+    for (const name of signals.incomplete) unregistered.add(name);
   }
   const evidence: Evidence = {
     pages_scanned: pages.length,
     declarative_tools: tools,
     tool_names: [...names].slice(0, 10),
+    unregistered_forms: [...unregistered].slice(0, 10),
     tool_param_descriptions: parameters,
     scripts_with_model_context: scripts,
     pages_with_declarations: pagesWithDeclarations,
+    disabled_by_permissions_policy: disabledOn,
   };
-  // An origin-trial API nobody adopted is nothing to evaluate, not a pass.
-  if (tools === 0 && scripts === 0) {
-    return skip('not_applicable', 'no WebMCP declarations; optional', evidence);
+  // An origin-trial API nobody adopted is nothing to evaluate, not a pass. Tools that
+  // bundled scripts register stay invisible to a scan that does not run JavaScript.
+  if (pagesWithDeclarations.length === 0) {
+    return skip(
+      'not_applicable',
+      `no WebMCP declarations in the HTML; optional${disabledOn.length > 0 ? ', and Permissions-Policy tools=() turns WebMCP off' : ''}`,
+      evidence,
+    );
   }
   const parts: string[] = [];
   if (tools > 0) parts.push(`${tools} declarative tool(s): ${[...names].slice(0, 10).join(', ')}`);
   if (scripts > 0) parts.push(`${scripts} inline script(s) using modelContext`);
-  return pass(`WebMCP declarations found: ${parts.join('; ')}`, evidence);
+  const found = parts.length > 0 ? `WebMCP declarations found: ${parts.join('; ')}` : '';
+  const problems: string[] = [];
+  if (declaredWhereDisabled > 0)
+    problems.push(
+      `Permissions-Policy tools=() turns WebMCP off on ${declaredWhereDisabled} page(s) that declare tools`,
+    );
+  if (unregistered.size > 0)
+    problems.push(
+      `${unregistered.size} form(s) carry toolname without tooldescription, so the browser does not register them: ${[...unregistered].slice(0, 10).join(', ')}`,
+    );
+  if (problems.length > 0) return warn([...problems, found].filter(Boolean).join('; '), evidence);
+  return pass(found, evidence);
 });
