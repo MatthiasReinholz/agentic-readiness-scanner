@@ -152,7 +152,9 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
   const catalog = options.catalog ?? defaultCatalog;
   const { target, fetcher } = options;
   const implementations = new Map(options.checks.map((check) => [check.id, check]));
-  const applicable = new Set(checksForProfile(target.profile).map((definition) => definition.id));
+  const applicable = new Set(
+    checksForProfile(target.profile, catalog).map((definition) => definition.id),
+  );
   const outcomes = new Map<string, CheckOutcome>();
   const total = catalog.checks.length;
   let decided = 0;

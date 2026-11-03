@@ -17,6 +17,8 @@ It is built WordPress-first, so it knows what a WooCommerce store exposes by def
 | Agentic ingestion | A1 Discoverability · A2 Bot access control · A3 Content accessibility · A4 Protocol discovery                                               |
 | Agentic commerce  | B1 Catalog exposure · B2 Product structured data · B3 Product identity · B4 Merchant trust and policies · B5 Checkout and payment protocols |
 
+**Legal signals** are a separate category of 24 checks (seller identity, privacy notices and choices, withdrawal and returns, accessibility, product and price information, AI transparency and content rights), each tagged with the laws it relates to across the EU, the UK, Switzerland, the United States, Canada, Australia, Brazil, Argentina, Chile, Colombia and Peru, and run only for the markets a store appears to sell to. They are never scored, never part of the level, shown on a `/legal` page beside each hosted report that is not indexed or crawled, and always carry the notice that they are a technical evaluation, not legal advice ([decision 0015](docs/decisions/0015-legal-signals.md)).
+
 Scores are 0 to 100 per dimension. The level (0 Not reachable to 5 Transactable) is gated, not averaged: a store holds a level only when every blocking check of that level passes. The report leads with the level, the checks standing between the store and the next one, and an ordered list of what to fix first, next and when it fits (weight 3 blocking, 2 expected, 1 nice to have); a check the scanner could not answer is skipped, never failed. Details: [docs/scoring.md](docs/scoring.md).
 
 ## Use it
@@ -49,7 +51,7 @@ npx @agentic-readiness/cli scan https://example.com
 npx @agentic-readiness/cli scan https://example.com --format json --output report.json
 ```
 
-Formats: `md` (default), `json`, `html`, `badge`. `npx @agentic-readiness/cli diff before.json after.json` compares two saved JSON reports and exits 3 when anything changed, for pipelines. Options: `--profile <id>` overrides detection, `--budget <n>` caps requests (default 40), `--sample <n>` sets how many product pages are sampled, `--timeout <ms>` per request, `--fixture <dir>` answers from a recorded store for offline runs, `--output <file>` writes instead of printing. `npx @agentic-readiness/cli help` prints the full usage. From a checkout, `pnpm scan` runs the same CLI after `pnpm install && pnpm build`.
+Formats: `md` (default), `json`, `html`, `badge`. Legal signals are appended to the Markdown and HTML reports and included in JSON; `--markets eu,uk,us` chooses the markets they are evaluated for instead of detecting them. `npx @agentic-readiness/cli diff before.json after.json` compares two saved JSON reports and exits 3 when anything changed, for pipelines. Options: `--profile <id>` overrides detection, `--budget <n>` caps requests (default 40), `--sample <n>` sets how many product pages are sampled, `--timeout <ms>` per request, `--fixture <dir>` answers from a recorded store for offline runs, `--output <file>` writes instead of printing. `npx @agentic-readiness/cli help` prints the full usage. From a checkout, `pnpm scan` runs the same CLI after `pnpm install && pnpm build`.
 
 ### MCP
 

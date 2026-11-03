@@ -1,0 +1,633 @@
+[
+  {
+    "id": "eu-ecd-art5",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "E-Commerce Directive, Art. 5 (general information)",
+    "instrument": "Directive 2000/31/EC on electronic commerce",
+    "url": "https://eur-lex.europa.eu/eli/dir/2000/31/oj",
+    "verified": "2026-11-03",
+    "note": "Requires information society service providers to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
+  },
+  {
+    "id": "de-ddg-5",
+    "jurisdiction": "DE",
+    "market": "EU",
+    "name": "Digitale-Dienste-Gesetz, § 5 (imprint)",
+    "instrument": "Digitale-Dienste-Gesetz (DDG) of 6 May 2024, which replaced the Telemediengesetz",
+    "url": "https://www.gesetze-im-internet.de/ddg/__5.html",
+    "verified": "2026-11-03",
+    "note": "Requires providers of business digital services to keep their name, address, fast electronic contact details, register entry and VAT ID easily recognisable, directly reachable and permanently available."
+  },
+  {
+    "id": "at-ecg-5",
+    "jurisdiction": "AT",
+    "market": "EU",
+    "name": "E-Commerce-Gesetz, § 5 (general information)",
+    "instrument": "Bundesgesetz, mit dem bestimmte rechtliche Aspekte des elektronischen Geschäfts- und Rechtsverkehrs geregelt werden (E-Commerce-Gesetz, ECG), BGBl. I Nr. 152/2001",
+    "url": "https://www.ris.bka.gv.at/NormDokument.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20001703&Paragraf=5",
+    "verified": "2026-11-03",
+    "note": "Requires service providers to make their name, geographic address, email address, company register number and VAT ID, among other details, permanently and easily accessible."
+  },
+  {
+    "id": "uk-ecr-reg6",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Electronic Commerce (EC Directive) Regulations 2002, reg. 6 (general information)",
+    "instrument": "Electronic Commerce (EC Directive) Regulations 2002, SI 2002/2013",
+    "url": "https://www.legislation.gov.uk/uksi/2002/2013/regulation/6",
+    "verified": "2026-11-03",
+    "note": "Requires information society service providers to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
+  },
+  {
+    "id": "uk-trading-disclosures",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Company, LLP and Business (Names and Trading Disclosures) Regulations 2015, regs. 24 and 25 (websites)",
+    "instrument": "Company, LLP and Business (Names and Trading Disclosures) Regulations 2015, SI 2015/17, made under the Companies Act 2006",
+    "url": "https://www.legislation.gov.uk/uksi/2015/17",
+    "verified": "2026-11-03",
+    "note": "Requires UK companies to show their registered name on their websites, together with the part of the UK where they are registered, their registered number and their registered office address."
+  },
+  {
+    "id": "ch-uwg-art3",
+    "jurisdiction": "CH",
+    "market": "CH",
+    "name": "Federal Act against Unfair Competition (UWG), Art. 3(1)(s) (e-commerce information)",
+    "instrument": "Bundesgesetz gegen den unlauteren Wettbewerb (UWG) of 19 December 1986, SR 241, as amended with effect from 1 April 2012",
+    "url": "https://www.fedlex.admin.ch/eli/cc/1988/223_223_223/de",
+    "verified": "2026-11-03",
+    "note": "Treats it as unfair for anyone offering goods, works or services through electronic commerce not to state their identity and contact address, including an email address, clearly and completely."
+  },
+  {
+    "id": "us-ca-civ-1789-3",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "California Civil Code §1789.3 (electronic commercial services)",
+    "instrument": "Cal. Civ. Code §1789.3",
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=1789.3",
+    "verified": "2026-11-03",
+    "note": "Requires providers of electronic commercial services to give California consumers their name, address and telephone number, their charges and the complaint contact of the Department of Consumer Affairs."
+  },
+  {
+    "id": "ca-on-cpa-internet",
+    "jurisdiction": "CA-ON",
+    "market": "CA",
+    "name": "Consumer Protection Act, 2002, s. 38, and O. Reg. 17/05, s. 32 (internet agreements)",
+    "instrument": "Consumer Protection Act, 2002, S.O. 2002, c. 30, Sched. A, and its General regulation, O. Reg. 17/05",
+    "url": "https://www.ontario.ca/laws/regulation/050017",
+    "verified": "2026-11-03",
+    "note": "Requires suppliers to disclose their name, business address, telephone number and email address, among other details, before a consumer enters into an internet agreement."
+  },
+  {
+    "id": "ca-qc-cpa-distance",
+    "jurisdiction": "CA-QC",
+    "market": "CA",
+    "name": "Consumer Protection Act (Quebec), s. 54.4 (distance contracts)",
+    "instrument": "Consumer Protection Act, CQLR c. P-40.1",
+    "url": "https://www.legisquebec.gouv.qc.ca/en/document/cs/P-40.1",
+    "verified": "2026-11-03",
+    "note": "Requires merchants to disclose their name, address, telephone number and technological address, among other details, before a distance contract is entered into."
+  },
+  {
+    "id": "br-decreto-7962",
+    "jurisdiction": "BR",
+    "market": "BR",
+    "name": "Decreto 7.962/2013, Art. 2 (seller identification in e-commerce)",
+    "instrument": "Decreto nº 7.962, de 15 de março de 2013, regulating Lei nº 8.078/1990 (Código de Defesa do Consumidor) for electronic commerce",
+    "url": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm",
+    "verified": "2026-11-03",
+    "note": "Requires e-commerce websites to display prominently the supplier's corporate name, CNPJ or CPF number and physical and electronic address."
+  },
+  {
+    "id": "cl-ley-19496",
+    "jurisdiction": "CL",
+    "market": "CL",
+    "name": "Ley 19.496 (consumer protection), Arts. 3 bis and 32",
+    "instrument": "Ley 19.496 que establece normas sobre protección de los derechos de los consumidores, as amended",
+    "url": "https://www.bcn.cl/leychile/navegar?idNorma=61438",
+    "verified": "2026-11-03",
+    "note": "Gives consumers 10 days to terminate purchases made by electronic or other distance means unless the supplier expressly excluded the right (Art. 3 bis), and sets the basic commercial information suppliers must give (Art. 32)."
+  },
+  {
+    "id": "co-ley-1480",
+    "jurisdiction": "CO",
+    "market": "CO",
+    "name": "Ley 1480 de 2011 (Estatuto del Consumidor), Arts. 47 and 50 (distance sales and e-commerce)",
+    "instrument": "Ley 1480 de 2011, por medio de la cual se expide el Estatuto del Consumidor",
+    "url": "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=44306",
+    "verified": "2026-11-03",
+    "note": "Requires e-commerce suppliers to publish their name or business name, NIT, address, telephone and email (Art. 50) and gives consumers a 5 business-day right of withdrawal for distance sales (Art. 47)."
+  },
+  {
+    "id": "ar-ley-24240",
+    "jurisdiction": "AR",
+    "market": "AR",
+    "name": "Ley 24.240 de Defensa del Consumidor, Art. 34 (revocación)",
+    "instrument": "Ley 24.240 de Defensa del Consumidor, as amended",
+    "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/0-4999/638/texact.htm",
+    "verified": "2026-11-03",
+    "note": "Gives consumers 10 calendar days to revoke acceptance of goods or services bought outside business premises, including at a distance, and requires suppliers to inform them of that right."
+  },
+  {
+    "id": "pe-ley-29571",
+    "jurisdiction": "PE",
+    "market": "PE",
+    "name": "Código de Protección y Defensa del Consumidor, Arts. 150 and 151 (Libro de Reclamaciones)",
+    "instrument": "Ley 29571, Código de Protección y Defensa del Consumidor, as amended by Ley 32495 (2025), with the Reglamento del Libro de Reclamaciones, D.S. 011-2011-PCM",
+    "url": "https://www.gob.pe/institucion/ositran/normas-legales/8408129-29571",
+    "verified": "2026-11-03",
+    "note": "Requires suppliers with a commercial establishment, and since Ley 32495 also digital e-commerce platforms, to keep a physical or virtual Libro de Reclamaciones and to display notice of it."
+  },
+  {
+    "id": "eu-odr-repeal",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Regulation (EU) 2024/3228 (repeal of the ODR Regulation)",
+    "instrument": "Regulation (EU) 2024/3228 repealing Regulation (EU) No 524/2013 and amending Regulations (EU) 2017/2394 and (EU) 2018/1724",
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/3228/oj",
+    "verified": "2026-11-03",
+    "note": "Closed the EU online dispute resolution platform and ended traders' duty to link to it, with effect from 20 July 2025."
+  },
+  {
+    "id": "eu-gdpr-art13",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "GDPR, Art. 13 (information to be provided)",
+    "instrument": "Regulation (EU) 2016/679 (General Data Protection Regulation)",
+    "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+    "verified": "2026-11-03",
+    "note": "Requires controllers collecting personal data from the data subject to give their identity and contact details, the DPO's contact details where applicable, the purposes and legal basis, and the data subject's rights."
+  },
+  {
+    "id": "eu-gdpr-art37",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "GDPR, Art. 37(7) (publication of DPO contact details)",
+    "instrument": "Regulation (EU) 2016/679 (General Data Protection Regulation)",
+    "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+    "verified": "2026-11-03",
+    "note": "Requires controllers and processors that must designate a data protection officer to publish the officer's contact details and communicate them to the supervisory authority."
+  },
+  {
+    "id": "eu-gdpr-art21",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "GDPR, Art. 21(5) (objection by automated means)",
+    "instrument": "Regulation (EU) 2016/679 (General Data Protection Regulation)",
+    "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+    "verified": "2026-11-03",
+    "note": "Lets data subjects exercise the right to object by automated means using technical specifications when they use information society services."
+  },
+  {
+    "id": "uk-gdpr-art13",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "UK GDPR, Art. 13 (information to be provided)",
+    "instrument": "Regulation (EU) 2016/679 as retained in UK law (UK GDPR), as amended by the Data (Use and Access) Act 2025",
+    "url": "https://www.legislation.gov.uk/eur/2016/679/article/13",
+    "verified": "2026-11-03",
+    "note": "Requires controllers collecting personal data from the data subject to give their identity and contact details, the purposes and lawful basis of processing, and the data subject's rights."
+  },
+  {
+    "id": "ch-fadp-art19",
+    "jurisdiction": "CH",
+    "market": "CH",
+    "name": "Federal Act on Data Protection (revFADP), Art. 19 (duty to inform)",
+    "instrument": "Bundesgesetz über den Datenschutz (DSG) of 25 September 2020, SR 235.1, in force since 1 September 2023",
+    "url": "https://www.fedlex.admin.ch/eli/cc/2022/491/de",
+    "verified": "2026-11-03",
+    "note": "Requires controllers to tell data subjects their identity and contact details, the purpose of processing and any recipients when collecting personal data."
+  },
+  {
+    "id": "us-ca-caloppa",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "California Online Privacy Protection Act, Bus. & Prof. Code §22575 (privacy policy)",
+    "instrument": "Cal. Bus. & Prof. Code §§22575 to 22579 (CalOPPA)",
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=22575",
+    "verified": "2026-11-03",
+    "note": "Requires operators of commercial websites that collect personally identifiable information from California residents to post a privacy policy conspicuously, for example through a home-page link containing the word privacy."
+  },
+  {
+    "id": "ca-pipeda-openness",
+    "jurisdiction": "CA",
+    "market": "CA",
+    "name": "PIPEDA, Schedule 1, Principle 4.8 (openness)",
+    "instrument": "Personal Information Protection and Electronic Documents Act, S.C. 2000, c. 5",
+    "url": "https://laws-lois.justice.gc.ca/eng/acts/P-8.6/page-7.html",
+    "verified": "2026-11-03",
+    "note": "Requires organisations to make specific information about their personal information policies and practices readily available, including how to contact the person accountable for them."
+  },
+  {
+    "id": "ca-qc-law25",
+    "jurisdiction": "CA-QC",
+    "market": "CA",
+    "name": "Quebec Private Sector Act as amended by Law 25, ss. 3.1, 8.1 and 8.2 (privacy officer, tracking technologies, privacy policy)",
+    "instrument": "Act respecting the protection of personal information in the private sector, CQLR c. P-39.1, as amended by An Act to modernize legislative provisions as regards the protection of personal information (S.Q. 2021, c. 25)",
+    "url": "https://www.legisquebec.gouv.qc.ca/en/document/cs/P-39.1",
+    "verified": "2026-11-03",
+    "note": "Requires enterprises to publish the title and contact details of the person in charge of protecting personal information on their website, to publish a confidentiality policy when collecting by technological means, and to keep identification, location and profiling functions off by default."
+  },
+  {
+    "id": "au-app1",
+    "jurisdiction": "AU",
+    "market": "AU",
+    "name": "Privacy Act 1988, Schedule 1, APP 1 (open and transparent management)",
+    "instrument": "Privacy Act 1988 (Cth), Schedule 1, Australian Privacy Principles",
+    "url": "https://www.legislation.gov.au/C2004A03712/latest/text",
+    "verified": "2026-11-03",
+    "note": "Requires APP entities to have a clearly expressed and up-to-date privacy policy and to make it available free of charge and in an appropriate form, usually on their website."
+  },
+  {
+    "id": "br-lgpd",
+    "jurisdiction": "BR",
+    "market": "BR",
+    "name": "LGPD, Arts. 9 and 41 (information to data subjects and encarregado)",
+    "instrument": "Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais), with Resolução CD/ANPD nº 18/2024 on the encarregado",
+    "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm",
+    "verified": "2026-11-03",
+    "note": "Requires controllers to give data subjects clear information about processing, including the controller's identity and contact details, and to publish the identity and contact details of the encarregado, preferably on their website."
+  },
+  {
+    "id": "co-ley-1581",
+    "jurisdiction": "CO",
+    "market": "CO",
+    "name": "Ley 1581 de 2012 and Decreto 1377 de 2013 (data processing policy)",
+    "instrument": "Ley Estatutaria 1581 de 2012 on the protection of personal data, regulated by Decreto 1377 de 2013 (now compiled in Decreto 1074 de 2015)",
+    "url": "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981",
+    "verified": "2026-11-03",
+    "note": "Requires data controllers to adopt a personal data processing policy, make it available to data subjects and tell them the controller's identity and contact details."
+  },
+  {
+    "id": "us-ca-ccpa-optout",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "Cal. Civ. Code §1798.135 (opt-out links)",
+    "instrument": "California Consumer Privacy Act of 2018, as amended by the California Privacy Rights Act of 2020",
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=1798.135",
+    "verified": "2026-11-03",
+    "note": "Requires covered businesses that sell or share personal information, or use sensitive personal information beyond permitted purposes, to offer Do Not Sell or Share and Limit the Use links, an alternative opt-out link, or to honour opt-out preference signals."
+  },
+  {
+    "id": "us-ca-ccpa-regs",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "CCPA Regulations, Cal. Code Regs. tit. 11 §§7013 to 7015 and 7025 (opt-out methods and preference signals)",
+    "instrument": "California Code of Regulations, Title 11, Division 6, Chapter 1 (CCPA Regulations), as amended effective 1 January 2026",
+    "url": "https://cppa.ca.gov/regulations/",
+    "verified": "2026-11-03",
+    "note": "Sets the wording and placement of the opt-out links and icon and requires covered businesses to treat opt-out preference signals such as Global Privacy Control as valid requests to opt out of sale or sharing."
+  },
+  {
+    "id": "us-co-cpa",
+    "jurisdiction": "US-CO",
+    "market": "US",
+    "name": "Colorado Privacy Act, C.R.S. 6-1-1306(1)(a)(IV) and Rule 5 (universal opt-out mechanism)",
+    "instrument": "Colorado Privacy Act, C.R.S. 6-1-1301 to 6-1-1313, and the Colorado Privacy Act Rules, 4 CCR 904-3",
+    "url": "https://coag.gov/uoom/",
+    "verified": "2026-11-03",
+    "note": "Requires controllers covered by the Act to honour universal opt-out mechanisms recognised by the Attorney General, including Global Privacy Control, since 1 July 2024."
+  },
+  {
+    "id": "eu-eprivacy-art5",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "ePrivacy Directive, Art. 5(3) (storing or accessing information on terminal equipment)",
+    "instrument": "Directive 2002/58/EC as amended by Directive 2009/136/EC",
+    "url": "https://eur-lex.europa.eu/eli/dir/2002/58/oj",
+    "verified": "2026-11-03",
+    "note": "Requires consent, given after clear and comprehensive information, before information is stored on or read from a user's device, unless it is strictly necessary for a service the user requested."
+  },
+  {
+    "id": "uk-pecr-reg6",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Privacy and Electronic Communications Regulations 2003, reg. 6 (storage and access)",
+    "instrument": "Privacy and Electronic Communications (EC Directive) Regulations 2003, SI 2003/2426, as amended by the Data (Use and Access) Act 2025 with effect from 5 February 2026",
+    "url": "https://www.legislation.gov.uk/uksi/2003/2426/regulation/6",
+    "verified": "2026-11-03",
+    "note": "Requires consent for storing or accessing information on a user's device unless an exception applies, which since 5 February 2026 include certain statistical, appearance and functionality purposes where the user is informed and can object."
+  },
+  {
+    "id": "eu-crd-art11a",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Consumer Rights Directive, Art. 11a (withdrawal function)",
+    "instrument": "Directive 2011/83/EU on consumer rights, Art. 11a inserted by Directive (EU) 2023/2673",
+    "url": "https://eur-lex.europa.eu/eli/dir/2023/2673/oj",
+    "verified": "2026-11-03",
+    "note": "Requires traders concluding distance contracts through an online interface to provide a prominently placed withdrawal function labelled withdraw from contract here or an equivalent unambiguous wording, since 19 June 2026."
+  },
+  {
+    "id": "de-bgb-356a",
+    "jurisdiction": "DE",
+    "market": "EU",
+    "name": "BGB § 356a (electronic withdrawal function)",
+    "instrument": "Bürgerliches Gesetzbuch, § 356a inserted by the Gesetz zur Änderung des Verbrauchervertrags- und des Versicherungsvertragsrechts sowie zur Änderung des Behandlungsvertragsrechts, BGBl. 2026 I Nr. 28",
+    "url": "https://www.gesetze-im-internet.de/bgb/__356a.html",
+    "verified": "2026-11-03",
+    "note": "Requires traders concluding distance contracts through an online interface to offer a permanently available withdrawal function labelled Vertrag widerrufen or an equally unambiguous wording, followed by a Widerruf bestätigen step, since 19 June 2026."
+  },
+  {
+    "id": "ar-disp-954",
+    "jurisdiction": "AR",
+    "market": "AR",
+    "name": "Disposición SSDCyLC 954/2025 (botón de arrepentimiento and botón de baja)",
+    "instrument": "Disposición 954/2025 of the Subsecretaría de Defensa del Consumidor y Lealtad Comercial (Boletín Oficial, 4 September 2025), repealing Resoluciones 316/2018 and 424/2020, complemented by Disposición 3/2026",
+    "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/415000-419999/417152/norma.htm",
+    "verified": "2026-11-03",
+    "note": "Requires suppliers selling at a distance through websites or similar channels to show a botón de arrepentimiento link prominently on first access, and a botón de baja for cancelling contracted services, without prior registration."
+  },
+  {
+    "id": "eu-crd-art9",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Consumer Rights Directive, Art. 9 (right of withdrawal)",
+    "instrument": "Directive 2011/83/EU on consumer rights",
+    "url": "https://eur-lex.europa.eu/eli/dir/2011/83/oj",
+    "verified": "2026-11-03",
+    "note": "Gives consumers 14 days to withdraw from distance and off-premises contracts without giving any reason."
+  },
+  {
+    "id": "uk-ccr-2013",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Consumer Contracts Regulations 2013, regs. 29 to 31 (cancellation period)",
+    "instrument": "Consumer Contracts (Information, Cancellation and Additional Charges) Regulations 2013, SI 2013/3134",
+    "url": "https://www.legislation.gov.uk/uksi/2013/3134",
+    "verified": "2026-11-03",
+    "note": "Gives consumers 14 days to cancel distance and off-premises contracts, extended by up to 12 months when the trader does not give the required cancellation information."
+  },
+  {
+    "id": "br-cdc-art49",
+    "jurisdiction": "BR",
+    "market": "BR",
+    "name": "Código de Defesa do Consumidor, Art. 49 (direito de arrependimento)",
+    "instrument": "Lei nº 8.078/1990 (Código de Defesa do Consumidor)",
+    "url": "https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm",
+    "verified": "2026-11-03",
+    "note": "Gives consumers 7 days to withdraw from contracts concluded outside the commercial establishment, including online, with a refund of all amounts paid."
+  },
+  {
+    "id": "us-ca-arl",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "California Automatic Renewal Law, Bus. & Prof. Code §17602 (online cancellation)",
+    "instrument": "Cal. Bus. & Prof. Code §§17600 to 17606, as amended by AB 2863 (Stats. 2024, ch. 515), effective 1 July 2025",
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=17602",
+    "verified": "2026-11-03",
+    "note": "Requires businesses making automatic renewal offers to California consumers to disclose the terms clearly and, for offers accepted online, to let consumers cancel online at will through a prominently located direct link or button."
+  },
+  {
+    "id": "de-bgb-312k",
+    "jurisdiction": "DE",
+    "market": "EU",
+    "name": "BGB § 312k (cancellation button)",
+    "instrument": "Bürgerliches Gesetzbuch, § 312k inserted by the Gesetz für faire Verbraucherverträge, in force since 1 July 2022",
+    "url": "https://www.gesetze-im-internet.de/bgb/__312k.html",
+    "verified": "2026-11-03",
+    "note": "Requires businesses that let consumers conclude paid continuing contracts through a website to provide a button labelled Verträge hier kündigen or equivalent, leading to a cancellation page."
+  },
+  {
+    "id": "uk-dmcc-subscriptions",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "DMCC Act 2024, Part 4, Chapter 2 (subscription contracts)",
+    "instrument": "Digital Markets, Competition and Consumers Act 2024, Part 4, Chapter 2, with the draft Consumer Subscription Contracts (Cancellation and Information) Regulations 2026",
+    "url": "https://www.legislation.gov.uk/ukpga/2024/13/part/4/chapter/2",
+    "applies_from": "2027-01-01",
+    "verified": "2026-11-03",
+    "note": "Will require traders offering consumer subscription contracts to give pre-contract information and reminder notices, cooling-off periods and an easy way to end the contract, for subscriptions entered into from 1 January 2027."
+  },
+  {
+    "id": "eu-eaa",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "European Accessibility Act, Art. 13 and Annex V (services)",
+    "instrument": "Directive (EU) 2019/882 on the accessibility requirements for products and services",
+    "url": "https://eur-lex.europa.eu/eli/dir/2019/882/oj",
+    "verified": "2026-11-03",
+    "note": "Requires e-commerce services offered to consumers to meet accessibility requirements and to publish information on how they meet them, since 28 June 2025, with microenterprises providing services exempt."
+  },
+  {
+    "id": "de-bfsg",
+    "jurisdiction": "DE",
+    "market": "EU",
+    "name": "Barrierefreiheitsstärkungsgesetz, § 14 and Anlage 3 (service information)",
+    "instrument": "Barrierefreiheitsstärkungsgesetz (BFSG) of 16 July 2021, transposing Directive (EU) 2019/882, with the Verordnung zum BFSG (BFSGV)",
+    "url": "https://www.gesetze-im-internet.de/bfsg/__14.html",
+    "verified": "2026-11-03",
+    "note": "Requires providers of services such as e-commerce to consumers to meet accessibility requirements and to make the accessibility information set out in Anlage 3 publicly available in accessible form, since 28 June 2025, with microenterprises exempt."
+  },
+  {
+    "id": "br-lbi-art63",
+    "jurisdiction": "BR",
+    "market": "BR",
+    "name": "Lei Brasileira de Inclusão, Art. 63 (website accessibility)",
+    "instrument": "Lei nº 13.146/2015 (Lei Brasileira de Inclusão da Pessoa com Deficiência)",
+    "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13146.htm",
+    "verified": "2026-11-03",
+    "note": "Requires websites kept by companies headquartered or commercially represented in Brazil to be accessible to people with disabilities and to display the accessibility symbol prominently."
+  },
+  {
+    "id": "ca-on-aoda",
+    "jurisdiction": "CA-ON",
+    "market": "CA",
+    "name": "AODA, 2005, and Integrated Accessibility Standards, O. Reg. 191/11, s. 14 (websites)",
+    "instrument": "Accessibility for Ontarians with Disabilities Act, 2005, S.O. 2005, c. 11, and the Integrated Accessibility Standards, O. Reg. 191/11",
+    "url": "https://www.ontario.ca/laws/regulation/110191",
+    "verified": "2026-11-03",
+    "note": "Requires designated public sector organisations and private or non-profit organisations with 50 or more employees in Ontario to make public websites and web content conform to WCAG 2.0 Level AA, with limited exceptions."
+  },
+  {
+    "id": "us-ada-title3",
+    "jurisdiction": "US",
+    "market": "US",
+    "name": "ADA Title III (public accommodations), DOJ guidance on web accessibility",
+    "instrument": "Americans with Disabilities Act of 1990, Title III, 42 U.S.C. §12181 et seq., and 28 CFR Part 36",
+    "url": "https://www.ada.gov/resources/web-guidance/",
+    "verified": "2026-11-03",
+    "note": "Prohibits disability discrimination by businesses open to the public, which the Department of Justice's 2022 guidance says extends to their websites, although no technical web standard is set by regulation for Title III."
+  },
+  {
+    "id": "uk-equality-act",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Equality Act 2010, ss. 20 and 29 (reasonable adjustments, services)",
+    "instrument": "Equality Act 2010",
+    "url": "https://www.legislation.gov.uk/ukpga/2010/15/section/29",
+    "verified": "2026-11-03",
+    "note": "Requires providers of services to the public in Great Britain not to discriminate against disabled people and to make reasonable adjustments, which applies to services offered through websites."
+  },
+  {
+    "id": "au-dda",
+    "jurisdiction": "AU",
+    "market": "AU",
+    "name": "Disability Discrimination Act 1992, s. 24 (goods, services and facilities)",
+    "instrument": "Disability Discrimination Act 1992 (Cth)",
+    "url": "https://www.legislation.gov.au/C2004A04426/latest/text",
+    "verified": "2026-11-03",
+    "note": "Makes it unlawful to discriminate on the ground of disability when providing goods, services or facilities, which the Australian Human Rights Commission treats as covering websites."
+  },
+  {
+    "id": "eu-gpsr-art19",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "General Product Safety Regulation, Art. 19 (distance sales information)",
+    "instrument": "Regulation (EU) 2023/988 on general product safety",
+    "url": "https://eur-lex.europa.eu/eli/reg/2023/988/oj",
+    "verified": "2026-11-03",
+    "note": "Requires economic operators offering products online to show the manufacturer's name and postal and electronic address, the EU responsible person where the manufacturer is outside the EU, product identifiers and any warnings, since 13 December 2024."
+  },
+  {
+    "id": "eu-pid-art6a",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Price Indication Directive, Art. 6a (prior price for price reductions)",
+    "instrument": "Directive 98/6/EC, Art. 6a inserted by Directive (EU) 2019/2161, as interpreted by the CJEU in C-330/23 Aldi Süd",
+    "url": "https://eur-lex.europa.eu/eli/dir/2019/2161/oj",
+    "verified": "2026-11-03",
+    "note": "Requires traders announcing a price reduction to indicate the lowest price they applied during a period of at least 30 days before the reduction."
+  },
+  {
+    "id": "ch-pbv",
+    "jurisdiction": "CH",
+    "market": "CH",
+    "name": "Price Indication Ordinance (PBV)",
+    "instrument": "Verordnung über die Bekanntgabe von Preisen (Preisbekanntgabeverordnung, PBV) of 11 December 1978, SR 942.211",
+    "url": "https://www.fedlex.admin.ch/eli/cc/1978/2081_2081_2081/de",
+    "verified": "2026-11-03",
+    "note": "Requires goods and services offered to consumers in Switzerland to show the actual price to be paid in Swiss francs, including public charges such as VAT."
+  },
+  {
+    "id": "uk-pmo",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "Price Marking Order 2004",
+    "instrument": "Price Marking Order 2004, SI 2004/102, as amended by the Price Marking (Amendment) Orders 2024 and 2025 with effect from 6 April 2026",
+    "url": "https://www.legislation.gov.uk/uksi/2004/102",
+    "verified": "2026-11-03",
+    "note": "Requires traders offering goods to consumers in Great Britain to indicate the selling price and, for many goods sold by quantity, the unit price in a clear, unambiguous and legible way."
+  },
+  {
+    "id": "eu-ucpd-art7",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Unfair Commercial Practices Directive, Art. 7(6) and Annex I points 23b and 23c (consumer reviews)",
+    "instrument": "Directive 2005/29/EC as amended by Directive (EU) 2019/2161",
+    "url": "https://eur-lex.europa.eu/eli/dir/2019/2161/oj",
+    "verified": "2026-11-03",
+    "note": "Requires traders that give access to consumer reviews to say whether and how they check that reviews come from consumers who used or bought the product, and bans fake or misrepresented reviews."
+  },
+  {
+    "id": "uk-dmcc-reviews",
+    "jurisdiction": "UK",
+    "market": "UK",
+    "name": "DMCC Act 2024, Schedule 20, para. 13 (fake consumer reviews)",
+    "instrument": "Digital Markets, Competition and Consumers Act 2024, Schedule 20, in force since 6 April 2025",
+    "url": "https://www.legislation.gov.uk/ukpga/2024/13/schedule/20",
+    "verified": "2026-11-03",
+    "note": "Bans fake or concealed-incentive consumer reviews and requires traders publishing reviews to take reasonable and proportionate steps to prevent and remove fake or misleading ones."
+  },
+  {
+    "id": "us-ftc-reviews",
+    "jurisdiction": "US",
+    "market": "US",
+    "name": "FTC Rule on the Use of Consumer Reviews and Testimonials, 16 CFR Part 465",
+    "instrument": "Trade Regulation Rule on the Use of Consumer Reviews and Testimonials, 16 CFR Part 465, effective 21 October 2024",
+    "url": "https://www.ecfr.gov/current/title-16/chapter-I/subchapter-D/part-465",
+    "verified": "2026-11-03",
+    "note": "Prohibits fake or false consumer reviews and testimonials, review suppression and misrepresenting company-controlled review websites as independent."
+  },
+  {
+    "id": "eu-ecgt",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "Empowering Consumers for the Green Transition Directive (generic environmental claims)",
+    "instrument": "Directive (EU) 2024/825 amending Directives 2005/29/EC and 2011/83/EU",
+    "url": "https://eur-lex.europa.eu/eli/dir/2024/825/oj",
+    "verified": "2026-11-03",
+    "note": "Adds to the list of practices always considered unfair, from 27 September 2026, generic environmental claims without recognised excellent environmental performance and claims of neutral environmental impact based on offsetting."
+  },
+  {
+    "id": "us-ftc-green-guides",
+    "jurisdiction": "US",
+    "market": "US",
+    "name": "FTC Green Guides, 16 CFR Part 260",
+    "instrument": "Guides for the Use of Environmental Marketing Claims, 16 CFR Part 260 (2012 revision)",
+    "url": "https://www.ecfr.gov/current/title-16/chapter-I/subchapter-B/part-260",
+    "verified": "2026-11-03",
+    "note": "States the FTC's view that unqualified general environmental benefit claims such as eco-friendly are difficult to substantiate and should be qualified."
+  },
+  {
+    "id": "eu-ai-act-art50",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "AI Act, Art. 50 (transparency for AI systems that interact with people or generate content)",
+    "instrument": "Regulation (EU) 2024/1689 (Artificial Intelligence Act), as amended by the Digital Omnibus on AI (2026)",
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+    "verified": "2026-11-03",
+    "note": "Requires providers to design AI systems that interact with people so that users are told they are dealing with an AI system, and to mark synthetic content, since 2 August 2026, with marking for systems already on the market due by 2 December 2026."
+  },
+  {
+    "id": "us-ca-bot-act",
+    "jurisdiction": "US-CA",
+    "market": "US",
+    "name": "California BOT Act, Bus. & Prof. Code §§17940 to 17943",
+    "instrument": "Cal. Bus. & Prof. Code §§17940 to 17943 (SB 1001, 2018)",
+    "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=17941",
+    "verified": "2026-11-03",
+    "note": "Makes it unlawful to use a bot online to mislead a person in California about its artificial identity in order to incentivise a purchase or influence a vote, unless the bot is clearly disclosed."
+  },
+  {
+    "id": "us-ut-ai-policy",
+    "jurisdiction": "US-UT",
+    "market": "US",
+    "name": "Utah Code §13-77-103 (generative AI disclosure)",
+    "instrument": "Utah Artificial Intelligence Policy Act (Utah Code Title 13, Chapter 72) and Title 13, Chapter 77 (Generative Artificial Intelligence, Consumer Disclosures and Enforcement), enacted by SB 226 (2025) as Chapter 75 and renumbered",
+    "url": "https://le.utah.gov/xcode/Title13/Chapter77/13-77-S103.html",
+    "verified": "2026-11-03",
+    "note": "Requires suppliers using generative AI in consumer transactions to disclose it when an individual clearly asks whether they are interacting with AI, and requires prominent disclosure in high-risk interactions in regulated occupations."
+  },
+  {
+    "id": "us-me-chatbot",
+    "jurisdiction": "US-ME",
+    "market": "US",
+    "name": "Maine 10 M.R.S. §1500-DD (AI chatbot disclosure)",
+    "instrument": "Maine Revised Statutes, Title 10, §1500-DD, enacted by P.L. 2025, c. 294 and reallocated from §1500-Y",
+    "url": "https://legislature.maine.gov/statutes/10/title10sec1500-DD-1.html",
+    "verified": "2026-11-03",
+    "note": "Prohibits using an AI chatbot in trade and commerce in a way that may mislead a reasonable consumer into believing they are dealing with a human, unless the consumer is clearly and conspicuously told otherwise."
+  },
+  {
+    "id": "eu-dsm-art4",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "DSM Copyright Directive, Art. 4(3) (text and data mining reservation)",
+    "instrument": "Directive (EU) 2019/790 on copyright and related rights in the Digital Single Market",
+    "url": "https://eur-lex.europa.eu/eli/dir/2019/790/oj",
+    "verified": "2026-11-03",
+    "note": "Lets rightholders reserve text and data mining of their works, which for content made publicly available online must be done in an appropriate manner such as machine-readable means."
+  },
+  {
+    "id": "eu-ai-act-art53",
+    "jurisdiction": "EU",
+    "market": "EU",
+    "name": "AI Act, Art. 53(1)(c) (copyright policy of general-purpose AI providers)",
+    "instrument": "Regulation (EU) 2024/1689 (Artificial Intelligence Act)",
+    "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+    "verified": "2026-11-03",
+    "note": "Requires providers of general-purpose AI models to put in place a policy to comply with Union copyright law, including identifying and respecting reservations under Art. 4(3) of the DSM Directive, since 2 August 2025."
+  },
+  {
+    "id": "de-urhg-44b",
+    "jurisdiction": "DE",
+    "market": "EU",
+    "name": "Urheberrechtsgesetz § 44b (text and data mining)",
+    "instrument": "Urheberrechtsgesetz (UrhG), § 44b inserted by the Gesetz zur Anpassung des Urheberrechts an die Erfordernisse des digitalen Binnenmarktes (2021)",
+    "url": "https://www.gesetze-im-internet.de/urhg/__44b.html",
+    "verified": "2026-11-03",
+    "note": "Permits text and data mining of lawfully accessible works unless the rightholder has reserved it, and a reservation for works accessible online is effective only in machine-readable form."
+  }
+]

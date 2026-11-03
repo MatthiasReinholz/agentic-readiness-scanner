@@ -1,4 +1,4 @@
-import type { Platform, Profile, SampledPages } from '@agentic-readiness/catalog';
+import type { Market, Platform, Profile, SampledPages } from '@agentic-readiness/catalog';
 
 import type { FetchedResponse } from '../http/types.js';
 import type { HtmlDocument } from '../parsers/html.js';
@@ -63,4 +63,9 @@ export interface Target {
    * applicable to a headless storefront, which gets neither on its own domain.
    */
   shopifyHosted?: boolean;
+  /**
+   * Markets the store appears to sell to (or that whoever started the scan chose). Set
+   * before the legal-signals checks run; readiness checks never read it.
+   */
+  markets?: readonly Market[];
 }

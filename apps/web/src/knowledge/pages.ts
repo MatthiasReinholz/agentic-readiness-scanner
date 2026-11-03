@@ -5,10 +5,20 @@
  * the specifications) is read from the catalog, so the two can never disagree. Every page
  * also exists as Markdown for agents, and carries schema.org structured data for search.
  */
-import { catalog, type CheckDefinition, type Group } from '@agentic-readiness/catalog';
+import {
+  catalog,
+  getCheck,
+  getGroup,
+  getLaw,
+  LEGAL_NOTICE,
+  type CheckDefinition,
+  type Group,
+  type Law,
+} from '@agentic-readiness/catalog';
 import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
 import {
+  alert,
   badge,
   button,
   card,
@@ -69,15 +79,32 @@ export function articlePath(article: KnowledgeArticle): string {
 }
 
 function checkOf(article: KnowledgeArticle): CheckDefinition {
-  const check = catalog.checks.find((candidate) => candidate.id === article.id);
+  const check = getCheck(article.id);
   if (!check) throw new Error(`knowledge article ${article.id} has no check`);
   return check;
 }
 
 function groupOf(check: CheckDefinition): Group {
-  const group = catalog.groups.find((candidate) => candidate.id === check.group);
+  const group = getGroup(check.group);
   if (!group) throw new Error(`check ${check.id} has no group`);
   return group;
+}
+
+/** Legal-signals checks have their own hub and page layout; they are never scored. */
+export function isLegalCheck(check: Pick<CheckDefinition, 'group'>): boolean {
+  return check.group.startsWith('C');
+}
+
+export const LEGAL_HUB_PATH = '/knowledge-base/legal-signals';
+
+/** The canonical article URL for a check, for reports that link into the knowledge base. */
+export function knowledgeUrlFor(config: AppConfig, checkId: string): string | undefined {
+  const article = articleFor(checkId);
+  return article ? `${config.baseUrl}${articlePath(article)}` : undefined;
+}
+
+function lawsOf(check: CheckDefinition): Law[] {
+  return check.laws.map((id) => getLaw(id)).filter((law): law is Law => law !== undefined);
 }
 
 function articleFor(checkId: string): KnowledgeArticle | undefined {
@@ -250,6 +277,7 @@ ${breadcrumbs([{ label: 'Home', href: '/' }, { label: 'Knowledge base' }])}
 <section class="${panel} mt-8" aria-label="Overview"><p class="text-sm font-medium">The agent's journey, in nine sections</p><div class="mt-3">${journeyRail()}</div><div class="mt-4 border-t border-border pt-4"><p class="mb-2 text-xs text-muted-foreground">Every check, one cell each. Hover for its name, click to read it.</p>${checkStrip()}</div></section>
 <div class="kb-filter-bar md:sticky top-0 z-10 mt-8 border-b border-border bg-background/85 py-3 backdrop-blur"><div class="flex flex-wrap items-center gap-2"><label class="relative min-w-0 basis-full flex-1 md:basis-56"><span class="sr-only">Filter checks</span><input id="kb-filter" type="search" class="${input} pr-10" placeholder="Filter checks, e.g. robots.txt, GTIN, MCP" autocomplete="off"><kbd aria-hidden="true" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border px-1.5 font-mono text-xs text-muted-foreground">/</kbd></label><div class="flex min-w-0 flex-wrap gap-2" role="group" aria-label="Filter by priority">${chips}</div><span id="kb-count" class="ml-auto text-xs text-muted-foreground" aria-live="polite">${catalog.checks.length} checks</span></div></div>
 ${catalog.groups.map((group) => groupSection(group, 'h2')).join('')}
+${legalHubCard()}
 <div class="mt-12 grid gap-3 md:grid-cols-2">
 <section class="${panel}"><h2 class="text-base font-semibold tracking-tight">How to read priorities</h2><ul class="mt-3 space-y-2.5">${tiers}</ul></section>
 <section class="${panel}"><h2 class="text-base font-semibold tracking-tight">Readiness levels</h2><ul class="mt-3 space-y-2">${levels}</ul></section>
@@ -379,6 +407,7 @@ function fixCard(check: CheckDefinition): string {
 
 /** /knowledge-base/<article-slug> */
 export function knowledgeArticlePage(config: AppConfig, article: KnowledgeArticle): string {
+  if (isLegalCheck(checkOf(article))) return legalArticlePage(config, article);
   const check = checkOf(article);
   const group = groupOf(check);
   const tier = tierOf(check.weight);
@@ -539,6 +568,7 @@ function yaml(value: string): string {
 
 /** The article as one Markdown document: front matter, the article, then the catalog's fix and sources. */
 export function articleMarkdown(config: AppConfig, article: KnowledgeArticle): string {
+  if (isLegalCheck(checkOf(article))) return legalArticleMarkdown(config, article);
   const check = checkOf(article);
   const group = groupOf(check);
   const tier = tierOf(check.weight);
@@ -684,4 +714,250 @@ export function knowledgeFullMarkdown(config: AppConfig): string {
     knowledgeIndexMarkdown(config),
     ...knowledge.map((article) => articleMarkdown(config, article)),
   ].join('\n\n---\n\n');
+}
+
+function legalHubCard(): string {
+  return `<section class="${panel} mt-12" aria-labelledby="legal-signals-heading"><div class="flex flex-wrap items-start justify-between gap-4"><div class="min-w-0 flex-1 basis-80"><p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Separate from readiness · never scored</p><h2 id="legal-signals-heading" class="mt-1 text-lg font-semibold tracking-tight">Legal signals</h2><p class="mt-2 text-sm leading-6 text-muted-foreground">${catalog.legal.checks.length} checks of public legal disclosures in ${catalog.legal.groups.length} groups: seller identity, privacy, withdrawal and returns, accessibility, product information, and AI transparency. Each names the laws it relates to across the EU, the UK, Switzerland, the Americas and Australia. A technical evaluation, not legal advice.</p></div><a class="${button({ variant: 'outline' })} shrink-0" href="${LEGAL_HUB_PATH}">Read about legal signals${icon('arrow-right')}</a></div></section>`;
+}
+
+function legalNotice(): string {
+  return `<div class="${alert({ variant: 'info' })} mt-6" role="note">${icon('info')}<span>${escapeHtml(LEGAL_NOTICE)}</span></div>`;
+}
+
+function lawItem(law: Law): string {
+  const upcoming = law.applies_from && Date.parse(law.applies_from) > Date.parse(KNOWLEDGE_UPDATED);
+  return `<li class="py-2.5"><a class="font-medium text-primary underline-offset-4 hover:underline" href="${escapeHtml(law.url)}" rel="noopener">${escapeHtml(law.name)}</a> <span class="${badge({ variant: 'outline' })} ml-1 font-mono">${escapeHtml(law.jurisdiction)}</span>${upcoming ? ` <span class="${badge({ variant: 'warning' })} ml-1">applies from ${escapeHtml(law.applies_from ?? '')}</span>` : ''}<span class="mt-0.5 block text-sm leading-6 text-muted-foreground">${escapeHtml(law.note)}</span></li>`;
+}
+
+function legalRow(check: CheckDefinition): string {
+  const article = articleFor(check.id);
+  const title = article ? article.headline : check.title;
+  const markets = check.markets.length > 0 ? check.markets.join(', ') : 'any market';
+  return `<li><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : LEGAL_HUB_PATH}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="mt-0.5 block text-xs leading-5 text-muted-foreground">Markets: ${escapeHtml(markets)}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+}
+
+/** /knowledge-base/legal-signals: every legal group and check, with the notice first. */
+export function legalHubPage(config: AppConfig): string {
+  const title = 'Legal signals for online stores';
+  const description = `${catalog.legal.checks.length} technical checks of the legal disclosures a store's public pages show, each linked to the laws it relates to. Never scored, not legal advice.`;
+  const hero = `
+<p class="hero-eyebrow">Knowledge base · legal signals</p>
+<h1 class="hero-title">${title}</h1>
+<p class="hero-description">Many duties for online stores leave public traces: who sells, how to withdraw, who answers privacy requests, whether an assistant is a machine. The scanner reports which of those traces it can see on a store's pages, on a page of its own beside the readiness report. It never scores them and never says a store complies.</p>
+`;
+  const groups = catalog.legal.groups
+    .map((group) => {
+      const checks = catalog.legal.checks.filter((check) => check.group === group.id);
+      return `<section class="mt-10 scroll-mt-6" id="${escapeHtml(group.id)}"><div class="flex items-center gap-3"><span class="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary">${escapeHtml(group.id)}</span><div class="min-w-0 flex-1"><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(group.title)}</h2><p class="text-xs uppercase tracking-wider text-muted-foreground">${checks.length} checks</p></div></div><p class="mt-3 max-w-[70ch] text-sm leading-6 text-muted-foreground">${escapeHtml(group.description)}</p><ul class="kb-check-list mt-2">${checks.map(legalRow).join('')}</ul></section>`;
+    })
+    .join('');
+  const body = `
+${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: 'Legal signals' }])}
+${legalNotice()}
+<section class="${panel} mt-6"><h2 class="text-base font-semibold tracking-tight">How legal signals are reported</h2><ul class="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-6 text-muted-foreground"><li><strong class="text-foreground">Found</strong>: the disclosure, link or signal is on the pages read. It says nothing about whether its content is right.</li><li><strong class="text-foreground">Review</strong>: something is there but incomplete, or a risk was seen that a person should look at.</li><li><strong class="text-foreground">Not found in the pages read</strong>: the scan did not see it. It may be shown by JavaScript, after sign-in or in checkout.</li><li><strong class="text-foreground">Not applicable</strong>: the store shows no sign of selling to the markets the check is about. Markets are detected from the domain, page language, currency, addresses and register numbers, and a scan can name them.</li></ul><p class="mt-3 text-sm leading-6 text-muted-foreground">Results appear at <code class="${codeInline}">/sites/&lt;host&gt;/legal</code> beside each report. Those pages are not indexed or crawled.</p></section>
+${groups}
+${scanCta()}
+${jsonLd({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      ...webPage(config, LEGAL_HUB_PATH, title, description, 'knowledge'),
+      '@type': 'CollectionPage',
+      name: title,
+      description,
+      url: `${config.baseUrl}${LEGAL_HUB_PATH}`,
+      inLanguage: 'en',
+      dateModified: KNOWLEDGE_UPDATED,
+      author: { '@id': `${AUTHOR.url}#person` },
+    },
+    breadcrumbLd(config, [
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: 'Legal signals', path: LEGAL_HUB_PATH },
+    ]),
+    ...siteGraph(config, 'knowledge'),
+  ],
+})}`;
+  return kbPage(
+    config,
+    title,
+    description,
+    headFor(config, LEGAL_HUB_PATH, title, description, 'website'),
+    body,
+    hero,
+  );
+}
+
+export function legalHubMarkdown(config: AppConfig): string {
+  const groups = catalog.legal.groups
+    .map(
+      (group) =>
+        `## ${group.id} ${group.title}\n\n${group.description}\n\n${catalog.legal.checks
+          .filter((check) => check.group === group.id)
+          .map((check) => articleListItem(config, check))
+          .join('\n')}`,
+    )
+    .join('\n\n');
+  return `# Legal signals for online stores\n\n> ${LEGAL_NOTICE}\n\nLegal signals are reported on a page of their own beside each readiness report, never scored and never part of the readiness level.\n\n${groups}\n\nSource: ${config.baseUrl}${LEGAL_HUB_PATH}\n`;
+}
+
+/** A legal-signals article: the notice, the laws by market, the article, the fix. */
+function legalArticlePage(config: AppConfig, article: KnowledgeArticle): string {
+  const check = checkOf(article);
+  const group = groupOf(check);
+  const path = articlePath(article);
+  const rendered = markdownToHtml(article.body);
+  const all = catalog.legal.checks;
+  const overall = all.findIndex((candidate) => candidate.id === check.id);
+  const neighbour = (target: CheckDefinition | undefined, label: string, align: string) => {
+    const linked = target ? articleFor(target.id) : undefined;
+    return linked
+      ? `<a class="${card} group block p-4 ${align} transition-colors hover:border-primary/50" href="${articlePath(linked)}" rel="${label === 'Previous' ? 'prev' : 'next'}"><span class="text-xs text-muted-foreground">${label} · ${escapeHtml(linked.id)}</span><span class="mt-1 block text-sm font-medium group-hover:text-primary">${escapeHtml(linked.headline)}</span></a>`
+      : '<span></span>';
+  };
+  const laws = lawsOf(check);
+  const facts = [
+    [
+      'Category',
+      `Legal signal in ${escapeHtml(group.id)} ${escapeHtml(group.title)}. Reported on its own page beside the readiness report, never scored.`,
+    ],
+    ['Markets', escapeHtml(check.markets.length > 0 ? check.markets.join(', ') : 'Any market')],
+    ['The question', escapeHtml(check.question)],
+  ]
+    .map(
+      ([label, value]) =>
+        `<div class="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4"><dt class="text-sm font-medium">${label}</dt><dd class="text-sm leading-6">${value}</dd></div>`,
+    )
+    .join('');
+  const faq = faqPairs(article.body);
+  const title = article.headline;
+  const hero = `
+<p class="hero-eyebrow">Legal signal ${escapeHtml(check.id)} · ${escapeHtml(check.title)}</p>
+<h1 class="hero-title">${escapeHtml(title)}</h1>
+<p class="hero-description">${escapeHtml(article.description)}</p>
+<p class="mt-3 text-sm text-current">By <a class="underline underline-offset-4" href="${AUTHOR.url}" rel="author">${AUTHOR.name}</a> · Updated <time datetime="${KNOWLEDGE_UPDATED}">${KNOWLEDGE_UPDATED}</time> · <a class="underline underline-offset-4" href="${path}.md" type="text/markdown">Markdown</a></p>
+`;
+  const body = `
+${breadcrumbs([
+  { label: 'Knowledge base', href: '/knowledge-base' },
+  { label: 'Legal signals', href: LEGAL_HUB_PATH },
+  { label: check.id },
+])}
+${legalNotice()}
+<div class="mt-8 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
+<aside class="hidden lg:block"><nav class="kb-toc sticky top-6 text-sm text-muted-foreground" aria-label="On this page">${tocLinks(rendered.headings)}</nav></aside>
+<article data-kb-article class="min-w-0">
+<dl class="${card} mt-6 divide-y divide-border px-5">${facts}</dl>
+<section class="mt-6" aria-labelledby="laws-heading"><h2 id="laws-heading" class="text-xl font-semibold tracking-tight">Which laws</h2><ul class="mt-3 divide-y divide-border">${laws.map(lawItem).join('')}</ul></section>
+<details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
+<div class="max-w-[72ch]">${rendered.html}</div>
+${fixCard(check)}
+<nav class="mt-10 grid gap-3 sm:grid-cols-2" aria-label="Previous and next legal signal">${neighbour(all[overall - 1], 'Previous', '')}${neighbour(all[overall + 1], 'Next', 'sm:text-right')}</nav>
+${scanCta()}
+</article>
+</div>
+${jsonLd({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'TechArticle',
+      '@id': `${config.baseUrl}${path}#article`,
+      headline: title,
+      name: `${check.id} ${check.title}`,
+      description: article.description,
+      abstract: plainText(section(article.body, 'In short')),
+      keywords: article.keywords.join(', '),
+      url: `${config.baseUrl}${path}`,
+      mainEntityOfPage: { '@id': `${config.baseUrl}${path}#webpage` },
+      inLanguage: 'en',
+      datePublished: KNOWLEDGE_UPDATED,
+      dateModified: KNOWLEDGE_UPDATED,
+      author: { '@id': `${AUTHOR.url}#person` },
+      publisher: { '@id': `${AUTHOR.url}#person` },
+      isAccessibleForFree: true,
+      identifier: check.id,
+      articleSection: 'Legal signals',
+      citation: [...laws.map((law) => law.url), ...check.spec.map((ref) => ref.url)],
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${config.baseUrl}${path}#faq`,
+      isPartOf: { '@id': `${config.baseUrl}${path}#webpage` },
+      mainEntity: faq.map((pair) => ({
+        '@type': 'Question',
+        name: pair.question,
+        acceptedAnswer: { '@type': 'Answer', text: pair.answer },
+      })),
+    },
+    breadcrumbLd(config, [
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: 'Legal signals', path: LEGAL_HUB_PATH },
+      { name: title, path },
+    ]),
+    {
+      ...webPage(config, path, title, article.description, 'knowledge'),
+      mainEntity: { '@id': `${config.baseUrl}${path}#article` },
+    },
+    ...siteGraph(config, 'knowledge'),
+  ],
+})}`;
+  return kbPage(
+    config,
+    title,
+    article.description,
+    `${headFor(config, path, title, article.description, 'article')}\n<meta name="keywords" content="${escapeHtml(article.keywords.join(', '))}">`,
+    body,
+    hero,
+  );
+}
+
+function legalArticleMarkdown(config: AppConfig, article: KnowledgeArticle): string {
+  const check = checkOf(article);
+  const group = groupOf(check);
+  const url = `${config.baseUrl}${articlePath(article)}`;
+  const { fix } = check;
+  const laws = lawsOf(check);
+  return `---
+title: ${yaml(article.headline)}
+description: ${yaml(article.description)}
+canonical_url: ${url}
+check_id: ${check.id}
+check_title: ${yaml(check.title)}
+section: ${yaml(`${group.id} ${group.title}`)}
+category: legal-signal
+scored: false
+markets: [${check.markets.join(', ')}]
+laws: [${laws.map((law) => law.id).join(', ')}]
+keywords: [${article.keywords.map(yaml).join(', ')}]
+author: ${yaml(AUTHOR.name)}
+updated: ${KNOWLEDGE_UPDATED}
+---
+
+# ${article.headline}
+
+> ${article.description}
+
+> ${LEGAL_NOTICE}
+
+Legal signal ${check.id} (${check.title}) in ${group.id}, ${group.title}. Reported beside the readiness report, never scored.
+
+## Which laws
+
+${laws.map((law) => `- [${law.jurisdiction}: ${law.name}](${law.url})${law.applies_from && Date.parse(law.applies_from) > Date.parse(KNOWLEDGE_UPDATED) ? ` (applies from ${law.applies_from})` : ''}: ${law.note}`).join('\n')}
+
+${absolute(config, article.body)}
+
+## The fix in one step
+
+${fix.summary}
+${fix.snippet ? `\n\`\`\`${fix.snippet_language ?? ''}\n${fix.snippet}\n\`\`\`\n` : ''}
+### Prompt for a coding agent
+
+${fix.agent_prompt}
+
+## Sources and specifications
+
+${check.spec.map((ref) => `- [${ref.title}](${ref.url})`).join('\n')}
+
+Source: ${url} (${config.appName} knowledge base, by ${AUTHOR.name}).
+`;
 }

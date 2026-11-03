@@ -8,11 +8,59 @@
  */
 import { z } from 'zod';
 
-export const CHECK_ID_PATTERN = /^[AB][1-5]\.\d{1,2}$/;
-export const GROUP_ID_PATTERN = /^[AB][1-5]$/;
+/** A and B are the readiness dimensions; C is the legal-signals category. */
+export const CHECK_ID_PATTERN = /^[ABC][1-6]\.\d{1,2}$/;
+export const GROUP_ID_PATTERN = /^[ABC][1-6]$/;
 
-export const DimensionSchema = z.enum(['ingestion', 'commerce']);
+/**
+ * `ingestion` and `commerce` are scored and gate the level. `legal` is the legal-signals
+ * category: reported on its own page, never scored, never part of the level.
+ */
+export const DimensionSchema = z.enum(['ingestion', 'commerce', 'legal']);
 export type Dimension = z.infer<typeof DimensionSchema>;
+/** The two scored dimensions. */
+export type ScoredDimension = Exclude<Dimension, 'legal'>;
+
+/**
+ * Markets a store can sell to, as far as legal signals distinguish them. National and
+ * state rules (Germany, California, Quebec) are law jurisdictions inside these markets.
+ */
+export const MarketSchema = z.enum([
+  'EU',
+  'UK',
+  'CH',
+  'US',
+  'CA',
+  'AU',
+  'BR',
+  'AR',
+  'CL',
+  'CO',
+  'PE',
+]);
+export type Market = z.infer<typeof MarketSchema>;
+
+/** A legal provision a legal-signals check relates to, with its official text. */
+export const LawSchema = z.object({
+  id: z.string().regex(/^[a-z]{2}(?:-[a-z]{2})?-[a-z0-9-]+$/),
+  /** EU, a country code (DE, UK, BR) or a subdivision (US-CA, CA-QC). */
+  jurisdiction: z.string().regex(/^[A-Z]{2}(?:-[A-Z]{2})?$/),
+  /** The market whose stores the provision concerns. */
+  market: MarketSchema,
+  /** Short name with the provision: "Consumer Rights Directive, Art. 11a". */
+  name: z.string().min(1),
+  /** The instrument in full, with amendments where they matter. */
+  instrument: z.string().min(1),
+  /** The official text: EUR-Lex, legislation.gov.uk, fedlex, planalto and the like. */
+  url: z.url({ protocol: /^https$/ }),
+  /** First day the provision applies, when that is today or later than the catalog. */
+  applies_from: z.iso.date().optional(),
+  /** Last day the entry was checked against the official text and current reporting. */
+  verified: z.iso.date(),
+  /** One sentence on who it binds or what it requires, for the report. */
+  note: z.string().min(1),
+});
+export type Law = z.infer<typeof LawSchema>;
 
 /** 1 = nice to have, 2 = expected, 3 = blocking for agents, "info" = reported, never scored. */
 export const WeightSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal('info')]);
@@ -78,6 +126,13 @@ export const CheckDefinitionSchema = z.object({
   depends_on: z.array(z.string().regex(CHECK_ID_PATTERN)).default([]),
   /** Public specifications the check is grounded in. A check without one does not ship. */
   spec: z.array(SpecReferenceSchema).min(1),
+  /** Legal-signals checks: the law registry entries the check relates to. */
+  laws: z.array(z.string()).default([]),
+  /**
+   * Legal-signals checks: the markets the check is about. Empty means any market; otherwise
+   * the check only runs when the store appears to sell to one of them.
+   */
+  markets: z.array(MarketSchema).default([]),
   fix: FixSchema,
 });
 export type CheckDefinition = z.infer<typeof CheckDefinitionSchema>;
@@ -124,6 +179,18 @@ export const CatalogSchema = z.object({
   checks: z.array(CheckDefinitionSchema).min(1),
   levels: z.array(LevelSchema).min(1),
   profiles: z.array(ProfileSchema).min(1),
+  /**
+   * Legal signals: groups and checks of the `legal` dimension and the law registry they
+   * cite. Kept apart from `groups` and `checks` so the readiness catalog, its scores, its
+   * level and every surface built on it are untouched by them.
+   */
+  legal: z
+    .object({
+      groups: z.array(GroupSchema),
+      checks: z.array(CheckDefinitionSchema),
+      laws: z.array(LawSchema),
+    })
+    .default({ groups: [], checks: [], laws: [] }),
 });
 export type Catalog = z.infer<typeof CatalogSchema>;
 
@@ -195,12 +262,57 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
     if (!levelValues.has(value)) problems.push(`missing level ${value}`);
   }
 
+  for (const group of catalog.groups) {
+    if (group.dimension === 'legal')
+      problems.push(`group ${group.id}: legal groups belong in legal.groups`);
+  }
+  const legalGroups = new Map(catalog.legal.groups.map((group) => [group.id, group]));
+  const lawIds = new Set<string>();
+  for (const law of catalog.legal.laws) {
+    if (lawIds.has(law.id)) problems.push(`duplicate law id ${law.id}`);
+    lawIds.add(law.id);
+  }
+  for (const group of catalog.legal.groups) {
+    if (group.dimension !== 'legal')
+      problems.push(`legal group ${group.id}: dimension must be legal`);
+    if (!group.id.startsWith('C')) problems.push(`legal group ${group.id}: id must start with C`);
+  }
+  const legalIds = new Set<string>();
+  for (const check of catalog.legal.checks) {
+    if (checkIds.has(check.id) || legalIds.has(check.id))
+      problems.push(`duplicate check id ${check.id}`);
+    legalIds.add(check.id);
+    if (!legalGroups.has(check.group))
+      problems.push(`${check.id}: unknown legal group ${check.group}`);
+    if (!check.id.startsWith(check.group + '.')) {
+      problems.push(`${check.id}: id does not start with its group ${check.group}`);
+    }
+    if (check.weight !== 'info')
+      problems.push(`${check.id}: legal signals are never scored (weight info)`);
+    if (check.laws.length === 0) problems.push(`${check.id}: cites no law`);
+    for (const law of check.laws) {
+      if (!lawIds.has(law)) problems.push(`${check.id}: cites unknown law ${law}`);
+    }
+    for (const dependency of check.depends_on) {
+      if (!catalog.legal.checks.some((other) => other.id === dependency)) {
+        problems.push(`${check.id}: depends on ${dependency}, which is not a legal check`);
+      }
+    }
+  }
+  for (const check of catalog.checks) {
+    if (check.laws.length > 0 || check.markets.length > 0) {
+      problems.push(`${check.id}: laws and markets belong to legal checks only`);
+    }
+  }
+
   const profileIds = new Set<string>();
   for (const profile of catalog.profiles) {
     if (profileIds.has(profile.id)) problems.push(`duplicate profile id ${profile.id}`);
     profileIds.add(profile.id);
     for (const id of profile.excluded_checks) {
-      if (!checkIds.has(id)) problems.push(`profile ${profile.id}: excludes unknown check ${id}`);
+      if (!checkIds.has(id) && !legalIds.has(id)) {
+        problems.push(`profile ${profile.id}: excludes unknown check ${id}`);
+      }
     }
   }
 

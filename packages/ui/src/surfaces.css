@@ -357,6 +357,10 @@
   .result-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
+  /* Legal statuses differ in length; a fixed column keeps every row's text aligned. */
+  .legal-verdict {
+    width: 8.25rem;
+  }
   .result-weight {
     grid-column: 2;
   }

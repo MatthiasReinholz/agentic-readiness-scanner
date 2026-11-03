@@ -1,6 +1,7 @@
 import { parseArgs } from 'node:util';
 
-import { catalog } from '@agentic-readiness/catalog';
+import { catalog, type Market } from '@agentic-readiness/catalog';
+import { parseMarkets } from '@agentic-readiness/core';
 
 export type OutputFormat = 'json' | 'md' | 'html' | 'badge';
 
@@ -14,6 +15,8 @@ export interface ScanArguments {
   timeoutMs?: number;
   fixture?: string;
   output?: string;
+  /** Markets for legal signals; detected when omitted. */
+  markets?: Market[];
 }
 
 export interface DiffArguments {
@@ -47,6 +50,7 @@ Scan options
   --budget <n>       Maximum requests per scan (default: 40)
   --sample <n>       Product pages to sample (default: 2)
   --timeout <ms>     Per-request timeout in milliseconds (default: 10000)
+  --markets <list>   Markets for legal signals, e.g. eu,uk,us (default: detected)
   --fixture <dir>    Answer from a recorded fixture directory instead of the network
   --output <file>    Write the report to a file instead of stdout
 
@@ -73,6 +77,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
       sample: { type: 'string' },
       timeout: { type: 'string' },
       fixture: { type: 'string' },
+      markets: { type: 'string' },
       output: { type: 'string', short: 'o' },
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
@@ -93,6 +98,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
       const budget = positiveInteger('budget', values.budget);
       const sampleSize = positiveInteger('sample', values.sample);
       const timeoutMs = positiveInteger('timeout', values.timeout);
+      const markets = values.markets !== undefined ? parseMarkets(values.markets) : undefined;
       return {
         command: 'scan',
         url,
@@ -103,6 +109,7 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
         ...(timeoutMs !== undefined ? { timeoutMs } : {}),
         ...(values.fixture !== undefined ? { fixture: values.fixture } : {}),
         ...(values.output !== undefined ? { output: values.output } : {}),
+        ...(markets ? { markets } : {}),
       };
     }
     case 'diff': {

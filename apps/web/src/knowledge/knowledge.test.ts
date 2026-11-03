@@ -54,7 +54,9 @@ describe('knowledge Markdown renderer', () => {
 describe('knowledge base', () => {
   it('has one article per check, each a level-aware page with structured data', async () => {
     const app = testApp();
-    expect(knowledge.map((article) => article.id)).toEqual(catalog.checks.map((check) => check.id));
+    expect(knowledge.map((article) => article.id)).toEqual(
+      [...catalog.checks, ...catalog.legal.checks].map((check) => check.id),
+    );
     for (const article of knowledge) {
       const response = await app.request(articlePath(article));
       expect(response.status, article.id).toBe(200);
@@ -132,8 +134,14 @@ describe('knowledge base', () => {
     const sitemap = await (await app.request('/sitemap.xml')).text();
     const llms = await (await app.request('/llms.txt')).text();
     const full = await (await app.request('/llms-full.txt')).text();
+    const legalHub = await (await app.request('/knowledge-base/legal-signals')).text();
+    expect(index).toContain('href="/knowledge-base/legal-signals"');
+    expect(sitemap).toContain('<loc>https://scanner.example/knowledge-base/legal-signals</loc>');
     for (const article of knowledge) {
-      expect(index).toContain(`href="${articlePath(article)}"`);
+      // Legal-signal articles are listed on their own hub, not on the readiness index.
+      expect(article.id.startsWith('C') ? legalHub : index).toContain(
+        `href="${articlePath(article)}"`,
+      );
       expect(sitemap).toContain(`<loc>https://scanner.example${articlePath(article)}</loc>`);
       expect(llms).toContain(`https://scanner.example${articlePath(article)}.md`);
       expect(full).toContain(`# ${article.headline}`);

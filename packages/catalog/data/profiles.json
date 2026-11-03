@@ -18,10 +18,10 @@
   {
     "id": "content-site",
     "title": "Content site",
-    "description": "Ingestion checks only. Commerce groups, product-page checks and the product sitemap check do not apply.",
+    "description": "Ingestion checks only. Commerce groups, product-page checks and the product sitemap check do not apply. Legal signals about selling (withdrawal, returns, product and price information) do not apply.",
     "dimensions": ["ingestion"],
     "unsatisfied_requirements": ["woocommerce", "shopify", "products"],
     "max_level": 1,
-    "excluded_checks": ["A1.3"]
+    "excluded_checks": ["A1.3", "C3.1", "C3.2", "C3.3", "C3.4", "C5.1", "C5.2", "C5.3", "C5.5"]
   }
 ]

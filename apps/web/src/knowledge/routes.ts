@@ -23,6 +23,9 @@ import {
   groupMarkdown,
   knowledgeIndexPage,
   KNOWLEDGE_UPDATED,
+  LEGAL_HUB_PATH,
+  legalHubMarkdown,
+  legalHubPage,
 } from './pages.js';
 
 const CACHE = 'public, max-age=3600';
@@ -53,6 +56,7 @@ function sitemapXml(config: AppConfig): string {
     '/',
     '/knowledge-base',
     ...catalog.groups.map((group) => `/knowledge-base/${groupSlug(group)}`),
+    LEGAL_HUB_PATH,
     ...knowledge.map(articlePath),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -112,7 +116,7 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
     const asMarkdown = file.endsWith('.md');
     const slug = asMarkdown ? file.slice(0, -3) : file;
     // A check id (/knowledge-base/A2.2) moves to its article, so reports and agents can link by id.
-    if (/^[ab]\d\.\d+$/i.test(slug)) {
+    if (/^[abc]\d\.\d+$/i.test(slug)) {
       const byId = articleByCheckId(slug);
       if (byId) return c.redirect(`${articlePath(byId)}${asMarkdown ? '.md' : ''}`, 301);
     }
@@ -122,6 +126,11 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
       return asMarkdown || wantsMarkdown(c)
         ? md(c, path, articleMarkdown(config, article))
         : html(c, path, knowledgeArticlePage(config, article));
+    }
+    if (slug === LEGAL_HUB_PATH.split('/').pop()) {
+      return asMarkdown || wantsMarkdown(c)
+        ? md(c, LEGAL_HUB_PATH, legalHubMarkdown(config))
+        : html(c, LEGAL_HUB_PATH, legalHubPage(config));
     }
     const group = groupBySlug(slug);
     if (group) {

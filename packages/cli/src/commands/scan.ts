@@ -5,6 +5,8 @@ import {
   renderBadge,
   renderHtml,
   renderJson,
+  renderLegalMarkdown,
+  renderLegalSectionHtml,
   renderMarkdown,
   scan,
   type ScanOptions,
@@ -18,9 +20,17 @@ export function render(result: ScanResult, format: OutputFormat): string {
     case 'json':
       return renderJson(result);
     case 'md':
-      return renderMarkdown(result);
+      return result.legal
+        ? `${renderMarkdown(result)}\n${renderLegalMarkdown(result, { embedded: true })}`
+        : renderMarkdown(result);
     case 'html':
-      return renderHtml(result);
+      return renderHtml(result, {
+        ...(result.legal
+          ? {
+              endHtml: `<section class="mt-12" id="legal-signals"><h2 class="mb-3 text-lg font-semibold tracking-tight">Legal signals</h2>${renderLegalSectionHtml(result)}</section>`,
+            }
+          : {}),
+      });
     case 'badge':
       return renderBadge(result);
   }
@@ -65,6 +75,7 @@ export async function runScan(
     ...(args.sampleSize !== undefined ? { sampleSize: args.sampleSize } : {}),
     ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
     ...(args.profile !== undefined ? { profile: args.profile } : {}),
+    ...(args.markets ? { markets: args.markets } : {}),
   };
   let result: ScanResult;
   try {
