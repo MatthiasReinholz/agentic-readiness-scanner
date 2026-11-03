@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-03
+
 ### Changed
 
 - **The scanner recognises 13 platforms and names the one it found at the top of every report** ([decision 0019](docs/decisions/0019-platform-specific-checks.md)). Besides WordPress, WooCommerce and Shopify it now recognises BigCommerce, Wix, Adobe Commerce (Magento), Squarespace, Square Online, PrestaShop, Salesforce Commerce Cloud, Shopware, Ecwid and Webflow. The report header shows the platform and links the platform-specific checks that ran; those checks carry the platform's name in the results; checks for other platforms are no longer mentioned at all, replacing the "N check(s) left out" sentence. B1.1 records the fingerprint that decided. `target.platform` gains the new values; consumers treat an unknown value as `unknown`. Store platforms always get a store profile.
