@@ -263,15 +263,9 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
       });
       continue;
     }
-    if (budgetExhausted) {
-      record(definition, {
-        verdict: 'skip',
-        skipReason: 'budget_exhausted',
-        message: stopReason,
-        evidence: {},
-      });
-      continue;
-    }
+    // Once the budget or deadline is gone a check still runs: one that only reads pages
+    // already fetched gets its answer from the cache, one that needs a new request throws
+    // at once and is skipped below. Costs milliseconds, never a request.
     try {
       record(definition, await implementation.run({ target, fetcher, definition, outcomes }));
     } catch (error) {
@@ -280,13 +274,14 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
         break;
       }
       if (error instanceof BudgetExhaustedError) {
+        const first = !budgetExhausted;
         budgetExhausted = true;
-        if (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError')
+        if (first && (error.name === 'RateLimitedError' || error.name === 'DeadlineExhaustedError'))
           stopReason = `not run: ${error.message} before this check`;
         record(definition, {
           verdict: 'skip',
           skipReason: 'budget_exhausted',
-          message: error.message,
+          message: first ? error.message : stopReason,
           evidence: {},
         });
       } else {

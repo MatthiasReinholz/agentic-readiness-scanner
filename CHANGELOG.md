@@ -23,6 +23,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- After the request budget or deadline is used up, the remaining checks still run against pages the scan already fetched; only those that need a new request are skipped. On a slow store, 16 of 17 legal checks that used to be reported as not checked are now answered.
+
 - The published `@agentic-readiness/core` type declarations no longer import the private `@agentic-readiness/catalog` and `@agentic-readiness/ui` packages: their types are bundled in, so consumers type-check without vendoring them. A test guards the built declarations.
 
 - Scores never stand on a sliver of the catalog (scoring 0.5.0). Each dimension records the share of its applicable weight the scan answered (`scores.coverage`); below half, commerce and group scores are `null` and every report says "Incomplete" with the share instead of printing a number. A slow store whose scan ran out of time after one passing commerce check used to read 100 for commerce. Checks now run level gates and blocking checks first, so a short time budget leaves optional probes unanswered rather than the gates, and a dependent of a check the budget never reached is reported as unanswered, not as blocked by a failure.

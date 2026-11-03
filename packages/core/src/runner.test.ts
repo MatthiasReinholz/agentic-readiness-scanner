@@ -64,23 +64,28 @@ describe('runChecks', () => {
     expect(result('A1.2').verdict).toBe('pass');
   });
 
-  it('marks the exhausting check and every later implemented check as budget_exhausted', async () => {
-    let laterRan = false;
+  it('after the budget is gone, still answers checks that need no new request', async () => {
     const { result } = await run([
       defineCheck('A1.1', () => {
         throw new BudgetExhaustedError(3);
       }),
-      defineCheck('A1.2', () => {
-        laterRan = true;
-        return pass('ran');
+      // Reads only pages already fetched, so the cache answers it.
+      defineCheck('A1.2', () => pass('ran from the cache')),
+      // Needs a new request, which the exhausted fetcher refuses.
+      defineCheck('A1.4', () => {
+        throw new BudgetExhaustedError(3);
       }),
     ]);
     expect(result('A1.1')).toMatchObject({
       skip_reason: 'budget_exhausted',
       message: 'Request budget of 3 exhausted',
     });
-    expect(result('A1.2')).toMatchObject({ verdict: 'skip', skip_reason: 'budget_exhausted' });
-    expect(laterRan).toBe(false);
+    expect(result('A1.2').verdict).toBe('pass');
+    expect(result('A1.4')).toMatchObject({
+      verdict: 'skip',
+      skip_reason: 'budget_exhausted',
+      message: 'request budget exhausted before this check ran',
+    });
   });
 
   it('sets applies to false only for not_applicable, from the runner or from the check', async () => {
