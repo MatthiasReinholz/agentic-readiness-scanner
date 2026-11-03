@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-03
+
 ### Changed
 
 - **Every document reviewed for currency, accuracy and plain language.** The README, the contributor and agent guides, the package READMEs, every document under `docs/`, all 100 knowledge-base articles, the guide, all fixes and the catalog's check descriptions were checked against the code and rewritten for readers new to the topic. Terms are explained where they first appear, sentences are shorter, and no prose uses semicolons. Outdated statements were corrected, for example the README still described release 0.7.0 and 64 checks, several check descriptions disagreed with what the code decides, and decision records now say where a later decision amended them. The report and page texts the code writes follow the same rules.
