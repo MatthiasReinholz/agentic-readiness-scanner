@@ -22,6 +22,8 @@ Releases are merge-driven and tag-backed. A branch push never publishes anything
 
 The hosted app is not deployed by the workflow. Spacefast's GitHub integration builds `main` on every merge and publishes it to the `live` channel, so the release merge goes live the same way any other merge does ([decision 0005](decisions/0005-deploy-through-git-integration.md)). Roll back with `sf rollback <version>` or from the Space's Versions page.
 
+Check that the release actually went live: the "Spacefast Builds" check on the release merge commit must be green, and the home page footer must show the new version. A main build can fail with `runtime_readiness_timeout` (the new runtime did not report ready in time) although the same code built on the pull request; it happened on two of four main builds on 2026-11-03. The live site then keeps serving the previous build. Redeploy from the Space's dashboard, or merge the next change to `main`; GitHub cannot re-run that check.
+
 Hotfixes follow the same flow from `hotfix/x.y.z` branches.
 
 ## Version surfaces
