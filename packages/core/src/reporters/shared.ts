@@ -2,6 +2,7 @@ import {
   catalog as defaultCatalog,
   type Catalog,
   type CheckResult,
+  type Dimension,
   type ScanResult,
 } from '@agentic-readiness/catalog';
 
@@ -31,7 +32,7 @@ export function escapeHtml(value: string): string {
 export interface GroupedResults {
   id: string;
   title: string;
-  dimension: 'ingestion' | 'commerce';
+  dimension: Dimension;
   results: CheckResult[];
 }
 

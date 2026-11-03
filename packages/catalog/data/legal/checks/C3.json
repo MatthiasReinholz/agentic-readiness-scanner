@@ -1,0 +1,81 @@
+[
+  {
+    "id": "C3.1",
+    "group": "C3",
+    "title": "EU withdrawal function",
+    "question": "Does the store offer the withdrawal function, labelled with the official words or an unambiguous equivalent?",
+    "method": "Read the links and buttons on the home page and the pages it shares a footer with. Found when one carries the official label of Article 11a in any EU language (\"withdraw from contract here\", \"Vertrag widerrufen\", \"renoncer au contrat ici\", \"desistir del contrato aquí\" and the other 20); review when a link names withdrawal in other words (\"Widerruf\", \"withdrawal form\", \"rétractation\"), which must be unambiguous; not found otherwise. The second step (\"confirm withdrawal\") and the acknowledgement happen after it and cannot be checked.",
+    "weight": "info",
+    "markets": ["EU"],
+    "laws": ["eu-crd-art11a", "de-bgb-356a"],
+    "spec": [
+      {
+        "title": "Directive (EU) 2023/2673, inserting Article 11a into the Consumer Rights Directive",
+        "url": "https://eur-lex.europa.eu/eli/dir/2023/2673/oj"
+      }
+    ]
+  },
+  {
+    "id": "C3.2",
+    "group": "C3",
+    "title": "Withdrawal and cancellation buttons (Argentina)",
+    "question": "Does the home page show the botón de arrepentimiento, and the botón de baja where services are sold?",
+    "method": "Found when the home page has a link or button whose text contains \"arrepentimiento\", and one containing \"baja\" when the store sells subscriptions or services; review when only one of the two is present where both apply; not found when neither is. Runs only when the store appears to sell to Argentina.",
+    "weight": "info",
+    "markets": ["AR"],
+    "laws": ["ar-disp-954", "ar-ley-24240"],
+    "spec": [
+      {
+        "title": "Argentina Disposición SSDCyLC 954/2025 (botón de arrepentimiento and botón de baja)",
+        "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/415000-419999/417152/norma.htm"
+      }
+    ]
+  },
+  {
+    "id": "C3.3",
+    "group": "C3",
+    "title": "Statutory return period stated",
+    "question": "Does the returns policy state at least the withdrawal period the store's markets grant?",
+    "method": "Read the returns policy the scan found and MerchantReturnPolicy markup. For each detected market take the statutory period (EU and UK 14 days, Argentina and Chile 10 days, Brazil 7 days, Colombia 5 business days) and look for a stated period in days or merchantReturnDays. Found when the stated period meets every detected market's minimum; review when no period is stated or the policy is missing; not found when the stated period is shorter than a market's minimum.",
+    "weight": "info",
+    "markets": ["EU", "UK", "BR", "CL", "CO", "AR"],
+    "laws": [
+      "eu-crd-art9",
+      "uk-ccr-2013",
+      "br-cdc-art49",
+      "cl-ley-19496",
+      "co-ley-1480",
+      "ar-ley-24240"
+    ],
+    "spec": [
+      {
+        "title": "Consumer Rights Directive 2011/83/EU, Article 9",
+        "url": "https://eur-lex.europa.eu/eli/dir/2011/83/oj"
+      },
+      {
+        "title": "schema.org MerchantReturnPolicy",
+        "url": "https://schema.org/MerchantReturnPolicy"
+      }
+    ]
+  },
+  {
+    "id": "C3.4",
+    "group": "C3",
+    "title": "Subscription cancellation route published",
+    "question": "When the store sells subscriptions, does it publish how to cancel online?",
+    "method": "Runs when the pages read offer a subscription (auto-renew, billed monthly, subscribe and save, or a billingDuration in price markup). Found when a link or page names cancellation (cancel subscription, Kündigung, Verträge hier kündigen, botón de baja); review when no cancellation route is linked. Rules that are not in force yet are listed with the day they apply from.",
+    "weight": "info",
+    "markets": ["US", "EU", "UK", "AR"],
+    "laws": ["us-ca-arl", "de-bgb-312k", "uk-dmcc-subscriptions", "ar-disp-954"],
+    "spec": [
+      {
+        "title": "California Automatic Renewal Law, Bus. & Prof. Code §17602",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=17602"
+      },
+      {
+        "title": "German Civil Code §312k (cancellation button)",
+        "url": "https://www.gesetze-im-internet.de/bgb/__312k.html"
+      }
+    ]
+  }
+]

@@ -1,0 +1,97 @@
+[
+  {
+    "id": "C1.1",
+    "group": "C1",
+    "title": "Seller identity block",
+    "question": "Does the store say who sells: a legal name, a geographic address and an email address?",
+    "method": "Read the imprint, legal-notice or contact page the scan found (falling back to the home page) and Organization JSON-LD. Found when a legal name (a company form or the Organization name), a postal address (street and postcode, or PostalAddress markup) and an email address (text or mailto:) are all present; review when one or two are; not found when none are. A contact form alone is not an email address. Whether the details are true cannot be checked.",
+    "weight": "info",
+    "laws": [
+      "eu-ecd-art5",
+      "de-ddg-5",
+      "at-ecg-5",
+      "uk-ecr-reg6",
+      "ch-uwg-art3",
+      "us-ca-civ-1789-3",
+      "ca-on-cpa-internet",
+      "ca-qc-cpa-distance",
+      "br-decreto-7962",
+      "cl-ley-19496",
+      "co-ley-1480"
+    ],
+    "spec": [
+      {
+        "title": "E-Commerce Directive 2000/31/EC, Article 5",
+        "url": "https://eur-lex.europa.eu/eli/dir/2000/31/oj"
+      },
+      {
+        "title": "UK Electronic Commerce (EC Directive) Regulations 2002, regulation 6",
+        "url": "https://www.legislation.gov.uk/uksi/2002/2013/regulation/6"
+      },
+      { "title": "schema.org Organization", "url": "https://schema.org/Organization" }
+    ]
+  },
+  {
+    "id": "C1.2",
+    "group": "C1",
+    "title": "Registration and tax numbers",
+    "question": "Does the store show the registration or tax numbers its markets ask for?",
+    "method": "On the identity page and the home page, look for the identifiers of each detected market and validate check digits where the scheme has one: an EU VAT ID (format per country), a UK company number with the registered office and the part of the UK where registered, a Swiss UID (CHE, mod 11), a Brazilian CNPJ (two check digits), a Chilean RUT (mod 11), a Colombian NIT (DIAN check digit), an Argentine CUIT (mod 11) or a Peruvian RUC (mod 11). Found when every detected market that asks for one has a valid number; review when a number is present but fails its check digit or only some markets are covered; not found when none is present.",
+    "weight": "info",
+    "markets": ["EU", "UK", "CH", "BR", "CL", "CO", "AR", "PE"],
+    "laws": [
+      "eu-ecd-art5",
+      "de-ddg-5",
+      "uk-trading-disclosures",
+      "br-decreto-7962",
+      "cl-ley-19496",
+      "co-ley-1480"
+    ],
+    "spec": [
+      {
+        "title": "E-Commerce Directive 2000/31/EC, Article 5(1)(d) and (g)",
+        "url": "https://eur-lex.europa.eu/eli/dir/2000/31/oj"
+      },
+      {
+        "title": "UK Company, LLP and Business (Names and Trading Disclosures) Regulations 2015",
+        "url": "https://www.legislation.gov.uk/uksi/2015/17"
+      },
+      {
+        "title": "Brazil Decreto 7.962/2013, Article 2",
+        "url": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2013/decreto/d7962.htm"
+      }
+    ]
+  },
+  {
+    "id": "C1.3",
+    "group": "C1",
+    "title": "Libro de Reclamaciones (Peru)",
+    "question": "Does the store link its virtual complaints book?",
+    "method": "Found when the home page has a link whose text, title or image alt text contains \"Libro de Reclamaciones\"; not found otherwise. Runs only when the store appears to sell to Peru.",
+    "weight": "info",
+    "markets": ["PE"],
+    "laws": ["pe-ley-29571"],
+    "spec": [
+      {
+        "title": "Peru Código de Protección y Defensa del Consumidor (Ley 29571), Articles 150 and 151",
+        "url": "https://www.gob.pe/institucion/ositran/normas-legales/8408129-29571"
+      }
+    ]
+  },
+  {
+    "id": "C1.4",
+    "group": "C1",
+    "title": "No outdated dispute-resolution link",
+    "question": "Does the store still point consumers to the EU ODR platform, which closed in July 2025?",
+    "method": "Read the home page, the terms and the imprint. Review when they link to ec.europa.eu/consumers/odr or name the ODR platform; found (nothing outdated) otherwise. The ODR Regulation was repealed with effect from 20 July 2025, so the link leads nowhere; this is legal-text hygiene, not a breach.",
+    "weight": "info",
+    "markets": ["EU"],
+    "laws": ["eu-odr-repeal"],
+    "spec": [
+      {
+        "title": "Regulation (EU) 2024/3228 repealing the ODR Regulation",
+        "url": "https://eur-lex.europa.eu/eli/reg/2024/3228/oj"
+      }
+    ]
+  }
+]

@@ -1,4 +1,4 @@
-import { getCheck, type ScanResult } from '@agentic-readiness/catalog';
+import { getCheck, type CheckResult, type ScanResult } from '@agentic-readiness/catalog';
 import { computeScores } from '@agentic-readiness/core';
 
 import { RowReader, SqlStore, type SqlDatabase } from './sql-store.js';
@@ -11,25 +11,35 @@ export type { SqlDatabase, SqlStatement } from './sql-store.js';
  * Fix text is the bulk of a result and lives in the catalog, so it is stripped before
  * storage and re-attached on read. Keeps rows small on brokers with tight payload caps.
  */
+function withoutFix(item: CheckResult): CheckResult {
+  const copy = { ...item };
+  delete copy.fix;
+  return copy;
+}
+
+function withFix(item: CheckResult): CheckResult {
+  if (item.verdict !== 'fail' && item.verdict !== 'warn') return item;
+  const definition = getCheck(item.id);
+  return definition ? { ...item, fix: definition.fix } : item;
+}
+
 export function stripFixes(result: ScanResult): ScanResult {
   return {
     ...result,
-    results: result.results.map((item) => {
-      const copy = { ...item };
-      delete copy.fix;
-      return copy;
-    }),
+    results: result.results.map(withoutFix),
+    ...(result.legal
+      ? { legal: { ...result.legal, results: result.legal.results.map(withoutFix) } }
+      : {}),
   };
 }
 
 export function attachFixes(result: ScanResult): ScanResult {
   return {
     ...result,
-    results: result.results.map((item) => {
-      if (item.verdict !== 'fail' && item.verdict !== 'warn') return item;
-      const definition = getCheck(item.id);
-      return definition ? { ...item, fix: definition.fix } : item;
-    }),
+    results: result.results.map(withFix),
+    ...(result.legal
+      ? { legal: { ...result.legal, results: result.legal.results.map(withFix) } }
+      : {}),
   };
 }
 

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "C1",
+    "title": "Seller identity and complaints",
+    "dimension": "legal",
+    "description": "Does the store say who sells: a legal name, a geographic address, an email address, and the registration and tax numbers its markets require?"
+  },
+  {
+    "id": "C2",
+    "title": "Privacy notices and choices",
+    "dimension": "legal",
+    "description": "Is a privacy notice linked from the home page, does it name a privacy contact, and are the opt-out links and signals of the store's markets in place before any tracking starts?"
+  },
+  {
+    "id": "C3",
+    "title": "Withdrawal, returns and cancellation",
+    "dimension": "legal",
+    "description": "Can a consumer find how to withdraw, return or cancel: the EU withdrawal function, Argentina's withdrawal button, the statutory return period and an online cancellation route for subscriptions?"
+  },
+  {
+    "id": "C4",
+    "title": "Accessibility",
+    "dimension": "legal",
+    "description": "Is an accessibility statement linked, and do the pages read pass the accessibility basics a static scan can check? Automated checks find a minority of barriers and never show conformance."
+  },
+  {
+    "id": "C5",
+    "title": "Product and price information",
+    "dimension": "legal",
+    "description": "Do product pages name the manufacturer and the EU responsible person, do discounts show the prior price, are reviews explained and environmental claims specific?"
+  },
+  {
+    "id": "C6",
+    "title": "AI transparency and content rights",
+    "dimension": "legal",
+    "description": "Is an AI assistant on the site, is text and data mining reserved in a machine-readable way that does not also shut out shopping agents, and are AI-generated images marked?"
+  }
+]

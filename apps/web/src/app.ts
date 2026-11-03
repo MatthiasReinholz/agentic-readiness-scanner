@@ -122,6 +122,9 @@ function robotsTxt(baseUrl: string): string {
     'Disallow: /api/',
     'Disallow: /internal/',
     'Disallow: /monitor/',
+    // Legal signals are a technical evaluation, not advice: never crawled or indexed.
+    'Disallow: /sites/*/legal',
+    'Disallow: /r/*/legal',
   ];
   return [
     `Sitemap: ${baseUrl}/sitemap.xml`,

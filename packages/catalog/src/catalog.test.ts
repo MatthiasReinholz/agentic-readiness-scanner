@@ -82,7 +82,9 @@ describe('knowledge base', () => {
 
   it('has one valid article per check with unique slugs and resolving links', () => {
     const articles = loadKnowledgeFromDisk(packageRoot, catalog);
-    expect(articles.map((article) => article.id)).toEqual(catalog.checks.map((check) => check.id));
+    expect(articles.map((article) => article.id)).toEqual(
+      [...catalog.checks, ...catalog.legal.checks].map((check) => check.id),
+    );
   });
 
   it('rejects articles that break the format', () => {
@@ -119,5 +121,20 @@ keywords: one, two, three
     expect(() =>
       parseKnowledgeMarkdown(valid.replace('a-valid-slug', 'Bad Slug'), 'A1.1.md'),
     ).toThrow(/slug/);
+  });
+});
+
+describe('legal signals', () => {
+  const catalog = loadCatalogFromDisk(packageRoot);
+
+  it('keeps legal checks apart, unscored, and citing laws that resolve to official texts', () => {
+    expect(catalog.legal.checks).toHaveLength(24);
+    expect(catalog.checks.some((check) => check.id.startsWith('C'))).toBe(false);
+    const laws = new Map(catalog.legal.laws.map((law) => [law.id, law]));
+    for (const check of catalog.legal.checks) {
+      expect(check.weight).toBe('info');
+      expect(check.laws.length).toBeGreaterThan(0);
+      for (const id of check.laws) expect(laws.get(id)?.url).toMatch(/^https:\/\//);
+    }
   });
 });

@@ -4,7 +4,7 @@
  * JSON report uses, so an agent gets the full contract, not a summary.
  */
 import { catalog, composeAgentPrompt, getCheck, type ScanResult } from '@agentic-readiness/catalog';
-import { renderMarkdown, SCANNER_VERSION } from '@agentic-readiness/core';
+import { renderLegalMarkdown, renderMarkdown, SCANNER_VERSION } from '@agentic-readiness/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
@@ -37,7 +37,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     {
       title: 'Scan a store for agentic readiness',
       description:
-        'Scans a public store URL for agentic ingestion and agentic commerce readiness. Returns the versioned result object: level, scores, one entry per check with verdict, evidence and fix. Public signals only; no credentials.',
+        'Scans a public store URL for agentic ingestion and agentic commerce readiness. Returns the versioned result object: level, scores, one entry per check with verdict, evidence and fix, plus legal signals (a technical evaluation of public legal disclosures, never scored and not legal advice). Public signals only; no credentials.',
       inputSchema: {
         url: z
           .string()
@@ -57,7 +57,10 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     },
     async ({ url, profile, format }) => {
       const result = await options.scanner(url, profile);
-      const text = format === 'markdown' ? renderMarkdown(result) : JSON.stringify(result);
+      const text =
+        format === 'markdown'
+          ? `${renderMarkdown(result)}${result.legal ? `\n${renderLegalMarkdown(result, { embedded: true })}` : ''}`
+          : JSON.stringify(result);
       return { content: [{ type: 'text', text }] };
     },
   );

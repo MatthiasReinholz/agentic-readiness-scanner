@@ -12,6 +12,8 @@ function run(target: Target, fetcher: Fetcher): Promise<CheckOutcome> {
   const id = shopifyProductsJsonReadable.id;
   const definition: CheckDefinition = getCheck(id) ?? {
     id,
+    laws: [],
+    markets: [],
     group: 'B1',
     title: id,
     question: id,

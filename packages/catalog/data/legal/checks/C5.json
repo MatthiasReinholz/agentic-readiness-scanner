@@ -1,0 +1,89 @@
+[
+  {
+    "id": "C5.1",
+    "group": "C5",
+    "title": "Manufacturer and EU responsible person on product pages",
+    "question": "Do product pages name the manufacturer with a postal and an electronic address, and the EU responsible person where the manufacturer is outside the EU?",
+    "method": "On sampled product pages, read Product markup (manufacturer, brand) and the visible text near manufacturer wording (Hersteller, manufacturer, fabricant, fabricante, produttore, responsible person, verantwortliche Person, personne responsable). Found when every page names a manufacturer with an address or an email address; review when a manufacturer or brand is named without contact details, or only on some pages; not found when no page names one. Whether warnings and safety information are needed depends on the product and is not checked.",
+    "weight": "info",
+    "requires": ["products"],
+    "markets": ["EU"],
+    "laws": ["eu-gpsr-art19"],
+    "spec": [
+      {
+        "title": "General Product Safety Regulation (EU) 2023/988, Article 19",
+        "url": "https://eur-lex.europa.eu/eli/reg/2023/988/oj"
+      }
+    ]
+  },
+  {
+    "id": "C5.2",
+    "group": "C5",
+    "title": "Discounts show the prior lowest price",
+    "question": "When a product page shows a reduced price, does it state the lowest price of the previous 30 days?",
+    "method": "Runs on sampled product pages that show a struck-through price (del or s next to the price, or two prices in the offer). Found when wording about the lowest price in the last 30 days is near it (lowest price in the last 30 days, niedrigster Preis der letzten 30 Tage, prix le plus bas des 30 derniers jours, precio más bajo de los últimos 30 días); review when it is missing. Whether the stated price history is true cannot be checked.",
+    "weight": "info",
+    "requires": ["products"],
+    "markets": ["EU"],
+    "laws": ["eu-pid-art6a"],
+    "spec": [
+      {
+        "title": "Price Indication Directive 98/6/EC, Article 6a",
+        "url": "https://eur-lex.europa.eu/eli/dir/1998/6/oj"
+      }
+    ]
+  },
+  {
+    "id": "C5.3",
+    "group": "C5",
+    "title": "Review verification explained",
+    "question": "When the store shows reviews, does it say how it checks they come from real customers?",
+    "method": "Runs when the home page or a sampled product page carries reviews (AggregateRating or Review markup, or a known review widget). Found when the pages read or a linked page explain how reviews are checked (verified purchase, verified buyer, how we check reviews, Bewertungen werden geprüft, avis vérifiés); review when no such statement is found, or when AggregateRating counts disagree with the reviews shown.",
+    "weight": "info",
+    "markets": ["EU", "UK", "US"],
+    "laws": ["eu-ucpd-art7", "uk-dmcc-reviews", "us-ftc-reviews"],
+    "spec": [
+      {
+        "title": "Unfair Commercial Practices Directive 2005/29/EC, Article 7(6) and Annex I",
+        "url": "https://eur-lex.europa.eu/eli/dir/2005/29/oj"
+      },
+      {
+        "title": "FTC Trade Regulation Rule on Consumer Reviews and Testimonials, 16 CFR Part 465",
+        "url": "https://www.ecfr.gov/current/title-16/chapter-I/subchapter-D/part-465"
+      }
+    ]
+  },
+  {
+    "id": "C5.4",
+    "group": "C5",
+    "title": "Generic environmental claims",
+    "question": "Do the pages read make generic environmental claims a reviewer should substantiate?",
+    "method": "Review when the home page or sampled product pages use generic claims (climate neutral, carbon neutral, eco-friendly, environmentally friendly, klimaneutral, umweltfreundlich, CO2-neutral, respectueux de l'environnement, respetuoso con el medio ambiente) and list each with its context; found (none seen) otherwise. A claim backed by recognised excellent environmental performance or a certification scheme can be lawful; the scan cannot tell.",
+    "weight": "info",
+    "markets": ["EU", "UK", "US"],
+    "laws": ["eu-ecgt", "us-ftc-green-guides"],
+    "spec": [
+      {
+        "title": "Directive (EU) 2024/825 on empowering consumers for the green transition",
+        "url": "https://eur-lex.europa.eu/eli/dir/2024/825/oj"
+      }
+    ]
+  },
+  {
+    "id": "C5.5",
+    "group": "C5",
+    "title": "Swiss price display",
+    "question": "Do product pages show prices in Swiss francs with VAT included?",
+    "method": "Runs when the store appears to sell to Switzerland. On sampled product pages, found when offers are priced in CHF and the page states that VAT is included (inkl. MWST, TVA incluse, IVA inclusa, incl. VAT); review when prices are in CHF without the VAT statement; not found when no CHF price is shown.",
+    "weight": "info",
+    "requires": ["products"],
+    "markets": ["CH"],
+    "laws": ["ch-pbv"],
+    "spec": [
+      {
+        "title": "Swiss Price Indication Ordinance (PBV)",
+        "url": "https://www.fedlex.admin.ch/eli/cc/1978/2081_2081_2081/de"
+      }
+    ]
+  }
+]

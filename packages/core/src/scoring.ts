@@ -10,6 +10,7 @@ import {
   type Dimension,
   type LevelResult,
   type Profile,
+  type ScoredDimension,
   type Scores,
 } from '@agentic-readiness/catalog';
 
@@ -170,7 +171,7 @@ export interface DimensionScore {
  * How a report should present one dimension: a score, "incomplete" when the scan answered
  * too little of it to stand on, or "not applicable" for a profile without the dimension.
  */
-export function dimensionScore(scores: Scores, dimension: Dimension): DimensionScore {
+export function dimensionScore(scores: Scores, dimension: ScoredDimension): DimensionScore {
   const coverage = scores.coverage?.[dimension] ?? null;
   const value = scores[dimension];
   if (coverage !== null && coverage < MIN_SCORE_COVERAGE) {

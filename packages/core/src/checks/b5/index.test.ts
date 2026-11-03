@@ -251,6 +251,8 @@ function runAny(
 ): Promise<CheckOutcome> {
   const definition: CheckDefinition = getCheck(check.id) ?? {
     id: check.id,
+    laws: [],
+    markets: [],
     group: check.id.slice(0, 2),
     title: check.id,
     question: check.id,

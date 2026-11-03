@@ -1,0 +1,63 @@
+[
+  {
+    "id": "C6.1",
+    "group": "C6",
+    "title": "AI chat assistant detected",
+    "question": "Does the site load an AI chat assistant whose users must be told they are talking to a machine?",
+    "method": "Review when the static HTML loads a known chat or AI assistant (Intercom, Zendesk, Gorgias, Tidio, Drift, LivePerson, Ada, Crisp, Shopify Inbox and the like) and name it; found (none detected) otherwise. The disclosure appears inside the widget after JavaScript runs and cannot be checked; the duty often rests with the vendor that provides the AI system.",
+    "weight": "info",
+    "markets": ["EU", "US"],
+    "laws": ["eu-ai-act-art50", "us-ca-bot-act", "us-ut-ai-policy", "us-me-chatbot"],
+    "spec": [
+      {
+        "title": "EU AI Act, Regulation (EU) 2024/1689, Article 50",
+        "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+      },
+      {
+        "title": "California Bus. & Prof. Code §17941",
+        "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=17941"
+      }
+    ]
+  },
+  {
+    "id": "C6.2",
+    "group": "C6",
+    "title": "Machine-readable reservation of text and data mining",
+    "question": "Does the store reserve text and data mining in a form machines can read, without shutting out search and shopping agents?",
+    "method": "Classify what the store publishes: robots.txt groups for AI training crawlers, Content-Usage lines, /.well-known/tdmrep.json, a tdm-reservation header or meta tag, or reservation wording only in the terms. Found when a machine-readable reservation exists and the search and user-triggered agents scored in A2 can still read product pages; review when the reservation is in the terms only (not machine-readable under the 2025 Hamburg ruling) or when it also blocks those agents; found with a note when nothing is reserved, because reserving is a right, not a duty.",
+    "weight": "info",
+    "markets": ["EU"],
+    "laws": ["eu-dsm-art4", "eu-ai-act-art53", "de-urhg-44b"],
+    "spec": [
+      {
+        "title": "DSM Copyright Directive (EU) 2019/790, Article 4(3)",
+        "url": "https://eur-lex.europa.eu/eli/dir/2019/790/oj"
+      },
+      {
+        "title": "TDM Reservation Protocol (TDMRep)",
+        "url": "https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240510/"
+      }
+    ]
+  },
+  {
+    "id": "C6.3",
+    "group": "C6",
+    "title": "AI-generated product images marked",
+    "question": "When product images carry AI-generation metadata, is it intact?",
+    "method": "Fetch the main image of up to two sampled product pages (at most 2 MB each) and look for a C2PA manifest or IPTC DigitalSourceType trainedAlgorithmicMedia or compositeWithTrainedAlgorithmicMedia in the embedded XMP. Found when an image declares AI generation; otherwise the check does not apply: missing metadata does not show an image is camera-made, because CDNs often strip it.",
+    "weight": "info",
+    "requires": ["products"],
+    "markets": ["EU"],
+    "laws": ["eu-ai-act-art50"],
+    "spec": [
+      {
+        "title": "C2PA Technical Specification",
+        "url": "https://c2pa.org/specifications/specifications/2.1/specs/C2PA_Specification.html"
+      },
+      {
+        "title": "IPTC Digital Source Type vocabulary",
+        "url": "https://cv.iptc.org/newscodes/digitalsourcetype/"
+      }
+    ]
+  }
+]

@@ -295,3 +295,47 @@ describe('fix stripping for storage', () => {
     expect(attachFixes(stripped)).toEqual(result);
   });
 });
+
+describe('legal signals', () => {
+  it('serves them beside the report, never indexed, crawled or exported with readiness', async () => {
+    const { app } = testApp();
+    const scan = await app.request('/api/scan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: 'ceramics.example' }),
+    });
+    const body = (await scan.json()) as { id: string; result: { legal?: { results: unknown[] } } };
+    expect(body.result.legal?.results.length).toBeGreaterThan(0);
+
+    const robots = await (await app.request('/robots.txt')).text();
+    expect(robots).toContain('Disallow: /sites/*/legal');
+    expect(robots).toContain('Disallow: /r/*/legal');
+    const sitemap = await (await app.request('/sitemap.xml')).text();
+    expect(sitemap).not.toContain('/legal<');
+
+    for (const path of ['/sites/ceramics.example/legal', `/r/${body.id}/legal`]) {
+      const html = await app.request(path);
+      expect(html.status).toBe(200);
+      expect(html.headers.get('x-robots-tag')).toBe('noindex, nofollow, noarchive');
+      const text = await html.text();
+      expect(text).toContain('<meta name="robots" content="noindex, nofollow, noarchive">');
+      expect(text).toContain('not legal advice');
+    }
+    const json = (await (await app.request('/sites/ceramics.example/legal.json')).json()) as {
+      notice: string;
+      results: { laws: unknown[] }[];
+    };
+    expect(json.notice).toContain('not legal advice');
+    expect(json.results.some((item) => item.laws.length > 0)).toBe(true);
+    const markdown = await (await app.request(`/r/${body.id}/legal.md`)).text();
+    expect(markdown).toMatch(/^# Legal signals for https:\/\/ceramics\.example/);
+
+    const readiness = (await (
+      await app.request('/sites/ceramics.example/report.json')
+    ).json()) as Record<string, unknown>;
+    expect(readiness.legal).toBeUndefined();
+    const report = await (await app.request('/sites/ceramics.example')).text();
+    expect(report).toContain('href="/sites/ceramics.example/legal" rel="nofollow"');
+    expect(report).not.toContain('data-legal-status');
+  });
+});

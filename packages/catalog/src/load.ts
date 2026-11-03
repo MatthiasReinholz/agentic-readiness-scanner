@@ -14,6 +14,7 @@ import {
   CatalogSchema,
   CheckDefinitionSchema,
   GroupSchema,
+  LawSchema,
   LevelSchema,
   ProfileSchema,
   validateCatalogIntegrity,
@@ -48,39 +49,55 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
   const profiles = z.array(ProfileSchema).parse(readJson(join(dataDir, 'profiles.json')));
 
   const fixFiles = new Set(readdirSync(fixesDir).filter((name) => name.endsWith('.md')));
-  const checks = [];
-  const checkFiles = readdirSync(join(dataDir, 'checks'))
-    .filter((name) => name.endsWith('.json'))
-    .sort();
-
-  for (const file of checkFiles) {
-    const parsed = z.array(CheckSourceSchema).safeParse(readJson(join(dataDir, 'checks', file)));
-    if (!parsed.success) {
-      problems.push(
-        `${file}: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
-      );
-      continue;
-    }
-    for (const source of parsed.data) {
-      const fixFile = `${source.id}.md`;
-      if (!fixFiles.has(fixFile)) {
-        problems.push(`${source.id}: missing fixes/${fixFile}`);
+  const readChecks = (dir: string) => {
+    const found = [];
+    const files = readdirSync(dir)
+      .filter((name) => name.endsWith('.json'))
+      .sort();
+    for (const file of files) {
+      const parsed = z.array(CheckSourceSchema).safeParse(readJson(join(dir, file)));
+      if (!parsed.success) {
+        problems.push(
+          `${file}: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+        );
         continue;
       }
-      fixFiles.delete(fixFile);
-      try {
-        const fix = parseFixMarkdown(readFileSync(join(fixesDir, fixFile), 'utf8'), fixFile);
-        checks.push({ ...source, fix });
-      } catch (error) {
-        problems.push(error instanceof Error ? error.message : String(error));
+      for (const source of parsed.data) {
+        const fixFile = `${source.id}.md`;
+        if (!fixFiles.has(fixFile)) {
+          problems.push(`${source.id}: missing fixes/${fixFile}`);
+          continue;
+        }
+        fixFiles.delete(fixFile);
+        try {
+          const fix = parseFixMarkdown(readFileSync(join(fixesDir, fixFile), 'utf8'), fixFile);
+          found.push({ ...source, fix });
+        } catch (error) {
+          problems.push(error instanceof Error ? error.message : String(error));
+        }
       }
     }
-  }
+    return found;
+  };
+  const checks = readChecks(join(dataDir, 'checks'));
+  const legalDir = join(dataDir, 'legal');
+  const legal = {
+    groups: z.array(GroupSchema).parse(readJson(join(legalDir, 'groups.json'))),
+    laws: z.array(LawSchema).parse(readJson(join(legalDir, 'laws.json'))),
+    checks: readChecks(join(legalDir, 'checks')),
+  };
   for (const orphan of fixFiles) {
     problems.push(`fixes/${orphan} has no matching check definition`);
   }
 
-  const catalogParse = CatalogSchema.safeParse({ ...meta, groups, checks, levels, profiles });
+  const catalogParse = CatalogSchema.safeParse({
+    ...meta,
+    groups,
+    checks,
+    levels,
+    profiles,
+    legal,
+  });
   if (!catalogParse.success) {
     problems.push(...catalogParse.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
     throw new CatalogLoadError(problems);
@@ -101,7 +118,7 @@ export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): Kn
   const problems: string[] = [];
   const files = new Set(readdirSync(dir).filter((name) => name.endsWith('.md')));
   const articles: KnowledgeArticle[] = [];
-  for (const check of catalog.checks) {
+  for (const check of [...catalog.checks, ...catalog.legal.checks]) {
     const file = `${check.id}.md`;
     if (!files.has(file)) {
       problems.push(`${check.id}: missing knowledge/${file}`);

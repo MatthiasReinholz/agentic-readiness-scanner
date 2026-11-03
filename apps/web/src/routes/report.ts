@@ -1,14 +1,19 @@
 import {
   escapeHtml,
+  legalJson,
   renderBadge,
   renderHtml,
   renderJson,
+  renderLegalHtml,
+  renderLegalMarkdown,
   renderMarkdown,
+  withoutLegal,
 } from '@agentic-readiness/core';
 import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
 import type { AppConfig } from '../config.js';
+import { knowledgeUrlFor } from '../knowledge/pages.js';
 import { reportMetadata } from '../metadata.js';
 import type { StoredScan } from '../store/types.js';
 import { entryContaining } from '../history/types.js';
@@ -54,6 +59,12 @@ function reportLinks(config: AppConfig, stored: StoredScan, path = `/r/${stored.
   };
 }
 
+function legalFormat(c: Context, file: string): string {
+  if (file.endsWith('.json')) return 'json';
+  if (file.endsWith('.md') || c.req.header('accept')?.includes('text/markdown')) return 'md';
+  return 'html';
+}
+
 /** Distinct states shown on a history page at most. */
 export const HISTORY_PAGE_ENTRIES = 200;
 
@@ -81,7 +92,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     c.header('Cache-Control', 'public, max-age=60');
     c.header('Vary', 'Accept');
     if (format === 'json')
-      return c.body(renderJson(stored.result), 200, {
+      return c.body(renderJson(withoutLegal(stored.result)), 200, {
         'content-type': 'application/json; charset=utf-8',
       });
     if (format === 'md')
@@ -96,6 +107,7 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
         ? sincePreviousPanel(stored.host, entries, stored, entryContaining(entries, stored))
         : '';
     const root = isRootScan(stored);
+    const legalLink = `<p class="mt-5 text-sm text-muted-foreground"><a class="font-semibold text-primary hover:underline" href="${path}/legal" rel="nofollow">Legal signals</a>: a technical evaluation of the store's public legal disclosures, never scored and not legal advice.</p>`;
     const profile = root
       ? `<p class="mt-5 text-sm text-muted-foreground">Store profile: <a class="text-primary hover:underline" href="${siteProfilePath(stored.host)}">${escapeHtml(stored.host)}</a> · <a class="text-primary hover:underline" href="/r/${stored.id}">This scan's snapshot</a> · <a class="text-primary hover:underline" href="/h/${encodeURIComponent(stored.host)}">History</a></p>`
       : '';
@@ -106,10 +118,37 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
     return c.html(
       renderHtml(stored.result, {
         ...links,
-        afterScoresHtml: `${profile}${progress}${monitoring && root ? monitorPanel(config, stored) : ''}`,
+        afterScoresHtml: `${legalLink}${profile}${progress}${monitoring && root ? monitorPanel(config, stored) : ''}`,
         ...monitorSlots,
       }),
     );
+  }
+
+  /**
+   * Legal signals beside a report, at <report>/legal: never indexed, never crawled (robots
+   * disallows the path), never in the sitemap, and every format opens with the notice.
+   */
+  function serveLegal(c: Context, stored: StoredScan, format: string, path: string): Response {
+    const base = `${config.baseUrl}${path}`;
+    c.header('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    c.header('Cache-Control', 'public, max-age=60');
+    c.header('Vary', 'Accept');
+    const options = {
+      appName: config.appName,
+      homeUrl: `${config.baseUrl}/`,
+      reportUrl: base,
+      jsonUrl: `${base}/legal.json`,
+      markdownUrl: `${base}/legal.md`,
+      knowledgeUrl: (id: string) => knowledgeUrlFor(config, id),
+      head: hostedHead(),
+      footerHtml: hostedFooterHtml(config),
+    };
+    if (format === 'json') return c.json(legalJson(stored.result, options));
+    if (format === 'md')
+      return c.body(renderLegalMarkdown(stored.result, options), 200, {
+        'content-type': 'text/markdown; charset=utf-8',
+      });
+    return c.html(renderLegalHtml(stored.result, options));
   }
 
   // Stable host identity and immutable snapshot identity are deliberately separate.
@@ -134,6 +173,23 @@ export function createReportRoutes({ deps, monitoring }: ReportRouteDependencies
   );
   app.get('/sites/:host/report.json', (c) => serveProfile(c, 'json'));
   app.get('/sites/:host/report.md', (c) => serveProfile(c, 'md'));
+  app.get('/sites/:host/:legal{legal(?:\\.json|\\.md)?}', async (c) => {
+    const host = profileHost(c.req.param('host'));
+    if (!host) return c.notFound();
+    const file = c.req.param('legal');
+    if (host !== c.req.param('host')) return c.redirect(`${siteProfilePath(host)}/${file}`, 301);
+    const stored = await store.latestForHost(host);
+    if (!stored || !isRootScan(stored) || !withinRetention(config, stored.createdAt, now()))
+      return c.notFound();
+    return serveLegal(c, stored, legalFormat(c, file), siteProfilePath(host));
+  });
+  app.get('/r/:id/:legal{legal(?:\\.json|\\.md)?}', async (c) => {
+    const id = c.req.param('id');
+    if (!SCAN_ID.test(id)) return c.notFound();
+    const stored = await store.get(id);
+    if (!stored || !withinRetention(config, stored.createdAt, now())) return c.notFound();
+    return serveLegal(c, stored, legalFormat(c, c.req.param('legal')), `/r/${id}`);
+  });
 
   app.post('/scan', async (c) => {
     c.header('Cache-Control', 'no-store');

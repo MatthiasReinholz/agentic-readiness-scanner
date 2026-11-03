@@ -87,3 +87,17 @@ test('every map cell links to a check on the page', async ({ page }) => {
   );
   expect(targets).toBe(0);
 });
+
+test('the report links its legal signals page, which is never indexed', async ({ page }) => {
+  await page.goto(`/sites/${SEEDED_HOST}`);
+  const link = page.getByRole('link', { name: 'Legal signals' });
+  await expect(link).toHaveAttribute('rel', 'nofollow');
+  const response = await page.goto(`/sites/${SEEDED_HOST}/legal`);
+  expect(response?.headers()['x-robots-tag']).toBe('noindex, nofollow, noarchive');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    'content',
+    'noindex, nofollow, noarchive',
+  );
+  await expect(page.locator('[role="note"]').first()).toContainText('not legal advice');
+  await expect(page.locator('[data-legal-status]').first()).toBeVisible();
+});

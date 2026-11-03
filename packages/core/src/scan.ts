@@ -1,6 +1,7 @@
 import {
   catalog as defaultCatalog,
   type Catalog,
+  type Market,
   type ScanResult,
   RESULT_SCHEMA_ID,
 } from '@agentic-readiness/catalog';
@@ -10,6 +11,7 @@ import type { Check } from './checks/types.js';
 import { BudgetedFetcher, type FetchLike } from './http/budgeted-fetcher.js';
 import { RobotsGatedFetcher } from './http/robots-gate.js';
 import type { FetchFailure, Fetcher } from './http/types.js';
+import { runLegalChecks } from './legal/run.js';
 import { runChecks } from './runner.js';
 import { computeLevel, computeScores } from './scoring.js';
 import { resolveTarget } from './target/resolver.js';
@@ -34,6 +36,12 @@ export interface ScanOptions {
   sampleSize?: number;
   checks?: readonly Check[];
   catalog?: Catalog;
+  /** Run the legal-signals checks after the readiness checks (default true). */
+  legal?: boolean;
+  /** Markets to evaluate legal signals for; detected from public signals when omitted. */
+  markets?: readonly Market[];
+  /** Override the legal-signals implementations (tests). */
+  legalChecks?: readonly Check[];
   now?: () => Date;
 }
 
@@ -90,6 +98,16 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
     checks: options.checks ?? builtInChecks,
     catalog,
   });
+  const legal =
+    options.legal === false || catalog.legal.checks.length === 0
+      ? undefined
+      : await runLegalChecks({
+          target,
+          fetcher,
+          catalog,
+          ...(options.markets ? { markets: options.markets } : {}),
+          ...(options.legalChecks ? { checks: options.legalChecks } : {}),
+        });
 
   return {
     schema: RESULT_SCHEMA_ID,
@@ -118,6 +136,7 @@ export async function scan(inputUrl: string, options: ScanOptions = {}): Promise
         : []),
       ...failureWarnings(fetcher.failures),
     ],
+    ...(legal ? { legal } : {}),
   };
 }
 

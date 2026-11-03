@@ -6,3 +6,4 @@ export * from './markdown.js';
 export * from './html.js';
 export * from './badge.js';
 export * from './html-theme.js';
+export * from './legal.js';

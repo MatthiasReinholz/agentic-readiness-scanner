@@ -92,6 +92,38 @@ export function renderChecksDoc(catalog: Catalog): string {
     }
     lines.push('');
   }
+  if (catalog.legal.checks.length > 0) {
+    lines.push('## Legal signals');
+    lines.push('');
+    lines.push(
+      `${catalog.legal.checks.length} checks in ${catalog.legal.groups.length} groups, reported on their own page beside each report and never scored or gated (decision 0015). They are a technical evaluation, not legal advice. A check bound to markets runs only when the store appears to sell to one of them.`,
+    );
+    lines.push('');
+    for (const group of catalog.legal.groups) {
+      lines.push(`### ${group.id}. ${group.title}`);
+      lines.push('');
+      lines.push(group.description);
+      lines.push('');
+      lines.push('| ID | Check | How it is decided | Markets | Laws |');
+      lines.push('| --- | --- | --- | --- | --- |');
+      for (const check of catalog.legal.checks.filter((item) => item.group === group.id)) {
+        lines.push(
+          `| ${check.id} | ${escapeCell(check.title)} | ${escapeCell(check.method)} | ${check.markets.join(', ') || 'any'} | ${check.laws.join(', ')} |`,
+        );
+      }
+      lines.push('');
+    }
+    lines.push('### Law registry');
+    lines.push('');
+    lines.push('| ID | Jurisdiction | Provision | Applies from | Verified |');
+    lines.push('| --- | --- | --- | --- | --- |');
+    for (const law of catalog.legal.laws) {
+      lines.push(
+        `| ${law.id} | ${law.jurisdiction} | [${escapeCell(law.name)}](${law.url}) | ${law.applies_from ?? 'in force'} | ${law.verified} |`,
+      );
+    }
+    lines.push('');
+  }
   lines.push('## Fixes');
   lines.push('');
   lines.push(
@@ -100,7 +132,7 @@ export function renderChecksDoc(catalog: Catalog): string {
   lines.push('');
   lines.push('| ID | Summary | Mechanical |');
   lines.push('| --- | --- | --- |');
-  for (const check of catalog.checks) {
+  for (const check of [...catalog.checks, ...catalog.legal.checks]) {
     lines.push(
       `| ${check.id} | ${escapeCell(check.fix.summary)} | ${check.fix.auto_fix ? 'yes' : '–'} |`,
     );

@@ -11,3 +11,6 @@ export * from './diff.js';
 export * from './scan.js';
 export * from './progress.js';
 export * from './version.js';
+export { legalChecks } from './checks/legal/index.js';
+export { detectMarkets, marketOfCountry, parseMarkets } from './legal/markets.js';
+export { runLegalChecks, type LegalRunOptions } from './legal/run.js';
