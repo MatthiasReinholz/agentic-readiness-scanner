@@ -8,6 +8,7 @@ import {
   composeAgentPrompt,
   fixForPlatform,
   getCheck,
+  PlatformSchema,
   type ScanResult,
 } from '@agentic-readiness/catalog';
 import { renderLegalMarkdown, renderMarkdown, SCANNER_VERSION } from '@agentic-readiness/core';
@@ -103,10 +104,9 @@ export function createMcpServer(options: McpServerOptions): McpServer {
           .string()
           .regex(/^[AB][1-5]\.\d{1,2}$/)
           .describe('Check id, e.g. B3.1'),
-        platform: z
-          .enum(['woocommerce', 'wordpress', 'shopify', 'unknown'])
-          .optional()
-          .describe('Detected platform from the scan result (target.platform)'),
+        platform: PlatformSchema.optional().describe(
+          'Detected platform from the scan result (target.platform)',
+        ),
       },
     },
     ({ check_id, platform }) => {

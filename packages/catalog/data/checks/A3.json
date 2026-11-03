@@ -231,5 +231,43 @@
         "url": "https://developer.chrome.com/docs/lighthouse/best-practices/doctype"
       }
     ]
+  },
+  {
+    "id": "A3.12",
+    "group": "A3",
+    "title": "PrestaShop friendly URLs",
+    "question": "Do PrestaShop product URLs carry readable paths instead of query strings?",
+    "method": "On a PrestaShop store, look at the sampled product URLs. Pass when every one is a readable path; warn when any is a query-string URL (index.php or product.php with id_product or controller parameters), which PrestaShop builds when Friendly URL is off under Shop Parameters > Traffic & SEO. Readable URLs tell an agent what the page is before it fetches it and stay stable across parameters. No extra request.",
+    "weight": 1,
+    "requires": ["prestashop", "products"],
+    "spec": [
+      {
+        "title": "PrestaShop 9 user guide: SEO and URLs",
+        "url": "https://docs.prestashop-project.org/v.9-documentation/user-guide/configuring-shop/shop-parameters/traffic/seo-and-urls"
+      },
+      {
+        "title": "Google Search Central: URL structure best practices",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/url-structure"
+      }
+    ]
+  },
+  {
+    "id": "A3.13",
+    "group": "A3",
+    "title": "Ecwid store pages have their own URLs",
+    "question": "Do the Ecwid store's product pages have URLs a crawler can fetch?",
+    "method": "On a site running an Ecwid store, read the home page. Warn when store links use hashbang URLs (/store/#!/product-name/p/123456), because the part after #! never reaches the server, or when the store is embedded in a custom site whose integration code does not switch clean URLs on (window.ec.config.storefrontUrls.cleanUrls = true). Pass on Instant Site and on WordPress and Wix sites, where Ecwid documents clean URLs and static copies of product pages as automatic, or when the custom integration switches clean URLs on. No extra request.",
+    "weight": 1,
+    "requires": ["ecwid"],
+    "spec": [
+      {
+        "title": "Ecwid Help Center: What Ecwid does for SEO",
+        "url": "https://support.ecwid.com/hc/en-us/articles/360000585949-What-Ecwid-does-for-SEO"
+      },
+      {
+        "title": "Ecwid API docs: Enable clean store URLs on a custom website",
+        "url": "https://docs.ecwid.com/api-reference/rest-api/storefront-widget-details/optimize-custom-website-seo-with-better-urls/enable-clean-store-urls-on-a-custom-website"
+      }
+    ]
   }
 ]

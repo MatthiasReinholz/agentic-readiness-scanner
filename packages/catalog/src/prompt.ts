@@ -7,7 +7,7 @@
  * patch, verify). Kept in one place so every surface (HTML, Markdown, MCP) hands agents
  * the same brief.
  */
-import { fixForPlatform } from './platforms.js';
+import { fixForPlatform, platformLabel } from './platforms.js';
 import type { Platform } from './result.js';
 import type { CheckDefinition, Verdict } from './schema.js';
 
@@ -74,10 +74,8 @@ export function composeAgentPrompt(
   const scannerUrl = context.scannerUrl ?? DEFAULT_SCANNER_URL;
   const where = context.targetUrl ? ` of ${context.targetUrl}` : '';
   const when = context.scannedAt ? ` on ${context.scannedAt.slice(0, 10)}` : '';
-  const platform =
-    context.platform && context.platform !== 'unknown'
-      ? ` (detected platform: ${context.platform})`
-      : '';
+  const label = platformLabel(context.platform);
+  const platform = label ? ` (detected platform: ${label})` : '';
   const lines: string[] = [];
   lines.push(`# Fix request: ${check.id} ${check.title}`);
   lines.push('');

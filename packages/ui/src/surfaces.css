@@ -191,6 +191,49 @@
   border-color: hsl(var(--hero-foreground) / 0.6);
   background: hsl(var(--hero));
 }
+.hero-platform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.hero-platform-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  max-width: 100%;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid hsl(var(--hero-foreground) / 0.6);
+  border-radius: 9999px;
+  background: hsl(var(--hero));
+}
+.hero-platform-chip strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: hsl(var(--hero-highlight));
+  font-size: 1rem;
+  font-weight: 700;
+}
+.hero-platform-label {
+  font:
+    500 0.6875rem/1.6 ui-monospace,
+    monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.hero-platform-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hero-platform-detail a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 .hero-meta {
   max-width: 72ch;
   margin-top: 1rem;

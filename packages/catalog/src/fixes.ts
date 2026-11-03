@@ -14,22 +14,28 @@
  *   ```
  *   ## Agent prompt
  *   ...
- *   ## On WordPress     (optional; also On WooCommerce, On Shopify)
+ *   ## On WordPress     (optional; one per platform, by name or id: On Shopify, On Magento)
  *   ...
  *
  * A platform section holds advice that is true only on that platform. Reports add it to
  * the agent prompt only when the scan detected the platform; a WordPress section also
  * applies to WooCommerce.
  */
-import {
-  CatalogFixSchema,
-  FixPlatformSchema,
-  type CatalogFix,
-  type PlatformNote,
-} from './schema.js';
+import { KNOWN_PLATFORMS, type KnownPlatform } from './platform-ids.js';
+import { PLATFORM_LABEL } from './platforms.js';
+import { CatalogFixSchema, type CatalogFix, type PlatformNote } from './schema.js';
 
 const PLATFORM_SECTION = /^on (.+)$/;
 const KNOWN_SECTIONS = new Set(['summary', 'snippet', 'agent prompt']);
+
+/** "On Shopify", "On Adobe Commerce (Magento)" or "On Magento": the platform's label or id. */
+function sectionPlatform(heading: string): KnownPlatform | undefined {
+  const name = PLATFORM_SECTION.exec(heading)?.[1];
+  if (name === undefined) return undefined;
+  return KNOWN_PLATFORMS.find(
+    (platform) => platform === name || PLATFORM_LABEL[platform].toLowerCase() === name,
+  );
+}
 
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n/;
 const FENCE = /```([\w-]*)\n([\s\S]*?)```/;
@@ -82,10 +88,10 @@ export function parseFixMarkdown(source: string, fileName: string): CatalogFix {
   const platformNotes: PlatformNote[] = [];
   for (const [heading, text] of sections) {
     if (KNOWN_SECTIONS.has(heading)) continue;
-    const platform = FixPlatformSchema.safeParse(PLATFORM_SECTION.exec(heading)?.[1]);
-    if (!platform.success) throw new Error(`${fileName}: unknown section "${heading}"`);
+    const platform = sectionPlatform(heading);
+    if (!platform) throw new Error(`${fileName}: unknown section "${heading}"`);
     if (!text) throw new Error(`${fileName}: empty section "${heading}"`);
-    platformNotes.push({ platform: platform.data, text });
+    platformNotes.push({ platform, text });
   }
 
   const candidate = {

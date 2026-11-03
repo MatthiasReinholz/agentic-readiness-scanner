@@ -453,9 +453,11 @@ export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcom
       // requested method MUST answer 404 with a JSON-RPC -32601 error, and a header
       // mismatch 400 with -32020. Either proves the transport as well as a result does.
       return pass(
-        probe.status === 404
-          ? 'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven'
-          : `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
+        probe.method === 'POST initialize'
+          ? `the endpoint answers the initialize handshake with a JSON-RPC message (HTTP ${probe.status}) after refusing server/discover without a session, as servers on the 2025 transport do; the transport is proven`
+          : probe.status === 404
+            ? 'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven'
+            : `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
         evidence,
       );
     case 'auth':

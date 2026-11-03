@@ -120,5 +120,25 @@
         "url": "https://github.com/Shopify/hydrogen/pull/4153"
       }
     ]
+  },
+  {
+    "id": "B5.9",
+    "group": "B5",
+    "title": "BigCommerce Storefront MCP",
+    "question": "Does the BigCommerce storefront advertise a Storefront MCP server that answers?",
+    "method": "On a BigCommerce store, read the WebMCP bridge script BigCommerce injects into eligible storefronts (/.webmcp/bridge.js with data-mcp-url) and send the read-only JSON-RPC server/discover POST to the endpoint it names. Pass on a JSON-RPC answer or an authorization challenge: guests can search products, manage a cart and hand off to checkout. Warn when the bridge points at an endpoint where no server answers (Storefront MCP is switched off under Settings > API and MCP > MCP), when no endpoint is advertised at all, or when robots.txt keeps the scanner from asking; skipped when the request fails. A server on the 2025 session transport that refuses server/discover with a plain HTTP 400 gets the initialize handshake once instead.",
+    "weight": 2,
+    "requires": ["bigcommerce"],
+    "depends_on": ["B1.1"],
+    "spec": [
+      {
+        "title": "BigCommerce: Storefront MCP overview",
+        "url": "https://docs.bigcommerce.com/developer/api-reference/mcp/overview"
+      },
+      {
+        "title": "BigCommerce: WebMCP",
+        "url": "https://docs.bigcommerce.com/developer/api-reference/mcp/webmcp"
+      }
+    ]
   }
 ]

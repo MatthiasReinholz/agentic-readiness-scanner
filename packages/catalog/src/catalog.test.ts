@@ -18,8 +18,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 64 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(64);
+  it('has 76 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(76);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });
@@ -95,8 +95,18 @@ describe('parseFixMarkdown', () => {
 
   it('rejects an unknown section, so a misspelled platform is caught', () => {
     expect(() =>
-      parseFixMarkdown(withNotes.replace('## On Shopify', '## On Magento'), 'X.md'),
-    ).toThrow(/unknown section "on magento"/);
+      parseFixMarkdown(withNotes.replace('## On Shopify', '## On Shopfiy'), 'X.md'),
+    ).toThrow(/unknown section "on shopfiy"/);
+  });
+
+  it('accepts a platform section by label or by id', () => {
+    const byLabel = parseFixMarkdown(
+      withNotes.replace('## On Shopify', '## On Adobe Commerce (Magento)'),
+      'X.md',
+    );
+    const byId = parseFixMarkdown(withNotes.replace('## On Shopify', '## On Magento'), 'X.md');
+    expect(byLabel.platform_notes.map((note) => note.platform)).toContain('magento');
+    expect(byId.platform_notes.map((note) => note.platform)).toContain('magento');
   });
 
   it("folds only the detected platform's notes into the agent prompt", () => {

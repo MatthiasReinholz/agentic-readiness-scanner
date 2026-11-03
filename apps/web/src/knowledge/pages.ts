@@ -15,6 +15,7 @@ import {
   type Group,
   type Law,
   PLATFORM_LABEL,
+  platformsMatching,
   requiredPlatform,
   type FixPlatform,
 } from '@agentic-readiness/catalog';
@@ -254,17 +255,19 @@ function platformScope(check: CheckDefinition): string | null {
 
 function platformSentence(check: CheckDefinition): string {
   const platform = requiredPlatform(check);
-  return platform
-    ? ` Runs only when the scan detects ${PLATFORM_LABEL[platform]}; on any other platform it is left out of the report and never scored.`
-    : '';
+  if (!platform) return '';
+  const where = platformsMatching(platform)
+    .map((id) => PLATFORM_LABEL[id])
+    .join(' or ');
+  return ` Runs only when the scan recognises ${where}; on any other platform it is left out of the report and never scored.`;
 }
 
 /** A WordPress note also holds on WooCommerce, which runs on WordPress. */
-const NOTE_LABEL: Record<FixPlatform, string> = {
-  wordpress: 'WordPress and WooCommerce',
-  woocommerce: 'WooCommerce',
-  shopify: 'Shopify',
-};
+function noteLabel(platform: FixPlatform): string {
+  return platformsMatching(platform)
+    .map((id) => PLATFORM_LABEL[id])
+    .join(' and ');
+}
 
 function platformNotesHtml(check: CheckDefinition): string {
   const notes = check.fix.platform_notes;
@@ -272,7 +275,7 @@ function platformNotesHtml(check: CheckDefinition): string {
   return `<h3 class="mt-5 text-sm font-semibold">By platform</h3><dl class="mt-2 space-y-2 text-sm leading-6">${notes
     .map(
       (note) =>
-        `<div><dt class="font-medium">${NOTE_LABEL[note.platform]}</dt><dd class="text-muted-foreground">${escapeHtml(note.text)}</dd></div>`,
+        `<div><dt class="font-medium">${noteLabel(note.platform)}</dt><dd class="text-muted-foreground">${escapeHtml(note.text)}</dd></div>`,
     )
     .join('')}</dl>`;
 }
@@ -280,7 +283,7 @@ function platformNotesHtml(check: CheckDefinition): string {
 function platformNotesMarkdown(check: CheckDefinition): string {
   const notes = check.fix.platform_notes;
   if (notes.length === 0) return '';
-  return `\n### By platform\n\n${notes.map((note) => `- **${NOTE_LABEL[note.platform]}:** ${note.text}`).join('\n')}\n`;
+  return `\n### By platform\n\n${notes.map((note) => `- **${noteLabel(note.platform)}:** ${note.text}`).join('\n')}\n`;
 }
 
 function checkRow(check: CheckDefinition): string {
@@ -291,7 +294,7 @@ function checkRow(check: CheckDefinition): string {
     `${check.id} ${check.title} ${title} ${article?.description ?? ''} ${article?.keywords.join(' ') ?? ''}`.toLowerCase();
   const gate = gateOf(check.id);
   const scope = platformScope(check);
-  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}${scope ? `<span class="${badge({ variant: 'outline' })}" data-platform-scope>${scope}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+  return `<li data-kb-row data-tier="${tier}" data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${article ? articlePath(article) : '/knowledge-base'}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">${escapeHtml(check.id)}</span><span class="kb-check-copy min-w-0"><span class="flex flex-wrap items-center gap-2"><span class="font-semibold group-hover:text-primary">${escapeHtml(title)}</span><span class="${TIER_BADGE[tier]}">${TIER_TEXT[tier]}</span>${gate ? `<span class="${badge({ variant: 'outline' })}">Level ${gate.value}${gate.alternatives.length > 0 ? ' alternative' : ' gate'}</span>` : ''}${scope ? `<span class="${badge({ variant: 'outline', class: 'max-w-full shrink !whitespace-normal' })}" data-platform-scope>${scope}</span>` : ''}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(article?.description ?? check.question)}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
 }
 
 function groupSection(group: Group, headingLevel: 'h2' | 'h3'): string {

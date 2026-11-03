@@ -1,7 +1,7 @@
 import {
   catalog as defaultCatalog,
   forOtherPlatform,
-  PLATFORM_LABEL,
+  platformLabel,
   requiredPlatform,
   type Catalog,
   type CheckResult,
@@ -72,28 +72,32 @@ export function shownResults(result: ScanResult, catalog: Catalog = defaultCatal
   });
 }
 
-/** One sentence naming the platform checks a report leaves out, or null when none are. */
-export function leftOutSentence(
+/**
+ * The platform-specific checks a report lists for this target: the ones bound to the
+ * recognised platform (or to the platform it runs on). Empty when no platform was
+ * recognised or the catalog has no check for it.
+ */
+export function platformResults(
   result: ScanResult,
   catalog: Catalog = defaultCatalog,
-): string | null {
-  const counts = new Map<'woocommerce' | 'shopify', number>();
-  for (const item of result.results) {
+): CheckResult[] {
+  return shownResults(result, catalog).filter((item) => {
     const definition = definitionOf(item.id, catalog);
-    if (!definition || !forOtherPlatform(definition, result.target.platform)) continue;
-    const platform = requiredPlatform(definition);
-    if (platform) counts.set(platform, (counts.get(platform) ?? 0) + 1);
-  }
-  if (counts.size === 0) return null;
-  const parts = [...counts].map(([platform, count]) => `${count} ${PLATFORM_LABEL[platform]}`);
-  const detected = result.target.platform;
-  const reason =
-    detected === 'unknown'
-      ? counts.size > 1
-        ? 'neither platform was detected'
-        : 'the platform was not detected'
-      : `the scan detected ${detected === 'wordpress' ? 'WordPress without WooCommerce' : PLATFORM_LABEL[detected]}`;
-  return `${parts.join(' and ')} check(s) left out, because ${reason}.`;
+    return definition !== undefined && requiredPlatform(definition) !== null;
+  });
+}
+
+/**
+ * The platform line every report opens with: what the scan recognised and which
+ * platform-specific checks ran because of it. Checks for other platforms are never named.
+ */
+export function platformSentence(result: ScanResult, catalog: Catalog = defaultCatalog): string {
+  const label = platformLabel(result.target.platform);
+  if (!label) return 'No platform recognised, so only the checks that apply to any site ran.';
+  const ids = platformResults(result, catalog).map((item) => item.id);
+  const name = result.target.platform === 'woocommerce' ? 'WooCommerce on WordPress' : label;
+  if (ids.length === 0) return `${name}. The checks that apply to any site ran.`;
+  return `${name}. ${String(ids.length)} platform-specific check${ids.length === 1 ? '' : 's'} ran: ${ids.join(', ')}.`;
 }
 
 export interface GroupedResults {

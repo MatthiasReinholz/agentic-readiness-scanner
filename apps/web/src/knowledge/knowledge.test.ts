@@ -218,8 +218,11 @@ describe('knowledge base', () => {
     ).text();
     expect(html).toMatch(/title="A2 Bot access control" aria-current="step"/);
     expect(html).toContain('data-state="current"');
-    expect(html.match(/data-state="group"/g)).toHaveLength(6);
-    expect(html).toContain('Check 2 of 7 in Bot access control · 10 of 64 overall');
+    const a2 = catalog.checks.filter((check) => check.group === 'A2').length;
+    expect(html.match(/data-state="group"/g)).toHaveLength(a2 - 1);
+    expect(html).toContain(
+      `Check 2 of ${String(a2)} in Bot access control · 10 of ${String(catalog.checks.length)} overall`,
+    );
     expect(html).toContain('<section aria-labelledby="in-short">');
     expect(html).toContain('class="kb-progress"');
   });

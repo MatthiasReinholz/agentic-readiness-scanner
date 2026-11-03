@@ -94,8 +94,12 @@ const DEFAULT_RETRY_MS = 1_000;
 const PERSISTENT_RATE_LIMIT_STOP = 3;
 /** A Retry-After longer than this is honoured by not retrying at all. */
 const MAX_RETRY_AFTER_MS = 5_000;
-const DEFAULT_ACCEPT =
-  'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7';
+/**
+ * What a browser asks for. JSON is covered by the wildcard on purpose: PrestaShop's front
+ * controller answers a page request whose Accept names application/json with an empty
+ * body, as if it were an AJAX call. Checks that want JSON send their own Accept.
+ */
+const DEFAULT_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
 /**
  * The decoder for a response's declared charset. Pages that still declare ISO-8859-1 or

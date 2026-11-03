@@ -18,7 +18,7 @@ describe('composeAgentPrompt', () => {
     });
     expect(prompt.startsWith('# Fix request: A1.5 ')).toBe(true);
     expect(prompt).toContain('## Why you are receiving this');
-    expect(prompt).toContain('https://shop.example on 2026-10-31 (detected platform: woocommerce)');
+    expect(prompt).toContain('https://shop.example on 2026-10-31 (detected platform: WooCommerce)');
     expect(prompt).toContain('Observation: no /llms.txt (404)');
     expect(prompt).toContain('Full report: https://scanner.example/r/0123456789abcdef');
     expect(prompt).toContain('## What the check looks for');

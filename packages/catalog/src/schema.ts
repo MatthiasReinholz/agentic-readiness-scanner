@@ -8,6 +8,8 @@
  */
 import { z } from 'zod';
 
+import { KNOWN_PLATFORMS } from './platform-ids.js';
+
 /** A and B are the readiness dimensions; C is the legal-signals category. */
 export const CHECK_ID_PATTERN = /^[ABC][1-6]\.\d{1,2}$/;
 export const GROUP_ID_PATTERN = /^[ABC][1-6]$/;
@@ -69,13 +71,13 @@ export type Weight = z.infer<typeof WeightSchema>;
 export const VerdictSchema = z.enum(['pass', 'warn', 'fail', 'skip']);
 export type Verdict = z.infer<typeof VerdictSchema>;
 
-/** Platform tags a check may require. A check tagged `woocommerce` is skipped elsewhere. */
 /**
- * What a target must offer for a check to apply: `woocommerce` or `shopify` (the
- * platform was detected) or `products` (product pages were found to sample). A profile
- * lists the requirements it can never satisfy; the runner evaluates the rest per target.
+ * What a target must offer for a check to apply: a platform id (the scan recognised that
+ * platform; `wordpress` is also met by WooCommerce, which runs on it) or `products`
+ * (product pages were found to sample). A profile lists the requirements it can never
+ * satisfy; the runner evaluates the rest per target.
  */
-export const RequirementSchema = z.enum(['woocommerce', 'shopify', 'products']);
+export const RequirementSchema = z.enum([...KNOWN_PLATFORMS, 'products']);
 export type Requirement = z.infer<typeof RequirementSchema>;
 /** @deprecated Use RequirementSchema; kept for one release for external readers. */
 export const PlatformRequirementSchema = RequirementSchema;
@@ -104,7 +106,7 @@ export const FixSchema = z.object({
 export type Fix = z.infer<typeof FixSchema>;
 
 /** Platforms a fix can carry advice for. A wordpress note also applies to WooCommerce. */
-export const FixPlatformSchema = z.enum(['wordpress', 'woocommerce', 'shopify']);
+export const FixPlatformSchema = z.enum(KNOWN_PLATFORMS);
 export type FixPlatform = z.infer<typeof FixPlatformSchema>;
 
 export const PlatformNoteSchema = z.object({
