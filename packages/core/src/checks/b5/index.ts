@@ -206,6 +206,18 @@ function keysField(root: unknown, ucp: Record<string, unknown>): 'keys' | 'signi
   return null;
 }
 
+/** The published JWKs, wherever the profile carries them (top level or inside ucp). */
+function keyArray(
+  root: unknown,
+  ucp: Record<string, unknown>,
+  field: 'keys' | 'signing_keys',
+): unknown[] {
+  const top = isRecord(root) ? root[field] : undefined;
+  if (Array.isArray(top)) return top;
+  const inner = ucp[field];
+  return Array.isArray(inner) ? inner : [];
+}
+
 export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }) => {
   const url = `${target.origin}/.well-known/ucp`;
   const response = await fetcher.fetch(url);
@@ -255,6 +267,7 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
     payment_handlers: handlerIds,
     keys_present: keys !== null,
     keys_field: keys,
+    keys: keys ? keyArray(root, profile.raw, keys) : [],
     profile: profile.raw,
   });
 

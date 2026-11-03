@@ -269,6 +269,45 @@
 .hero-form select {
   background: hsl(var(--card));
 }
+/* The scan URL field: a bordered label holding a fixed https:// and the input. */
+.url-field {
+  align-items: center;
+  gap: 0;
+  padding-block: 0;
+  cursor: text;
+}
+.url-field:focus-within {
+  outline: none;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--ring));
+}
+.url-field-prefix {
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  user-select: none;
+}
+.url-field[data-scheme] .url-field-prefix {
+  display: none;
+}
+.url-field input {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+}
+.hero-form .url-field {
+  min-height: 3.25rem;
+  background: hsl(var(--card));
+}
+.hero-form .url-field input {
+  min-height: 2.75rem;
+  background: transparent;
+}
 .hero-form .hero-submit {
   padding-inline: 0.75rem;
   white-space: normal;

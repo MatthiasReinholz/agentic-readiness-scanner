@@ -49,6 +49,8 @@ import {
 } from './b1/index.js';
 import { shopifyProductsJsonReadable } from './b1/shopify.js';
 import { platformChecks } from './platforms/index.js';
+import { purchaseControlsNamed } from './a3/purchase-controls.js';
+import { ucpMcpTools, ucpSigningKeys } from './b5/ucp-depth.js';
 import {
   markupMatchesPage,
   offerComplete,
@@ -152,6 +154,9 @@ export const builtInChecks: readonly Check[] = [
   acpFeedFields,
   guestCheckoutAndCartApi,
   shopifyAgenticStorefront,
+  purchaseControlsNamed,
+  ucpSigningKeys,
+  ucpMcpTools,
   ...platformChecks,
 ];
 

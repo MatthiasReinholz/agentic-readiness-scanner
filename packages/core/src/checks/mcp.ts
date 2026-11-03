@@ -24,38 +24,48 @@ export interface McpProbe {
   detail: string;
 }
 
+/** The per-request metadata the 2026-07-28 transport carries instead of a session. */
+function requestMeta(): Record<string, unknown> {
+  return {
+    'io.modelcontextprotocol/protocolVersion': MCP_PROTOCOL_VERSION,
+    'io.modelcontextprotocol/clientInfo': {
+      name: 'AgenticReadinessScanner',
+      version: SCANNER_VERSION,
+    },
+    'io.modelcontextprotocol/clientCapabilities': {},
+  };
+}
+
 function discoverBody(): string {
   return JSON.stringify({
     jsonrpc: '2.0',
     id: 1,
     method: 'server/discover',
-    params: {
-      _meta: {
-        'io.modelcontextprotocol/protocolVersion': MCP_PROTOCOL_VERSION,
-        'io.modelcontextprotocol/clientInfo': {
-          name: 'AgenticReadinessScanner',
-          version: SCANNER_VERSION,
-        },
-        'io.modelcontextprotocol/clientCapabilities': {},
-      },
-    },
+    params: { _meta: requestMeta() },
   });
 }
 
-export function isJsonRpcBody(body: string): boolean {
+/** The JSON-RPC message in a body, plain or in server-sent-event framing, or null. */
+export function jsonRpcMessage(body: string): Record<string, unknown> | null {
   const text = body.trim();
   // SSE framing: the first data line carries the JSON-RPC message.
   const data =
     text.startsWith('event:') || text.startsWith('data:')
       ? (text.split('\n').find((line) => line.startsWith('data:')) ?? '').slice(5).trim()
       : text;
-  if (!data.startsWith('{')) return false;
+  if (!data.startsWith('{')) return null;
   try {
-    const parsed: unknown = JSON.parse(data.slice(0, 200_000));
-    return typeof parsed === 'object' && parsed !== null && 'jsonrpc' in parsed;
+    // The fetcher caps bodies (2 MB by default). A tool list with full schemas can pass
+    // 200 KB, so the whole body is parsed.
+    const parsed: unknown = JSON.parse(data);
+    return typeof parsed === 'object' && parsed !== null && 'jsonrpc' in parsed ? parsed : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function isJsonRpcBody(body: string): boolean {
+  return jsonRpcMessage(body) !== null;
 }
 
 export function classifyMcpResponse(endpoint: string, response: FetchedResponse): McpProbe {
@@ -140,4 +150,128 @@ async function discoverProbe(fetcher: Fetcher, endpoint: string): Promise<McpPro
     body: discoverBody(),
   });
   return classifyMcpResponse(endpoint, response);
+}
+
+export interface McpToolList {
+  endpoint: string;
+  /** How the list was obtained, or why it was not. */
+  outcome: 'tools' | 'auth' | 'robots' | 'unreachable' | 'none';
+  status: number;
+  tools: string[];
+  /** True when the server needed the 2025 initialize handshake and a session first. */
+  session: boolean;
+  detail: string;
+}
+
+function toolNames(message: Record<string, unknown> | null): string[] | null {
+  const result = message?.result;
+  if (typeof result !== 'object' || result === null) return null;
+  const tools = (result as Record<string, unknown>).tools;
+  if (!Array.isArray(tools)) return null;
+  return tools
+    .map((tool) =>
+      typeof tool === 'object' && tool !== null ? (tool as Record<string, unknown>).name : null,
+    )
+    .filter((name): name is string => typeof name === 'string');
+}
+
+/**
+ * Lists the tools of an MCP server the site advertises, read-only: a stateless
+ * tools/list as the 2026-07-28 transport allows, and when the server refuses that without
+ * a session, the 2025 initialize handshake, the initialized notification and tools/list
+ * in that session. At most four requests.
+ */
+export async function listMcpTools(fetcher: Fetcher, endpoint: string): Promise<McpToolList> {
+  const base = { endpoint, session: false };
+  const json = {
+    'content-type': 'application/json',
+    accept: 'application/json, text/event-stream',
+  };
+  const first = await fetcher.fetch(endpoint, {
+    method: 'POST',
+    headers: { ...json, 'mcp-protocol-version': MCP_PROTOCOL_VERSION, 'mcp-method': 'tools/list' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+      params: { _meta: requestMeta() },
+    }),
+  });
+  if (first.status === 0) {
+    const robots = /robots\.txt/i.test(first.error ?? '');
+    return {
+      ...base,
+      outcome: robots ? 'robots' : 'unreachable',
+      status: 0,
+      tools: [],
+      detail: first.error ?? 'no response',
+    };
+  }
+  const direct = toolNames(jsonRpcMessage(first.body));
+  if (direct)
+    return {
+      ...base,
+      outcome: 'tools',
+      status: first.status,
+      tools: direct,
+      detail: `tools/list answered with ${direct.length} tool(s)`,
+    };
+  // A 401 asks for authorization, even when the server leaves out WWW-Authenticate.
+  if (first.status === 401) {
+    return {
+      ...base,
+      outcome: 'auth',
+      status: 401,
+      tools: [],
+      detail: first.headers['www-authenticate'] ? 'HTTP 401 with WWW-Authenticate' : 'HTTP 401',
+    };
+  }
+  const init = await fetcher.fetch(endpoint, {
+    method: 'POST',
+    headers: { ...json, 'mcp-protocol-version': MCP_LEGACY_PROTOCOL_VERSION },
+    body: initializeBody(),
+  });
+  if (!jsonRpcMessage(init.body)) {
+    return {
+      ...base,
+      outcome: 'none',
+      status: first.status,
+      tools: [],
+      detail: `HTTP ${first.status} to tools/list and HTTP ${init.status} to initialize, neither with a JSON-RPC body`,
+    };
+  }
+  const sessionId = init.headers['mcp-session-id'];
+  const session: Record<string, string> = {
+    ...json,
+    'mcp-protocol-version': MCP_LEGACY_PROTOCOL_VERSION,
+    ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+  };
+  await fetcher.fetch(endpoint, {
+    method: 'POST',
+    headers: session,
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+  });
+  const listed = await fetcher.fetch(endpoint, {
+    method: 'POST',
+    headers: session,
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
+  });
+  const names = toolNames(jsonRpcMessage(listed.body));
+  return names
+    ? {
+        ...base,
+        session: true,
+        outcome: 'tools',
+        status: listed.status,
+        tools: names,
+        detail: `tools/list answered with ${names.length} tool(s) after the initialize handshake`,
+      }
+    : {
+        ...base,
+        session: true,
+        outcome: 'none',
+        status: listed.status,
+        tools: [],
+        detail: `HTTP ${listed.status} to tools/list after the initialize handshake, without a tool list`,
+      };
 }

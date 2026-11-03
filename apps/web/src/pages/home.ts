@@ -20,6 +20,16 @@ import { HOME_DESCRIPTION, homeMetadata } from '../metadata.js';
 import { page } from './layout.js';
 import { SCAN_CONSOLE_SCRIPT, SCAN_CONSOLE_STYLE, scanConsoleMarkup } from './scan-console.js';
 
+/**
+ * The URL field shows a fixed https:// in front of what is typed, the "leading add-on"
+ * pattern. A typed or pasted https:// is removed so it never appears twice, and another
+ * scheme (http://) hides the prefix. Without the script the field still works: the server
+ * adds https:// to a bare domain and accepts a full URL.
+ */
+export const URL_FIELD_SCRIPT = `(function(){var f=document.querySelector('.url-field');if(!f)return;var i=f.querySelector('input');
+function sync(){var m=/^\\s*https:\\/\\//i.exec(i.value);if(m){var at=Math.max(0,(i.selectionStart||0)-m[0].length);i.value=i.value.slice(m[0].length);try{i.setSelectionRange(at,at)}catch(_){}}f.toggleAttribute('data-scheme',i.value.indexOf('://')>=0)}
+i.addEventListener('input',sync);window.addEventListener('pageshow',sync);sync()})();`;
+
 export function homePage(config: AppConfig, error?: string): string {
   const profiles = catalog.profiles
     .map(
@@ -40,7 +50,7 @@ export function homePage(config: AppConfig, error?: string): string {
 <p class="hero-description">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WooCommerce first. Works on any store.</p>
 ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
 <form method="post" action="/scan" id="scan-form" class="hero-form">
-<input class="${input}" type="url" name="url" placeholder="https://example.com" required aria-label="Store URL" autocomplete="url" inputmode="url" spellcheck="false">
+<label class="${input} url-field"><span class="url-field-prefix" aria-hidden="true">https://</span><input type="text" name="url" placeholder="example.com" required aria-label="Store URL, such as example.com" autocomplete="url" inputmode="url" autocapitalize="none" spellcheck="false"></label>
 <div class="${nativeSelectWrapper}"><select class="${nativeSelect}" name="profile" aria-label="Profile"><option value="">Detect profile</option>${profiles}</select>${icon('chevron-down', nativeSelectChevron)}</div>
 <button type="submit" class="${button({ size: 'lg' })} hero-submit">Scan my store${icon('arrow-right')}</button>
 </form>
@@ -73,7 +83,7 @@ ${scanConsoleMarkup()}
       home: true,
       description: HOME_DESCRIPTION,
       head: `${homeMetadata(config)}\n<style>${SCAN_CONSOLE_STYLE}</style>`,
-      scripts: [SCAN_CONSOLE_SCRIPT],
+      scripts: [URL_FIELD_SCRIPT, SCAN_CONSOLE_SCRIPT],
     },
     body,
   );

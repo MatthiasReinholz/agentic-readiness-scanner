@@ -2,13 +2,30 @@
   "name": "@agentic-readiness/cli",
   "version": "0.13.1",
   "description": "Command line and local MCP server of the Agentic Readiness Scanner, self-contained: npx @agentic-readiness/cli scan <url>.",
+  "keywords": [
+    "agentic-commerce",
+    "ai-agents",
+    "readiness",
+    "scanner",
+    "cli",
+    "mcp",
+    "mcp-server",
+    "ucp",
+    "acp",
+    "structured-data",
+    "robots-txt",
+    "ecommerce",
+    "woocommerce",
+    "shopify",
+    "seo"
+  ],
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/MatthiasReinholz/agentic-readiness-scanner#readme",
+  "homepage": "https://agentic-readiness-scanner.space.fast/",
   "bugs": {
     "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner/issues"
   },

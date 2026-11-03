@@ -18,8 +18,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 76 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(76);
+  it('has 79 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(79);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });

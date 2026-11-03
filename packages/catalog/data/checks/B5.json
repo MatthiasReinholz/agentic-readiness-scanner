@@ -140,5 +140,51 @@
         "url": "https://docs.bigcommerce.com/developer/api-reference/mcp/webmcp"
       }
     ]
+  },
+  {
+    "id": "B5.10",
+    "group": "B5",
+    "title": "UCP signing keys are public and complete",
+    "question": "Can agents and platforms verify the store's UCP signatures with the keys it publishes?",
+    "method": "Read the signing keys the UCP profile publishes (the top-level keys array, or the older signing_keys), as recorded by B5.1. Fail when any key carries private key material (the JWK members d, p, q, dp, dq, qi, oth or k, or a symmetric key of type oct): anyone can then sign as the store, so the key must be replaced. Warn when a key lacks a member UCP requires (kid and kty, plus crv, x and y for EC keys or crv and x for OKP keys) or two keys share a kid, because verifiers look keys up by kid. Pass when every key is public and complete. Key types, curves and algorithms a verifier does not know are allowed, as the specification says. Skipped when the profile publishes no keys, which UCP allows. No extra request.",
+    "weight": 2,
+    "depends_on": ["B5.1"],
+    "spec": [
+      {
+        "title": "UCP specification: business profile and keys",
+        "url": "https://ucp.dev/specification/overview/"
+      },
+      {
+        "title": "UCP specification: message signatures",
+        "url": "https://ucp.dev/specification/signatures/"
+      },
+      {
+        "title": "RFC 7517: JSON Web Key (JWK)",
+        "url": "https://www.rfc-editor.org/rfc/rfc7517"
+      }
+    ]
+  },
+  {
+    "id": "B5.11",
+    "group": "B5",
+    "title": "UCP MCP tools match the declared capabilities",
+    "question": "Does the MCP binding the UCP profile declares offer the tools for the capabilities it declares?",
+    "method": "When the UCP profile recorded by B5.1 declares a dev.ucp.shopping service with the mcp transport and an endpoint, and declares the checkout or cart capability, list the server's tools read-only: a stateless tools/list with the 2026-07-28 headers, and when the server refuses that without a session, the 2025-06-18 initialize handshake, the initialized notification and tools/list in that session (at most four requests). Compare the list with the tools UCP's MCP bindings define: create_checkout, get_checkout, update_checkout, complete_checkout and cancel_checkout for checkout, and create_cart, get_cart, update_cart and cancel_cart for cart. Pass when every tool for the declared capabilities is listed. Warn when some are missing, or when robots.txt keeps the scanner from asking. Fail when the endpoint lists none of them or does not answer with a tool list. Skipped when the profile declares no MCP binding or neither capability, when the endpoint requires authorization before it lists tools, or when it cannot be reached. No tool is called.",
+    "weight": 2,
+    "depends_on": ["B5.1"],
+    "spec": [
+      {
+        "title": "UCP specification: checkout over MCP",
+        "url": "https://ucp.dev/specification/shopping/checkout/mcp/"
+      },
+      {
+        "title": "UCP specification: cart over MCP",
+        "url": "https://ucp.dev/specification/shopping/cart/mcp/"
+      },
+      {
+        "title": "Model Context Protocol: listing tools",
+        "url": "https://modelcontextprotocol.io/specification/2026-07-28/server/tools"
+      }
+    ]
   }
 ]
