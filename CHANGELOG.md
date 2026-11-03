@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Three checks for what agents do once they reach a store** (catalog 0.8.0):
+  - **A3.14 Purchase controls have accessible names.** Browser agents act through the accessibility tree, and OpenAI documents that the ChatGPT agent in Atlas reads ARIA labels and roles. The check finds the add-to-cart control and its form on the sampled product pages and fails when the button has no accessible name. It warns when another control in the form, such as a quantity field or a size select, has none.
+  - **B5.10 UCP signing keys are public and complete.** It fails when the UCP profile publishes private key material, and warns on a key without the members UCP requires or a duplicate kid.
+  - **B5.11 UCP MCP tools match the declared capabilities.** When the profile declares an MCP binding, the check lists the server's tools read-only (stateless first, then with a session) and compares them with the tools UCP defines for checkout and cart. A profile that promises a cart its server cannot create is a gap agents hit when they try to buy.
+
+### Changed
+
+- **The scan form accepts a URL without https://.** The field shows a fixed, greyed https:// in front of what you type, the standard "leading add-on" pattern. A pasted https:// is removed so it never appears twice, and an http:// URL is kept as typed. Without JavaScript the server adds https:// to a bare domain as before.
+- **npm packages carry keywords and point their homepage at the hosted scanner.** The core package README links the hosted scanner and the CLI.
+
 ## [0.13.1] - 2026-11-03
 
 ### Changed

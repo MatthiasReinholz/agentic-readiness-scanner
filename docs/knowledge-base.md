@@ -1,6 +1,6 @@
 # Knowledge base
 
-The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 100 articles: 76 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
+The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 103 articles: 79 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
 
 ## Where the content lives
 
@@ -120,6 +120,7 @@ Every check with its article slug. A slug never changes.
 | A3.11 | well-formed-document-head               |
 | A3.12 | prestashop-friendly-urls                |
 | A3.13 | ecwid-clean-store-urls                  |
+| A3.14 | purchase-controls-accessible-names      |
 | A4.1  | mcp-server-discovery                    |
 | A4.2  | api-catalog                             |
 | A4.3  | oauth-discovery-for-mcp                 |
@@ -163,6 +164,8 @@ Every check with its article slug. A slug never changes.
 | B5.7  | guest-checkout-and-cart-api             |
 | B5.8  | shopify-agentic-storefront              |
 | B5.9  | bigcommerce-storefront-mcp              |
+| B5.10 | ucp-signing-keys                        |
+| B5.11 | ucp-mcp-tools                           |
 | C1.1  | seller-identity-imprint                 |
 | C1.2  | business-registration-and-tax-numbers   |
 | C1.3  | libro-de-reclamaciones-peru             |

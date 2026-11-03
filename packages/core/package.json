@@ -2,13 +2,30 @@
   "name": "@agentic-readiness/core",
   "version": "0.13.1",
   "description": "The Agentic Readiness Scanner engine: fetcher, target resolver, parsers, checks, runner, scoring and reporters, with the catalog and visual system bundled in.",
+  "keywords": [
+    "agentic-commerce",
+    "ai-agents",
+    "readiness",
+    "scanner",
+    "ucp",
+    "acp",
+    "mcp",
+    "structured-data",
+    "json-ld",
+    "robots-txt",
+    "llms-txt",
+    "ecommerce",
+    "woocommerce",
+    "shopify",
+    "seo"
+  ],
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/MatthiasReinholz/agentic-readiness-scanner#readme",
+  "homepage": "https://agentic-readiness-scanner.space.fast/",
   "bugs": {
     "url": "https://github.com/MatthiasReinholz/agentic-readiness-scanner/issues"
   },

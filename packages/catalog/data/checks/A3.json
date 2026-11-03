@@ -269,5 +269,28 @@
         "url": "https://docs.ecwid.com/api-reference/rest-api/storefront-widget-details/optimize-custom-website-seo-with-better-urls/enable-clean-store-urls-on-a-custom-website"
       }
     ]
+  },
+  {
+    "id": "A3.14",
+    "group": "A3",
+    "title": "Purchase controls have accessible names",
+    "question": "Can a browser agent tell what each control in the purchase form does?",
+    "method": "On each sampled product page that answered, find the add-to-cart control (a button or input whose text, value, name, class, id or aria-label says add to cart, bag or basket, or the submit button of a form that posts to /cart/add or add-to-cart) and the form it sits in. Read the accessible name of every control in that form (buttons, inputs other than hidden ones, selects and text areas, except controls marked aria-hidden) the way browsers compute it from markup: aria-labelledby, aria-label, a label element, the button text, input value or image alt, then title and placeholder. Pass when every control has a name. Warn when other controls in the form, such as a quantity field or a size select, have none. Fail when the add-to-cart control itself has none on any page. Skipped when no add-to-cart control is in the server HTML (A3.2 covers content that needs JavaScript) or no product page was sampled. OpenAI documents that the ChatGPT agent in Atlas reads ARIA labels and roles to understand and operate buttons and forms. No extra request.",
+    "weight": 1,
+    "requires": ["products"],
+    "spec": [
+      {
+        "title": "OpenAI Help Center: Publishers and developers FAQ (ChatGPT Atlas and ARIA)",
+        "url": "https://help.openai.com/en/articles/12627856-publishers-and-developers-faq"
+      },
+      {
+        "title": "W3C: Accessible Name and Description Computation 1.2",
+        "url": "https://www.w3.org/TR/accname-1.2/"
+      },
+      {
+        "title": "W3C: HTML Accessibility API Mappings (accessible names of form controls)",
+        "url": "https://www.w3.org/TR/html-aam-1.0/"
+      }
+    ]
   }
 ]
