@@ -243,15 +243,13 @@
   margin-top: 1rem;
   font-size: 0.75rem;
 }
+/* One line linking to /data-processing; the padding keeps the room the scan policy text
+   used to take, so the hero does not end right under the form. */
 .hero-policy {
   margin-top: 1rem;
+  padding-bottom: 2.25rem;
   font-size: 0.75rem;
   line-height: 1.8;
-  max-width: 85ch;
-}
-.hero-policy code {
-  font-family: ui-monospace, monospace;
-  overflow-wrap: anywhere;
 }
 /* Let actual available space and text size decide when all three controls fit. */
 @container (min-width: 46rem) {

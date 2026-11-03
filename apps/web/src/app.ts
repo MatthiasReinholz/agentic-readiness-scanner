@@ -12,6 +12,11 @@ import type { AppConfig } from './config.js';
 import { MonitoringService } from './monitoring/service.js';
 import type { Mailer, MonitorStore } from './monitoring/types.js';
 import { createKnowledgeRoutes, knowledgeIndexLines } from './knowledge/routes.js';
+import {
+  DATA_PROCESSING_PATH,
+  dataProcessingMarkdown,
+  dataProcessingPage,
+} from './pages/data-processing.js';
 import { homePage } from './pages/home.js';
 import { messagePage } from './pages/layout.js';
 import { createInternalRoutes } from './routes/internal.js';
@@ -84,7 +89,7 @@ function llmsTxt(config: AppConfig): string {
 - [History](${config.baseUrl}/h/example.com): every distinct state a host was observed in, with what changed between them; append .json for data
 - Root profiles: use profile_url (or report_url) returned by a root scan, /sites/<host>, for the latest report. Use /sites/<host>/report.json or /report.md for its exports. Profile reads never run a scan. Subdomains are separate; www and the bare host share one profile.
 - Snapshots: snapshot_url, /r/<id>, identifies one immutable scan; append .json or .md for exports. Full results expire under the ${config.retentionDays}-day retention policy; stable profiles retain recorded history. Stored reports and profiles are public and search-indexable.
-- One-time scans: a submitted path, query or non-default port returns persistence="disposable" and the result directly, with no report/profile URL. It is a site scan started at that URL, including origin-wide signals and sampled pages, not a strict subtree audit. No result, history, monitoring or progress record is saved. In the web UI the result stays in the browser tab.
+- One-time scans: a submitted path, query or non-default port returns persistence="disposable" and the result directly, with no report/profile URL. It is a site scan started at that URL, including origin-wide signals and sampled pages, not a strict subtree audit. No result, history, monitoring or progress record is saved. A one-time scan that needs several steps answers 202 with status_url; its state stays on the server only until the result is fetched, two hours at most. In the web UI the result stays in the browser tab.
 - [Result schema](${config.repositoryUrl}/blob/main/packages/catalog/src/result.ts): the versioned contract every report follows
 
 ## Knowledge base
@@ -95,6 +100,7 @@ ${knowledgeIndexLines(config)}
 
 ## Reference
 
+- [Data processing and privacy](${config.baseUrl}${DATA_PROCESSING_PATH}.md): what a scan fetches, what is stored and for how long, no cookies or tracking
 - [Check catalog](${config.repositoryUrl}/blob/main/docs/checks.md): ${catalog.checks.length} checks, levels and profiles
 - [Source](${config.repositoryUrl}): GPL-3.0-or-later
 
@@ -219,6 +225,22 @@ export function createApp(deps: AppDependencies): Hono {
   );
 
   app.get('/robots.txt', (c) => c.text(robotsTxt(config.baseUrl)));
+
+  app.get(DATA_PROCESSING_PATH, (c) => {
+    c.header('cache-control', 'public, max-age=3600');
+    c.header(
+      'link',
+      `<${config.baseUrl}${DATA_PROCESSING_PATH}.md>; rel="alternate"; type="text/markdown"`,
+    );
+    return c.html(dataProcessingPage(config));
+  });
+  app.get(`${DATA_PROCESSING_PATH}.md`, (c) =>
+    c.text(dataProcessingMarkdown(config), 200, {
+      'content-type': 'text/markdown; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+    }),
+  );
+  app.get('/privacy', (c) => c.redirect(DATA_PROCESSING_PATH, 301));
 
   app.route('/', createKnowledgeRoutes(config));
 
