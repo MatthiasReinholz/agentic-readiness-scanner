@@ -7,7 +7,7 @@
   },
   {
     "id": "no-checkout",
-    "reason": "no checkout an agent can use is advertised: no UCP checkout capability, ACP discovery document or active Shopify agentic storefront",
+    "reason": "no checkout an agent can use is advertised",
     "gates": [["B5.2", "B5.3", "B5.8"]],
     "values": { "commerce": 60 }
   }

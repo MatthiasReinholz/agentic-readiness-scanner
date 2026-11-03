@@ -192,7 +192,7 @@ describe('score ceilings in reports', () => {
     expect(result.scores.commerce).toBe(60);
     const sentence = ceilingSentence(result, 'commerce');
     expect(sentence).toBe(
-      `Capped at 60 while no checkout an agent can use is advertised: no UCP checkout capability, ACP discovery document or active Shopify agentic storefront; ${String(ceiling?.raw)} without the cap. Lifted by B5.2 UCP checkout capability and payment handler or B5.3 ACP discovery document.`,
+      `Capped at 60 while no checkout an agent can use is advertised; ${String(ceiling?.raw)} without the cap. Lifted by B5.2 UCP checkout capability and payment handler or B5.3 ACP discovery document.`,
     );
     expect(renderHtml(result)).toContain(`data-ceiling>${escapeHtml(sentence ?? '')}`);
     expect(renderMarkdown(result)).toContain(`- Commerce score: 60/100. ${sentence ?? ''}`);
