@@ -18,7 +18,7 @@ Two ways out were considered: run the scan in steps on the server, or move the s
 
 1. **The page.** The home page console runs the first step through `/api/scan/stream`. When the stream ends with `paused`, the page calls `POST /api/scan/jobs/<id>/continue` until the scan is done. The no-JavaScript form lands on `/scan/jobs/<id>`, which does the same from a small script and reloads every 10 seconds without one.
 2. **The app itself.** After a step pauses, the worker asks itself for the next step in a request of its own (`ctx.waitUntil` with a fetch to the continue endpoint). This is best effort: the platform does not document `waitUntil`, so the other triggers do not depend on it.
-3. **The sweeper cron.** `/internal/cron/scan-jobs` fires every minute and runs the next step of running jobs nobody advanced for 25 seconds, oldest first, as many as fit in its request.
+3. **The sweeper cron.** `/internal/cron/scan-jobs` fires every hour and runs the next step of running jobs nobody advanced for 25 seconds, oldest first, as many as fit in its request. It is the backstop, not the engine: Spacefast refuses crontab schedules ("Crontab expressions are not supported", although its docs list them), so hourly is the finest it takes.
 4. **The next request.** A later request for the same root joins the running job by running its next step, instead of being refused.
 
 **Safety rails.** A lease outlives its step by 15 seconds, so a step the platform cut off frees the job soon. A job claimed three times without a saved step fails with a message the page shows. A job still running after 30 minutes is failed by the cleanup cron. A deploy between two steps (`ScanStateMismatchError`) restarts the scan from the job's cache. API callers get `202` with `status_url` and `continue_url` when a scan needs more steps; MCP returns a tool error that says to call again; monitoring leaves the subscription due and reuses the finished scan on its next run.
@@ -32,8 +32,8 @@ Two ways out were considered: run the scan in steps on the server, or move the s
 ## Consequences
 
 - Slow stores finish: the scan that used to stop at 24 seconds runs in as many steps as it needs, within the overall limits, and the report and scores cover the whole catalog.
-- A scan can take a few minutes of wall time on slow stores, and longer when nobody keeps the page open (up to a minute per step through the cron). The console says which step it is on.
+- A scan can take a few minutes of wall time on slow stores. With the page open, steps follow each other at once. With the page closed, the app calling itself carries the scan; where that fails, the sweeper runs one step an hour and a scan can take hours, which is why the next request for the same root also runs a step. The console says which step it is on.
 - Every step re-resolves the target (decision 0016); with the cache that costs database reads, not store requests.
 - Scans still come from the server with the scanner's user agent. Stores that refuse it at the edge are reported as refusing it (check A2.4), which is what an agent would meet.
-- One-time scans (paths and queries, decision 0014) still write no result, profile, history or progress, but one that needs several steps has a job row while it runs: its state, cached responses and finally its result. The row is deleted when the result is delivered (the waiting page or the job's status endpoint shows it) and after an hour at the latest, by the sweeper.
-- New tables: `scan_jobs` (removed a day after a job ends) and `scan_job_cache`. New cron: every minute.
+- One-time scans (paths and queries, decision 0014) still write no result, profile, history or progress, but one that needs several steps has a job row while it runs: its state, cached responses and finally its result. The row is deleted when the result is delivered (the waiting page or the job's status endpoint shows it) and once it is an hour old, by the sweeper's next hourly run.
+- New tables: `scan_jobs` (removed a day after a job ends) and `scan_job_cache`. New cron: hourly.

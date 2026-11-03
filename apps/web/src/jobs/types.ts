@@ -29,7 +29,7 @@ export interface ScanJob {
   updatedAt: string;
   /** The stored scan, once a root scan is done. */
   scanId: string | null;
-  /** The result of a one-time scan, kept until it reached the person who asked (an hour at most). */
+  /** The result of a one-time scan, kept until it reached the person who asked; the hourly sweeper removes it once an hour old. */
   result: ScanResult | null;
   /** Why the scan failed, in words for the page. */
   error: string | null;

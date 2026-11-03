@@ -45,7 +45,7 @@ ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" rol
 <button type="submit" class="${button({ size: 'lg' })} hero-submit">Scan my store${icon('arrow-right')}</button>
 </form>
 <p class="hero-trust"><span>Public signals only</span><span>No credentials needed</span><span>A fix for every finding</span></p>
-<p class="hero-policy">Up to ${config.scanBudget} requests per scan with the user agent <code>AgenticReadinessScanner</code>. At most one new scan per host every ${Math.round(config.targetCooldownSeconds / 60)} minute${config.targetCooldownSeconds === 60 ? '' : 's'}, across all paths. Root URLs have public profiles and reports kept ${config.retentionDays} days. Paths and query URLs run once and are not saved: a scan that needs several steps keeps its progress on the server only until the result reaches you, an hour at most.</p>
+<p class="hero-policy">Up to ${config.scanBudget} requests per scan with the user agent <code>AgenticReadinessScanner</code>. At most one new scan per host every ${Math.round(config.targetCooldownSeconds / 60)} minute${config.targetCooldownSeconds === 60 ? '' : 's'}, across all paths. Root URLs have public profiles and reports kept ${config.retentionDays} days. Paths and query URLs run once and are not saved: a scan that needs several steps keeps its progress on the server only until the result reaches you, two hours at most.</p>
 `;
   const body = `
 ${scanConsoleMarkup()}

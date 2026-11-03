@@ -510,7 +510,7 @@ export async function sweepJobs(deps: ScanDependencies, budgetMs: number): Promi
   const started = Date.now();
   const at = now();
   const before = new Date(at.getTime() - deps.config.scanStepMs - 5_000).toISOString();
-  // One-time scans keep nothing longer than an hour, delivered or not.
+  // One-time scans older than an hour go, delivered or not (the sweeper runs hourly).
   await jobs.purgeDisposable(new Date(at.getTime() - DISPOSABLE_JOB_MS).toISOString());
   const stale = await jobs.stale(before, at.toISOString(), 5);
   const report: SweepReport = { stale: stale.length, advanced: 0, finished: 0, failed: 0 };

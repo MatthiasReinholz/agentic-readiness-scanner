@@ -108,7 +108,7 @@ export function createInternalRoutes(deps: InternalRouteDependencies): Hono {
     }
   });
 
-  // The third trigger after the page and the app itself: every minute, the next step of
+  // The third trigger after the page and the app itself: every hour, the next step of
   // each scan nobody advanced lately. Overlapping fires are skipped by the platform and
   // job leases keep a step from running twice, so the header gate is enough.
   app.get('/cron/scan-jobs', async (c) => {
