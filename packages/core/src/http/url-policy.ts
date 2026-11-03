@@ -34,6 +34,8 @@ export function isPrivateIpv6(host: string): boolean {
   const address = host.replace(/^\[|\]$/g, '').toLowerCase();
   if (address === '::' || address === '::1') return true;
   if (address.startsWith('fc') || address.startsWith('fd')) return true;
+  // ff00::/8 is multicast, never a public web host (as 224.0.0.0/4 and above for IPv4).
+  if (address.startsWith('ff')) return true;
   if (
     address.startsWith('fe8') ||
     address.startsWith('fe9') ||

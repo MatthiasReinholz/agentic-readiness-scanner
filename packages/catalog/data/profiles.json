@@ -2,7 +2,7 @@
   {
     "id": "woocommerce-store",
     "title": "WooCommerce store",
-    "description": "All checks, including those that read the WooCommerce Store API and the WordPress REST API. Checks for other platforms drop out.",
+    "description": "A WooCommerce store. All checks run, including those that read the WooCommerce Store API and the WordPress REST API. Checks for other platforms do not run.",
     "dimensions": ["ingestion", "commerce"],
     "unsatisfied_requirements": [
       "shopify",
@@ -22,7 +22,7 @@
   {
     "id": "other-store",
     "title": "Other store",
-    "description": "Any other e-commerce site. Checks that depend on the WooCommerce Store API drop out; checks for the recognised platform apply.",
+    "description": "Any other online store. Checks for the recognised platform run. Checks that need the WooCommerce Store API do not.",
     "dimensions": ["ingestion", "commerce"],
     "unsatisfied_requirements": ["woocommerce"],
     "max_level": 5
@@ -30,7 +30,7 @@
   {
     "id": "content-site",
     "title": "Content site",
-    "description": "Ingestion checks only. Commerce groups, product-page checks and the product sitemap check do not apply. Legal signals about selling (withdrawal, returns, product and price information) do not apply.",
+    "description": "A site that sells nothing. Only the ingestion checks run: commerce sections, product-page checks and the product sitemap check do not apply, and neither do the legal signals about selling (withdrawal, returns, product and price information).",
     "dimensions": ["ingestion"],
     "unsatisfied_requirements": ["woocommerce", "shopify", "products"],
     "max_level": 1,

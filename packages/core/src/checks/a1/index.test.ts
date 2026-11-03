@@ -205,7 +205,7 @@ describe('A1.3 product URLs in sitemap', () => {
     );
     expect(index.verdict).toBe('fail');
     expect(index.message).toBe(
-      'no product URL found: 3 sitemaps read, starting with https://shop.example/sitemap_index.xml; none of their 2 entries matches a product URL pattern and none of the 2 sitemap name(s) in the index looks like a product sitemap',
+      'no product URL found: 3 sitemaps read, starting with https://shop.example/sitemap_index.xml. None of their 2 entries matches a product URL pattern and none of the 2 sitemap name(s) in the index looks like a product sitemap',
     );
     expect(index.evidence).toMatchObject({
       sitemaps_read: [
@@ -218,10 +218,10 @@ describe('A1.3 product URLs in sitemap', () => {
     });
     const flat = await run(summary({ urls: ['https://shop.example/about/'] }));
     expect(flat.message).toBe(
-      'no product URL found: 1 sitemap read, starting with https://shop.example/sitemap.xml; none of their 1 entries matches a product URL pattern',
+      'no product URL found: 1 sitemap read, starting with https://shop.example/sitemap.xml. None of their 1 entries matches a product URL pattern',
     );
     const empty = await run(summary({}));
-    expect(empty.message).toMatch(/none of their entries \(there are none\) matches/);
+    expect(empty.message).toMatch(/None of their entries \(there are none\) matches/);
     const none = await run(null);
     expect(none.verdict).toBe('fail');
     expect(none.message).toBe('no sitemap was read, so no product URL could be found in one');

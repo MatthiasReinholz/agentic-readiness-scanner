@@ -21,7 +21,7 @@ export const magentoGraphqlCatalog = defineCheck('B1.9', async ({ target, fetche
   };
   if (blockedByRobots(response)) {
     return warn(
-      'the GraphQL endpoint was not requested because robots.txt disallows /graphql for the scanner; agents that honour robots.txt cannot use it either',
+      'the GraphQL endpoint was not requested because robots.txt disallows /graphql for the scanner. Agents that honour robots.txt cannot use it either',
       evidence,
     );
   }

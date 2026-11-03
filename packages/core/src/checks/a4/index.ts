@@ -430,7 +430,7 @@ export const oauthDiscoveryForMcp = defineCheck('A4.3', async ({ fetcher, outcom
   if (isAuthorizationServerMetadata(serverMetadata)) {
     evidence.issuer = serverMetadata.issuer;
     return warn(
-      `only authorization server metadata (issuer ${serverMetadata.issuer}) was found; no protected resource metadata for the MCP endpoint`,
+      `only authorization server metadata (issuer ${serverMetadata.issuer}) was found, not the protected resource metadata for the MCP endpoint`,
       evidence,
     );
   }
@@ -454,9 +454,9 @@ export const mcpEndpointReachable = defineCheck('A4.4', async ({ fetcher, outcom
       // mismatch 400 with -32020. Either proves the transport as well as a result does.
       return pass(
         probe.method === 'POST initialize'
-          ? `the endpoint answers the initialize handshake with a JSON-RPC message (HTTP ${probe.status}) after refusing server/discover without a session, as servers on the 2025 transport do; the transport is proven`
+          ? `the endpoint answers the initialize handshake with a JSON-RPC message (HTTP ${probe.status}) after refusing server/discover without a session, as servers on the 2025 transport do. The transport is proven`
           : probe.status === 404
-            ? 'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover; the transport is proven'
+            ? 'the endpoint answers server/discover with HTTP 404 and a JSON-RPC error, as the 2026-07-28 transport requires of an older server that does not know server/discover. The transport is proven'
             : `the endpoint answers server/discover with a JSON-RPC message (HTTP ${probe.status})`,
         evidence,
       );
@@ -564,7 +564,7 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
     if (!isA2aAgentCard(legacyCard)) {
       evidence.legacy_is_a2a = false;
       return fail(
-        'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills); that path is also used by other agent-discovery drafts',
+        'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills). Other agent-discovery drafts use that path too',
         evidence,
       );
     }
@@ -664,14 +664,14 @@ export const webMcpToolDeclarations = defineCheck('A4.6', async ({ target, fetch
   if (pagesWithDeclarations.length === 0) {
     return skip(
       'not_applicable',
-      `no WebMCP declarations in the HTML; optional${disabledOn.length > 0 ? ', and Permissions-Policy tools=() turns WebMCP off' : ''}`,
+      `no WebMCP declarations in the HTML (optional)${disabledOn.length > 0 ? ', and Permissions-Policy tools=() turns WebMCP off' : ''}`,
       evidence,
     );
   }
   const parts: string[] = [];
   if (tools > 0) parts.push(`${tools} declarative tool(s): ${[...names].slice(0, 10).join(', ')}`);
   if (scripts > 0) parts.push(`${scripts} inline script(s) using modelContext`);
-  const found = parts.length > 0 ? `WebMCP declarations found: ${parts.join('; ')}` : '';
+  const found = parts.length > 0 ? `WebMCP declarations found: ${parts.join('. ')}` : '';
   const problems: string[] = [];
   if (declaredWhereDisabled > 0)
     problems.push(
@@ -681,6 +681,6 @@ export const webMcpToolDeclarations = defineCheck('A4.6', async ({ target, fetch
     problems.push(
       `${unregistered.size} form(s) carry toolname without tooldescription, so the browser does not register them: ${[...unregistered].slice(0, 10).join(', ')}`,
     );
-  if (problems.length > 0) return warn([...problems, found].filter(Boolean).join('; '), evidence);
+  if (problems.length > 0) return warn([...problems, found].filter(Boolean).join('. '), evidence);
   return pass(found, evidence);
 });

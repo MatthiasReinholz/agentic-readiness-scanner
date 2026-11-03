@@ -108,7 +108,7 @@ export interface ScanOrReuseOptions {
 export class ScanPendingError extends Error {
   constructor(public readonly outcome: PendingOutcome) {
     super(
-      `The scan of ${outcome.job.host} is still running (${String(Math.round((100 * outcome.decided) / Math.max(1, outcome.total)))}% of the checks decided); it continues on the server.`,
+      `The scan of ${outcome.job.host} is still running (${String(Math.round((100 * outcome.decided) / Math.max(1, outcome.total)))}% of the checks decided). It continues on the server.`,
     );
     this.name = 'ScanPendingError';
   }
@@ -219,7 +219,7 @@ export async function scanOrReuse(
     );
   }
   if (state.active >= MAX_CONCURRENT_SCANS) {
-    throw new ScanRequestError('The scanner is busy; try again in a minute.', 503);
+    throw new ScanRequestError('The scanner is busy. Try again in a minute.', 503);
   }
   // Reserve synchronously in local state before the first await, then atomically in SQL.
   const first = (async (): Promise<ScanOutcome> => {
@@ -390,7 +390,7 @@ export async function advanceJob(
   const jobs = jobsFor(deps);
   const now = deps.now ?? (() => new Date());
   const job = await jobs.get(jobId);
-  if (!job) throw new ScanRequestError('This scan is not known; it may have expired.', 404);
+  if (!job) throw new ScanRequestError('This scan is not known. It may have expired.', 404);
   if (job.status !== 'running') return finishedOutcome(deps, job, options.deliver === true);
   const stepMs = Math.min(deps.config.scanStepMs, options.deadlineMs ?? Infinity);
   const lease = await jobs.claim(job.id, now(), stepMs + LEASE_MARGIN_MS);

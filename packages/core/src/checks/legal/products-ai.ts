@@ -178,7 +178,7 @@ export const aiChatAssistant = defineLegalCheck('C6.1', ({ target }) => {
   );
   if (vendors.length > 0) {
     return warn(
-      `the home page loads a chat assistant (${vendors.join(', ')}); if it answers with AI, users must be told, which happens inside the widget and cannot be checked`,
+      `the home page loads a chat assistant (${vendors.join(', ')}). If it answers with AI, users must be told. That happens inside the widget and cannot be checked`,
       { vendors },
     );
   }
@@ -239,17 +239,17 @@ export const tdmReservation = defineLegalCheck('C6.2', async ({ target, fetcher 
       header === '1' ? 'a tdm-reservation signal' : '',
     ].filter(Boolean);
     return pass(
-      `machine-readable reservation in place (${how.join('; ')}); search crawlers can still read product pages`,
+      `machine-readable reservation in place (${how.join(', ')}). Search crawlers can still read product pages`,
       evidence,
     );
   }
   if (termsWording) {
     return warn(
-      `the terms mention "${termsWording}" but nothing machine-readable reserves text and data mining; terms-only reservations were held not machine-readable in 2025`,
+      `the terms mention "${termsWording}" but nothing machine-readable reserves text and data mining. In 2025, a reservation made only in the terms was held not to be machine-readable`,
       evidence,
     );
   }
-  return pass('nothing reserves text and data mining; reserving is a right, not a duty', evidence);
+  return pass('nothing reserves text and data mining. Reserving is a right, not a duty', evidence);
 });
 
 /** IPTC and C2PA markers of AI generation in image bytes read as text. */
@@ -285,7 +285,7 @@ export const aiImageMarking = defineLegalCheck('C6.3', async ({ target, fetcher 
   }
   return skip(
     'not_applicable',
-    `no AI-generation metadata in ${findings.length} product image(s); missing metadata does not show an image is camera-made`,
+    `no AI-generation metadata in ${findings.length} product image(s). Missing metadata does not show that an image is camera-made`,
     { images: findings },
   );
 });

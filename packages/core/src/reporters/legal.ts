@@ -192,11 +192,11 @@ export function renderLegalMarkdown(
       legal.markets.length > 0
         ? legal.markets
             .map((item) => `${MARKET_LABEL[item.market]} (${item.evidence.join(', ')})`)
-            .join('; ')
-        : 'none detected; only checks that apply in any market ran'
+            .join(' · ')
+        : 'none detected, so only checks that apply in any market ran'
     }`,
     `- ${legalCountsLine(legal)}`,
-    `- Scanned ${result.scanned_at}${options.reportUrl ? `; readiness report: ${options.reportUrl}` : ''}`,
+    `- Scanned ${result.scanned_at}${options.reportUrl ? `. Readiness report: ${options.reportUrl}` : ''}`,
     '',
   );
   const markets = marketsOf(legal);
@@ -216,7 +216,7 @@ export function renderLegalMarkdown(
             (law) =>
               `[${law.jurisdiction}: ${law.name}](${law.url})${lawDate(law, now) ? ` (${lawDate(law, now)})` : ''}`,
           )
-          .join('; ');
+          .join(' · ');
         if (laws) lines.push(`  - Laws: ${laws}`);
       }
       if (item.fix && (status === 'review' || status === 'not_found'))

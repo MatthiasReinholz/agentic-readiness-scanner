@@ -55,7 +55,7 @@ function details(config: AppConfig): string {
   const activeMinutes = Math.round(config.scanMaxActiveMs / 60_000);
   const monitoringRow =
     monitoring.provider !== null
-      ? `\n| Monitoring subscription | Your email address, the site, when it was confirmed and last checked, and the tokens in its links (stored only as SHA-256 hashes) | Until you unsubscribe; unconfirmed requests 48 hours |`
+      ? `\n| Monitoring subscription | Your email address, the site, when it was confirmed and last checked, and the tokens in its links (stored only as SHA-256 hashes) | Until you unsubscribe. Unconfirmed requests: 48 hours |`
       : '';
   const monitoringSection =
     monitoring.provider !== null
@@ -84,7 +84,7 @@ A scan starts from the URL you enter and reads public resources of that store: t
 - A scan sends at most ${config.scanBudget} requests, redirects and retries included. On this site it runs in steps of up to ${stepSeconds} seconds, at most ${config.scanMaxSteps} steps and ${activeMinutes} minutes of active scanning.
 - It never signs in, submits a form, adds to a cart, starts a checkout or pays.
 
-A store that refuses these honest requests is reported as refusing them; the guide [Why the scanner reports crawler blocks](/knowledge-base/guides/crawler-blocks-and-browser-scans) explains why.
+A store that refuses these honest requests is reported as refusing them. The guide [Why the scanner reports crawler blocks](/knowledge-base/guides/crawler-blocks-and-browser-scans) explains why.
 
 ## Limits
 
@@ -102,7 +102,7 @@ What the hosted app stores is about stores, which are businesses' public website
 | Site history | One row per distinct result of a site: level, scores and the verdict of each check, shown at \`/h/<site>\` | No end date |
 | List of scanned sites | Site name, first and last scan, number of scans, last level, scores, platform and profile | No end date |
 | Scan reservation | The site and the time of its last scan, for the limit above | One day |
-| Scan in progress | The scan's state between steps and compressed copies of the public pages it fetched | Copies until the scan ends, two hours at most; the record one day after the end |
+| Scan in progress | The scan's state between steps and compressed copies of the public pages it fetched | Copies until the scan ends, two hours at most. The record until one day after the end |
 | Progress for the scan page | The list of steps and verdicts the page shows while a scan runs | One hour |
 | Scans of a path or query | Their state and result while they run | Until the result reaches you, two hours at most |${monitoringRow}
 ${monitoringSection}

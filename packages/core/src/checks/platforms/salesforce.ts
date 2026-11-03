@@ -14,7 +14,7 @@ export const salesforceRobotsPreset = defineCheck('A2.12', ({ target }) => {
   };
   if (blocksSearch) {
     return fail(
-      'robots.txt disallows Googlebot and Bingbot everywhere, as the "All Spiders Disallowed to Access Any Static Resources" preset for staging instances does; it is often replicated to production with the site preferences',
+      'robots.txt disallows Googlebot and Bingbot everywhere, as the "All Spiders Disallowed to Access Any Static Resources" preset for staging instances does. It is often replicated to production with the site preferences',
       evidence,
     );
   }

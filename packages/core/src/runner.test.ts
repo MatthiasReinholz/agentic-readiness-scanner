@@ -135,7 +135,7 @@ describe('runChecks on a refused home page', () => {
     const skipped = byId.get('B2.1');
     expect(skipped?.verdict).toBe('skip');
     expect(skipped?.skip_reason).toBe('dependency_failed');
-    expect(skipped?.message).toMatch(/home page refused the scanner \(HTTP 403\); see A2.4/);
+    expect(skipped?.message).toMatch(/home page refused the scanner \(HTTP 403\), see A2.4/);
     expect(byId.get('A3.2')?.message).toMatch(/see A2.4/);
   });
 });

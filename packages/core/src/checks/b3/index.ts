@@ -122,7 +122,7 @@ export const gtinPresent = defineCheck('B3.1', async (context) => {
   const variantNote = fromVariants > 0 ? ` (${fromVariants} on variants)` : '';
   const invalidNote =
     invalid.length > 0
-      ? `; ${invalid.length} gtin value(s) not counted because they are not 8, 12, 13 or 14 digits: ${invalid.slice(0, 5).join(', ')}`
+      ? `. ${invalid.length} gtin value(s) were not counted because they are not 8, 12, 13 or 14 digits: ${invalid.slice(0, 5).join(', ')}`
       : '';
   const message = `${withGtin} of ${samples.length} sampled product(s) carry a GTIN${variantNote}${invalidNote}`;
   // Channel rules ask for identifiers on most of the catalog, not all of it, hence 80 percent.
@@ -132,11 +132,11 @@ export const gtinPresent = defineCheck('B3.1', async (context) => {
   // weak, not unidentified.
   if (withoutGtin.length > 0 && alternative === withoutGtin.length)
     return warn(
-      `${message}; the ${withoutGtin.length} without one carry brand and mpn, Google's documented alternative to a GTIN${note}`,
+      `${message}. The ${withoutGtin.length} without one carry brand and mpn, Google's documented alternative to a GTIN${note}`,
       evidence,
     );
   return fail(
-    `${message}; ${withoutGtin.length - alternative} of the ${withoutGtin.length} without one also lack brand plus mpn, Google's documented alternative${note}`,
+    `${message}. ${withoutGtin.length - alternative} of the ${withoutGtin.length} without one also lack brand plus mpn, Google's documented alternative${note}`,
     evidence,
   );
 });
@@ -251,7 +251,7 @@ export const brandEntity = defineCheck('B3.3', async ({ target, fetcher }) => {
     );
   if (inconsistent.length > 0)
     return warn(
-      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join('; ')}${stringNote}${note}`,
+      `brand name casing varies across the sample: ${inconsistent.map((v) => v.join(' / ')).join(', ')}${stringNote}${note}`,
       evidence,
     );
   return pass(

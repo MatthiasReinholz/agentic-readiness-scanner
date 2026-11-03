@@ -504,7 +504,7 @@ export const productFeedDiscoverable = defineCheck('B1.5', async ({ target, fetc
   return fail(
     `none of the ${tried.length} candidate(s) tried is a product feed: ${tried
       .map((entry) => `${entry.url} (${entry.reason})`)
-      .join('; ')}`,
+      .join(', ')}`,
     evidence,
   );
 });

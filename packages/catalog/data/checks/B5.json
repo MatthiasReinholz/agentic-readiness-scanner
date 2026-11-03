@@ -4,7 +4,7 @@
     "group": "B5",
     "title": "UCP business profile",
     "question": "Does the merchant publish a Universal Commerce Protocol profile?",
-    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty). Warn when the profile is served after a redirect or without Cache-Control public with max-age of at least 60 seconds (the specification forbids redirects and requires that caching), when it is served with an HTML content type (this scanner's heuristic for a page standing in for the document), or when a profile declaring version 2026-08-25 or later still carries signing_keys instead of keys. A refusal or challenge on the profile URL is reported as such, not as absence. Fail when absent or not JSON. Shopify serves this profile for every eligible Online Store; Google Merchant Center requires it for agentic checkout and its guides still target version 2026-04-08.",
+    "method": "GET /.well-known/ucp. Pass on 200 JSON whose ucp object carries a version in YYYY-MM-DD form and services and payment_handlers objects (both may be empty), served without a redirect, as application/json and with Cache-Control public and a max-age of at least 60 seconds. Warn when such a profile came through a redirect or without that caching (the specification forbids redirects and requires the caching), with a content type other than application/json (this scanner's heuristic for a page standing in for the document), or when it declares version 2026-08-25 or later but still carries signing_keys instead of keys. Fail when the profile is absent, refused, not 200, an HTML page, not JSON or missing a required part. A refusal or challenge on the profile URL is reported as such, not as absence. Shopify serves this profile for every eligible Online Store. Google Merchant Center requires it for agentic checkout, and its guides still target version 2026-04-08.",
     "weight": 3,
     "spec": [
       {
@@ -30,7 +30,7 @@
     "group": "B5",
     "title": "UCP checkout capability and payment handler",
     "question": "Does the UCP profile declare a checkout an agent could use?",
-    "method": "From the profile: pass when a dev.ucp.shopping.checkout capability or a dev.ucp.shopping service with a rest, mcp, a2a or embedded transport is declared and at least one payment handler carries id and version (spec is optional); warn when only one of the two is present; fail when neither. A handler whose environment is not production is named as such. When a rest service names an endpoint, GET it and record the status; a 404 or 405 on the base URL is normal (it has no GET resource), and only a host that does not answer or a 5xx adds a warning. An endpoint the scanner did not request because robots.txt disallows it is noted, not scored.",
+    "method": "Read the profile B5.1 recorded (skipped when B5.1 failed). Pass when a dev.ucp.shopping.checkout capability or a dev.ucp.shopping service with a rest, mcp, a2a or embedded transport is declared and at least one payment handler carries id and version (spec is optional). Warn when only one of the two is present. Fail when neither is. A handler whose environment is not production is named as such. When a rest service names an endpoint, GET it and record the status. A 404 or 405 on the base URL is normal (it has no GET resource), and only a host that does not answer or a 5xx adds a warning. An endpoint the scanner did not request because robots.txt disallows it is noted, not scored. A pass here, on B5.3 or on B5.8 meets the Level 5 gate and lifts the commerce cap of 60.",
     "weight": 3,
     "depends_on": ["B5.1"],
     "spec": [
@@ -49,7 +49,7 @@
     "group": "B5",
     "title": "ACP discovery document",
     "question": "Does the merchant advertise an Agentic Commerce Protocol integration?",
-    "method": "GET /.well-known/acp.json. Pass on JSON with protocol.name \"acp\", a protocol.version, an api_base_url and a transports array that includes rest; record supported_versions and capabilities. Fail when absent. The document is a merged proposal in the ACP repository (status proposal, version unreleased, not part of the released 2026-04-17 specification), and OpenAI does not document probing it; checkout endpoints are registered with the platform privately, so this is the only public trace and the weight is low.",
+    "method": "GET /.well-known/acp.json. Pass on a JSON object with protocol.name \"acp\", a protocol.version, an https api_base_url and a transports array that includes rest. Record supported_versions and capabilities. Fail when the document is absent, not 200, an HTML page, not a JSON object or missing one of these parts. The document is a merged proposal in the ACP repository (status proposal, version unreleased, not part of the released 2026-04-17 specification), and OpenAI does not document probing it. Checkout endpoints are registered with the platform privately, so this is the only public trace and the weight is low. A pass still meets the Level 5 gate and lifts the commerce cap of 60, as B5.2 and B5.8 do.",
     "weight": 1,
     "spec": [
       {
@@ -67,7 +67,7 @@
     "group": "B5",
     "title": "ACP feed fields",
     "question": "If the public feed follows the OpenAI format, does it carry the seller and return fields a checkout needs?",
-    "method": "When B1.5 found a JSON, CSV or TSV feed, read sampled items against the OpenAI product feed specification. Pass when the nine required fields (item_id, title, description, url, brand, seller_name, image_url, availability, price) are present together with the return fields (return_policy, return_deadline_in_days or return_window) and the seller policy fields checkout requires (seller_privacy_policy, seller_tos); warn when the required fields are present but the return or seller policy fields are missing (an item whose is_eligible_checkout or enable_checkout is false does not need the policy fields); fail when required fields are missing, naming them. Skip as not applicable for Google-format XML feeds. OpenAI ingests feeds pushed to it, so this reads a public copy only: weight 1.",
+    "method": "When B1.5 found a JSON, JSON Lines, CSV or TSV feed, read up to five items against the OpenAI product feed specification. Pass when the nine required fields (item_id, title, description, url, brand, seller_name, image_url, availability, price) are present together with the return fields (return_policy, return_deadline_in_days or return_window) and the seller policy fields checkout requires (seller_privacy_policy, seller_tos). Warn when the required fields are present but the return or seller policy fields are missing (an item whose is_eligible_checkout or enable_checkout is false does not need the policy fields). Fail when required fields are missing, naming them. Skip as not applicable for Google-format XML feeds, and skip when the feed cannot be fetched again or parsed or has no items. OpenAI ingests feeds pushed to it, so this reads a public copy only: weight 1.",
     "weight": 1,
     "depends_on": ["B1.5"],
     "spec": [
@@ -82,7 +82,7 @@
     "group": "B5",
     "title": "Guest checkout and cart API",
     "question": "Can an agent build a cart without an account?",
-    "method": "GET /wp-json/wc/store/v1/cart must respond 200 with a cart object. Warn when the checkout page requires login (guest checkout disabled).",
+    "method": "On WooCommerce, GET /wp-json/wc/store/v1/cart. Fail when it answers 401, 403, 404, another non-200 status or not at all, or with a body that is not a JSON object with an items array and a totals object. Then fetch the checkout page (the first same-origin home-page link to /checkout/, else /checkout/). Warn when it shows a login notice or login form and no checkout form (guest checkout disabled). Pass otherwise, with a note that guest checkout was not verified when the checkout page did not answer 200.",
     "weight": 2,
     "requires": ["woocommerce"],
     "depends_on": ["B1.2"],
@@ -98,7 +98,7 @@
     "group": "B5",
     "title": "Shopify agentic storefront active",
     "question": "Is the Shopify store exposing its agent surface?",
-    "method": "For Shopify Online Store storefronts: pass when responses carry Link: </.well-known/ucp>; rel=\"ucp\" and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message (an authorization failure arrives as a JSON-RPC error, not a 401), which means the Agentic storefronts channel is active and its catalog tools are reachable; warn when only one of the two holds, or when the scanner did not call the endpoint because robots.txt disallows /api/ for its user agent; fail when neither holds. The channel is active by default for eligible stores, so a fail means ineligibility or opt-out. A headless storefront (Shopify assets but no Shopify-served origin) gets neither the profile nor the endpoint on its own domain and is not judged here.",
+    "method": "For Shopify-served Online Store storefronts: pass when the home page sends a Link header with rel=\"ucp\" pointing to /.well-known/ucp and a JSON-RPC server/discover POST to /api/ucp/mcp is answered with a JSON-RPC message or a 401 with WWW-Authenticate (Shopify reports an authorization failure as a JSON-RPC error). That means the Agentic storefronts channel is active and its catalog tools are reachable. Warn when only one of the two holds, or when the header is present but the scanner did not call the endpoint because robots.txt disallows /api/ for its user agent. Fail when neither holds. The channel is active by default for eligible stores, so a fail means ineligibility or opt-out. A headless storefront (Shopify assets but no Shopify-served origin) gets neither the profile nor the endpoint on its own domain and is not applicable. A pass meets the Level 2 catalog gate and, like B5.2 and B5.3, the Level 5 gate, and lifts the commerce cap of 60.",
     "weight": 3,
     "requires": ["shopify"],
     "depends_on": ["B1.1"],
@@ -126,7 +126,7 @@
     "group": "B5",
     "title": "BigCommerce Storefront MCP",
     "question": "Does the BigCommerce storefront advertise a Storefront MCP server that answers?",
-    "method": "On a BigCommerce store, read the WebMCP bridge script BigCommerce injects into eligible storefronts (/.webmcp/bridge.js with data-mcp-url) and send the read-only JSON-RPC server/discover POST to the endpoint it names. Pass on a JSON-RPC answer or an authorization challenge: guests can search products, manage a cart and hand off to checkout. Warn when the bridge points at an endpoint where no server answers (Storefront MCP is switched off under Settings > API and MCP > MCP), when no endpoint is advertised at all, or when robots.txt keeps the scanner from asking; skipped when the request fails. A server on the 2025 session transport that refuses server/discover with a plain HTTP 400 gets the initialize handshake once instead.",
+    "method": "On a BigCommerce store, read the WebMCP bridge script BigCommerce injects into eligible storefronts (/.webmcp/bridge.js with a data-mcp-url on the store's own origin) and send the read-only JSON-RPC server/discover POST to the endpoint it names. Pass on a JSON-RPC answer or a 401 with WWW-Authenticate: guests can search products, manage a cart and hand off to checkout. Warn when the bridge points at an endpoint where no server answers (Storefront MCP is switched off under Settings > API and MCP > MCP), when no endpoint is advertised at all, or when robots.txt keeps the scanner from asking. Skipped when the request fails or gets a rate limit (HTTP 429) or a gateway error (502, 503 or 504). A server on the 2025 session transport that refuses server/discover with a plain HTTP 400 gets the initialize handshake once instead. Not a level gate, and it does not lift the commerce cap.",
     "weight": 2,
     "requires": ["bigcommerce"],
     "depends_on": ["B1.1"],

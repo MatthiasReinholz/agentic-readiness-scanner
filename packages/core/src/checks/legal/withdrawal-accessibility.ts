@@ -37,7 +37,7 @@ export const euWithdrawalFunction = defineLegalCheck('C3.1', ({ target }) => {
   const similar = labels.find((label) => WITHDRAWAL_WORDING.test(label.text));
   if (similar) {
     return warn(
-      `a withdrawal link is labelled "${similar.text}", not with the official wording; it must be unambiguous`,
+      `a withdrawal link is labelled "${similar.text}", not with the official wording. The label must be unambiguous`,
       { label: similar.text, href: similar.href ?? null },
     );
   }
@@ -179,7 +179,7 @@ export const subscriptionCancellation = defineLegalCheck('C3.4', async (context)
   if (label) return pass(`the store offers "${subscriptions}" and links "${label.text}"`, evidence);
   if (inTerms)
     return warn(
-      `the store offers "${subscriptions}"; the terms mention "${inTerms}" but no cancellation link is on the home page`,
+      `the store offers "${subscriptions}" and the terms mention "${inTerms}", but no cancellation link is on the home page`,
       evidence,
     );
   return warn(
@@ -304,7 +304,7 @@ export const staticAccessibilityBasics = defineLegalCheck('C4.2', async ({ targe
   const evidence = { pages: findings };
   if (failing.length === 0) {
     return pass(
-      `${findings.length} page(s) pass the static basics (language, title, alt text, labels, names, zoom); contrast, keyboard and focus were not checked`,
+      `${findings.length} page(s) pass the static basics (language, title, alt text, labels, names, zoom). Contrast, keyboard and focus were not checked`,
       evidence,
     );
   }
@@ -324,7 +324,7 @@ export const accessibilityOverlay = defineLegalCheck('C4.3', ({ target }) => {
   );
   if (vendors.length > 0) {
     return warn(
-      `the home page loads an accessibility overlay (${vendors.join(', ')}); an overlay does not make a site conformant`,
+      `the home page loads an accessibility overlay (${vendors.join(', ')}). An overlay does not make a site conformant`,
       { vendors },
     );
   }

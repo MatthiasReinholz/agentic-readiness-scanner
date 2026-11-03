@@ -182,7 +182,7 @@ export function reportMetadata(
   const path = pagePath;
   const url = `${config.baseUrl}${path}`;
   const title = `Agentic readiness report for ${hostname}`;
-  const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${scoreText(result, 'ingestion')}; commerce ${scoreText(result, 'commerce')}. Public signals only; checkout not verified.`;
+  const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}. Public signals only, checkout not verified.`;
   const graph = [
     {
       ...webPage(config, path, title, description, 'report'),
@@ -218,9 +218,9 @@ export function reportMetadata(
       url,
       creator: { '@id': `${AUTHOR.url}#person` },
       dateCreated: result.scanned_at,
-      version: `${result.scanner_version}; catalog ${result.catalog_version}; scoring ${result.scoring_version}`,
+      version: `${result.scanner_version}, catalog ${result.catalog_version}, scoring ${result.scoring_version}`,
       measurementTechnique:
-        'Public HTTP signals fetched under the scanner identity; no sign-in, JavaScript execution or checkout transaction.',
+        "Public HTTP signals fetched under the scanner's own name, with no sign-in, no JavaScript and no checkout transaction.",
       variableMeasured: [
         {
           '@type': 'PropertyValue',

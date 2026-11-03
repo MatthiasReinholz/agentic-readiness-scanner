@@ -3,54 +3,54 @@
     "id": "A1",
     "title": "Discoverability",
     "dimension": "ingestion",
-    "description": "Can an agent find the site, its sitemap, its product URLs and its optional index files?"
+    "description": "Can an agent find the site, its sitemap (the list of pages a site publishes for crawlers) and its product pages, and read the optional files written for AI tools?"
   },
   {
     "id": "A2",
     "title": "Bot access control",
     "dimension": "ingestion",
-    "description": "Do robots.txt, page directives and bot management let the crawlers behind AI answers and the fetchers assistants use get in, and are training decisions stated rather than accidental? Training opt-outs never lose points."
+    "description": "Do robots.txt, page directives and bot protection let in the crawlers behind AI answers and the fetchers assistants use when a person asks about a page? Is any refusal of AI training stated on purpose? Refusing training never costs points."
   },
   {
     "id": "A3",
     "title": "Content accessibility",
     "dimension": "ingestion",
-    "description": "Can an agent read product content without executing JavaScript, fetch it whole, trust its status codes, and optionally get it as Markdown?"
+    "description": "Can an agent read product content without running JavaScript, get the whole page, trust its status codes, and optionally get it as Markdown?"
   },
   {
     "id": "A4",
     "title": "Protocol discovery",
     "dimension": "ingestion",
-    "description": "Does the site publish the agent-protocol discovery documents that exist today (MCP server cards and AI catalog, OAuth metadata, API catalog, A2A card, WebMCP)? Low weight: expected to be absent on most stores."
+    "description": "Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog or an A2A agent card? Few stores have them yet, so these checks carry little weight."
   },
   {
     "id": "B1",
     "title": "Catalog exposure",
     "dimension": "commerce",
-    "description": "Can an agent read the catalog as data: the platform API, a public feed, and a sitemap that agrees with them?"
+    "description": "Can an agent read the catalog as data: through the platform's API, a public product feed, or a sitemap that lists the products?"
   },
   {
     "id": "B2",
     "title": "Product structured data",
     "dimension": "commerce",
-    "description": "Do product pages carry schema.org Product markup with live price, availability, variants, shipping and returns?"
+    "description": "Do product pages carry schema.org Product markup (structured data that machines read) with the current price, availability, variants, shipping and returns?"
   },
   {
     "id": "B3",
     "title": "Product identity",
     "dimension": "commerce",
-    "description": "Can an agent match products to real-world entities through GTIN, brand, MPN and SKU, the way Google, Meta, ACP and UCP require?"
+    "description": "Can an agent tell exactly which product this is? Google, Meta and the agent checkout protocols match products by GTIN (the global barcode number), brand, MPN (the maker's part number) and SKU."
   },
   {
     "id": "B4",
     "title": "Merchant trust and policies",
     "dimension": "commerce",
-    "description": "Are the policies a checkout needs (returns, shipping, privacy, terms) and the merchant's identity findable and readable?"
+    "description": "Can an agent find and read the policies a purchase depends on (returns, shipping, privacy, terms) and who the merchant is?"
   },
   {
     "id": "B5",
     "title": "Checkout and payment protocols",
     "dimension": "commerce",
-    "description": "Can an agent start a transaction: UCP profile, ACP discovery, Shopify agent surface, guest checkout and cart API?"
+    "description": "Can an agent start a purchase? This covers the agent checkout protocols UCP and ACP, platform agent storefronts, guest checkout and cart APIs."
   }
 ]

@@ -115,7 +115,7 @@ export function createJobRoutes(deps: ScanDependencies): Hono {
     if (error instanceof ScanRequestError)
       return c.json({ status: 'failed', error: error.message }, error.status as 400 | 404 | 500);
     console.error('[scan-job]', error instanceof Error ? error.name : 'UnexpectedError');
-    return c.json({ status: 'failed', error: 'The scan step failed; it is retried shortly.' }, 500);
+    return c.json({ status: 'failed', error: 'The scan step failed. It is retried shortly.' }, 500);
   };
 
   app.get('/api/scan/jobs/:id', async (c) => {
@@ -160,7 +160,7 @@ export function createJobRoutes(deps: ScanDependencies): Hono {
     const id = c.req.param('id');
     if (!JOB_ID.test(id)) return c.notFound();
     const job = await jobsFor(deps).get(id);
-    if (!job) return c.html(homePage(config, 'This scan is not known; it may have expired.'), 404);
+    if (!job) return c.html(homePage(config, 'This scan is not known. It may have expired.'), 404);
     if (job.status !== 'running') {
       try {
         const outcome = await advanceJob(deps, id, undefined, { deliver: true });

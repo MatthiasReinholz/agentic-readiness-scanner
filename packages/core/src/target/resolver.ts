@@ -478,7 +478,7 @@ async function discoverSitemap(
         const childParsed = parseSitemap(childResponse.body);
         if (childParsed.partial) {
           warnings.push(
-            `child sitemap ${childUrl} is larger than the 2 MB the scanner reads; its first ${childParsed.entries.length} entries were used`,
+            `child sitemap ${childUrl} is larger than the 2 MB the scanner reads, so its first ${childParsed.entries.length} entries were used`,
           );
         }
         if (childParsed.kind !== 'urlset') {
@@ -583,7 +583,7 @@ export async function discoverProductsBySampling(
   if (tried.length > 0) {
     warnings.push(
       found.length > 0
-        ? `no URL matched a product URL pattern; ${found.length} product page(s) were found by fetching ${tried.length} linked page(s)`
+        ? `no URL matched a product URL pattern. ${found.length} product page(s) were found by fetching ${tried.length} linked page(s)`
         : `no URL matched a product URL pattern and none of ${tried.length} sampled linked page(s) is a product page`,
     );
   }
@@ -662,12 +662,12 @@ export async function resolveTarget(
   const shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
   if (shopifyHosted === false) {
     warnings.push(
-      'Shopify assets are loaded but Shopify does not serve this origin (a headless storefront); the Shopify-only checks do not apply here',
+      'Shopify assets are loaded but Shopify does not serve this origin (a headless storefront), so the Shopify-only checks do not apply here',
     );
   }
   if (blocked) {
     warnings.push(
-      `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}); platform, profile and product pages could not be determined and most checks were not evaluated`,
+      `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}). Platform, profile and product pages could not be determined, and most checks were not evaluated`,
     );
   }
 
@@ -676,7 +676,7 @@ export async function resolveTarget(
     phase: 'home',
     detail: blocked
       ? `GET ${home.finalUrl} answered HTTP ${home.status}${blocked.vendor ? ` from ${blocked.vendor}` : ''}`
-      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `; ${platformLabel(platform) ?? platform} detected`}`,
+      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `, ${platformLabel(platform) ?? platform} detected`}`,
   });
   const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
   const robotsLooksLikeText =
@@ -732,7 +732,7 @@ export async function resolveTarget(
     )
   ) {
     warnings.push(
-      `no product URLs under ${scope.prefix} were found; the sample comes from another market of this site`,
+      `no product URLs under ${scope.prefix} were found, so the sample comes from another market of this site`,
     );
   }
   const listing = chooseListing(anchorUrls);
@@ -759,7 +759,7 @@ export async function resolveTarget(
   }
   if (products.length === 0) {
     warnings.push(
-      'no product URLs found in sitemap or homepage links; product checks will not apply',
+      'no product URLs found in the sitemap or the home page links, so product checks will not apply',
     );
   }
   const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
@@ -790,7 +790,7 @@ export async function resolveTarget(
   emitProgress(options.onProgress, {
     type: 'phase',
     phase: 'sample',
-    detail: `${products.length} product page(s)${listing ? ', a listing page' : ''} and ${Object.keys(policies).length} policy page(s) sampled; profile ${profile.id}`,
+    detail: `${products.length} product page(s)${listing ? ', a listing page' : ''} and ${Object.keys(policies).length} policy page(s) sampled, profile ${profile.id}`,
   });
 
   const sampled: SampledPages = {

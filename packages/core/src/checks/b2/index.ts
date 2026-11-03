@@ -81,7 +81,7 @@ export const productJsonLd = defineCheck('B2.1', async ({ target, fetcher }) => 
     0,
   );
   if (incomplete.length === 0) return outcome;
-  const note = `; ${incomplete.length} lack Google's required Product properties: ${incomplete.join(', ')}`;
+  const note = `. ${incomplete.length} lack Google's required Product properties: ${incomplete.join(', ')}`;
   return {
     ...outcome,
     verdict: outcome.verdict === 'pass' ? 'warn' : outcome.verdict,
@@ -231,12 +231,12 @@ export const offerComplete = defineCheck('B2.2', async ({ target, fetcher }) => 
         ]
       : []),
   ];
-  const remarkText = remarks.length > 0 ? `; ${remarks.join('; ')}` : '';
+  const remarkText = remarks.length > 0 ? `. Also: ${remarks.join(', and ')}` : '';
   if (completeProducts === products) {
     const message = `all ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}${remarkText}${note}`;
     return concerns.length > 0 ? warn(message, evidence) : pass(message, evidence);
   }
-  const message = `${completeOffers} of ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}; missing: ${gaps}${remarkText}${note}`;
+  const message = `${completeOffers} of ${offers} offer(s) on ${products} product(s) carry price, currency and schema.org availability${where}. Missing: ${gaps}${remarkText}${note}`;
   return completeOffers > 0 ? warn(message, evidence) : fail(message, evidence);
 });
 
@@ -333,7 +333,7 @@ export const variantsModeled = defineCheck('B2.3', async ({ target, fetcher }) =
   return {
     ...outcome,
     verdict: outcome.verdict === 'pass' ? 'warn' : outcome.verdict,
-    message: `${outcome.message ?? ''}; ${issues.join('; ')}`,
+    message: `${outcome.message ?? ''}. Also: ${issues.join(', ')}`,
   };
 });
 
@@ -472,7 +472,7 @@ export const shippingAndReturnsInMarkup = defineCheck('B2.4', async ({ target, f
     unfetched: unfetched(target, pages),
   };
   const where = organizationLevel ? ' (partly at Organization level)' : '';
-  const gaps = incomplete.length > 0 ? `; required fields missing: ${incomplete.join('; ')}` : '';
+  const gaps = incomplete.length > 0 ? `. Required fields missing: ${incomplete.join('. ')}` : '';
   const message = `${both} of ${considered} product(s) carry both shipping details (OfferShippingDetails or ShippingService) and a MerchantReturnPolicy${where}${gaps}${fetchNote(target, pages)}`;
   if (both === considered)
     return incomplete.length > 0 ? warn(message, evidence) : pass(message, evidence);
@@ -642,7 +642,7 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
     Object.values(perPage)
       .filter((page) => verdicts.includes(page.verdict))
       .map((page) => `${page.image_url ?? 'no image'}: ${page.issues.join(', ')}`)
-      .join('; ');
+      .join('. ');
   if (scored === 0) {
     return skip(
       'error',
@@ -651,10 +651,10 @@ export const productImageUsable = defineCheck('B2.5', async ({ target, fetcher }
     );
   }
   const note = fetchNote(target, pages);
-  const unchecked = counts.inconclusive > 0 ? `; ${counts.inconclusive} could not be checked` : '';
+  const unchecked = counts.inconclusive > 0 ? `. ${counts.inconclusive} could not be checked` : '';
   const recommendation =
     belowRecommended > 0
-      ? `; ${belowRecommended} below the recommended ${RECOMMENDED_LONGEST_SIDE} px (Google recommends 1500 px)`
+      ? `. ${belowRecommended} are below the recommended ${RECOMMENDED_LONGEST_SIDE} px (Google recommends 1500 px)`
       : '';
   const outcome = (verdict: 'pass' | 'warn' | 'fail', message: string): CheckOutcome => ({
     verdict,
@@ -834,7 +834,7 @@ export const markupMatchesPage = defineCheck('B2.6', async ({ target, fetcher })
         const page = perPage[url];
         return `${url} shows ${page?.price_element_prices.join(', ') ?? '?'} while the markup says ${page?.markup_prices.join(', ') ?? '?'}`;
       })
-      .join('; ');
+      .join('. ');
     return fail(
       `the visible price contradicts the JSON-LD price on ${contradicted.length} of ${compared} product page(s): ${detail}${note}`,
       evidence,
@@ -842,7 +842,7 @@ export const markupMatchesPage = defineCheck('B2.6', async ({ target, fetcher })
   }
   if (notFound.length > 0) {
     return warn(
-      `the JSON-LD price is not among the prices visible on ${notFound.length} of ${compared} product page(s) (no readable price block contradicts it either); price matches on ${compared - notFound.length}${note}`,
+      `the JSON-LD price is not among the prices visible on ${notFound.length} of ${compared} product page(s) (no readable price block contradicts it either). The price matches on ${compared - notFound.length}${note}`,
       evidence,
     );
   }
@@ -853,7 +853,7 @@ export const markupMatchesPage = defineCheck('B2.6', async ({ target, fetcher })
     );
   }
   return pass(
-    `price matches on ${compared} product page(s); ${availabilitySummary}${note}`,
+    `price matches on ${compared} product page(s), and ${availabilitySummary}${note}`,
     evidence,
   );
 });

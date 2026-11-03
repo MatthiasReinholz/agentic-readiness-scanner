@@ -78,7 +78,7 @@ describe('parseTdmrepJson', () => {
     expect(parseTdmrepJson('not json')).toMatchObject({ kind: 'invalid', problem: 'not JSON' });
     expect(parseTdmrepJson('{"location":"/"}').problem).toBe('must be a JSON array');
     expect(parseTdmrepJson('[{"tdm-reservation":"1"}]').problem).toMatch(
-      /entry 0 lacks a location; entry 0 needs tdm-reservation 0 or 1/,
+      /entry 0 lacks a location, entry 0 needs tdm-reservation 0 or 1/,
     );
     expect(
       parseTdmrepJson('[{"location":"/","tdm-reservation":1,"tdm-policy":"/p"}]').problem,

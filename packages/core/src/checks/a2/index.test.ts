@@ -160,7 +160,7 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
       [url]: { status: 200, headers: { 'X-Robots-Tag': 'noindex' }, body: page() },
     });
     expect(header.verdict).toBe('fail');
-    expect(header.message).toMatch(/^1 sampled product page\(s\) carry noindex; /);
+    expect(header.message).toMatch(/^1 sampled product page\(s\) carry noindex\. /);
     expect(header.message).toMatch(/AI Overviews and AI Mode/);
   });
 
@@ -171,7 +171,7 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
     });
     expect(maxSnippet.verdict).toBe('fail');
     expect(maxSnippet.message).toBe(
-      '1 sampled product page(s) carry max-snippet:0; Google documents that this keeps the page out of AI Overviews and AI Mode, and Apple generates no web answer from it',
+      '1 sampled product page(s) carry max-snippet:0. Google documents that this keeps the page out of AI Overviews and AI Mode, and Apple generates no web answer from it',
     );
     expect(maxSnippet.evidence).toMatchObject({
       blocking: [`${url}: max-snippet:0`],
@@ -181,7 +181,7 @@ describe('A2.6 directives that keep product pages out of AI answers', () => {
       [url]: { status: 200, headers: { 'X-Robots-Tag': 'nosnippet' }, body: page() },
     });
     expect(nosnippet.verdict).toBe('fail');
-    expect(nosnippet.message).toMatch(/carry nosnippet;/);
+    expect(nosnippet.message).toMatch(/carry nosnippet\./);
     const wrapped = await run({
       [url]: page(
         '',

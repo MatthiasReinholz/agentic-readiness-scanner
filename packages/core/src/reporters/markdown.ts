@@ -191,7 +191,7 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   if (priorities.next.length > 0) {
     lines.push('## Fix next');
     lines.push('');
-    lines.push('Expected by the channels and crawlers behind AI answers; each costs points.');
+    lines.push('Expected by the channels and crawlers behind AI answers. Each one costs points.');
     lines.push('');
     priorities.next.forEach((priority, index) => lines.push(...priorityItem(priority, index + 1)));
     lines.push('');
@@ -200,7 +200,7 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     lines.push('## Nice to have');
     lines.push('');
     lines.push(
-      'Conventions and optional protocols with no documented consumer that requires them. Low weight; adopt them when they fit.',
+      'Conventions and optional protocols with no documented consumer that requires them. Low weight: adopt them when they fit.',
     );
     lines.push('');
     for (const priority of priorities.optional) lines.push(compactItem(priority));
@@ -229,7 +229,7 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     lines.push('## Fixes');
     lines.push('');
     lines.push(
-      'In the order above. Each fix names the task for a coding agent; the working rules for every task are at the end of this report.',
+      'In the order above. Each fix names the task for a coding agent. The working rules for every task are at the end of this report.',
     );
     lines.push('');
     for (const priority of open) lines.push(...fixSection(priority));

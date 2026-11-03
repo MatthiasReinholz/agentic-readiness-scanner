@@ -54,7 +54,7 @@ export const wordpressRestApiReadable = defineCheck('A4.7', async ({ target, fet
   };
   if (blockedByRobots(response)) {
     return warn(
-      `the REST API was not requested because robots.txt disallows ${new URL(url).pathname} for the scanner; whether agents can read it could not be verified`,
+      `the REST API was not requested because robots.txt disallows ${new URL(url).pathname} for the scanner, so whether agents can read it could not be verified`,
       evidence,
     );
   }
@@ -73,7 +73,7 @@ export const wordpressRestApiReadable = defineCheck('A4.7', async ({ target, fet
   evidence.code = code;
   if (response.status === 401 || response.status === 403) {
     return fail(
-      `the REST API refuses anonymous reads (${describeFailure(response)}${code ? `, ${code}` : ''}); a security plugin or a filter usually does this`,
+      `the REST API refuses anonymous reads (${describeFailure(response)}${code ? `, ${code}` : ''}). A security plugin or a filter usually does this`,
       evidence,
     );
   }
@@ -102,7 +102,7 @@ export const wordpressSearchVisibility = defineCheck('A2.8', ({ target }) => {
   return fail(
     core
       ? 'the home page carries "noindex, nofollow", the tag WordPress prints when Settings > Reading > Search engine visibility is ticked'
-      : 'the home page carries noindex; check Settings > Reading > Search engine visibility and any SEO plugin',
+      : 'the home page carries noindex. Check Settings > Reading > Search engine visibility and any SEO plugin',
     { ...evidence, core_setting: core },
   );
 });

@@ -481,7 +481,7 @@ describe('B5.1 UCP business profile', () => {
     const outcome = await run(redirecting);
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      'UCP profile version 2026-08-25 with 1 service(s), 1 capability set(s) and 1 payment handler(s), but it was served through 1 redirect(s); the content type is text/plain, not application/json; Cache-Control lacks public with a max-age of at least 60',
+      'UCP profile version 2026-08-25 with 1 service(s), 1 capability set(s) and 1 payment handler(s), but it was served through 1 redirect(s), and the content type is text/plain, not application/json, and Cache-Control lacks public with a max-age of at least 60',
     );
     expect(outcome.evidence).toMatchObject({
       redirects: 1,
@@ -727,7 +727,7 @@ describe('B5.3 ACP discovery document', () => {
     const outcome = await run(JSON.stringify(document));
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toBe(
-      'ACP 2026-04-17 discovery document with a REST API at https://shop.example/acp (the document is a merged proposal in the ACP repository; OpenAI does not document probing it)',
+      'ACP 2026-04-17 discovery document with a REST API at https://shop.example/acp (a merged proposal in the ACP repository, which OpenAI does not document probing)',
     );
     expect(outcome.evidence).toMatchObject({
       status: 200,
@@ -1016,7 +1016,7 @@ describe('B5.8 Shopify agentic storefront active', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${reason}); the endpoint could not be verified`,
+      `the homepage links /.well-known/ucp, but the scanner did not call /api/ucp/mcp because the store's robots.txt disallows it (${reason}), so the endpoint could not be verified`,
     );
     expect(outcome.evidence).toMatchObject({
       endpoint_status: 0,

@@ -164,7 +164,7 @@ function gateSentence(checkId: string): string {
   if (!gate) return 'Not a level gate. It counts toward its section score.';
   if (gate.alternatives.length === 0)
     return `Required from Level ${gate.value} (${gate.name}) upward.`;
-  return `One of ${gate.alternatives.length + 1} alternatives for Level ${gate.value} (${gate.name}); ${gate.alternatives.join(', ')} can satisfy it instead.`;
+  return `One of ${gate.alternatives.length + 1} alternatives for Level ${gate.value} (${gate.name}). ${gate.alternatives.join(', ')} can satisfy it instead.`;
 }
 
 function checkLink(id: string): string {
@@ -259,7 +259,7 @@ function platformSentence(check: CheckDefinition): string {
   const where = platformsMatching(platform)
     .map((id) => PLATFORM_LABEL[id])
     .join(' or ');
-  return ` Runs only when the scan recognises ${where}; on any other platform it is left out of the report and never scored.`;
+  return ` Runs only when the scan recognises ${where}. On any other platform it is left out of the report and never scored.`;
 }
 
 /** A WordPress note also holds on WooCommerce, which runs on WordPress. */

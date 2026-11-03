@@ -161,7 +161,7 @@ export const registrationNumbers = defineLegalCheck(
       invalid.length > 0 ? `check digit fails for ${describe(invalid)}` : '',
       missing.length > 0 ? `no ${describe(missing)}` : '',
     ].filter(Boolean);
-    return warn(parts.join('; '), evidence);
+    return warn(parts.join('. '), evidence);
   },
 );
 
@@ -279,7 +279,7 @@ export const californiaOptOutLinks = defineLegalCheck('C2.3', ({ target }) => {
     });
   }
   return warn(
-    'no "Do Not Sell or Share" or "Your Privacy Choices" link on the home page; needed only by businesses that meet the CCPA thresholds and sell or share personal information',
+    'no "Do Not Sell or Share" or "Your Privacy Choices" link on the home page. It is needed only by businesses that meet the CCPA thresholds and sell or share personal information',
   );
 });
 
@@ -309,7 +309,7 @@ export const globalPrivacyControl = defineLegalCheck('C2.4', async ({ target, fe
   if (mentioned) return pass(`the privacy notice mentions "${mentioned}"`, evidence);
   if (declared === false) return warn('/.well-known/gpc.json declares "gpc": false', evidence);
   return warn(
-    'no gpc.json and no mention of Global Privacy Control in the privacy notice; honouring GPC cannot be checked without JavaScript',
+    'no gpc.json and no mention of Global Privacy Control in the privacy notice. Whether the site honours GPC cannot be checked without JavaScript',
     evidence,
   );
 });
@@ -364,7 +364,7 @@ export const noTrackingBeforeConsent = defineLegalCheck('C2.5', ({ target }) => 
         ? `loads ${unblocked.join(', ')} without a consent block in the static HTML`
         : '',
     ].filter(Boolean);
-    return warn(`the home page ${parts.join(' and ')}; check that they wait for consent`, evidence);
+    return warn(`the home page ${parts.join(' and ')}. Check that they wait for consent`, evidence);
   }
   return pass(
     'no advertising or analytics cookie on the first response and no unblocked tracker tag in the static HTML (trackers loaded by JavaScript are not seen)',

@@ -31,7 +31,7 @@ Confirm to receive an email whenever the agentic readiness of ${input.host} chan
 
 Confirm: ${input.confirmUrl}
 
-If you did not request this, ignore this message; nothing is stored beyond this unconfirmed request, and it is never emailed again.
+If you did not request this, ignore this message. Nothing is stored beyond this unconfirmed request, and it is never emailed again.
 
 ${config.appName} · ${config.baseUrl}`;
   const html = wrapHtml(
@@ -40,7 +40,7 @@ ${config.appName} · ${config.baseUrl}`;
 <p>Confirm to receive an email whenever the agentic readiness of ${escapeHtml(input.host)} changes. We rescan about every ${config.monitoring.intervalDays} days and only write when the level, a score or a check result changed.</p>
 <p style="margin:24px 0"><a href="${escapeHtml(input.confirmUrl)}" style="display:inline-block;background:#1d6ef5;color:#fff;text-decoration:none;font-weight:600;padding:12px 18px;border-radius:10px">Confirm monitoring</a></p>
 <p style="color:#4b5b78;font-size:13px">Or open this link: <a href="${escapeHtml(input.confirmUrl)}">${escapeHtml(input.confirmUrl)}</a></p>`,
-    `If you did not request this, ignore this message; nothing is stored beyond this unconfirmed request, and it is never emailed again.<br>${escapeHtml(config.appName)} · <a href="${escapeHtml(config.baseUrl)}">${escapeHtml(config.baseUrl)}</a>`,
+    `If you did not request this, ignore this message. Nothing is stored beyond this unconfirmed request, and it is never emailed again.<br>${escapeHtml(config.appName)} · <a href="${escapeHtml(config.baseUrl)}">${escapeHtml(config.baseUrl)}</a>`,
   );
   return { to: input.to, subject, text, html };
 }

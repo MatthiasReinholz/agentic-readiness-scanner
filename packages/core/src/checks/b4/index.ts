@@ -107,7 +107,7 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
         `the ${kind === 'privacy' ? 'privacy policy' : 'terms'} link ${url} answered ${describeFailure(response)}`,
       );
   }
-  const detail = problems.length > 0 ? ` (${problems.join('; ')})` : '';
+  const detail = problems.length > 0 ? ` (${problems.join(', ')})` : '';
   if (found === 2) return pass('privacy policy and terms pages found and readable', evidence);
   if (found === 1)
     return warn(`only one of privacy policy and terms is readable${detail}`, evidence);
@@ -407,7 +407,7 @@ export const policyPagesAgentReadable = defineCheck(
       ...limited.map((item) => `${item}, reachable but excluded from indexes`),
     ];
     const message = `${readable} of ${total} policy page(s) are readable by the crawlers behind AI answers${
-      notes.length > 0 ? ` (${notes.join('; ')})` : ''
+      notes.length > 0 ? ` (${notes.join(', ')})` : ''
     }`;
     const evidence = { pages, readable, total, problems, limited };
     if (readable === total && limited.length > 0) return warn(message, evidence);
@@ -425,7 +425,7 @@ export const securityTxt = defineCheck('B4.7', async ({ target, fetcher }) => {
   };
   // Optional and not an agent-readiness signal: absence is nothing to evaluate.
   if (response.status !== 200 || /<html|<!doctype/i.test(response.body.slice(0, 500))) {
-    return skip('not_applicable', 'no security.txt; optional', evidence);
+    return skip('not_applicable', 'no security.txt (optional)', evidence);
   }
   const parsed = parseSecurityTxt(response.body);
   evidence.contacts = parsed.contacts;

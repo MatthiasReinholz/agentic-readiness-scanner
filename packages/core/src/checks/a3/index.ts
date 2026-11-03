@@ -73,7 +73,7 @@ export async function sampledProductPages(
   const note =
     count === 0
       ? ''
-      : `; ${count} sampled product ${count === 1 ? 'page' : 'pages'} could not be fetched (${reasons})`;
+      : `. ${count} sampled product ${count === 1 ? 'page' : 'pages'} could not be fetched (${reasons})`;
   return { pages, unavailable, failed, note };
 }
 
@@ -1023,7 +1023,7 @@ export const productUrlsAnswerDirectly = defineCheck('A3.7', async ({ target, fe
         ? ` and ${counts.stale - 1} more sampled URL${counts.stale > 2 ? 's' : ''}`
         : '';
     return fail(
-      `the sitemap lists ${examples.stale.url}${more}, which answer${counts.stale > 1 ? '' : 's'} HTTP ${examples.stale.status}; Google and Bing ask for sitemaps that list only live, canonical URLs`,
+      `the sitemap lists ${examples.stale.url}${more}, which answer${counts.stale > 1 ? '' : 's'} HTTP ${examples.stale.status}. Google and Bing ask for sitemaps that list only live, canonical URLs`,
       evidence,
     );
   }
@@ -1230,7 +1230,7 @@ export const conditionalRequestsSupported = defineCheck('A3.9', async ({ target,
     const skipped = target.sampled.products.filter((candidate) => candidate !== url);
     const skippedFailure = skipped.map((candidate) => judged.failed[candidate]).find(Boolean);
     if (skippedFailure && target.sampled.products[0] !== url) {
-      note = `; the first sampled product page could not be fetched (${skippedFailure.failure}), so the next one was judged`;
+      note = `. The first sampled product page could not be fetched (${skippedFailure.failure}), so the next one was judged`;
     }
   }
   const etag = response.headers.etag ?? null;

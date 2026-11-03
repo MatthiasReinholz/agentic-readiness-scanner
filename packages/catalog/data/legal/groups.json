@@ -3,19 +3,19 @@
     "id": "C1",
     "title": "Seller identity and complaints",
     "dimension": "legal",
-    "description": "Does the store say who sells: a legal name, a geographic address, an email address, and the registration and tax numbers its markets require?"
+    "description": "Does the store say who sells (legal name, postal address, email address and the registration and tax numbers its markets ask for), and does it point to the right complaint channels?"
   },
   {
     "id": "C2",
     "title": "Privacy notices and choices",
     "dimension": "legal",
-    "description": "Is a privacy notice linked from the home page, does it name a privacy contact, and are the opt-out links and signals of the store's markets in place before any tracking starts?"
+    "description": "Is a privacy notice linked from the home page, and does it name a privacy contact? Are the opt-out links and signals the store's markets ask for in place, and do trackers wait for consent?"
   },
   {
     "id": "C3",
     "title": "Withdrawal, returns and cancellation",
     "dimension": "legal",
-    "description": "Can a consumer find how to withdraw, return or cancel: the EU withdrawal function, Argentina's withdrawal button, the statutory return period and an online cancellation route for subscriptions?"
+    "description": "Can a consumer find how to withdraw, return or cancel: the EU withdrawal function, Argentina's withdrawal button, the legal minimum return period and an online cancellation route for subscriptions?"
   },
   {
     "id": "C4",
@@ -27,7 +27,7 @@
     "id": "C5",
     "title": "Product and price information",
     "dimension": "legal",
-    "description": "Do product pages name the manufacturer and the EU responsible person, do discounts show the prior price, are reviews explained and environmental claims specific?"
+    "description": "Do product pages name the manufacturer with contact details? Do discounts show the lowest price of the last 30 days, are reviews explained, are environmental claims specific, and are Swiss prices in francs with VAT included?"
   },
   {
     "id": "C6",

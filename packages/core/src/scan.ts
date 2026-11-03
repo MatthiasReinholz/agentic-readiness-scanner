@@ -168,7 +168,7 @@ export function assembleResult(parts: ResultParts): ScanResult {
       ...target.warnings,
       ...(blocked.length > 0
         ? [
-            `robots.txt disallows ${blocked.length} URL(s) for the scanner's user agent; they were not fetched: ${listSome(blocked)}`,
+            `robots.txt disallows ${blocked.length} URL(s) for the scanner's user agent, so they were not fetched: ${listSome(blocked)}`,
           ]
         : []),
       ...failureWarnings(parts.failures),
@@ -191,7 +191,7 @@ function failureWarnings(failures: readonly FetchFailure[]): string[] {
   const rateLimited = [...new Set(failures.filter((f) => f.status === 429).map((f) => f.url))];
   if (rateLimited.length > 0) {
     warnings.push(
-      `the store answered 429 Too Many Requests on ${rateLimited.length} URL(s); verdicts for those pages reflect the rate limit, not the page: ${listSome(rateLimited)}`,
+      `the store answered 429 Too Many Requests on ${rateLimited.length} URL(s). Verdicts for those pages reflect the rate limit, not the page: ${listSome(rateLimited)}`,
     );
   }
   return warnings;

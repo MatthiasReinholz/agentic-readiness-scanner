@@ -56,7 +56,7 @@ ${scanConsoleMarkup()}
 <section class="mt-10">
 <h2 class="mb-3.5 text-lg font-semibold tracking-tight">For agents and pipelines</h2>
 <ul class="list-disc space-y-1.5 pl-5 text-muted-foreground">
-<li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}. Root profiles offer ${code('/report.json')}; snapshot URLs offer ${code('.json')}. Path scans return the result directly.</li>
+<li>JSON: ${code('POST /api/scan')} with ${code('{"url": "https://example.com"}')}. Root profiles offer ${code('/report.json')} and snapshot URLs offer ${code('.json')}. Path scans return the result directly.</li>
 <li>Markdown: use ${code('/report.md')} on a root profile or ${code('.md')} on a snapshot, or read <a href="/llms.txt">/llms.txt</a></li>
 <li>MCP: Streamable HTTP at ${code('/mcp')}, advertised in <a href="/.well-known/mcp/server-card.json">the server card</a></li>
 <li>CLI: ${code('npx @agentic-readiness/cli scan https://example.com')}</li>

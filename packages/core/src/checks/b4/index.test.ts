@@ -398,7 +398,7 @@ describe('B4.6 policy pages are agent-readable', () => {
     );
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toBe(
-      '2 of 4 policy page(s) are readable by the crawlers behind AI answers (returns: HTTP 404; shipping: 51 words; privacy: noindex, reachable but excluded from indexes)',
+      '2 of 4 policy page(s) are readable by the crawlers behind AI answers (returns: HTTP 404, shipping: 51 words, privacy: noindex, reachable but excluded from indexes)',
     );
     expect(outcome.evidence).toMatchObject({
       readable: 2,
@@ -455,7 +455,7 @@ describe('B4.7 security.txt', () => {
     const html = await run('<!doctype html><html><body>404</body></html>');
     expect(html.verdict).toBe('skip');
     expect(html.skipReason).toBe('not_applicable');
-    expect(html.message).toBe('no security.txt; optional');
+    expect(html.message).toBe('no security.txt (optional)');
   });
 
   it('warns without a Contact, without a valid Expires, or when expired', async () => {

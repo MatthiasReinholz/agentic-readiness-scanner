@@ -7,7 +7,7 @@
     "instrument": "Directive 2000/31/EC on electronic commerce",
     "url": "https://eur-lex.europa.eu/eli/dir/2000/31/oj",
     "verified": "2026-11-03",
-    "note": "Requires information society service providers to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
+    "note": "Requires information society service providers (businesses that offer services online) to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
   },
   {
     "id": "de-ddg-5",
@@ -37,7 +37,7 @@
     "instrument": "Electronic Commerce (EC Directive) Regulations 2002, SI 2002/2013",
     "url": "https://www.legislation.gov.uk/uksi/2002/2013/regulation/6",
     "verified": "2026-11-03",
-    "note": "Requires information society service providers to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
+    "note": "Requires information society service providers (businesses that offer services online) to make their name, geographic address, email address, trade register number and VAT number easily, directly and permanently accessible."
   },
   {
     "id": "uk-trading-disclosures",
@@ -137,7 +137,7 @@
     "instrument": "Ley 29571, Código de Protección y Defensa del Consumidor, as amended by Ley 32495 (2025), with the Reglamento del Libro de Reclamaciones, D.S. 011-2011-PCM",
     "url": "https://www.gob.pe/institucion/ositran/normas-legales/8408129-29571",
     "verified": "2026-11-03",
-    "note": "Requires suppliers with a commercial establishment, and since Ley 32495 also digital e-commerce platforms, to keep a physical or virtual Libro de Reclamaciones and to display notice of it."
+    "note": "Requires suppliers with a commercial establishment, and since Ley 32495 also digital e-commerce platforms, to keep a physical or virtual Libro de Reclamaciones (complaints book) and to display notice of it."
   },
   {
     "id": "eu-odr-repeal",
@@ -157,7 +157,7 @@
     "instrument": "Regulation (EU) 2016/679 (General Data Protection Regulation)",
     "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
     "verified": "2026-11-03",
-    "note": "Requires controllers collecting personal data from the data subject to give their identity and contact details, the DPO's contact details where applicable, the purposes and legal basis, and the data subject's rights."
+    "note": "Requires controllers that collect personal data from the data subject (the person the data is about) to give their identity and contact details, the data protection officer's contact details where there is one, the purposes and legal basis, and the data subject's rights."
   },
   {
     "id": "eu-gdpr-art37",
@@ -227,7 +227,7 @@
     "instrument": "Act respecting the protection of personal information in the private sector, CQLR c. P-39.1, as amended by An Act to modernize legislative provisions as regards the protection of personal information (S.Q. 2021, c. 25)",
     "url": "https://www.legisquebec.gouv.qc.ca/en/document/cs/P-39.1",
     "verified": "2026-11-03",
-    "note": "Requires enterprises to publish the title and contact details of the person in charge of protecting personal information on their website, to publish a confidentiality policy when collecting by technological means, and to keep identification, location and profiling functions off by default."
+    "note": "Requires enterprises to publish on their website the title and contact details of the person in charge of protecting personal information. Enterprises that collect personal information by technological means must publish a confidentiality policy, and functions that identify, locate or profile a person must be off by default."
   },
   {
     "id": "au-app1",
@@ -267,7 +267,7 @@
     "instrument": "California Consumer Privacy Act of 2018, as amended by the California Privacy Rights Act of 2020",
     "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&sectionNum=1798.135",
     "verified": "2026-11-03",
-    "note": "Requires covered businesses that sell or share personal information, or use sensitive personal information beyond permitted purposes, to offer Do Not Sell or Share and Limit the Use links, an alternative opt-out link, or to honour opt-out preference signals."
+    "note": "Requires covered businesses that sell or share personal information, or use sensitive personal information beyond permitted purposes, to offer \"Do Not Sell or Share\" and \"Limit the Use\" links, an alternative opt-out link, or to honour opt-out preference signals."
   },
   {
     "id": "us-ca-ccpa-regs",
@@ -317,7 +317,7 @@
     "instrument": "Directive 2011/83/EU on consumer rights, Art. 11a inserted by Directive (EU) 2023/2673",
     "url": "https://eur-lex.europa.eu/eli/dir/2023/2673/oj",
     "verified": "2026-11-03",
-    "note": "Requires traders concluding distance contracts through an online interface to provide a prominently placed withdrawal function labelled withdraw from contract here or an equivalent unambiguous wording, since 19 June 2026."
+    "note": "Requires traders concluding distance contracts through an online interface to provide a prominently placed withdrawal function labelled \"withdraw from contract here\" or an equivalent unambiguous wording, since 19 June 2026."
   },
   {
     "id": "de-bgb-356a",
@@ -327,7 +327,7 @@
     "instrument": "Bürgerliches Gesetzbuch, § 356a inserted by the Gesetz zur Änderung des Verbrauchervertrags- und des Versicherungsvertragsrechts sowie zur Änderung des Behandlungsvertragsrechts, BGBl. 2026 I Nr. 28",
     "url": "https://www.gesetze-im-internet.de/bgb/__356a.html",
     "verified": "2026-11-03",
-    "note": "Requires traders concluding distance contracts through an online interface to offer a permanently available withdrawal function labelled Vertrag widerrufen or an equally unambiguous wording, followed by a Widerruf bestätigen step, since 19 June 2026."
+    "note": "Requires traders concluding distance contracts through an online interface to offer a permanently available withdrawal function labelled \"Vertrag widerrufen\" or an equally unambiguous wording, followed by a \"Widerruf bestätigen\" step, since 19 June 2026."
   },
   {
     "id": "ar-disp-954",
@@ -337,7 +337,7 @@
     "instrument": "Disposición 954/2025 of the Subsecretaría de Defensa del Consumidor y Lealtad Comercial (Boletín Oficial, 4 September 2025), repealing Resoluciones 316/2018 and 424/2020, complemented by Disposición 3/2026",
     "url": "https://servicios.infoleg.gob.ar/infolegInternet/anexos/415000-419999/417152/norma.htm",
     "verified": "2026-11-03",
-    "note": "Requires suppliers selling at a distance through websites or similar channels to show a botón de arrepentimiento link prominently on first access, and a botón de baja for cancelling contracted services, without prior registration."
+    "note": "Requires suppliers selling at a distance through websites or similar channels to show a \"botón de arrepentimiento\" (withdrawal button) link prominently on first access, and a \"botón de baja\" (cancellation button) for cancelling contracted services, without prior registration."
   },
   {
     "id": "eu-crd-art9",
@@ -387,7 +387,7 @@
     "instrument": "Bürgerliches Gesetzbuch, § 312k inserted by the Gesetz für faire Verbraucherverträge, in force since 1 July 2022",
     "url": "https://www.gesetze-im-internet.de/bgb/__312k.html",
     "verified": "2026-11-03",
-    "note": "Requires businesses that let consumers conclude paid continuing contracts through a website to provide a button labelled Verträge hier kündigen or equivalent, leading to a cancellation page."
+    "note": "Requires businesses that let consumers conclude paid continuing contracts through a website to provide a button labelled \"Verträge hier kündigen\" or equivalent, leading to a cancellation page."
   },
   {
     "id": "uk-dmcc-subscriptions",
@@ -568,7 +568,7 @@
     "instrument": "Regulation (EU) 2024/1689 (Artificial Intelligence Act), as amended by the Digital Omnibus on AI (2026)",
     "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
     "verified": "2026-11-03",
-    "note": "Requires providers to design AI systems that interact with people so that users are told they are dealing with an AI system, and to mark synthetic content, since 2 August 2026, with marking for systems already on the market due by 2 December 2026."
+    "note": "Requires providers to design AI systems that interact with people so that users are told they are dealing with an AI system, and to mark synthetic content. Applies since 2 August 2026, with marking for systems already on the market due by 2 December 2026."
   },
   {
     "id": "us-ca-bot-act",
