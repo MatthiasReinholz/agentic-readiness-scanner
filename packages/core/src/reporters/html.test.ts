@@ -107,6 +107,8 @@ describe('undetermined level', () => {
       /Level 1 \(Reachable\) is not decided: .* could not be checked in this scan/,
     );
     expect(renderMarkdown(copy)).toMatch(/is not decided/);
+    expect(html).toContain('Not decided yet');
+    expect(renderMarkdown(copy)).toContain('**Level 0: Not decided yet.**');
   });
 });
 

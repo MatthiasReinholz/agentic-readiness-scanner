@@ -14,6 +14,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- **Holding pages and redirects to another site are not scored as the store.** A maintenance or catch-all page that the site serves for every URL, a challenge page served with HTTP 200, and a redirect to another site are now reported as "not evaluated", and the report says why. A redirect to a consent or region gate is a finding (A2.4 warns). When rate limits stop product discovery, the product checks are "not evaluated" too, and an undecided Level 0 reads "Not decided yet" instead of "Not reachable".
+- **A2.4 decides from the pages agents need:** the home page, robots.txt and product pages. A 429 only on product pages, late in the scan, is inconclusive.
+- **Sitemap discovery follows the platform** (WordPress paths only on WordPress), stops at the first rate limit or server error, and A1.2 and A1.3 skip as inconclusive when it stopped early.
+- **Applebot follows the Googlebot group** when robots.txt has no Applebot group, as Apple documents.
+- **Stable product samples:** pages are picked by a hash of the URL, so a new product changes a store's sample by at most one page. Rescans compare the same products.
+- **Fewer wasted requests:** a URL already met as a redirect hop is served from cache, and a timeout cut short by a scan step is retried in the next step instead of being recorded as a failure.
+
 - **An invalid GTIN can no longer pass the identity level.** B3.2 now fails on a GTIN with a wrong check digit or a prefix Google rejects (02, 04 and 2 for in-store and internal numbers, 05, 98 and 99 for coupons), and the level needs it to pass. It passes when no product declares a GTIN, so brand plus part number still identifies products without one.
 - **Level 5 needs a complete checkout declaration.** B5.2 no longer reads a UCP profile that lists only catalog capabilities as a checkout. B5.3 requires the fields the ACP discovery RFC makes mandatory: `protocol.supported_versions` and `capabilities.services`.
 

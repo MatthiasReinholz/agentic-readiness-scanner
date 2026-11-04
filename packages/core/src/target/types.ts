@@ -92,6 +92,11 @@ export interface Target {
    * hand stay valid (absent reads as complete).
    */
   sitemapDiscovery?: SitemapDiscovery;
+  /**
+   * Whether the search for product pages ran to the end. False when it stopped on a rate
+   * limit, a server error or the budget, so "no product pages" is not established.
+   */
+  productDiscovery?: { complete: boolean; reason?: string };
   sampled: SampledPages;
   warnings: string[];
   /**

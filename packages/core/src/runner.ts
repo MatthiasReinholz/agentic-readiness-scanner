@@ -205,10 +205,14 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     // sitemap and the refusal itself can be judged. Everything else would report the
     // absence of things the scanner never saw.
     if (target.blocked && !runsWhenHomeBlocked(definition.id, target)) {
+      // A refusal, a challenge or a consent gate is what agents meet: a finding. A holding
+      // page or a redirect to another site says nothing about the store: not evaluated.
+      const sceneOnly =
+        target.blocked.kind === 'holding_page' || target.blocked.kind === 'cross_site_redirect';
       record(definition, {
         verdict: 'skip',
-        skipReason: 'dependency_failed',
-        message: `not evaluated: the home page refused the scanner (HTTP ${target.blocked.status}), see A2.4`,
+        skipReason: sceneOnly ? 'error' : 'dependency_failed',
+        message: `not evaluated: ${target.blocked.detail ?? `the home page refused the scanner (HTTP ${target.blocked.status})`}, see A2.4`,
         evidence: { dependency: 'A2.4' },
       });
       continue;
@@ -216,6 +220,22 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
     // The requirement names why a profile left a check out too: "requires Shopify, which
     // was not detected" says more than "does not apply to this profile".
     const unmet = unmetRequirement(definition, target);
+    // No product page was sampled because sitemap discovery stopped on a rate limit or a
+    // server error: whether the store has products is not established, so the check is
+    // not evaluated rather than not applicable.
+    if (
+      unmet === 'products' &&
+      applicable.has(definition.id) &&
+      target.productDiscovery?.complete === false
+    ) {
+      record(definition, {
+        verdict: 'skip',
+        skipReason: 'error',
+        message: `not evaluated: no product page could be sampled (${target.productDiscovery.reason ?? 'product discovery stopped early'})`,
+        evidence: {},
+      });
+      continue;
+    }
     if (!applicable.has(definition.id) || unmet) {
       record(definition, {
         verdict: 'skip',

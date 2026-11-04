@@ -123,6 +123,14 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
     );
   }
   if (!sitemap) {
+    // Discovery stopped on a rate limit or server error: absence is not established.
+    if (target.sitemapDiscovery?.complete === false) {
+      return skip(
+        'error',
+        `could not tell whether a product sitemap exists: ${target.sitemapDiscovery.reason ?? 'sitemap discovery stopped early'}`,
+        evidence,
+      );
+    }
     return fail('no sitemap was read, so no product URL could be found in one', evidence);
   }
   const count = sitemapsRead.length;

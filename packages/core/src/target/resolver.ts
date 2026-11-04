@@ -944,9 +944,11 @@ export async function resolveTarget(
   // /category/ link is on every WordPress blog, so on its own it decides nothing.
   const storeListing = listing !== undefined && isStoreListingPath(new URL(listing).pathname);
   const homeStoreSignals = hasStoreSignals(homeDoc, home.body);
+  let productDiscoveryCut: string | null = null;
   if (products.length === 0 && !blocked && (storeListing || homeStoreSignals)) {
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
     // still a store; a few linked pages are fetched and kept when they are product pages.
+    const before = warnings.length;
     products = await optionalStep(
       () =>
         discoverProductsBySampling(
@@ -960,10 +962,16 @@ export async function resolveTarget(
       'product discovery',
       warnings,
     );
+    const cut = warnings
+      .slice(before)
+      .find((warning) => warning.startsWith('product discovery was cut short'));
+    if (cut && products.length === 0) productDiscoveryCut = cut;
   }
   if (products.length === 0) {
     warnings.push(
-      'no product URLs found in the sitemap or the home page links, so product checks will not apply',
+      productDiscoveryCut !== null || !sitemapDiscovery.complete
+        ? 'no product page could be sampled before the store stopped the scan, so product checks were not evaluated'
+        : 'no product URLs found in the sitemap or the home page links, so product checks will not apply',
     );
   }
   const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
@@ -1036,6 +1044,15 @@ export async function resolveTarget(
     robots,
     sitemap,
     sitemapDiscovery,
+    productDiscovery:
+      productDiscoveryCut !== null
+        ? { complete: false, reason: productDiscoveryCut }
+        : !sitemapDiscovery.complete && products.length === 0
+          ? {
+              complete: false,
+              reason: sitemapDiscovery.reason ?? 'sitemap discovery stopped early',
+            }
+          : { complete: true },
     sampled,
     warnings,
     ...(blocked ? { blocked } : {}),
