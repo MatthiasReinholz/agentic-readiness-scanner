@@ -45,6 +45,7 @@ export const SEARCH_CRAWLERS: readonly SearchCrawler[] = [
     feeds: 'Bing, Microsoft Copilot and ChatGPT search (Bing is a named search partner)',
     core: true,
   },
+  // With no Applebot group, Applebot follows the Googlebot group (groupFor in the parser).
   { token: 'Applebot', feeds: 'Siri, Spotlight and Apple Intelligence', core: false },
   { token: 'Storebot-Google', feeds: 'Google Shopping surfaces', core: false },
   { token: 'OAI-SearchBot', feeds: 'ChatGPT search answers', core: false },

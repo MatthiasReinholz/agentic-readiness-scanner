@@ -25,9 +25,17 @@ export interface SitemapSummary {
 }
 
 /**
- * The resolved store: everything checks share. Built once by resolveTarget and passed
- * read-only to every check. Page bodies are not stored here; the fetcher caches them.
+ * Why the home page was not evaluated:
+ * - `refused`: it answered 401, 402, 403, 406, 429 or 451,
+ * - `challenge`: it is a bot-management challenge or block page (any status, 200 included),
+ * - `holding_page`: a maintenance or holding page the site serves for every URL (robots.txt
+ *   answers with the same page),
+ * - `cross_site_redirect`: it redirected to another registrable domain,
+ * - `consent_gate`: it redirected to a consent, cookie or region gate.
  */
+export type HomeBlockedKind =
+  'refused' | 'challenge' | 'holding_page' | 'cross_site_redirect' | 'consent_gate';
+
 /** How the home page refused the scanner, when it did; the rest of the scan is then moot. */
 export interface HomeBlocked {
   status: number;
@@ -35,7 +43,36 @@ export interface HomeBlocked {
   vendor: string | null;
   /** True when the response is a challenge page (JavaScript or CAPTCHA) rather than a plain refusal. */
   challenge: boolean;
+  /**
+   * Why the home page was not evaluated. The resolver always sets it; optional so targets
+   * built by hand stay valid (absent reads as `refused`, or `challenge` when `challenge`).
+   */
+  kind?: HomeBlockedKind;
+  /**
+   * The reason as one phrase for messages, e.g. "the home page redirected to another site
+   * (www.other.example)". The resolver always sets it.
+   */
+  detail?: string;
 }
+
+/**
+ * Whether sitemap discovery could answer "is there a sitemap": complete when a sitemap was
+ * read, or when every guess answered definitively (404 and the like). Incomplete when a
+ * guess answered 429, 5xx or nothing, the request budget ran out, the fetch allowance for
+ * discovery was used up, or the home page was blocked so only declared sitemaps were tried.
+ */
+export interface SitemapDiscovery {
+  complete: boolean;
+  /** Why discovery was not complete, as a phrase. */
+  reason?: string;
+  /** The sitemap URLs requested, in order. */
+  tried?: string[];
+}
+
+/**
+ * The resolved store: everything checks share. Built once by resolveTarget and passed
+ * read-only to every check. Page bodies are not stored here; the fetcher caches them.
+ */
 
 export interface Target {
   inputUrl: string;
@@ -50,12 +87,19 @@ export interface Target {
   robotsResponse: FetchedResponse;
   robots: RobotsTxt | null;
   sitemap: SitemapSummary | null;
+  /**
+   * How sitemap discovery ended. The resolver always sets it; optional so targets built by
+   * hand stay valid (absent reads as complete).
+   */
+  sitemapDiscovery?: SitemapDiscovery;
   sampled: SampledPages;
   warnings: string[];
   /**
-   * Set when the home page answered 401, 402, 403, 406, 429 or 451 to the scanner's honest
-   * request: the site is up but refuses unverified clients. Checks that read the home page
-   * or sampled pages are skipped by the runner; A2.4 reports the refusal.
+   * Set when the home page cannot stand for the site: it answered 401, 402, 403, 406, 429
+   * or 451 to the scanner's honest request, is a challenge page, is a maintenance page the
+   * site serves for every URL, or redirected to another site or to a consent gate (see
+   * HomeBlocked.kind). Checks that read the home page or sampled pages are skipped by the
+   * runner; A2.4 reports the reason.
    */
   blocked?: HomeBlocked;
   /**

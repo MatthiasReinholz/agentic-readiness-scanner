@@ -261,7 +261,13 @@ describe('resolveTarget on a refused home page', () => {
         '<html><body>Access Denied Reference #18.1f6c.1</body></html>',
       ),
     );
-    expect(target.blocked).toEqual({ status: 403, vendor: 'Akamai', challenge: false });
+    expect(target.blocked).toEqual({
+      status: 403,
+      vendor: 'Akamai',
+      challenge: false,
+      kind: 'refused',
+      detail: 'the home page refused the scanner (HTTP 403, Akamai)',
+    });
     expect(target.platform).toBe('unknown');
     expect(target.profile.id).toBe('other-store');
     expect(target.sampled.products).toEqual([]);
@@ -275,7 +281,12 @@ describe('resolveTarget on a refused home page', () => {
       'https://www.shop.example/',
       pages(429, { 'x-vercel-mitigated': 'challenge' }, '<html><body>Verifying</body></html>'),
     );
-    expect(target.blocked).toEqual({ status: 429, vendor: 'Vercel', challenge: true });
+    expect(target.blocked).toMatchObject({
+      status: 429,
+      vendor: 'Vercel',
+      challenge: true,
+      kind: 'challenge',
+    });
   });
 
   it('still throws when there is no site to scan', async () => {
