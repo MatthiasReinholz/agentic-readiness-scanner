@@ -68,6 +68,17 @@
       "body_file": "product-serving-bowl.html"
     },
     {
+      "url": "https://ceramics.example/product/serving-bowl/",
+      "request_headers": {
+        "accept": "text/markdown"
+      },
+      "headers": {
+        "content-type": "text/markdown; charset=utf-8",
+        "vary": "Accept"
+      },
+      "body_file": "product-serving-bowl.md"
+    },
+    {
       "url": "https://ceramics.example/llms.txt",
       "headers": {
         "content-type": "text/markdown"
