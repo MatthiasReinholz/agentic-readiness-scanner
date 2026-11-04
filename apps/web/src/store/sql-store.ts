@@ -13,6 +13,20 @@ export interface SqlDatabase {
   prepare(sql: string): SqlStatement;
 }
 
+/**
+ * Spacefast's database broker refuses one operation above this many bytes ("Database
+ * operation is N bytes; the limit is 65536").
+ */
+export const MAX_OPERATION_BYTES = 65_536;
+
+/**
+ * An upper estimate of what one statement costs against `MAX_OPERATION_BYTES`: the SQL
+ * text and its bound values, serialised as JSON and counted in UTF-8 bytes.
+ */
+export function operationBytes(sql: string, values: readonly unknown[]): number {
+  return new TextEncoder().encode(JSON.stringify({ sql, params: values })).byteLength;
+}
+
 /** What the three SQL stores share: a database and a table created on first use. */
 export abstract class SqlStore {
   private schemaReady: Promise<void> | null = null;

@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- **Hosted scans reuse the pages earlier steps fetched.** Spacefast refuses a database operation above 64 KiB, and the scan cache wrote each gzipped response in one statement of up to a megabyte, so writes of larger pages failed and the next step fetched them again. Responses are now split into rows of 48 KiB in a new table, `scan_job_cache_parts`, and read back one row per statement. A response that packs to more than a megabyte is still not cached. The old `scan_job_cache` table is dropped.
 - **UI alignment audit across every page, width and theme.**
   - The https:// prefix in the scan form now sits on the same line as the typed text. The input's vertical padding had pushed its text 5px below the prefix.
   - The "checks explained" links on the home page sit at the bottom of each card, level across a row. The headline breaks into balanced lines on phones.

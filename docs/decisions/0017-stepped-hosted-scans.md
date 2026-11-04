@@ -15,7 +15,7 @@ Two ways out were considered:
 
 **Scanning stays on the server, in steps.** A hosted scan is a job: a `scan_jobs` row that holds the resumable state between steps (a few KiB, no response bodies). Each step runs inside one request with an allowance of 20 seconds (`SCAN_STEP_MS`). A check cut off by a step is not skipped. It runs again in the next step. The scan's own limits are 60 requests (`SCAN_BUDGET`, up from 40), 12 steps (`SCAN_MAX_STEPS`) and 3 minutes of active scanning (`SCAN_MAX_ACTIVE_MS`). Only those limits end checks with `budget_exhausted`, and the message names the limit.
 
-**Responses are cached per job.** Each step stores what it fetched in `scan_job_cache`, gzipped, so a 2 MB page fits in one statement. The next step reads it instead of asking the store again. The cache is removed when the job ends, and by the cleanup cron after 2 hours. A response that does not fit, or a write that fails, only means the next step fetches it again, and the budget never counts it twice.
+**Responses are cached per job.** Each step stores what it fetched in `scan_job_cache_parts`, gzipped. Spacefast refuses a database operation above 64 KiB, so a packed response is split into rows of 48 KiB and read back one row per statement (amended 2026-11-04; the first table, `scan_job_cache`, kept a response in one row and is dropped). The next step reads it instead of asking the store again. The cache is removed when the job ends, and by the cleanup cron after 2 hours. A response that does not fit, or a write that fails, only means the next step fetches it again, and the budget never counts it twice.
 
 **Four triggers keep a scan going.** Any of them runs the next step. A lease on the job row makes sure only one step runs at a time. The lease is taken with a conditional UPDATE and read back, like the scan limiter. A caller that finds the lease taken gets the job back as busy.
 
@@ -49,4 +49,4 @@ The reasoning for store owners and agents is in the guide [Why the scanner repor
 - Every step re-resolves the target ([0016](0016-resumable-scans.md)). With the cache, that costs database reads, not store requests.
 - Scans still come from the server with the scanner's user agent. Stores that refuse it at the edge are reported as refusing it (check A2.4), which is what an agent would meet.
 - One-time scans (paths and queries, [0014](0014-root-profiles-and-disposable-scans.md)) still write no result, profile, history or progress. But one that needs several steps has a job row while it runs: its state, cached responses and finally its result. The row is deleted when the result is delivered (the waiting page or the job's status endpoint shows it), and once it is an hour old, by the sweeper's next hourly run.
-- New tables: `scan_jobs` (rows removed a day after a job ends) and `scan_job_cache`. New cron: hourly.
+- New tables: `scan_jobs` (rows removed a day after a job ends) and `scan_job_cache_parts`. New cron: hourly.

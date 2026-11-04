@@ -11,10 +11,11 @@ import { configFromEnv } from './config.js';
 import { packJson, unpackJson } from './jobs/codec.js';
 import { MemoryScanJobStore } from './jobs/memory.js';
 import { ProgressRecorder } from './jobs/progress.js';
-import { SqlScanJobStore } from './jobs/sql.js';
+import { PART_CHARS, SqlScanJobStore } from './jobs/sql.js';
 import { MemoryProgressStore } from './progress/memory.js';
 import { MemoryResultStore } from './store/memory.js';
 import { FakeSqlDatabase } from './store/fake-sql.js';
+import { MAX_OPERATION_BYTES } from './store/sql-store.js';
 
 const fixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -305,6 +306,125 @@ describe('job storage', () => {
     const packed = await packJson(response);
     expect(packed.length).toBeLessThan(20_000);
     expect(await unpackJson(packed)).toEqual(response);
+  });
+
+  /** A fake that refuses oversized operations like Spacefast and keeps the cache rows. */
+  function cacheDatabase() {
+    const db = new FakeSqlDatabase({ maxOperationBytes: MAX_OPERATION_BYTES });
+    const rows = new Map<string, Record<string, unknown>>();
+    const id = (job: unknown, key: unknown, part: unknown) =>
+      `${String(job)}|${String(key)}|${String(part)}`;
+    db.script(/INSERT INTO scan_job_cache_parts/, ([job, key, part, parts, version, response]) => {
+      rows.set(id(job, key, part), { parts, version, response });
+      return [];
+    });
+    db.script(/SELECT parts, version, response FROM scan_job_cache_parts/, ([job, key, part]) => {
+      const row = rows.get(id(job, key, part));
+      return row ? [row] : [];
+    });
+    db.script(
+      /DELETE FROM scan_job_cache_parts WHERE job_id = \? AND request_key = \? AND part >= \?/,
+      ([job, key, from]) => {
+        for (const name of [...rows.keys()]) {
+          const [rowJob, rowKey, rowPart] = name.split('|');
+          if (rowJob === job && rowKey === key && Number(rowPart) >= Number(from))
+            rows.delete(name);
+        }
+        return [];
+      },
+    );
+    return { db, rows };
+  }
+
+  /** Text gzip barely shrinks, so the packed entry needs several parts. */
+  function noise(length: number): string {
+    let seed = 12345;
+    let text = '';
+    while (text.length < length) {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      text += seed.toString(36);
+    }
+    return text.slice(0, length);
+  }
+
+  function pageWith(body: string) {
+    return {
+      url: 'https://ceramics.example/',
+      finalUrl: 'https://ceramics.example/',
+      status: 200,
+      headers: { 'content-type': 'text/html' },
+      body,
+      bytes: body.length,
+      truncated: false,
+      redirects: 0,
+      durationMs: 12,
+      fromCache: false,
+    };
+  }
+
+  const JOB = '0123456789abcdef';
+  const NOW = '2026-11-04T12:00:00.000Z';
+
+  it('splits a large cached response into parts that each fit one operation', async () => {
+    const { db, rows } = cacheDatabase();
+    const jobs = new SqlScanJobStore(db);
+    const page = pageWith(noise(400_000));
+    const packed = await packJson(page);
+    // The single statement this used to send would have been refused.
+    expect(packed.length).toBeGreaterThan(MAX_OPERATION_BYTES * 2);
+    await jobs.cacheSet(JOB, 'a1b2c3d4e5f60718', page, NOW);
+    const inserts = db.statements(/INSERT INTO scan_job_cache_parts/);
+    expect(inserts.length).toBe(Math.ceil(packed.length / PART_CHARS));
+    expect(rows.size).toBe(inserts.length);
+    expect(await jobs.cacheGet(JOB, 'a1b2c3d4e5f60718')).toEqual(page);
+    for (const statement of db.executed)
+      expect(statement.bytes).toBeLessThanOrEqual(MAX_OPERATION_BYTES);
+    // Reads go one part at a time, so no answer is larger than a part either.
+    for (const statement of db.statements(/SELECT parts/)) expect(statement.values).toHaveLength(3);
+  });
+
+  it('keeps a small cached response in one row', async () => {
+    const { db } = cacheDatabase();
+    const jobs = new SqlScanJobStore(db);
+    const page = pageWith('<html><body>Mugs</body></html>');
+    await jobs.cacheSet(JOB, 'small', page, NOW);
+    expect(db.statements(/INSERT INTO scan_job_cache_parts/)).toHaveLength(1);
+    expect(await jobs.cacheGet(JOB, 'small')).toEqual(page);
+  });
+
+  it('skips a response too large to cache without writing anything', async () => {
+    const { db, rows } = cacheDatabase();
+    const jobs = new SqlScanJobStore(db);
+    await jobs.cacheSet(JOB, 'huge', pageWith(noise(1_800_000)), NOW);
+    expect(db.statements(/INSERT INTO scan_job_cache_parts/)).toHaveLength(0);
+    expect(rows.size).toBe(0);
+    expect(await jobs.cacheGet(JOB, 'huge')).toBeUndefined();
+  });
+
+  it('drops the parts of a longer earlier write and ignores an incomplete entry', async () => {
+    const { db, rows } = cacheDatabase();
+    const jobs = new SqlScanJobStore(db);
+    await jobs.cacheSet(JOB, 'page', pageWith(noise(400_000)), NOW);
+    const longer = rows.size;
+    const short = pageWith('<html>short</html>');
+    await jobs.cacheSet(JOB, 'page', short, NOW);
+    expect(longer).toBeGreaterThan(1);
+    expect(rows.size).toBe(1);
+    expect(await jobs.cacheGet(JOB, 'page')).toEqual(short);
+
+    await jobs.cacheSet(JOB, 'other', pageWith(noise(400_000)), NOW);
+    rows.delete(`${JOB}|other|1`);
+    expect(await jobs.cacheGet(JOB, 'other')).toBeUndefined();
+  });
+
+  it('ignores parts left over from another write of the same key', async () => {
+    const { db, rows } = cacheDatabase();
+    const jobs = new SqlScanJobStore(db);
+    await jobs.cacheSet(JOB, 'page', pageWith(noise(400_000)), NOW);
+    const stale = rows.get(`${JOB}|page|1`);
+    await jobs.cacheSet(JOB, 'page', pageWith(noise(300_000) + 'x'), NOW);
+    rows.set(`${JOB}|page|1`, { ...stale, parts: rows.get(`${JOB}|page|0`)?.parts });
+    expect(await jobs.cacheGet(JOB, 'page')).toBeUndefined();
   });
 
   it('takes a lease with a conditional update and reads its own token back', async () => {
