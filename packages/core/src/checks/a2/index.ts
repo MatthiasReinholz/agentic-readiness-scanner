@@ -1,4 +1,4 @@
-import type { FetchedResponse } from '../../http/types.js';
+import { BudgetExhaustedError, type FetchedResponse } from '../../http/types.js';
 import {
   botManagementVendor,
   describeRefusal,
@@ -278,13 +278,19 @@ const INTERSTITIAL_PATH =
 interface FetchVerdict {
   status: number;
   final_url: string;
-  outcome: 'ok' | 'refused' | 'challenged' | 'interstitial' | 'not_fetched';
+  outcome: 'ok' | 'refused' | 'challenged' | 'interstitial' | 'rate_limited' | 'not_fetched';
   detail: string | null;
   /** The bot-management product the response names, when recognisable. */
   vendor: string | null;
 }
 
-function classifyResponse(response: FetchedResponse): FetchVerdict {
+/**
+ * Classifies one response. `early` is true for the home page and robots.txt, the first two
+ * requests of a scan: a 429 there is a refusal. A 429 later in the scan, after the scanner
+ * has sent a few dozen requests, says the store wants fewer of them, not that it turns
+ * honest clients away.
+ */
+function classifyResponse(response: FetchedResponse, early = true): FetchVerdict {
   const base = { status: response.status, final_url: response.finalUrl, vendor: null };
   if (response.status === 0) {
     return { ...base, outcome: 'not_fetched', detail: response.error ?? 'no response' };
@@ -292,6 +298,14 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
   const vendor = botManagementVendor(response);
   if (isChallengePage(response)) {
     return { ...base, vendor, outcome: 'challenged', detail: describeRefusal(response) };
+  }
+  if (response.status === 429 && !early) {
+    return {
+      ...base,
+      vendor,
+      outcome: 'rate_limited',
+      detail: `HTTP 429 Too Many Requests${vendor ? ` from ${vendor}` : ''}`,
+    };
   }
   if (REFUSAL_STATUSES.has(response.status)) {
     return { ...base, vendor, outcome: 'refused', detail: describeRefusal(response) };
@@ -322,50 +336,107 @@ function classifyResponse(response: FetchedResponse): FetchVerdict {
   return { ...base, outcome: 'ok', detail: null };
 }
 
+/** Home-page reasons under which the scan says nothing about how the store treats honest clients. */
+const UNJUDGEABLE_HOME: ReadonlySet<string> = new Set(['holding_page', 'cross_site_redirect']);
+
 export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetcher }) => {
+  const user_agent =
+    'the scanner identifies itself as AgenticReadinessScanner with a documentation URL and never impersonates another agent';
+  // A maintenance page served for every URL, or a home page that left for another site:
+  // nothing the scanner received is the store's answer to an honest client.
+  const homeGate = target.blocked;
+  if (homeGate?.kind !== undefined && UNJUDGEABLE_HOME.has(homeGate.kind)) {
+    const detail = homeGate.detail ?? 'the home page could not be evaluated';
+    return skip(
+      'error',
+      `${detail.charAt(0).toUpperCase()}${detail.slice(1)}, so whether the store blocks honest clients could not be judged`,
+      {
+        user_agent,
+        home: { status: target.home.status, final_url: target.home.finalUrl },
+        reason: homeGate.kind,
+      },
+    );
+  }
   // The pages an agent must reach to use the store at all: home, robots.txt and the
   // product pages. A refusal there is a block. The policy pages matter too, but one of them
   // behind a login wall or a stricter rule does not make the store unreachable; B4.6
-  // reports what that costs.
-  const gate: FetchedResponse[] = [target.home, target.robotsResponse];
-  for (const url of target.sampled.products) gate.push(await fetcher.fetch(url));
+  // reports what that costs. They are never required: when the budget runs out before
+  // them, the check decides from the pages it has.
+  const early: FetchedResponse[] = [target.home, target.robotsResponse];
+  const products: FetchedResponse[] = [];
+  let productsCut: BudgetExhaustedError | null = null;
+  for (const url of target.sampled.products) {
+    try {
+      products.push(await fetcher.fetch(url));
+    } catch (error) {
+      if (!(error instanceof BudgetExhaustedError)) throw error;
+      productsCut = error;
+      break;
+    }
+  }
   const policy: FetchedResponse[] = [];
-  for (const url of Object.values(target.sampled.policies)) {
-    if (url.startsWith(target.origin)) policy.push(await fetcher.fetch(url));
+  const policyTargets = Object.values(target.sampled.policies).filter((url) =>
+    url.startsWith(target.origin),
+  );
+  let policyCut: string | null = null;
+  if (productsCut === null) {
+    for (const url of policyTargets) {
+      try {
+        policy.push(await fetcher.fetch(url));
+      } catch (error) {
+        if (!(error instanceof BudgetExhaustedError)) throw error;
+        policyCut = error.message;
+        break;
+      }
+    }
   }
   const pages: Record<string, FetchVerdict> = {};
   const refused: string[] = [];
   const challenged: string[] = [];
   const interstitial: string[] = [];
+  const rateLimited: string[] = [];
   const notFetched: string[] = [];
   const policyUrls = new Set<string>();
-  for (const [responses, isPolicy] of [
-    [gate, false],
-    [policy, true],
+  for (const [responses, isPolicy, isEarly] of [
+    [early, false, true],
+    [products, false, false],
+    [policy, true, false],
   ] as const) {
     for (const response of responses) {
-      const verdict = classifyResponse(response);
+      let verdict = classifyResponse(response, isEarly);
+      // The resolver recognised a consent or region gate the path pattern may not name.
+      if (
+        response === target.home &&
+        homeGate?.kind === 'consent_gate' &&
+        verdict.outcome === 'ok'
+      ) {
+        verdict = { ...verdict, outcome: 'interstitial', detail: homeGate.detail ?? null };
+      }
       pages[response.url] = verdict;
       if (isPolicy) policyUrls.add(response.url);
       if (verdict.outcome === 'refused') refused.push(response.url);
       if (verdict.outcome === 'challenged') challenged.push(response.url);
       if (verdict.outcome === 'interstitial') interstitial.push(response.url);
+      if (verdict.outcome === 'rate_limited') rateLimited.push(response.url);
       if (verdict.outcome === 'not_fetched') notFetched.push(response.url);
     }
   }
   const blocked = [...challenged, ...refused];
   const blockedGate = blocked.filter((url) => !policyUrls.has(url));
   const blockedPolicy = blocked.filter((url) => policyUrls.has(url));
+  const rateLimitedGate = rateLimited.filter((url) => !policyUrls.has(url));
   const answered = Object.keys(pages).length - notFetched.length;
+  const policyNotFetched = policyTargets.length - policy.length;
   const evidence = {
-    user_agent:
-      'the scanner identifies itself as AgenticReadinessScanner with a documentation URL and never impersonates another agent',
+    user_agent,
     pages,
     refused,
     challenged,
     interstitial,
+    rate_limited: rateLimited,
     not_fetched: notFetched,
     blocked_policy_pages: blockedPolicy,
+    ...(policyNotFetched > 0 ? { policy_pages_not_fetched: policyNotFetched } : {}),
   };
   const note = '. Crawlers verified by published IP ranges or signed requests may be let through';
   const describe = (urls: string[]): string =>
@@ -373,9 +444,7 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
   const what = [
     'the home page',
     'robots.txt',
-    ...(target.sampled.products.length > 0
-      ? [`${target.sampled.products.length} product page(s)`]
-      : []),
+    ...(products.length > 0 ? [`${products.length} product page(s)`] : []),
   ].join(', ');
   const unfetched =
     notFetched.length > 0
@@ -386,10 +455,10 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
     const roles: string[] = [];
     if (blockedGate.includes(target.home.url)) roles.push('the home page');
     if (blockedGate.includes(target.robotsResponse.url)) roles.push('robots.txt');
-    const products = blockedGate.filter(
+    const productCount = blockedGate.filter(
       (url) => url !== target.home.url && url !== target.robotsResponse.url,
     ).length;
-    if (products > 0) roles.push(`${products} product page(s)`);
+    if (productCount > 0) roles.push(`${productCount} product page(s)`);
     const where = roles.join(' and ');
     if (gateChallenged.length > 0) {
       return fail(
@@ -402,9 +471,22 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
       evidence,
     );
   }
+  // Product pages the budget did not reach could still be blocked: not a pass.
+  if (productsCut) throw productsCut;
+  if (rateLimitedGate.length > 0) {
+    return skip(
+      'error',
+      `inconclusive: ${rateLimitedGate.length} product page(s) answered 429 Too Many Requests later in the scan, which asks for fewer requests rather than refusing honest clients. The home page and robots.txt answered without a block`,
+      evidence,
+    );
+  }
   if (notFetched.length > 0 && answered === 0) {
     return skip('error', `no page could be fetched (${describe(notFetched)})`, evidence);
   }
+  const policyNote =
+    policyNotFetched > 0
+      ? `. ${policyNotFetched} policy page(s) were not fetched (${policyCut ?? 'not reached'}); this check does not need them`
+      : '';
   if (interstitial.length > 0) {
     return warn(
       `${interstitial.length} page(s) redirected to a consent or region interstitial instead of their content${unfetched}`,
@@ -413,12 +495,12 @@ export const honestFetchNotBlocked = defineCheck('A2.4', async ({ target, fetche
   }
   if (blockedPolicy.length > 0) {
     return pass(
-      `no block or challenge on ${what}. ${blockedPolicy.length} policy page(s) refused the scanner (${describe(blockedPolicy)}), which B4.6 reports${unfetched}`,
+      `no block or challenge on ${what}. ${blockedPolicy.length} policy page(s) refused the scanner (${describe(blockedPolicy)}), which B4.6 reports${unfetched}${policyNote}`,
       evidence,
     );
   }
   return pass(
-    `no block, challenge or interstitial on ${what} and ${policy.length} policy page(s)${unfetched}`,
+    `no block, challenge or interstitial on ${what} and ${policy.length} policy page(s)${unfetched}${policyNote}`,
     evidence,
   );
 });

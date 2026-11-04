@@ -57,7 +57,12 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
         evidence,
       );
     }
-    return fail(`products.json could not be fetched: ${describeFailure(response)}`, evidence);
+    // No answer at all says nothing about the endpoint (ADR 0012).
+    return skip(
+      'error',
+      `products.json could not be fetched (${describeFailure(response)}), so whether it is readable could not be judged`,
+      evidence,
+    );
   }
   // Shopify rate-limits this endpoint per IP after a few requests; the fetcher's one retry
   // after Retry-After did not recover here, so nothing can be said about readability.

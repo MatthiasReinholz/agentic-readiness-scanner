@@ -28,26 +28,8 @@
   },
   {
     "value": 3,
-    "name": "Identifiable products",
-    "description": "Level 2, and products carry a valid GTIN or a brand with the maker's part number, and name the brand as an entity.",
-    "gates": [
-      ["A1.1"],
-      ["A2.2"],
-      ["A2.4"],
-      ["A3.2"],
-      ["A1.3", "B1.2", "B1.8", "B1.5", "B5.8"],
-      ["A2.6"],
-      ["B2.1"],
-      ["B2.2"],
-      ["B3.1", "B3.4"],
-      ["B3.2", "B3.4"],
-      ["B3.3"]
-    ]
-  },
-  {
-    "value": 4,
     "name": "Trusted merchant",
-    "description": "Level 3, and an agent can find the return, shipping, privacy and terms pages and a way to contact the merchant.",
+    "description": "Level 2, and an agent can find the return, shipping, privacy and terms pages and a way to contact the merchant. Every agent checkout programme asks for these before it lists a store.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
@@ -57,13 +39,32 @@
       ["A2.6"],
       ["B2.1"],
       ["B2.2"],
-      ["B3.1", "B3.4"],
-      ["B3.2", "B3.4"],
-      ["B3.3"],
       ["B4.1"],
       ["B4.2"],
       ["B4.3"],
       ["B4.5"]
+    ]
+  },
+  {
+    "value": 4,
+    "name": "Identifiable products",
+    "description": "Level 3, and every sampled product carries a valid GTIN or a brand with the maker's part number, no declared GTIN is invalid, and the brand is named as an entity.",
+    "gates": [
+      ["A1.1"],
+      ["A2.2"],
+      ["A2.4"],
+      ["A3.2"],
+      ["A1.3", "B1.2", "B1.8", "B1.5", "B5.8"],
+      ["A2.6"],
+      ["B2.1"],
+      ["B2.2"],
+      ["B4.1"],
+      ["B4.2"],
+      ["B4.3"],
+      ["B4.5"],
+      ["B3.1", "B3.4"],
+      ["B3.2"],
+      ["B3.3"]
     ]
   },
   {
@@ -79,13 +80,13 @@
       ["A2.6"],
       ["B2.1"],
       ["B2.2"],
-      ["B3.1", "B3.4"],
-      ["B3.2", "B3.4"],
-      ["B3.3"],
       ["B4.1"],
       ["B4.2"],
       ["B4.3"],
       ["B4.5"],
+      ["B3.1", "B3.4"],
+      ["B3.2"],
+      ["B3.3"],
       ["B5.2", "B5.3", "B5.8"]
     ]
   }

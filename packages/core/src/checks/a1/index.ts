@@ -4,8 +4,11 @@ import { mediaTypeOf, parseLinkHeader, type LinkValue } from '../../parsers/link
 import { isWellFormedLlmsTxt, parseLlmsTxt } from '../../parsers/llms-txt.js';
 import { isW3cDatetime, looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { LASTMOD_SAMPLE_LIMIT } from '../../target/types.js';
-import { pathOf } from '../shared.js';
+import { inconclusive, isTransient, pathOf } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
+
+/** Google applies the first 500 KiB of robots.txt (developers.google.com/search/docs/crawling-indexing/robots/robots_txt). */
+const ROBOTS_MAX_BYTES = 500 * 1024;
 
 export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
   const response = target.robotsResponse;
@@ -17,8 +20,17 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
     sitemaps: target.robots?.sitemaps ?? [],
   };
   if (response.status === 200 && target.robots) {
+    // Google applies only the first 500 KiB of a robots.txt file and ignores the rest.
+    if (response.bytes > ROBOTS_MAX_BYTES) {
+      return warn(
+        `robots.txt is ${Math.round(response.bytes / 1024)} KiB. Google reads only the first 500 KiB, so rules after that are ignored`,
+        evidence,
+      );
+    }
     return pass(`robots.txt parsed with ${target.robots.groups.length} group(s)`, evidence);
   }
+  // A throttled or failed request says nothing about the file (ADR 0012).
+  if (isTransient(response)) return inconclusive('robots.txt', response, evidence);
   if (response.status === 404) {
     return warn(
       'robots.txt is missing. Everything is allowed by default, but the site states no intent',
@@ -33,12 +45,11 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
       evidence,
     );
   }
-  if (response.status === 0) {
-    return fail(`robots.txt could not be fetched: ${response.error ?? 'no response'}`, evidence);
-  }
   if (response.status === 200) {
-    return fail(
-      'robots.txt returned HTML instead of a robots file (challenge page or soft 404)',
+    // Google tries to extract rules from such a page and finds none, so crawlers read the
+    // site as allowed, but the owner states nothing. A challenge page is A2.4's finding.
+    return warn(
+      'robots.txt answered with an HTML page instead of a robots file (often a soft 404). Crawlers then find no rules and read everything, but the site states no intent',
       evidence,
     );
   }
@@ -48,10 +59,34 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
 export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
   const sitemap = target.sitemap;
   if (!sitemap) {
-    return fail(
-      'no sitemap found via robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml',
-      { declared_in_robots: target.robots?.sitemaps ?? [] },
-    );
+    const discovery = target.sitemapDiscovery;
+    const declared = target.robots?.sitemaps ?? [];
+    // "No sitemap" is only a finding when every request answered; a 429, a server error or
+    // a cut-off budget leaves the question open.
+    if (discovery && !discovery.complete) {
+      return skip(
+        'error',
+        `could not tell whether a sitemap exists: ${discovery.reason ?? 'sitemap discovery did not finish'}`,
+        { declared_in_robots: declared, tried: discovery.tried ?? [] },
+      );
+    }
+    const tried = discovery?.tried;
+    const where =
+      tried && tried.length > 0
+        ? `${declared.length > 0 ? 'robots.txt or ' : ''}${tried
+            .map((url) => {
+              try {
+                return new URL(url).pathname;
+              } catch {
+                return url;
+              }
+            })
+            .join(', ')}`
+        : 'robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml';
+    return fail(`no sitemap found via ${where}`, {
+      declared_in_robots: declared,
+      ...(tried ? { tried } : {}),
+    });
   }
   const evidence = {
     url: sitemap.url,
@@ -88,6 +123,14 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
     );
   }
   if (!sitemap) {
+    // Discovery stopped on a rate limit or server error: absence is not established.
+    if (target.sitemapDiscovery?.complete === false) {
+      return skip(
+        'error',
+        `could not tell whether a product sitemap exists: ${target.sitemapDiscovery.reason ?? 'sitemap discovery stopped early'}`,
+        evidence,
+      );
+    }
     return fail('no sitemap was read, so no product URL could be found in one', evidence);
   }
   const count = sitemapsRead.length;
@@ -114,6 +157,7 @@ export const llmsTxtPresent = defineCheck('A1.5', async ({ target, fetcher }) =>
   if (response.status === 404 || response.status === 410) {
     return skip('not_applicable', 'no llms.txt (optional, so its absence is not scored)', evidence);
   }
+  if (isTransient(response)) return inconclusive('llms.txt', response, evidence);
   if (response.status !== 200) {
     return fail(`llms.txt returned HTTP ${response.status}`, evidence);
   }
@@ -264,8 +308,10 @@ export const linkResponseHeaders = defineCheck('A1.4', async ({ target, fetcher 
       evidence,
     );
   }
-  return fail(
-    'no Link response header on the home page or a sampled product page, and no <link rel="ucp"> in the home page',
+  // An optional convention with no consumer that requires it: absence is not a verdict.
+  return skip(
+    'not_applicable',
+    'no Link response header on the home page or a sampled product page, and no <link rel="ucp"> in the home page (optional, so its absence is not scored)',
     evidence,
   );
 });

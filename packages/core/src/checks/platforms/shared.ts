@@ -3,21 +3,10 @@
  * that platform has, or reads the public trace of one of its settings and names the
  * setting, so the merchant knows which switch to flip.
  */
-import type { FetchedResponse } from '../../http/types.js';
 import { isAllowed, type RobotsTxt } from '../../parsers/robots.js';
 import type { Target } from '../../target/types.js';
-import { describeFailure } from '../shared.js';
 
-/** Statuses that say nothing about the resource: throttling or a gateway failure. */
-const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
-
-export function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
-  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
-}
-
-export function transientPhrase(response: Pick<FetchedResponse, 'status' | 'error'>): string {
-  return `${response.status === 429 ? 'was rate limited' : 'failed'} (${describeFailure(response)})`;
-}
+export { isTransient, transientPhrase } from '../shared.js';
 
 /** The product tokens of `tokens` that robots.txt disallows at `path`. */
 export function disallowed(

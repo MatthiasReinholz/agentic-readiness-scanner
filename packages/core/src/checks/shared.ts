@@ -38,6 +38,33 @@ export function describeFailure(response: Pick<FetchedResponse, 'status' | 'erro
  * disallows the path for its product token. Such a response says nothing about the
  * resource; checks report it as not verified, never as absent or broken.
  */
+/**
+ * Statuses that say nothing about the resource: the server throttled the scanner or a
+ * gateway failed, or nothing answered. A probe that meets one is inconclusive and the
+ * check reports `skip` with reason `error`, never a verdict (ADR 0012).
+ */
+export const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([429, 502, 503, 504]);
+
+export function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
+  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
+}
+
+export function transientPhrase(response: Pick<FetchedResponse, 'status' | 'error'>): string {
+  return `${response.status === 429 ? 'was rate limited' : 'failed'} (${describeFailure(response)})`;
+}
+
+/** The inconclusive outcome for a transient response: `what` names the resource. */
+export function inconclusive(
+  what: string,
+  response: Pick<FetchedResponse, 'status' | 'error'>,
+  evidence: Record<string, unknown> = {},
+): CheckOutcome {
+  return skip('error', `${what} ${transientPhrase(response)}, so this could not be evaluated`, {
+    status: response.status,
+    ...evidence,
+  });
+}
+
 export function blockedByRobots(response: Pick<FetchedResponse, 'status' | 'error'>): boolean {
   return response.status === 0 && /robots\.txt/i.test(response.error ?? '');
 }

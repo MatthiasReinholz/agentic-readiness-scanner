@@ -32,13 +32,13 @@ describe('A1.1 robots.txt exists and parses', () => {
     expect(outcome.evidence).toMatchObject({ status: 200, groups: 2, content_type: 'text/plain' });
   });
 
-  it('fails when a 200 answers with HTML (challenge page or soft 404)', async () => {
+  it('warns when a 200 answers with HTML (a soft 404): crawlers then read the site as allowed', async () => {
     const outcome = await run({
       status: 200,
       headers: { 'content-type': 'text/html' },
-      body: '<!doctype html><html><body>Checking your browser</body></html>',
+      body: '<!doctype html><html><body>Not found</body></html>',
     });
-    expect(outcome.verdict).toBe('fail');
+    expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toMatch(/HTML/);
     expect(outcome.evidence).toMatchObject({ groups: 0, content_type: 'text/html' });
   });
@@ -58,16 +58,24 @@ describe('A1.1 robots.txt exists and parses', () => {
     }
   });
 
-  it('fails on 5xx, which crawlers must treat as "unreachable, disallow all"', async () => {
-    const outcome = await run({ status: 503, body: 'down' });
+  it('fails on a persistent 5xx, which crawlers treat as "disallow all"', async () => {
+    const outcome = await run({ status: 500, body: 'error' });
     expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toBe('robots.txt returned HTTP 503');
+    expect(outcome.message).toBe('robots.txt returned HTTP 500');
   });
 
-  it('fails when nothing answered at all', async () => {
-    const outcome = await run({ status: 0 });
-    expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toMatch(/could not be fetched: network error/);
+  it('is inconclusive on a 429, 503 or no answer, which say nothing about the file', async () => {
+    for (const status of [429, 503, 0]) {
+      const outcome = await run({ status, body: '' });
+      expect(outcome, String(status)).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+      expect(outcome.message).toMatch(/could not be evaluated/);
+    }
+  });
+
+  it('warns when robots.txt is larger than the 500 KiB Google reads', async () => {
+    const outcome = await run(`User-agent: *\nAllow: /\n# ${'x'.repeat(520 * 1024)}\n`);
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/500 KiB/);
   });
 });
 
@@ -314,12 +322,13 @@ describe('A1.4 Link response headers', () => {
         },
       ],
     });
-    // Other relations in the head do not count: only the header form is the convention.
+    // Other relations in the head do not count: only the header form is the convention, so
+    // a head without one is the same as no Link at all, which is not scored.
     const other = targetFor({
       homeHtml:
         '<!doctype html><html><head><link rel="llms-txt" href="/llms.txt"><link rel="alternate" type="text/markdown" href="/index.md"></head></html>',
     });
-    expect((await runCheck(linkResponseHeaders, other, mapFetcher({}))).verdict).toBe('fail');
+    expect((await runCheck(linkResponseHeaders, other, mapFetcher({}))).verdict).toBe('skip');
     // Both forms at once: the header is reported and the head element noted.
     const both = targetFor({
       homeHtml: '<!doctype html><html><head><link rel="ucp" href="/.well-known/ucp"></head></html>',
@@ -374,13 +383,13 @@ describe('A1.4 Link response headers', () => {
     expect(outcome.evidence).toMatchObject({ usable: 0 });
   });
 
-  it('fails when neither page sends a Link header', async () => {
+  it('does not score the absence of an optional Link header', async () => {
     const outcome = await runCheck(
       linkResponseHeaders,
       targetFor({ products: [mug] }),
       mapFetcher({ [mug]: '<html></html>' }),
     );
-    expect(outcome.verdict).toBe('fail');
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
     expect(outcome.message).toMatch(/no Link response header/);
     expect(outcome.evidence).toEqual({
       pages: ['https://shop.example/', mug],

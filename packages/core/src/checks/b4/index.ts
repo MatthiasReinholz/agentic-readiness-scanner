@@ -1,10 +1,11 @@
-import { contentType } from '../../http/types.js';
+import { isChallengePage, REFUSAL_STATUSES } from '../../http/bot-management.js';
+import { contentType, type FetchedResponse } from '../../http/types.js';
 import { HtmlDocument } from '../../parsers/html.js';
 import { asString, extractJsonLd, hasValue, organizationNodes } from '../../parsers/jsonld.js';
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
 import { SEARCH_CRAWLERS } from '../a2/index.js';
-import { describeFailure, hasProductMarkup, pathOf } from '../shared.js';
+import { describeFailure, hasProductMarkup, inconclusive, isTransient, pathOf } from '../shared.js';
 import { registrableDomain } from '../../http/domain.js';
 import { looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { ACCOUNT_AREA_PATTERN, isListingPath } from '../../target/resolver.js';
@@ -30,6 +31,13 @@ export function hasShippingDetails(text: string): boolean {
   );
 }
 
+/** True when the response says nothing about the page: a refusal, challenge or transient failure. */
+function unreadable(response: FetchedResponse): boolean {
+  return (
+    isTransient(response) || REFUSAL_STATUSES.has(response.status) || isChallengePage(response)
+  );
+}
+
 export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher }) => {
   const url = target.sampled.policies.returns;
   if (!url)
@@ -41,6 +49,8 @@ export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher })
   const words = doc.wordCount();
   const productPage = response.status === 200 && hasProductMarkup(doc);
   const evidence = { url, status: response.status, words, product_page: productPage };
+  // A refused or throttled page says nothing about the policy (ADR 0012).
+  if (unreadable(response)) return inconclusive('the return policy page', response, evidence);
   if (response.status !== 200)
     return fail(`return policy page returned HTTP ${response.status}`, evidence);
   if (productPage)
@@ -70,6 +80,8 @@ export const shippingPolicyFound = defineCheck('B4.2', async ({ target, fetcher 
     mentions_costs_regions_or_times: mentionsDetails,
     product_page: productPage,
   };
+  // A refused or throttled page says nothing about the policy (ADR 0012).
+  if (unreadable(response)) return inconclusive('the shipping policy page', response, evidence);
   if (response.status !== 200)
     return fail(`shipping policy page returned HTTP ${response.status}`, evidence);
   if (productPage)

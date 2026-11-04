@@ -36,6 +36,12 @@ export interface FetchedResponse {
   error?: string;
   /** True when this is the outcome of the one retry after a transport error, 429 or 503. */
   retried?: boolean;
+  /**
+   * The URLs that answered with a redirect on the way to `finalUrl`, in order, starting
+   * with the requested URL. Absent when the request was not redirected or the fetcher
+   * does not record it. Lets the fetcher answer a later request for one of them from cache.
+   */
+  hops?: string[];
 }
 
 /** A request that did not succeed: no response after the retry, or a final 429. */

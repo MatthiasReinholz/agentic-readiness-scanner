@@ -7,7 +7,12 @@ import {
   type SampledPages,
 } from '@agentic-readiness/catalog';
 
-import { botManagementVendor, isChallengePage, REFUSAL_STATUSES } from '../http/bot-management.js';
+import {
+  botManagementVendor,
+  isChallengeOrBlockServedAsSuccess,
+  isChallengePage,
+  REFUSAL_STATUSES,
+} from '../http/bot-management.js';
 import { registrableDomain } from '../http/domain.js';
 import { isRobotsAware } from '../http/robots-gate.js';
 import { emitProgress, type ProgressListener } from '../progress.js';
@@ -23,11 +28,13 @@ import {
   parseSitemap,
   type SitemapEntry,
 } from '../parsers/sitemap.js';
+import { consentGatePath, detectHoldingPage, isCrossSiteRedirect } from './home-gate.js';
 import { matchPlatform } from './platforms.js';
 import { sample } from './sampling.js';
 import {
   LASTMOD_SAMPLE_LIMIT,
   type HomeBlocked,
+  type SitemapDiscovery,
   type SitemapSummary,
   type Target,
 } from './types.js';
@@ -53,7 +60,38 @@ export class TargetUnreachableError extends Error {
   }
 }
 
-const SITEMAP_CANDIDATES = ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml'];
+/**
+ * Sitemap paths guessed after the ones robots.txt declares, in the order the platform
+ * makes likely. WordPress core serves /wp-sitemap.xml and the SEO plugins (Yoast, Rank
+ * Math) /sitemap_index.xml; everyone else uses /sitemap.xml. /wp-sitemap.xml is only
+ * guessed on WordPress.
+ */
+const WORDPRESS_SITEMAP_GUESSES = ['/wp-sitemap.xml', '/sitemap_index.xml', '/sitemap.xml'];
+const SITEMAP_GUESSES = ['/sitemap.xml', '/sitemap_index.xml'];
+
+/**
+ * The sitemap URLs discovery tries, in order: the ones robots.txt declares, then the
+ * platform's guesses, unless only declared sitemaps may be fetched (a blocked home page).
+ */
+export function sitemapCandidates(
+  origin: string,
+  robots: RobotsTxt | null,
+  platform: Platform,
+  declaredOnly = false,
+): string[] {
+  const declared = robots?.sitemaps ?? [];
+  if (declaredOnly) return [...new Set(declared)];
+  const guesses =
+    platform === 'wordpress' || platform === 'woocommerce'
+      ? WORDPRESS_SITEMAP_GUESSES
+      : SITEMAP_GUESSES;
+  return [...new Set([...declared, ...guesses.map((path) => origin + path)])];
+}
+
+/** A 429 or a server error: the store wants fewer requests or cannot answer now. */
+function stopsDiscovery(status: number): boolean {
+  return status === 429 || status >= 500;
+}
 
 /**
  * Policy keywords as whole words (hyphen and slash count as boundaries), with the compound
@@ -414,24 +452,62 @@ export function preferMarket(urls: readonly string[], scope: MarketScope | null)
   return inMarket.length > 0 ? inMarket : [...urls];
 }
 
-async function discoverSitemap(
+export interface SitemapDiscoveryOptions {
+  /** Sitemap requests at most, child sitemaps included. */
+  maxFetches: number;
+  scope?: MarketScope | null;
+  /** Orders the guessed paths; WordPress and WooCommerce also get /wp-sitemap.xml. */
+  platform?: Platform;
+  /** Only fetch sitemaps robots.txt declares, no guesses (the home page was blocked). */
+  declaredOnly?: boolean;
+}
+
+export interface SitemapDiscoveryResult {
+  sitemap: SitemapSummary | null;
+  discovery: SitemapDiscovery;
+}
+
+/**
+ * Finds the store's sitemap: the ones robots.txt declares, then the platform's guesses.
+ * Stops at the first 429 or 5xx instead of asking the next guess, and says so: "no sitemap"
+ * is only a finding when every request answered definitively.
+ */
+export async function discoverSitemap(
   origin: string,
   robots: RobotsTxt | null,
   fetcher: Fetcher,
-  maxFetches: number,
+  options: SitemapDiscoveryOptions,
   warnings: string[],
-  scope: MarketScope | null = null,
-): Promise<SitemapSummary | null> {
-  const candidates = [
-    ...new Set([...(robots?.sitemaps ?? []), ...SITEMAP_CANDIDATES.map((path) => origin + path)]),
-  ];
+): Promise<SitemapDiscoveryResult> {
+  const { maxFetches, scope = null, platform = 'unknown', declaredOnly = false } = options;
+  const candidates = sitemapCandidates(origin, robots, platform, declaredOnly);
+  const tried: string[] = [];
+  let unanswered: string | null = null;
   let fetches = 0;
+  const incomplete = (reason: string): SitemapDiscoveryResult => ({
+    sitemap: null,
+    discovery: { complete: false, reason, tried },
+  });
   for (const candidate of candidates) {
-    if (fetches >= maxFetches) break;
     const url = resolveSameOrigin(candidate, origin);
     if (!url) continue;
+    if (fetches >= maxFetches) {
+      return incomplete(
+        `discovery stopped after ${maxFetches} sitemap request(s) with ${url} still untried`,
+      );
+    }
     fetches += 1;
+    tried.push(url);
     const response = await fetcher.fetch(url);
+    if (stopsDiscovery(response.status)) {
+      // The next guess would only add load to a store that is rate-limiting or failing,
+      // and its answer would not settle whether a sitemap exists.
+      return incomplete(`${url} answered HTTP ${response.status}, so discovery stopped there`);
+    }
+    if (response.status === 0) {
+      unanswered ??= `${url} could not be fetched (${response.error ?? 'no response'})`;
+      continue;
+    }
     if (response.status !== 200) continue;
     const parsed = parseSitemap(response.body);
     if (parsed.kind === 'invalid') {
@@ -490,6 +566,12 @@ async function discoverSitemap(
         if (!childUrl) continue;
         fetches += 1;
         const childResponse = await fetcher.fetch(childUrl);
+        if (stopsDiscovery(childResponse.status)) {
+          warnings.push(
+            `child sitemap ${childUrl} answered HTTP ${childResponse.status}, so no further child sitemaps were fetched`,
+          );
+          break;
+        }
         if (childResponse.status !== 200) {
           warnings.push(`child sitemap ${childUrl} answered HTTP ${childResponse.status}`);
           continue;
@@ -527,9 +609,17 @@ async function discoverSitemap(
         if (summary.productUrls.length > 0) break;
       }
     }
-    return summary;
+    return { sitemap: summary, discovery: { complete: true, tried } };
   }
-  return null;
+  if (unanswered) return incomplete(unanswered);
+  if (declaredOnly) {
+    return incomplete(
+      tried.length > 0
+        ? 'the home page was not evaluated, so only the sitemaps robots.txt declares were fetched, and none of them could be read'
+        : 'the home page was not evaluated, so only sitemaps robots.txt declares are fetched, and it declares none on this origin',
+    );
+  }
+  return { sitemap: null, discovery: { complete: true, tried } };
 }
 
 /** Paths that are never product pages, whatever the slug: content, help, legal, listings, assets. */
@@ -642,6 +732,56 @@ export function selectProfile(
   return profile;
 }
 
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * How the home page refused the scanner, when it did: a refusal status (401, 402, 403,
+ * 406, 429, 451) or a challenge or block page served with a success status.
+ */
+export function refusalOf(home: FetchedResponse): HomeBlocked | undefined {
+  const refusedStatus = REFUSAL_STATUSES.has(home.status);
+  if (!refusedStatus && !isChallengeOrBlockServedAsSuccess(home)) return undefined;
+  const vendor = botManagementVendor(home);
+  const challenge = isChallengePage(home);
+  const by = vendor ? `, ${vendor}` : '';
+  return {
+    status: home.status,
+    vendor,
+    challenge,
+    kind: challenge ? 'challenge' : 'refused',
+    detail: refusedStatus
+      ? `the home page refused the scanner (HTTP ${home.status}${by})`
+      : `the home page is a ${challenge ? 'challenge' : 'block'} page served with HTTP ${home.status}${by}`,
+  };
+}
+
+/** A home page that redirected to another registrable domain or to a consent or region gate. */
+export function redirectGateOf(home: FetchedResponse, input: URL): HomeBlocked | undefined {
+  if (home.redirects === 0 && home.finalUrl === home.url) return undefined;
+  if (isCrossSiteRedirect(input, home.finalUrl)) {
+    return {
+      status: home.status,
+      vendor: null,
+      challenge: false,
+      kind: 'cross_site_redirect',
+      detail: `the home page redirected to another site (${new URL(home.finalUrl).hostname}), which this scan does not evaluate in its place`,
+    };
+  }
+  const gate = consentGatePath(home, input);
+  if (gate) {
+    return {
+      status: home.status,
+      vendor: null,
+      challenge: false,
+      kind: 'consent_gate',
+      detail: `the home page redirected to a consent or region gate (${gate}) instead of the content`,
+    };
+  }
+  return undefined;
+}
+
 /**
  * Resolves user input into a Target: canonical origin, platform, profile, robots.txt,
  * sitemap, and a deterministic sample of product and policy pages.
@@ -663,42 +803,65 @@ export async function resolveTarget(
   // A refusal (403, 429, a challenge page) is a finding, not an error: the site is up and
   // turns unverified clients away, which is what A2.4 reports. Anything else above 400
   // (404, 410, 5xx) means there is no site to scan at this address.
-  const blocked: HomeBlocked | undefined = REFUSAL_STATUSES.has(home.status)
-    ? {
-        status: home.status,
-        vendor: botManagementVendor(home),
-        challenge: isChallengePage(home),
-      }
-    : undefined;
+  let blocked: HomeBlocked | undefined = refusalOf(home);
   if (home.status >= 400 && !blocked) {
     throw new TargetUnreachableError(input.href, `HTTP ${home.status}`);
   }
-  const origin = new URL(home.finalUrl).origin;
+  // A home page that left for another site or for a consent gate is not this store's home
+  // page either: scoring it would judge someone else's page or the gate.
+  blocked ??= redirectGateOf(home, input);
+  // A redirect to another site leaves the scan on the address that was typed: its
+  // robots.txt and sitemaps are this site's, the other site's are not.
+  const origin =
+    blocked?.kind === 'cross_site_redirect' ? input.origin : new URL(home.finalUrl).origin;
   const hostname = new URL(origin).hostname;
-  const homeDoc = new HtmlDocument(blocked ? '' : home.body);
+  let homeDoc = new HtmlDocument(blocked ? '' : home.body);
   const match = blocked ? null : matchPlatform(homeDoc, home);
   let platform = match?.platform ?? 'unknown';
   let platformSignal = match?.signal ?? null;
-  const shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
+  let shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
+
+  // The home phase is reported before robots.txt is asked for, so a progress listener hears
+  // from the scan after the first request.
+  emitProgress(options.onProgress, {
+    type: 'phase',
+    phase: 'home',
+    detail: blocked
+      ? `GET ${home.finalUrl} answered HTTP ${home.status}${blocked.vendor ? ` from ${blocked.vendor}` : ''}${blocked.kind === 'refused' || blocked.kind === 'challenge' ? '' : `: ${blocked.detail ?? ''}`}`
+      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `, ${platformLabel(platform) ?? platform} detected`}`,
+  });
+  const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
+  if (!blocked) {
+    // A maintenance page served for every URL answers robots.txt with itself.
+    const holding = detectHoldingPage(home, robotsResponse);
+    if (holding) {
+      blocked = {
+        status: home.status,
+        vendor: null,
+        challenge: false,
+        kind: 'holding_page',
+        detail: `the home page is a maintenance or holding page that the site serves for every URL, robots.txt included ("${holding.label}")`,
+      };
+      homeDoc = new HtmlDocument('');
+      platform = 'unknown';
+      platformSignal = null;
+      shopifyHosted = undefined;
+    }
+  }
   if (shopifyHosted === false) {
     warnings.push(
       'Shopify assets are loaded but Shopify does not serve this origin (a headless storefront), so the Shopify-only checks do not apply here',
     );
   }
   if (blocked) {
+    const refusal = blocked.kind === 'refused' || blocked.kind === 'challenge';
     warnings.push(
-      `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}). Platform, profile and product pages could not be determined, and most checks were not evaluated`,
+      refusal
+        ? `the home page refused the scanner's honest request (HTTP ${blocked.status}${blocked.vendor ? `, ${blocked.vendor}` : ''}). Platform, profile and product pages could not be determined, and most checks were not evaluated`
+        : `${capitalize(blocked.detail ?? 'the home page could not be evaluated')}. Platform, profile and product pages could not be determined, and most checks were not evaluated`,
     );
   }
 
-  emitProgress(options.onProgress, {
-    type: 'phase',
-    phase: 'home',
-    detail: blocked
-      ? `GET ${home.finalUrl} answered HTTP ${home.status}${blocked.vendor ? ` from ${blocked.vendor}` : ''}`
-      : `GET ${home.finalUrl} answered HTTP ${home.status}${platform === 'unknown' ? '' : `, ${platformLabel(platform) ?? platform} detected`}`,
-  });
-  const robotsResponse = await fetcher.fetch(`${origin}/robots.txt`);
   const robotsLooksLikeText =
     robotsResponse.status === 200 && !/<html|<!doctype/i.test(robotsResponse.body.slice(0, 500));
   const robots = robotsLooksLikeText ? parseRobotsTxt(robotsResponse.body) : null;
@@ -709,22 +872,43 @@ export async function resolveTarget(
     phase: 'robots',
     detail: robots
       ? `robots.txt parsed: ${robots.groups.length} group(s), ${robots.sitemaps.length} sitemap line(s)`
-      : `robots.txt answered HTTP ${robotsResponse.status}`,
+      : blocked?.kind === 'holding_page'
+        ? `robots.txt answered with the home page's holding page (HTTP ${robotsResponse.status})`
+        : `robots.txt answered HTTP ${robotsResponse.status}`,
   });
   const scope = marketScope(new URL(home.finalUrl));
-  const sitemap = await optionalStep(
-    () => discoverSitemap(origin, robots, fetcher, options.maxSitemapFetches ?? 4, warnings, scope),
-    null,
-    'sitemap discovery',
-    warnings,
-  );
+  let discovered: SitemapDiscoveryResult;
+  try {
+    discovered = await discoverSitemap(
+      origin,
+      robots,
+      fetcher,
+      {
+        maxFetches: options.maxSitemapFetches ?? 4,
+        scope,
+        platform,
+        declaredOnly: blocked !== undefined,
+      },
+      warnings,
+    );
+  } catch (error) {
+    if (!(error instanceof BudgetExhaustedError)) throw error;
+    warnings.push(`sitemap discovery was cut short: ${error.message}`);
+    discovered = {
+      sitemap: null,
+      discovery: { complete: false, reason: `discovery was cut short: ${error.message}` },
+    };
+  }
+  const { sitemap, discovery: sitemapDiscovery } = discovered;
 
   emitProgress(options.onProgress, {
     type: 'phase',
     phase: 'sitemap',
     detail: sitemap
       ? `sitemap ${sitemap.url} read: ${sitemap.urls.length} URL(s), ${sitemap.productUrls.length} product URL(s)`
-      : 'no sitemap found',
+      : sitemapDiscovery.complete
+        ? 'no sitemap found'
+        : `sitemap discovery incomplete: ${sitemapDiscovery.reason ?? 'unknown reason'}`,
   });
   const anchorUrls = homeDoc
     .anchors()
@@ -760,9 +944,11 @@ export async function resolveTarget(
   // /category/ link is on every WordPress blog, so on its own it decides nothing.
   const storeListing = listing !== undefined && isStoreListingPath(new URL(listing).pathname);
   const homeStoreSignals = hasStoreSignals(homeDoc, home.body);
+  let productDiscoveryCut: string | null = null;
   if (products.length === 0 && !blocked && (storeListing || homeStoreSignals)) {
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
     // still a store; a few linked pages are fetched and kept when they are product pages.
+    const before = warnings.length;
     products = await optionalStep(
       () =>
         discoverProductsBySampling(
@@ -776,10 +962,16 @@ export async function resolveTarget(
       'product discovery',
       warnings,
     );
+    const cut = warnings
+      .slice(before)
+      .find((warning) => warning.startsWith('product discovery was cut short'));
+    if (cut && products.length === 0) productDiscoveryCut = cut;
   }
   if (products.length === 0) {
     warnings.push(
-      'no product URLs found in the sitemap or the home page links, so product checks will not apply',
+      productDiscoveryCut !== null || !sitemapDiscovery.complete
+        ? 'no product page could be sampled before the store stopped the scan, so product checks were not evaluated'
+        : 'no product URLs found in the sitemap or the home page links, so product checks will not apply',
     );
   }
   const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
@@ -851,6 +1043,16 @@ export async function resolveTarget(
     robotsResponse,
     robots,
     sitemap,
+    sitemapDiscovery,
+    productDiscovery:
+      productDiscoveryCut !== null
+        ? { complete: false, reason: productDiscoveryCut }
+        : !sitemapDiscovery.complete && products.length === 0
+          ? {
+              complete: false,
+              reason: sitemapDiscovery.reason ?? 'sitemap discovery stopped early',
+            }
+          : { complete: true },
     sampled,
     warnings,
     ...(blocked ? { blocked } : {}),

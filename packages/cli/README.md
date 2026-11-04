@@ -1,6 +1,6 @@
 # @agentic-readiness/cli
 
-The command line and local MCP server of the [Agentic Readiness Scanner](https://github.com/MatthiasReinholz/agentic-readiness-scanner). The scanner checks whether AI agents that find, compare and buy on a person's behalf can read and use an online store. It reads only public pages, runs 79 checks, and reports a readiness level from 0 to 5, two scores (agentic ingestion and agentic commerce) and a fix for every finding. The package is self-contained and needs Node 24 or later.
+The command line and local MCP server of the [Agentic Readiness Scanner](https://github.com/MatthiasReinholz/agentic-readiness-scanner). The scanner checks whether AI agents that find, compare and buy on a person's behalf can read and use an online store. It reads only public pages, runs 78 checks, and reports a readiness level from 0 to 5, two scores (agentic ingestion and agentic commerce) and a fix for every finding. The package is self-contained and needs Node 24 or later.
 
 ## Scan a store
 

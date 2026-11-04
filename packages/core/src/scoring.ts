@@ -195,7 +195,7 @@ function ceilingFor(
   for (const ceiling of catalog.ceilings) {
     const value = ceiling.values[dimension];
     if (value === undefined || (applied && applied.value <= value)) continue;
-    const unmet = ceiling.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile));
+    const unmet = ceiling.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile, catalog));
     // A cap says agents cannot do something, so it needs evidence: a gate that could not
     // be evaluated (no product page to sample, a budget cut) holds the level back but not
     // the score.
@@ -294,12 +294,27 @@ export function incompleteScoreSentence(score: DimensionScore): string {
  * it could not verify. Without a profile the runtime `not_applicable` skip is the only
  * signal available and is treated as outside the catalog.
  */
+/**
+ * True when a check's outcome meets a gate: a pass, or a warning on a check whose warning
+ * is about stated intent rather than reach (`warn_meets_gate`: robots.txt missing means
+ * "allow all", one minor crawler blocked still leaves the site reachable).
+ */
+function meetsGate(result: CheckResult | undefined, catalog: Catalog): boolean {
+  if (!result) return false;
+  if (result.verdict === 'pass') return true;
+  return (
+    result.verdict === 'warn' &&
+    catalog.checks.find((check) => check.id === result.id)?.warn_meets_gate === true
+  );
+}
+
 function gateSatisfied(
   gate: readonly string[],
   results: ReadonlyMap<string, CheckResult>,
   inProfile: ReadonlySet<string> | null,
+  catalog: Catalog = defaultCatalog,
 ): boolean {
-  if (gate.some((id) => results.get(id)?.verdict === 'pass')) return true;
+  if (gate.some((id) => meetsGate(results.get(id), catalog))) return true;
   return gate.every((id) => {
     if (inProfile) return !inProfile.has(id);
     const result = results.get(id);
@@ -325,20 +340,35 @@ export function computeLevel(
     .filter((level) => level.value <= maxLevel);
   let reached = levels[0];
   for (const level of levels) {
-    if (level.gates.every((gate) => gateSatisfied(gate, byId, inProfile))) reached = level;
+    if (level.gates.every((gate) => gateSatisfied(gate, byId, inProfile, catalog))) reached = level;
     else break;
   }
   if (!reached) {
     return { value: 0, name: 'Not reachable', next_gate: [] };
   }
   const next = levels.find((level) => level.value === reached.value + 1);
-  const nextGate = next
-    ? actionable(
-        next.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile)),
-        byId,
-        inProfile,
-        catalog,
-      )
+  const unmet = next
+    ? next.gates.filter((gate) => !gateSatisfied(gate, byId, inProfile, catalog))
     : [];
-  return { value: reached.value, name: reached.name, next_gate: nextGate };
+  const nextGate = actionable(unmet, byId, inProfile, catalog);
+  // When every unmet gate of the next level is one the scan could not answer (budget,
+  // time, a transient error), the next level is not decided rather than missed.
+  const unanswered = (id: string) => {
+    const result = byId.get(id);
+    return (
+      result?.verdict === 'skip' &&
+      (result.skip_reason === 'budget_exhausted' || result.skip_reason === 'error')
+    );
+  };
+  const undetermined =
+    unmet.length > 0 &&
+    unmet.every((gate) => gate.filter((id) => !inProfile || inProfile.has(id)).every(unanswered))
+      ? unmet.flat().filter(unanswered)
+      : [];
+  return {
+    value: reached.value,
+    name: reached.name,
+    next_gate: nextGate,
+    ...(undetermined.length > 0 ? { undetermined: [...new Set(undetermined)] } : {}),
+  };
 }

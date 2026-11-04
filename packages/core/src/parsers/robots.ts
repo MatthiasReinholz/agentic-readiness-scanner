@@ -151,9 +151,17 @@ export function parseRobotsTxt(text: string): RobotsTxt {
   return { groups, sitemaps, contentSignals, usageLines, unknownLines };
 }
 
-/** The group that applies to a product token, per RFC 9309 section 2.2.1. */
-export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup | null {
-  const token = productToken.toLowerCase();
+/**
+ * Groups a crawler follows, by its operator's documentation, when robots.txt names it in
+ * none. Apple: "If robots instructions don't mention Applebot but mention Googlebot, the
+ * Apple robot will follow Googlebot instructions" (https://support.apple.com/en-us/119829).
+ * Apple documents no such fallback for Applebot-Extended, so it has none here.
+ */
+const DOCUMENTED_FALLBACKS: Readonly<Record<string, string>> = {
+  applebot: 'googlebot',
+};
+
+function namedGroup(robots: RobotsTxt, token: string): RobotsGroup | null {
   let best: RobotsGroup | null = null;
   let bestLength = -1;
   for (const group of robots.groups) {
@@ -165,7 +173,21 @@ export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup |
       }
     }
   }
-  if (best) return best;
+  return best;
+}
+
+/**
+ * The group that applies to a product token, per RFC 9309 section 2.2.1: the group that
+ * names it, else the group of the token its operator documents as the fallback (Applebot
+ * follows Googlebot), else the "*" group.
+ */
+export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup | null {
+  const token = productToken.toLowerCase();
+  const own = namedGroup(robots, token);
+  if (own) return own;
+  const fallback = DOCUMENTED_FALLBACKS[token];
+  const borrowed = fallback ? namedGroup(robots, fallback) : null;
+  if (borrowed) return borrowed;
   return robots.groups.find((group) => group.agents.includes('*')) ?? null;
 }
 

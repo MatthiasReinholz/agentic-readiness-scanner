@@ -126,6 +126,10 @@ describe('knowledge base', () => {
       `${path}.md`,
     );
     expect((await app.request('/knowledge-base/nothing-here')).status).toBe(404);
+    // A retired article moves to the closest one that remains.
+    const retired = await app.request('/knowledge-base/store-api-rate-limits');
+    expect(retired.status).toBe(301);
+    expect(retired.headers.get('location')).toBe('/knowledge-base/store-api-reachable');
   });
 
   it('lists every article on the index, the section pages, the sitemap and llms.txt', async () => {

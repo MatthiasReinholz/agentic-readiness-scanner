@@ -4,13 +4,13 @@ Can an AI agent find, read, trust and buy from your store today?
 
 AI agents increasingly shop on a person's behalf. They search for products, compare offers and, more and more, place the order. This is called agentic commerce. An agent does not look at your store the way a person does. It reads robots.txt (the file that tells crawlers what they may fetch), sitemaps, the structured data in your pages, your policies and the protocols your store advertises. If those are missing, blocked or wrong, the agent skips your store and recommends another one.
 
-The scanner tells you how your store looks to such an agent. You give it a public store URL. It reads only what any visitor could read, runs 79 checks, gives the store a readiness level and two scores, and returns a report in which every finding comes with a fix.
+The scanner tells you how your store looks to such an agent. You give it a public store URL. It reads only what any visitor could read, runs 78 checks, gives the store a readiness level and two scores, and returns a report in which every finding comes with a fix.
 
 > Status: version **0.13.0** (catalog 0.7.0, scoring 0.7.0), released 2026-11-03. The hosted scanner runs at <https://agentic-readiness-scanner.space.fast/>. `@agentic-readiness/cli` and `@agentic-readiness/core` are on npm. See the [roadmap](#roadmap) and the [changelog](CHANGELOG.md).
 
 ## What it checks
 
-79 checks in 9 sections. Each check asks one question, returns one verdict (pass, warn, fail or skip) with evidence, and links one fix. The full list is in [docs/checks.md](docs/checks.md).
+78 checks in 9 sections. Each check asks one question, returns one verdict (pass, warn, fail or skip) with evidence, and links one fix. The full list is in [docs/checks.md](docs/checks.md).
 
 | Score           | What it asks                                      | Sections                                                                         |
 | --------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -53,8 +53,8 @@ A report answers four questions, in this order.
    | 0     | Not reachable         | Nothing yet. robots.txt blocks AI crawlers, honest requests are challenged, or pages need JavaScript. |
    | 1     | Reachable             | Read robots.txt, and read product pages without a challenge. Product content is in the HTML.          |
    | 2     | Readable catalog      | List the catalog. Product pages may appear in AI answers and carry Product data with a full offer.    |
-   | 3     | Identifiable products | Identify each product by a valid GTIN, or by brand and maker's part number (MPN).                     |
-   | 4     | Trusted merchant      | Find the return, shipping, privacy and terms pages and a way to contact the merchant.                 |
+   | 3     | Trusted merchant      | Find the return, shipping, privacy and terms pages and a way to contact the merchant.                 |
+   | 4     | Identifiable products | Identify each product by a valid GTIN, or by brand and maker's part number (MPN).                     |
    | 5     | Checkout-ready        | Find a checkout it can use: a UCP profile, an ACP document or an active Shopify agentic storefront.   |
 
    Level 5 means the public prerequisites are in place. It does not mean a purchase was tested. ACP (Agentic Commerce Protocol) is another open specification for agent checkout. A content site (a site that sells nothing) is scanned with the `content-site` profile, which runs only the ingestion checks and stops at Level 1. Stores use `woocommerce-store` or `other-store`. The scanner picks the profile, and `--profile` overrides it.

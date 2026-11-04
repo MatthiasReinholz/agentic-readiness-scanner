@@ -134,6 +134,44 @@ describe('computeLevel', () => {
     expect(computeLevel(unimplemented, catalog, store).value).toBe(0);
   });
 
+  it('lets a warning meet a gate only on checks whose warning is about intent, not reach', () => {
+    // A1.1 warns when robots.txt is missing (RFC 9309: allow all); A2.2 warns when one
+    // minor crawler is blocked. Both leave the site reachable, so Level 1 holds.
+    const reachable = [
+      result('A1.1', 'warn'),
+      result('A2.2', 'warn'),
+      result('A2.4', 'pass'),
+      result('A3.2', 'pass'),
+    ];
+    expect(computeLevel(reachable).value).toBe(1);
+    // A warning on A3.2 (some product content missing from the HTML) still blocks it.
+    const partial = [...reachable.slice(0, 3), result('A3.2', 'warn')];
+    expect(computeLevel(partial).value).toBe(0);
+  });
+
+  it('says the next level is undetermined when only unanswered gates stand in the way', () => {
+    const unanswered = (id: string, reason: 'budget_exhausted' | 'error'): CheckResult => ({
+      ...result(id, 'skip'),
+      applies: true,
+      skip_reason: reason,
+    });
+    const level = computeLevel([
+      result('A1.1', 'pass'),
+      result('A2.2', 'pass'),
+      unanswered('A2.4', 'error'),
+      result('A3.2', 'pass'),
+    ]);
+    expect(level).toMatchObject({ value: 0, undetermined: ['A2.4'] });
+    // A real failure next to it decides the level: nothing is undetermined then.
+    const decided = computeLevel([
+      result('A1.1', 'pass'),
+      result('A2.2', 'fail'),
+      unanswered('A2.4', 'error'),
+      result('A3.2', 'pass'),
+    ]);
+    expect(decided.undetermined).toBeUndefined();
+  });
+
   it('reports no next gate at level 5', () => {
     const all =
       catalog.levels[5]?.gates.flatMap((gate) => gate[0] ?? []).map((id) => result(id, 'pass')) ??

@@ -22,14 +22,18 @@
     "id": "B3.2",
     "group": "B3",
     "title": "GTIN valid",
-    "question": "Are the GTINs real GTINs?",
-    "method": "Check every GTIN B3.1 counted, on the product and its variants: 8, 12, 13 or 14 digits after spaces and hyphens are removed, and a correct GS1 check digit. Pass when all are valid, fail when any is not. Skipped when no sampled product carries a GTIN. Values of the wrong length are not GTINs here and appear as invalid format in B3.1.",
+    "question": "Are the declared GTINs real trade item numbers?",
+    "method": "Check every GTIN on the sampled products and their variants: 8, 12, 13 or 14 digits after spaces and hyphens are removed, a correct GS1 check digit, and no prefix GS1 reserves for numbers outside open trade (02, 04 and 2 for in-store and internal numbers, 05, 98 and 99 for coupons), which Google Merchant Center rejects. Pass when all are valid, or when no sampled product declares a GTIN (nothing is invalid; B3.1 and B3.4 judge whether products are identified). Fail when any GTIN is invalid. Values of the wrong length are not GTINs here and appear as invalid format in B3.1.",
     "weight": 3,
-    "depends_on": ["B3.1"],
+    "depends_on": ["B2.1"],
     "spec": [
       {
         "title": "GS1 check digit calculation",
         "url": "https://www.gs1.org/services/how-calculate-check-digit-manually"
+      },
+      {
+        "title": "Google Merchant Center: GTIN, including the prefixes it rejects",
+        "url": "https://support.google.com/merchants/answer/6324461"
       }
     ],
     "requires": ["products"]

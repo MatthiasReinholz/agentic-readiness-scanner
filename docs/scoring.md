@@ -4,7 +4,7 @@ A scan produces two scores from 0 to 100 and one readiness level. The report cal
 
 ## Scores
 
-Each check has a weight in the catalog: 3 (blocking), 2 (expected), 1 (nice to have) or `info` (reported, never scored). Of the 79 readiness checks, 16 carry weight 3, 21 weight 2, 37 weight 1 and 5 are `info`.
+Each check has a weight in the catalog: 3 (blocking), 2 (expected), 1 (nice to have) or `info` (reported, never scored). Of the 78 readiness checks, 16 carry weight 3, 20 weight 2, 34 weight 1 and 8 are `info`.
 
 For each dimension the score is the sum of the weights of passed checks, divided by the sum of the weights of applicable checks, times 100, rounded. A warn counts half. A skipped check drops out of the denominator, so a store is never punished for a check that did not run. A check is skipped when it does not apply to the profile or platform, when a check it depends on failed, when it is not implemented, or when the scan ran out of budget or time.
 
@@ -45,9 +45,13 @@ A platform check counts like any other check where it runs. The 12 platform chec
 | 0     | Not reachable         | default                                                              |
 | 1     | Reachable             | A1.1, A2.2, A2.4, A3.2                                               |
 | 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5 or B5.8), A2.6, B2.1, B2.2 |
-| 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3                     |
-| 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                                   |
+| 3     | Trusted merchant      | Level 2 and B4.1, B4.2, B4.3, B4.5                                   |
+| 4     | Identifiable products | Level 3 and (B3.1 or B3.4), B3.2, B3.3                               |
 | 5     | Checkout-ready        | Level 4 and (B5.2 or B5.3 or B5.8)                                   |
+
+A gate is met by a pass. Two checks also meet it with a warning, because their warning is about stated intent, not about reach: A1.1 warns when robots.txt is missing or is an HTML page (crawlers then read everything), and A2.2 warns when exactly one minor crawler is blocked. Every other warning holds the level back. Trust comes before product identity: every agent checkout programme asks for return, shipping, privacy and terms pages and a contact before it lists a store, while none requires a GTIN. B3.2 passes when no product declares a GTIN, and fails on any invalid one, so a wrong number blocks Level 4 even when other products carry a brand and part number.
+
+A check that could not be answered (the site rate-limited the scan, refused a page or did not answer in time) never counts as a failure. When only such checks stand between a store and the next level, the result lists them in `level.undetermined` and the report says the next level is not decided, rather than claiming the store missed it.
 
 Each profile declares a maximum level: content sites stop at 1. A profile may also exclude checks that could never mean anything for it (a content site is not asked for product URLs in its sitemap). The report leads with the level and `next_gate`, the check ids standing between the store and the next level. Alternatives outside the profile are not listed, since the owner cannot act on them.
 

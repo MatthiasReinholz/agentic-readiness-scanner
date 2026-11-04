@@ -870,13 +870,13 @@ describe('A3 checks on the good WooCommerce fixture', () => {
     }
   });
 
-  it('passes A3.1 through content negotiation on the stoneware mug and A3.6 on the probe URL', async () => {
+  it('passes A3.1 through content negotiation on the first sampled product and A3.6 on the probe URL', async () => {
     const fetcher = fixtureFetcher(fixture);
     const target = await resolveTarget('ceramics.example', fetcher);
     const markdown = await runCheck(markdownCopyOfProductPages, target, fetcher);
     expect(markdown.verdict).toBe('pass');
     expect(markdown.evidence).toMatchObject({
-      url: 'https://ceramics.example/product/stoneware-mug/',
+      url: target.sampled.products[0],
       outcome: 'negotiated',
       negotiated: { content_type: 'text/markdown', vary: 'Accept', names_product: true },
     });

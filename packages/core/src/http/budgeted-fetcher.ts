@@ -83,6 +83,19 @@ export function requestKey(raw: string): string {
   return hash.toString(16).padStart(16, '0');
 }
 
+/** The key under which a GET answer is found by a URL it passed through: normalized URL and headers. */
+function aliasKey(url: string, headerKey: string): string {
+  let normalized = url;
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    normalized = parsed.href;
+  } catch {
+    // an unparsable URL keeps its spelling; it never matches a hop
+  }
+  return `${normalized} ${headerKey}`;
+}
+
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const RETRY_STATUSES = new Set([429, 503]);
 const GZIP_TYPES = new Set(['application/gzip', 'application/x-gzip']);
@@ -300,6 +313,8 @@ export class BudgetedFetcher implements Fetcher {
   /** Current politeness interval; starts at the option and grows after a 429 (see backOff). */
   private intervalMs: number;
   private readonly cache = new Map<string, Promise<FetchedResponse>>();
+  /** Successful GET answers by the URLs they passed through on the way (see rememberHops). */
+  private readonly aliases = new Map<string, FetchedResponse>();
   private readonly failed: FetchFailure[] = [];
   /** Requests run one at a time, so the pacing interval holds even for concurrent callers. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -385,10 +400,15 @@ export class BudgetedFetcher implements Fetcher {
       .map(([key, value]) => [key.toLowerCase(), value] as const)
       .sort(([a], [b]) => a.localeCompare(b));
     const body = method === 'POST' ? (options.body ?? '') : undefined;
-    const key = `${method} ${url} ${JSON.stringify(headers)} ${body ?? ''}`;
+    const headerKey = JSON.stringify(headers);
+    const key = `${method} ${url} ${headerKey} ${body ?? ''}`;
     const cached = this.cache.get(key);
     if (cached) {
       return { ...(await cached), fromCache: true };
+    }
+    const alias = method === 'GET' ? this.aliases.get(aliasKey(url, headerKey)) : undefined;
+    if (alias) {
+      return { ...alias, fromCache: true };
     }
     const id = requestKey(key);
     const pending = this.enqueue(async () => {
@@ -418,10 +438,41 @@ export class BudgetedFetcher implements Fetcher {
     });
     this.cache.set(key, pending);
     // A step that ends while this request waits must not leave it cached as an answer.
-    pending.catch(() => {
-      if (this.cache.get(key) === pending) this.cache.delete(key);
-    });
+    pending.then(
+      (response) => {
+        if (method === 'GET') this.rememberHops(response, headerKey);
+      },
+      () => {
+        if (this.cache.get(key) === pending) this.cache.delete(key);
+      },
+    );
     return pending;
+  }
+
+  /**
+   * Every URL a successful GET passed through (the redirect hops and the final URL) was
+   * itself requested with the same method and headers and answered on the way, so a later
+   * plain GET of one of them with the same headers is answered from this response instead
+   * of asking the store again: A3.7's host-variant probes and checks that ask for the home
+   * page by its final URL cost nothing. Only 2xx answers are kept; an error, a 429 or a
+   * refusal is asked again as before.
+   */
+  private rememberHops(response: FetchedResponse, headerKey: string): void {
+    if (response.status < 200 || response.status >= 300 || response.error !== undefined) return;
+    const chain = [...(response.hops ?? []), response.finalUrl];
+    chain.forEach((hopUrl, index) => {
+      const keyOf = aliasKey(hopUrl, headerKey);
+      if (this.aliases.has(keyOf)) return;
+      const served: FetchedResponse = {
+        ...response,
+        url: hopUrl,
+        redirects: chain.length - 1 - index,
+      };
+      const remaining = chain.slice(index, -1);
+      if (remaining.length > 0) served.hops = remaining;
+      else delete served.hops;
+      this.aliases.set(keyOf, served);
+    });
   }
 
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
@@ -501,6 +552,7 @@ export class BudgetedFetcher implements Fetcher {
     }
 
     let retried = false;
+    const hops: string[] = [];
     for (let hop = 0; hop <= this.maxRedirects; hop += 1) {
       let attempt = await this.attempt(current, method, extraHeaders, requestBody, id);
       const delay = retryDelayFor(attempt);
@@ -521,6 +573,7 @@ export class BudgetedFetcher implements Fetcher {
         try {
           const next = new URL(location, current);
           assertPublicUrl(next);
+          hops.push(current.href);
           current = next;
         } catch (error) {
           return this.failure(url, current.href, started, error, hop, retried);
@@ -550,6 +603,7 @@ export class BudgetedFetcher implements Fetcher {
         fromCache: false,
         ...(read.error !== undefined ? { error: read.error } : {}),
         ...(retried ? { retried: true } : {}),
+        ...(hops.length > 0 ? { hops } : {}),
       };
     }
     return this.failure(
@@ -571,6 +625,16 @@ export class BudgetedFetcher implements Fetcher {
     id: string,
   ): Promise<Attempt> {
     await this.acquire(id);
+    const timeout = this.requestTimeoutMs();
+    // The step's end, not the request timeout or the scan's deadline, sets this timeout.
+    // When it fires, the store did not fail to answer: the step ran out, and the request
+    // belongs to the next step rather than in the cache as a status-0 failure.
+    const stepCapped =
+      this.stepDeadlineMs !== null &&
+      timeout < this.timeoutMs &&
+      this.stepRemainingMs() < this.remainingMs();
+    const signal = AbortSignal.timeout(timeout);
+    const outOfStep = (): boolean => stepCapped && signal.aborted;
     let response: Response;
     try {
       response = await this.fetchImpl(current.href, {
@@ -578,9 +642,10 @@ export class BudgetedFetcher implements Fetcher {
         headers: { 'user-agent': this.userAgent, accept: DEFAULT_ACCEPT, ...extraHeaders },
         ...(requestBody !== undefined ? { body: requestBody } : {}),
         redirect: 'manual',
-        signal: AbortSignal.timeout(this.requestTimeoutMs()),
+        signal,
       });
     } catch (error) {
+      if (outOfStep()) throw new StepDeadlineError('time');
       return { error };
     }
     if (REDIRECT_STATUSES.has(response.status) && response.headers.get('location')) {
@@ -593,6 +658,7 @@ export class BudgetedFetcher implements Fetcher {
     try {
       return { response, read: await readLimited(response, this.maxBodyBytes, current.href) };
     } catch (error) {
+      if (outOfStep()) throw new StepDeadlineError('time');
       // The body stream failed or timed out after the headers arrived; same outcome as
       // a failed request, and never an unhandled rejection cached for the whole scan.
       return { error };

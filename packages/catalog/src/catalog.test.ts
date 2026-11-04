@@ -18,8 +18,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 79 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(79);
+  it('has 78 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(78);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });
@@ -35,7 +35,7 @@ describe('catalog data', () => {
     const tagged = catalog.checks
       .filter((check) => check.requires.includes('woocommerce'))
       .map((c) => c.id);
-    expect(tagged).toEqual(['B1.2', 'B1.3', 'B1.4', 'B1.7', 'B5.7']);
+    expect(tagged).toEqual(['B1.2', 'B1.4', 'B1.7', 'B5.7']);
   });
 });
 

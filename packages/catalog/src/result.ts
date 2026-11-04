@@ -83,6 +83,12 @@ export const LevelResultSchema = z.object({
   name: z.string(),
   /** Check ids standing between the target and the next level. Empty at level 5. */
   next_gate: z.array(z.string().regex(CHECK_ID_PATTERN)),
+  /**
+   * Gate checks of the next level that the scan could not answer (budget, time or a
+   * transient error such as HTTP 429), present only when nothing else stands in the way.
+   * The target may then hold the next level; the report says it is not decided.
+   */
+  undetermined: z.array(z.string().regex(CHECK_ID_PATTERN)).optional(),
 });
 export type LevelResult = z.infer<typeof LevelResultSchema>;
 

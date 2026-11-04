@@ -1,4 +1,4 @@
-import { isValidGtin, normalizeGtin } from '../../parsers/gtin.js';
+import { gtinRestrictedPrefix, isValidGtin, normalizeGtin } from '../../parsers/gtin.js';
 import {
   asString,
   brandOf,
@@ -146,15 +146,26 @@ export const gtinValid = defineCheck('B3.2', async (context) => {
   if (unavailable) return unavailable;
   const samples = all.filter((sample) => sample.gtin !== null);
   if (samples.length === 0) {
-    return skip('dependency_failed', 'no GTINs to validate');
+    // Nothing declared, nothing invalid. Whether products are identified at all is B3.1
+    // and B3.4; this check only guards against numbers that are wrong.
+    return pass('no sampled product declares a GTIN, so none is invalid', {
+      checked: 0,
+      invalid: 0,
+      products: [],
+      invalid_values: [],
+    });
   }
   // Every well-formed GTIN on the product and its variants is checked, not only the first.
   const results = samples.map((sample) => {
-    const values = sample.gtins.map((value) => ({
-      value,
-      normalized: normalizeGtin(value),
-      valid: isValidGtin(value),
-    }));
+    const values = sample.gtins.map((value) => {
+      const restricted = gtinRestrictedPrefix(value);
+      return {
+        value,
+        normalized: normalizeGtin(value),
+        valid: isValidGtin(value) && restricted === null,
+        ...(restricted ? { restricted } : {}),
+      };
+    });
     return {
       url: sample.url,
       gtin: sample.gtin,
@@ -174,9 +185,15 @@ export const gtinValid = defineCheck('B3.2', async (context) => {
     invalid_values: invalidValues,
   };
   if (invalidValues.length === 0)
-    return pass(`all ${checked} GTIN(s) pass the GS1 check digit${note}`, evidence);
+    return pass(
+      `all ${checked} GTIN(s) pass the GS1 check digit and use a trade-item prefix${note}`,
+      evidence,
+    );
+  const restrictedCount = results
+    .flatMap((result) => result.gtins)
+    .filter((entry) => 'restricted' in entry).length;
   return fail(
-    `${invalidValues.length} of ${checked} GTIN(s) fail the GS1 check digit: ${invalidValues.slice(0, 5).join(', ')}${note}`,
+    `${invalidValues.length} of ${checked} GTIN(s) are not valid trade item numbers${restrictedCount > 0 ? ` (${restrictedCount} use a prefix reserved for in-store, internal or coupon numbers)` : ' (wrong GS1 check digit)'}: ${invalidValues.slice(0, 5).join(', ')}${note}`,
     evidence,
   );
 });

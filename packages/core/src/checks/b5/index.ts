@@ -1,5 +1,11 @@
 import { elementText, HtmlDocument } from '../../parsers/html.js';
-import { blockedByRobots, describeFailure, storeApiUrl } from '../shared.js';
+import {
+  blockedByRobots,
+  describeFailure,
+  inconclusive,
+  isTransient,
+  storeApiUrl,
+} from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 import { contentType } from '../../http/types.js';
 import { describeRefusal, isChallengePage, REFUSAL_STATUSES } from '../../http/bot-management.js';
@@ -233,6 +239,9 @@ export const ucpBusinessProfile = defineCheck('B5.1', async ({ target, fetcher }
   if (response.status === 404) {
     return fail('no UCP business profile at /.well-known/ucp (HTTP 404)', evidence);
   }
+  // A throttled or failed request says nothing about the profile (ADR 0012).
+  if (isTransient(response) && !isChallengePage(response))
+    return inconclusive('/.well-known/ucp', response, evidence);
   // A refusal is not an absence: the profile may be there, but an agent cannot read it.
   if (REFUSAL_STATUSES.has(response.status) || isChallengePage(response)) {
     evidence.refused = describeRefusal(response);
@@ -315,7 +324,11 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
     .filter((transport): transport is string => typeof transport === 'string')
     .map((transport) => transport.toLowerCase());
   const serviceDeclared = transports.some((transport) => UCP_TRANSPORTS.has(transport));
-  const checkout = capabilityDeclared || serviceDeclared;
+  // A profile that lists its capabilities says exactly what it offers: a shopping service
+  // with only catalog capabilities is not a checkout. Only a profile that lists none is
+  // read from its service binding alone.
+  const listsCapabilities = Object.keys(capabilities).length > 0;
+  const checkout = capabilityDeclared || (serviceDeclared && !listsCapabilities);
 
   const handlers = isRecord(profile.payment_handlers) ? profile.payment_handlers : {};
   const handlerIds: string[] = [];
@@ -340,6 +353,7 @@ export const ucpCheckoutDeclared = defineCheck('B5.2', async ({ fetcher, outcome
   const evidence: Record<string, unknown> = {
     checkout,
     checkout_capability: capabilityDeclared,
+    capabilities: Object.keys(capabilities),
     shopping_transports: transports,
     handlers: handlerIds,
     handlers_without_spec: handlersWithoutSpec,
@@ -455,6 +469,10 @@ export const acpDiscoveryDocument = defineCheck('B5.3', async ({ target, fetcher
   if (!transports?.includes('rest')) {
     missing.push('a transports array containing "rest"');
   }
+  const supported = Array.isArray(protocol.supported_versions) ? protocol.supported_versions : [];
+  if (!supported.some(nonEmptyString)) missing.push('a non-empty protocol.supported_versions');
+  const services = Array.isArray(capabilities?.services) ? capabilities.services : [];
+  if (!services.some(nonEmptyString)) missing.push('a capabilities.services list');
   if (missing.length > 0) {
     return fail(`ACP discovery document is missing ${missing.join(', ')}`, evidence);
   }

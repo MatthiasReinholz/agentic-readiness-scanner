@@ -67,12 +67,14 @@ export function botManagementVendor(response: FetchedResponse): string | null {
 
 /**
  * True when the response is a challenge (JavaScript or CAPTCHA) rather than a plain
- * denial: the Cloudflare and Vercel mitigation headers, a DataDome captcha page, or a
- * challenge phrase in a small page.
+ * denial: the Cloudflare, Vercel and AWS WAF mitigation headers, a DataDome captcha page,
+ * or a challenge phrase in a small page.
  */
 export function isChallengePage(response: FetchedResponse): boolean {
   if ((response.headers['cf-mitigated'] ?? '').toLowerCase() === 'challenge') return true;
   if ((response.headers['x-vercel-mitigated'] ?? '').toLowerCase() === 'challenge') return true;
+  // AWS WAF answers its challenge and CAPTCHA actions with HTTP 202 or 405 and this header.
+  if (/^(challenge|captcha)$/i.test(response.headers['x-amzn-waf-action'] ?? '')) return true;
   const head = response.body.slice(0, 4000);
   return CHALLENGE_PHRASES.test(head) && response.bytes < 20_000;
 }
@@ -94,4 +96,14 @@ export function describeRefusal(response: FetchedResponse): string {
   if (isChallengePage(response))
     return `${vendor ? `a ${vendor} challenge` : 'a bot-management challenge'} (HTTP ${response.status})`;
   return `HTTP ${response.status}${vendor ? ` from ${vendor} bot management` : ''}`;
+}
+
+/**
+ * True when a successful answer (2xx) is a challenge or block page standing in for the
+ * content: what the resolver treats like a refusal on the home page, and what A2.4 reports
+ * as a challenge or a block.
+ */
+export function isChallengeOrBlockServedAsSuccess(response: FetchedResponse): boolean {
+  if (response.status < 200 || response.status >= 300) return false;
+  return isChallengePage(response) || isBlockPageServedAs200(response);
 }

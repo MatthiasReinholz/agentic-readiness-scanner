@@ -13,6 +13,7 @@ function run(target: Target, fetcher: Fetcher): Promise<CheckOutcome> {
   const definition: CheckDefinition = getCheck(id) ?? {
     id,
     laws: [],
+    warn_meets_gate: false,
     markets: [],
     group: 'B1',
     title: id,
@@ -156,8 +157,10 @@ describe('B1.8 Shopify products.json readable', () => {
       error: 'blocked by robots.txt for AgenticReadinessScanner',
     });
     const dropped = await run(shopify(), failing('fetch failed: ECONNRESET'));
-    expect(dropped.verdict).toBe('fail');
-    expect(dropped.message).toBe('products.json could not be fetched: fetch failed: ECONNRESET');
+    expect(dropped).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+    expect(dropped.message).toBe(
+      'products.json could not be fetched (fetch failed: ECONNRESET), so whether it is readable could not be judged',
+    );
   });
 
   it('fails on another HTML page, a non-JSON body, JSON without products and other statuses', async () => {

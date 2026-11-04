@@ -153,6 +153,13 @@ export function nextGateSentence(result: ScanResult, catalog: Catalog = defaultC
   if (result.level.value >= 5) return 'This store has reached the highest level.';
   const next = catalog.levels.find((level) => level.value === result.level.value + 1);
   const gates = result.level.next_gate;
+  const undetermined = result.level.undetermined ?? [];
+  if (next && undetermined.length > 0) {
+    const names = undetermined.map(
+      (id) => result.results.find((item) => item.id === id)?.title ?? id,
+    );
+    return `Level ${next.value} (${next.name}) is not decided: ${names.join(' · ')} could not be checked in this scan (the site rate-limited it, refused it or did not answer in time). Scan again later to settle it.`;
+  }
   if (!next || gates.length === 0) return '';
   const titles = gates.map((id) => result.results.find((item) => item.id === id)?.title ?? id);
   const count = gates.length === 1 ? 'One fix' : `${gates.length} fixes`;
