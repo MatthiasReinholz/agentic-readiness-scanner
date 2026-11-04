@@ -4,7 +4,8 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 const root = process.cwd();
-const skipDirs = new Set(['node_modules', 'dist', '.turbo', '.git']);
+// .claude holds local agent worktrees: whole checkouts of other branches, not this tree's docs.
+const skipDirs = new Set(['node_modules', 'dist', '.turbo', '.git', '.claude']);
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {

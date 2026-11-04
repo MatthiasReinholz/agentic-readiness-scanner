@@ -44,7 +44,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     {
       title: 'Scan a store for agentic readiness',
       description:
-        'Scans a public store URL for agentic ingestion and agentic commerce readiness. Returns the versioned result object: level, scores, one entry per check with verdict, evidence and fix, plus legal signals (a technical evaluation of public legal disclosures, never scored and not legal advice). Public signals only; no credentials.',
+        'Scans a public store URL for how ready it is for AI agents: Visible to AI (the ingestion score: can AI find and read the site?) and Shoppable by AI (the commerce score: can AI understand, trust and buy?). Returns the versioned result object: level, scores, one entry per check with verdict, evidence and fix, plus legal signals (a technical evaluation of public legal disclosures, never scored and not legal advice). Public signals only; no credentials.',
       inputSchema: {
         url: z
           .string()

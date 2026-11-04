@@ -6,7 +6,16 @@ export * from './platform-ids.js';
 export { catalog } from './generated/catalog.js';
 
 import { catalog } from './generated/catalog.js';
-import type { Catalog, CheckDefinition, Group, Law, Level, Profile } from './schema.js';
+import type {
+  Catalog,
+  CheckDefinition,
+  DimensionCopy,
+  Group,
+  Law,
+  Level,
+  Profile,
+  ScoredDimension,
+} from './schema.js';
 
 /** A readiness or legal-signals check by id. */
 export function getCheck(id: string): CheckDefinition | undefined {
@@ -21,6 +30,18 @@ export function getGroup(id: string): Group | undefined {
     catalog.groups.find((group) => group.id === id) ??
     catalog.legal.groups.find((group) => group.id === id)
   );
+}
+
+/** The reader-facing name and question of a scored dimension: "Visible to AI". */
+export function dimensionCopy(id: ScoredDimension): DimensionCopy {
+  const copy = catalog.dimensions.find((dimension) => dimension.id === id);
+  if (!copy) throw new Error(`Catalog is missing the copy for dimension ${id}`);
+  return copy;
+}
+
+/** A group's plain name ("Findable"), falling back to its technical title. */
+export function groupLabel(group: Pick<Group, 'label' | 'title'>): string {
+  return group.label ?? group.title;
 }
 
 export function getLaw(id: string): Law | undefined {

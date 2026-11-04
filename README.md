@@ -12,10 +12,12 @@ The scanner tells you how your store looks to such an agent. You give it a publi
 
 79 checks in 9 sections. Each check asks one question, returns one verdict (pass, warn, fail or skip) with evidence, and links one fix. The full list is in [docs/checks.md](docs/checks.md).
 
-| Dimension         | What it asks                                       | Sections                                                                                                                                    |
-| ----------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agentic ingestion | Can an agent find, reach and read the site?        | A1 Discoverability · A2 Bot access control · A3 Content accessibility · A4 Protocol discovery                                               |
-| Agentic commerce  | Can an agent understand the products and buy them? | B1 Catalog exposure · B2 Product structured data · B3 Product identity · B4 Merchant trust and policies · B5 Checkout and payment protocols |
+| Score           | What it asks                                      | Sections                                                                         |
+| --------------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Visible to AI   | Can AI find and read your site?                   | A1 Findable · A2 Open to AI · A3 Readable · A4 Connectable                       |
+| Shoppable by AI | Can AI understand, trust and buy from your store? | B1 Browsable · B2 Well described · B3 Identifiable · B4 Trustworthy · B5 Buyable |
+
+Each section has a plain name and the question it answers, such as "Findable: can AI find your site and products?". The technical names (A1 Discoverability, B3 Product identity and so on) stay in the detailed results and in the JSON, where the two scores are called `ingestion` and `commerce`.
 
 Examples: does robots.txt let the crawlers behind AI answers read product pages (A2.2)? Is the price in the HTML, or only shown after JavaScript runs (A3.2)? Does each product carry a GTIN, the global barcode number (B3.1)? Can an agent find the return policy (B4.1)? Does the store advertise a checkout an agent can use, such as a UCP profile (Universal Commerce Protocol, an open standard for agents to discover and buy from stores) with a checkout capability (B5.2)?
 
@@ -49,11 +51,11 @@ A report answers four questions, in this order.
    | Level | Name                  | What an agent can do                                                                                  |
    | ----- | --------------------- | ----------------------------------------------------------------------------------------------------- |
    | 0     | Not reachable         | Nothing yet. robots.txt blocks AI crawlers, honest requests are challenged, or pages need JavaScript. |
-   | 1     | Crawlable             | Read robots.txt, and read product pages without a challenge. Product content is in the HTML.          |
+   | 1     | Reachable             | Read robots.txt, and read product pages without a challenge. Product content is in the HTML.          |
    | 2     | Readable catalog      | List the catalog. Product pages may appear in AI answers and carry Product data with a full offer.    |
    | 3     | Identifiable products | Identify each product by a valid GTIN, or by brand and maker's part number (MPN).                     |
    | 4     | Trusted merchant      | Find the return, shipping, privacy and terms pages and a way to contact the merchant.                 |
-   | 5     | Transactable          | Find a checkout it can use: a UCP profile, an ACP document or an active Shopify agentic storefront.   |
+   | 5     | Checkout-ready        | Find a checkout it can use: a UCP profile, an ACP document or an active Shopify agentic storefront.   |
 
    Level 5 means the public prerequisites are in place. It does not mean a purchase was tested. ACP (Agentic Commerce Protocol) is another open specification for agent checkout. A content site (a site that sells nothing) is scanned with the `content-site` profile, which runs only the ingestion checks and stops at Level 1. Stores use `woocommerce-store` or `other-store`. The scanner picks the profile, and `--profile` overrides it.
 

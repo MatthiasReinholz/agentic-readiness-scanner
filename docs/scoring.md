@@ -1,6 +1,6 @@
 # Scoring
 
-A scan produces two scores from 0 to 100 and one readiness level. The ingestion score says whether AI agents can find and read the site. The commerce score says whether agents can trust the store and buy from it. The level is gated, not averaged: a store reaches a level only when every check that level needs has passed. A merchant should never see a 72 and not know what it means.
+A scan produces two scores from 0 to 100 and one readiness level. The report calls them by plain names. **Visible to AI** is the ingestion score: can AI agents find and read the site? **Shoppable by AI** is the commerce score: can agents understand the products, trust the store and buy from it? The JSON keeps the keys `ingestion` and `commerce`. The level is gated, not averaged: a store reaches a level only when every check that level needs has passed. A merchant should never see a 72 and not know what it means.
 
 ## Scores
 
@@ -43,11 +43,11 @@ A platform check counts like any other check where it runs. The 12 platform chec
 | Level | Name                  | Gate                                                                 |
 | ----- | --------------------- | -------------------------------------------------------------------- |
 | 0     | Not reachable         | default                                                              |
-| 1     | Crawlable             | A1.1, A2.2, A2.4, A3.2                                               |
+| 1     | Reachable             | A1.1, A2.2, A2.4, A3.2                                               |
 | 2     | Readable catalog      | Level 1 and (A1.3 or B1.2 or B1.8 or B1.5 or B5.8), A2.6, B2.1, B2.2 |
 | 3     | Identifiable products | Level 2 and (B3.1 or B3.4), (B3.2 or B3.4), B3.3                     |
 | 4     | Trusted merchant      | Level 3 and B4.1, B4.2, B4.3, B4.5                                   |
-| 5     | Transactable          | Level 4 and (B5.2 or B5.3 or B5.8)                                   |
+| 5     | Checkout-ready        | Level 4 and (B5.2 or B5.3 or B5.8)                                   |
 
 Each profile declares a maximum level: content sites stop at 1. A profile may also exclude checks that could never mean anything for it (a content site is not asked for product URLs in its sitemap). The report leads with the level and `next_gate`, the check ids standing between the store and the next level. Alternatives outside the profile are not listed, since the owner cannot act on them.
 
@@ -82,4 +82,4 @@ Reports do not list findings in catalog order. Open findings are ordered by what
 
 ## What a score does not say
 
-A commerce score above 60 means the public surface is in order and a checkout an agent can use is advertised. It does not say Google Merchant Center approved the products or that a checkout works. The report says so above the commerce section, and Level 5 is named Transactable, not Approved.
+A commerce score above 60 means the public surface is in order and a checkout an agent can use is advertised. It does not say Google Merchant Center approved the products or that a checkout works. The report says so above the commerce section, and Level 5 is named Checkout-ready, not Approved.

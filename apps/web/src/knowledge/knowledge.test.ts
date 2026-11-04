@@ -94,7 +94,7 @@ describe('knowledge base', () => {
     const html = await (
       await testApp().request('/knowledge-base/search-and-assistant-crawlers-allowed')
     ).text();
-    expect(html).toContain('Required from Level 1 (Crawlable) upward.');
+    expect(html).toContain('Required from Level 1 (Reachable) upward.');
   });
 
   it('serves Markdown by suffix and by Accept, and redirects check ids', async () => {

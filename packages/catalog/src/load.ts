@@ -19,6 +19,7 @@ import {
 } from './knowledge.js';
 import {
   CatalogSchema,
+  DimensionCopySchema,
   CeilingSchema,
   CheckDefinitionSchema,
   GroupSchema,
@@ -53,6 +54,7 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
 
   const meta = MetaSchema.parse(readJson(join(dataDir, 'meta.json')));
   const groups = z.array(GroupSchema).parse(readJson(join(dataDir, 'groups.json')));
+  const dimensions = z.array(DimensionCopySchema).parse(readJson(join(dataDir, 'dimensions.json')));
   const levels = z.array(LevelSchema).parse(readJson(join(dataDir, 'levels.json')));
   const profiles = z.array(ProfileSchema).parse(readJson(join(dataDir, 'profiles.json')));
   const ceilings = z.array(CeilingSchema).parse(readJson(join(dataDir, 'ceilings.json')));
@@ -100,6 +102,7 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
   }
 
   const catalogParse = CatalogSchema.safeParse({
+    dimensions,
     ...meta,
     groups,
     checks,

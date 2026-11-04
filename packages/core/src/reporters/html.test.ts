@@ -101,13 +101,16 @@ describe('Markdown report', () => {
       fetcher: fixtureFetcher(fixture('content-site')),
     });
     const markdown = renderMarkdown(result, { reportUrl: 'https://scanner.example/r/x' });
-    expect(markdown).toMatch(/^### A1\. Discoverability \(\d+\/100\)$/m);
-    expect(markdown).toContain('### B1. Catalog exposure (not applicable)');
+    expect(markdown).toMatch(/^### Findable: Can AI find your site and products\? \(\d+\/100\)$/m);
+    expect(markdown).toContain('A1 Discoverability.');
+    expect(markdown).toContain('### Browsable: Can AI see everything you sell? (not applicable)');
     // Findings are tiered and the working rules appear once, at the end.
     expect(markdown).toMatch(/^- Open findings: .*(blocking|expected|nice to have)/m);
     expect(markdown).toContain('## Fix next');
     expect(markdown).toContain('## Nice to have');
-    expect(markdown.indexOf('## Fix next')).toBeLessThan(markdown.indexOf('## Results by section'));
+    expect(markdown.indexOf('## Fix next')).toBeLessThan(
+      markdown.indexOf('## Every check, section by section'),
+    );
     expect(markdown).toContain('**Task for a coding agent.**');
     expect(markdown.match(/## Working rules for coding agents/g)?.length).toBe(1);
     expect(markdown).not.toContain('## How to work');
@@ -129,7 +132,12 @@ describe('check map', () => {
       html.match(/<a class="cm-cell" href="#[AB]\d\.\d+" data-v="(pass|warn|fail|skip)"/g) ?? [];
     expect(cells).toHaveLength(shownResults(result).length);
     expect(html).toContain('id="check-map"');
-    expect(html.indexOf('id="check-map"')).toBeLessThan(html.indexOf('aria-label="Scores"'));
+    // The overview carries both scores with their plain names and questions.
+    expect(html).toContain('data-score="ingestion"');
+    expect(html).toContain('Visible to AI');
+    expect(html).toContain('Can AI find and read your site?');
+    expect(html).toContain('data-verdict-summary');
+    expect(html.indexOf('id="check-map"')).toBeLessThan(html.indexOf('id="priorities"'));
     expect(html).toContain('class="lv-badge');
     expect(html).toContain('@view-transition{navigation:auto}');
     expect(html).toContain(CHECK_MAP_SCRIPT);
@@ -211,7 +219,9 @@ describe('score ceilings in reports', () => {
       `Capped at 60 while no checkout an agent can use is advertised. Without the cap it would be ${String(ceiling?.raw)}. Lifted by B5.2 UCP checkout capability and payment handler or B5.3 ACP discovery document.`,
     );
     expect(renderHtml(result)).toContain(`data-ceiling>${escapeHtml(sentence ?? '')}`);
-    expect(renderMarkdown(result)).toContain(`- Commerce score: 60/100. ${sentence ?? ''}`);
+    expect(renderMarkdown(result)).toContain(
+      `- **Shoppable by AI** (commerce score): 60/100. ${sentence ?? ''}`,
+    );
   });
 });
 
@@ -240,7 +250,9 @@ describe('incomplete scores', () => {
     expect(html).not.toContain('Not scored for this profile');
 
     const markdown = renderMarkdown(result);
-    expect(markdown).toMatch(/- Commerce score: incomplete \(\d+% of weighted checks answered\)/);
+    expect(markdown).toMatch(
+      /- \*\*Shoppable by AI\*\* \(commerce score\): incomplete \(\d+% of weighted checks answered\)/,
+    );
     expect(renderBadge(result)).toContain('/–');
   });
 });

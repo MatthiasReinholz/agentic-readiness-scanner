@@ -2,54 +2,72 @@
   {
     "id": "A1",
     "title": "Discoverability",
+    "label": "Findable",
+    "question": "Can AI find your site and products?",
     "dimension": "ingestion",
     "description": "Can an agent find the site, its sitemap (the list of pages a site publishes for crawlers) and its product pages, and read the optional files written for AI tools?"
   },
   {
     "id": "A2",
     "title": "Bot access control",
+    "label": "Open to AI",
+    "question": "Do you let AI crawlers and assistants in?",
     "dimension": "ingestion",
     "description": "Do robots.txt, page directives and bot protection let in the crawlers behind AI answers and the fetchers assistants use when a person asks about a page? Is any refusal of AI training stated on purpose? Refusing training never costs points."
   },
   {
     "id": "A3",
     "title": "Content accessibility",
+    "label": "Readable",
+    "question": "Can AI read your pages without a browser?",
     "dimension": "ingestion",
     "description": "Can an agent read product content without running JavaScript, get the whole page, trust its status codes, and optionally get it as Markdown?"
   },
   {
     "id": "A4",
     "title": "Protocol discovery",
+    "label": "Connectable",
+    "question": "Can AI tools connect to your store directly?",
     "dimension": "ingestion",
     "description": "Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog or an A2A agent card? Few stores have them yet, so these checks carry little weight."
   },
   {
     "id": "B1",
     "title": "Catalog exposure",
+    "label": "Browsable",
+    "question": "Can AI see everything you sell?",
     "dimension": "commerce",
     "description": "Can an agent read the catalog as data: through the platform's API, a public product feed, or a sitemap that lists the products?"
   },
   {
     "id": "B2",
     "title": "Product structured data",
+    "label": "Well described",
+    "question": "Do product pages state price and stock for machines?",
     "dimension": "commerce",
     "description": "Do product pages carry schema.org Product markup (structured data that machines read) with the current price, availability, variants, shipping and returns?"
   },
   {
     "id": "B3",
     "title": "Product identity",
+    "label": "Identifiable",
+    "question": "Can AI tell exactly which product it is?",
     "dimension": "commerce",
     "description": "Can an agent tell exactly which product this is? Google, Meta and the agent checkout protocols match products by GTIN (the global barcode number), brand, MPN (the maker's part number) and SKU."
   },
   {
     "id": "B4",
     "title": "Merchant trust and policies",
+    "label": "Trustworthy",
+    "question": "Can AI check your policies and who you are?",
     "dimension": "commerce",
     "description": "Can an agent find and read the policies a purchase depends on (returns, shipping, privacy, terms) and who the merchant is?"
   },
   {
     "id": "B5",
     "title": "Checkout and payment protocols",
+    "label": "Buyable",
+    "question": "Can AI start a purchase for a shopper?",
     "dimension": "commerce",
     "description": "Can an agent start a purchase? This covers the agent checkout protocols UCP and ACP, platform agent storefronts, guest checkout and cart APIs."
   }

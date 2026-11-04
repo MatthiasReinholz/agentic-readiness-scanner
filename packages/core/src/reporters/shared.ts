@@ -112,7 +112,12 @@ export function platformSentence(result: ScanResult, catalog: Catalog = defaultC
 
 export interface GroupedResults {
   id: string;
+  /** The technical name: "Discoverability". */
   title: string;
+  /** The plain name: "Findable". Falls back to the title. */
+  label: string;
+  /** The plain question the section answers, or the description when none is set. */
+  question: string;
   dimension: Dimension;
   results: CheckResult[];
 }
@@ -124,6 +129,8 @@ export function groupResults(
   return catalog.groups.map((group) => ({
     id: group.id,
     title: group.title,
+    label: group.label ?? group.title,
+    question: group.question ?? group.description,
     dimension: group.dimension,
     results: shownResults(result, catalog).filter((item) => item.group === group.id),
   }));
@@ -147,12 +154,9 @@ export function nextGateSentence(result: ScanResult, catalog: Catalog = defaultC
   const next = catalog.levels.find((level) => level.value === result.level.value + 1);
   const gates = result.level.next_gate;
   if (!next || gates.length === 0) return '';
-  const titles = gates.map((id) => {
-    const found = result.results.find((item) => item.id === id);
-    return found ? `${id} ${found.title}` : id;
-  });
-  const count = gates.length === 1 ? 'One check stands' : `${gates.length} checks stand`;
-  return `${count} between you and Level ${next.value} (${next.name}): ${titles.join(' · ')}.`;
+  const titles = gates.map((id) => result.results.find((item) => item.id === id)?.title ?? id);
+  const count = gates.length === 1 ? 'One fix' : `${gates.length} fixes`;
+  return `${count} to reach Level ${next.value} (${next.name}): ${titles.join(' · ')}.`;
 }
 
 export function failedResults(result: ScanResult): CheckResult[] {

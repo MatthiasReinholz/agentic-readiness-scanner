@@ -32,14 +32,14 @@ export function homePage(config: AppConfig, error?: string): string {
   const groups = catalog.groups
     .map(
       (group) =>
-        `<a class="${card} group flex flex-col p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge-base/${groupSlug(group)}"><h3 class="flex items-start gap-2 text-base font-semibold leading-6"><span class="${badge()} ${identifier}">${escapeHtml(group.id)}</span><span class="min-w-0">${escapeHtml(group.title)}</span></h3><p class="mt-1.5 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-auto inline-flex items-center gap-1 self-start pt-3 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
+        `<a class="${card} group flex flex-col p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href="/knowledge-base/${groupSlug(group)}"><h3 class="flex items-start gap-2 text-base font-semibold leading-6"><span class="${badge()} ${identifier}">${escapeHtml(group.id)}</span><span class="min-w-0">${escapeHtml(group.label ?? group.title)}</span></h3><p class="mt-1.5 text-sm font-medium">${escapeHtml(group.question ?? group.title)}</p><p class="mt-1 text-sm text-muted-foreground">${escapeHtml(group.description)}</p><p class="mt-auto inline-flex items-center gap-1 self-start pt-3 text-sm font-medium text-primary">${catalog.checks.filter((check) => check.group === group.id).length} checks explained${icon('arrow-right', 'size-4 transition-transform group-hover:translate-x-0.5')}</p></a>`,
     )
     .join('');
   const code = (text: string) => `<code class="${codeInline}">${escapeHtml(text)}</code>`;
   const hero = `
 <p class="hero-eyebrow">The next customer could be an agent</p>
 <h1 class="hero-headline">Is your store ready<br>for <em class="hero-highlight" data-text="AI agents?">AI agents?</em></h1>
-<p class="hero-description">Scans public signals only, scores agentic ingestion and agentic commerce, and returns a report with a fix for every finding. Built WooCommerce first. Works on any store.</p>
+<p class="hero-description">Can AI assistants find your store, read it and buy from it? The scan reads public signals only and shows how visible and how shoppable your store is for AI, with a fix for every finding. Built WooCommerce first. Works on any store.</p>
 ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
 <form method="post" action="/scan" id="scan-form" class="hero-form">
 <label class="${cn(input, 'py-0')} url-field"><span class="url-field-prefix" aria-hidden="true">https://</span><input type="text" name="url" placeholder="example.com" required aria-label="Store URL, such as example.com" autocomplete="url" inputmode="url" autocapitalize="none" spellcheck="false"></label>

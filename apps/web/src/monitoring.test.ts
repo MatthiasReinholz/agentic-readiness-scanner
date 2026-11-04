@@ -418,7 +418,7 @@ describe('monitoring limits', () => {
     const changed: StoredScan = {
       ...flipped,
       id: 'cafebabecafebabe',
-      result: { ...flipped.result, level: { value: 1, name: 'Crawlable', next_gate: [] } },
+      result: { ...flipped.result, level: { value: 1, name: 'Reachable', next_gate: [] } },
     };
     const service2 = new MonitoringService({
       config,

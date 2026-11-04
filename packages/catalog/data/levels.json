@@ -7,7 +7,7 @@
   },
   {
     "value": 1,
-    "name": "Crawlable",
+    "name": "Reachable",
     "description": "robots.txt can be read, the crawlers behind AI answers may read product pages, an agent that names itself honestly is not challenged, and product content is in the HTML.",
     "gates": [["A1.1"], ["A2.2"], ["A2.4"], ["A3.2"]]
   },
@@ -68,7 +68,7 @@
   },
   {
     "value": 5,
-    "name": "Transactable",
+    "name": "Checkout-ready",
     "description": "Level 4, and the store advertises a checkout an agent can use: a UCP profile with a checkout capability and a payment handler, an ACP discovery document, or an active Shopify agentic storefront. This means the public prerequisites are in place. It does not mean a purchase was tested.",
     "gates": [
       ["A1.1"],

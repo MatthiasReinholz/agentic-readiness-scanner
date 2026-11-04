@@ -2,7 +2,7 @@
 
 <!-- Generated from packages/catalog by `pnpm docs:generate`. Edit the data files, not this file. -->
 
-Catalog version **0.8.0**, scoring version **0.7.0**.
+Catalog version **0.9.0**, scoring version **0.7.0**.
 
 79 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found.
 
@@ -11,11 +11,11 @@ Catalog version **0.8.0**, scoring version **0.7.0**.
 | Level | Name | Gate |
 | --- | --- | --- |
 | 0 | Not reachable | Agents cannot reach or read the store: robots.txt blocks the crawlers behind AI answers, the scanner's honest request is challenged, or product pages need JavaScript to show their content. |
-| 1 | Crawlable | A1.1, A2.2, A2.4, A3.2 |
+| 1 | Reachable | A1.1, A2.2, A2.4, A3.2 |
 | 2 | Readable catalog | A1.1, A2.2, A2.4, A3.2, A1.3 or B1.2 or B1.8 or B1.5 or B5.8, A2.6, B2.1, B2.2 |
 | 3 | Identifiable products | A1.1, A2.2, A2.4, A3.2, A1.3 or B1.2 or B1.8 or B1.5 or B5.8, A2.6, B2.1, B2.2, B3.1 or B3.4, B3.2 or B3.4, B3.3 |
 | 4 | Trusted merchant | A1.1, A2.2, A2.4, A3.2, A1.3 or B1.2 or B1.8 or B1.5 or B5.8, A2.6, B2.1, B2.2, B3.1 or B3.4, B3.2 or B3.4, B3.3, B4.1, B4.2, B4.3, B4.5 |
-| 5 | Transactable | A1.1, A2.2, A2.4, A3.2, A1.3 or B1.2 or B1.8 or B1.5 or B5.8, A2.6, B2.1, B2.2, B3.1 or B3.4, B3.2 or B3.4, B3.3, B4.1, B4.2, B4.3, B4.5, B5.2 or B5.3 or B5.8 |
+| 5 | Checkout-ready | A1.1, A2.2, A2.4, A3.2, A1.3 or B1.2 or B1.8 or B1.5 or B5.8, A2.6, B2.1, B2.2, B3.1 or B3.4, B3.2 or B3.4, B3.3, B4.1, B4.2, B4.3, B4.5, B5.2 or B5.3 or B5.8 |
 
 ## Profiles
 
