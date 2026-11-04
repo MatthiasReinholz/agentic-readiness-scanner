@@ -98,6 +98,12 @@
 .hero-eyebrow {
   font:
     500 0.75rem/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
     monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -119,6 +125,7 @@
   line-height: 1.06;
   letter-spacing: -0.06em;
   text-transform: uppercase;
+  text-wrap: balance;
 }
 .hero-highlight {
   display: inline-block;
@@ -162,20 +169,25 @@
   color: hsl(var(--card-foreground));
   max-width: 850px;
 }
+/* The report links sit on the bottom line of the hero, on the same baseline as the meta
+   line beside them. Wrapped below it on narrow screens, they keep the hero's 1rem rhythm. */
 .hero-summary {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem 1.5rem;
 }
 .hero-summary > div {
   min-width: 0;
 }
+.hero-summary > p {
+  margin-top: 0;
+}
 .hero-level {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
 }
 .hero-level > :last-child {
@@ -221,6 +233,12 @@
 .hero-platform-label {
   font:
     500 0.6875rem/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    'Liberation Mono',
+    'Courier New',
     monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -269,11 +287,14 @@
 .hero-form select {
   background: hsl(var(--card));
 }
-/* The scan URL field: a bordered label holding a fixed https:// and the input. */
+/*
+ * The scan form's URL field: a fixed "https://" prefix and the input share one bordered
+ * box. The markup drops the input recipe's vertical padding (py-0) so the input fills
+ * the box's full height. Both centre their single line in that height, so the prefix and
+ * the typed text share a baseline at every size.
+ */
 .url-field {
-  align-items: center;
-  gap: 0;
-  padding-block: 0;
+  align-items: stretch;
   cursor: text;
 }
 .url-field:focus-within {
@@ -283,6 +304,8 @@
     0 0 0 4px hsl(var(--ring));
 }
 .url-field-prefix {
+  display: flex;
+  align-items: center;
   color: hsl(var(--muted-foreground));
   white-space: nowrap;
   user-select: none;
@@ -292,21 +315,18 @@
 }
 .url-field input {
   flex: 1;
-  align-self: stretch;
   min-width: 0;
-  min-height: 2.75rem;
+  min-height: 0;
   padding: 0;
   border: 0;
   outline: none;
   background: transparent;
+  font: inherit;
+  color: inherit;
 }
 .hero-form .url-field {
   min-height: 3.25rem;
   background: hsl(var(--card));
-}
-.hero-form .url-field input {
-  min-height: 2.75rem;
-  background: transparent;
 }
 .hero-form .hero-submit {
   padding-inline: 0.75rem;
@@ -611,9 +631,6 @@
   }
   .hero-description {
     font-size: 0.9375rem;
-  }
-  .hero-summary {
-    align-items: flex-start;
   }
   .signal-network {
     mask-image: linear-gradient(90deg, transparent, #000);

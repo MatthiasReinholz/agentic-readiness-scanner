@@ -33,7 +33,7 @@ export const SCAN_CONSOLE_STYLE = `
 @view-transition{navigation:auto}
 #sc-grid{view-transition-name:check-map}
 .sc-radar.sc-handoff{view-transition-name:level-badge}
-.sc-cell{display:grid;place-items:center;font:700 10px/1 ui-monospace,monospace;color:hsl(var(--background));width:1rem;height:1rem;flex:none;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:background .25s,border-color .25s}
+.sc-cell{display:grid;place-items:center;font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;color:hsl(var(--background));width:1rem;height:1rem;flex:none;border-radius:3px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:background .25s,border-color .25s}
 .sc-cell[data-v]{animation:sc-pop .35s ease-out}
 .sc-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .sc-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}
@@ -53,7 +53,7 @@ export const SCAN_CONSOLE_STYLE = `
 .sc-phase[data-s=active]::before{background:hsl(var(--primary));animation:sc-pulse 1s ease-in-out infinite}
 .sc-phase[data-s=done]{color:hsl(var(--foreground))}
 .sc-phase[data-s=done]::before{background:hsl(var(--success))}
-.sc-log{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.76rem;line-height:1.55;height:11.5em;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;mask-image:linear-gradient(to bottom,transparent,#000 30%)}
+.sc-log{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:.76rem;line-height:1.55;height:11.5em;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;mask-image:linear-gradient(to bottom,transparent,#000 30%)}
 .sc-log div{flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:sc-in .2s ease-out}
 .sc-t{color:hsl(var(--muted-foreground))}.sc-pass{color:hsl(var(--success))}.sc-warn{color:hsl(var(--warning))}.sc-fail{color:hsl(var(--destructive))}.sc-skip{color:hsl(var(--muted-foreground))}
 .sc-caret::after{content:'▌';margin-left:2px;animation:sc-caret 1s steps(1) infinite}

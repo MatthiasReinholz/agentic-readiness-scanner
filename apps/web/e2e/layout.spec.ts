@@ -76,3 +76,33 @@ test.describe('disposable report', () => {
     await expectSoundLayout(page, 'disposable report at 375px');
   });
 });
+
+test('the URL prefix shares a line with the typed text at every width', async ({ page }) => {
+  await page.goto('/');
+  const field = page.locator('.url-field');
+  await field.locator('input').fill('example.com');
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    const geometry = await field.evaluate((label) => {
+      const prefix = label.querySelector('.url-field-prefix');
+      const input = label.querySelector('input');
+      if (!prefix?.firstChild || !input) return null;
+      const range = document.createRange();
+      range.selectNodeContents(prefix.firstChild);
+      const text = range.getBoundingClientRect();
+      const box = input.getBoundingClientRect();
+      const frame = label.getBoundingClientRect();
+      return {
+        centre: Math.abs(text.top + text.height / 2 - (box.top + box.height / 2)),
+        gap: Math.abs(box.left - text.right),
+        overflow: Math.max(frame.top - box.top, box.bottom - frame.bottom),
+      };
+    });
+    expect(geometry, `URL field at ${String(width)}px`).not.toBeNull();
+    expect(geometry?.centre, `prefix centre line at ${String(width)}px`).toBeLessThan(0.5);
+    expect(geometry?.gap, `prefix to text gap at ${String(width)}px`).toBeLessThan(0.5);
+    expect(geometry?.overflow, `input inside its border at ${String(width)}px`).toBeLessThanOrEqual(
+      0,
+    );
+  }
+});
