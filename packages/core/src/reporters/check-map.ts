@@ -26,13 +26,13 @@ export const CHECK_MAP_CSS = `
 @view-transition{navigation:auto}
 .cm-grid{view-transition-name:check-map;container-type:inline-size}
 .cm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.5rem .75rem}
-.cm-title{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-title{display:none;overflow-wrap:anywhere}
 .cm-cells{display:flex;min-width:0;flex-wrap:wrap;gap:.25rem;grid-column:1/-1;grid-row:2}
 .cm-score{grid-column:2;grid-row:1}
 @container (min-width:14rem){.cm-row{grid-template-columns:2.25rem minmax(0,1fr) auto}.cm-cells{grid-column:2;grid-row:1}.cm-score{grid-column:3}}
 @container (min-width:32rem){.cm-row{grid-template-columns:2.25rem 10rem minmax(0,1fr) auto}.cm-title{display:block}.cm-cells{grid-column:3}.cm-score{grid-column:4}}
 @container (min-width:48rem){.cm-row{grid-template-columns:2.25rem 14rem minmax(0,1fr) auto}}
-.cm-cell{display:grid;place-items:center;width:1.5rem;height:1.5rem;flex:none;font:700 .75rem/1 ui-monospace,monospace;color:hsl(var(--background));border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s}
+.cm-cell{display:grid;place-items:center;width:1.5rem;height:1.5rem;flex:none;font:700 .75rem/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;color:hsl(var(--background));border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s}
 .cm-cell:hover,.cm-cell:focus-visible{transform:translateY(-2px);outline:2px solid hsl(var(--ring));outline-offset:2px}
 .cm-cell[data-v=pass]{background:hsl(var(--success));border-color:hsl(var(--success))}
 .cm-cell[data-v=warn]{background:hsl(var(--warning));border-color:hsl(var(--warning))}

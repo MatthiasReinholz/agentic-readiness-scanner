@@ -149,7 +149,7 @@ function platformBadge(item: CheckResult): string {
   const definition = getCheck(item.id);
   const platform = definition ? requiredPlatform(definition) : null;
   return platform
-    ? ` <span class="${badge({ variant: 'outline', class: 'ml-1 max-w-full shrink !whitespace-normal align-middle' })}" data-platform-check>${escapeHtml(PLATFORM_LABEL[platform])}</span>`
+    ? ` <span class="${badge({ variant: 'outline', class: 'max-w-full shrink !whitespace-normal align-middle' })}" data-platform-check>${escapeHtml(PLATFORM_LABEL[platform])}</span>`
     : '';
 }
 
@@ -205,7 +205,7 @@ function priorityTagsHtml(priority: Priority): string {
       `<span class="${badge({ variant: 'default' })}">unlocks Level ${priority.unlocks}</span>`,
     );
   if (priority.mechanical)
-    tags.push(`<span class="${badge({ variant: 'secondary' })}">mechanical fix</span>`);
+    tags.push(`<span class="${badge({ variant: 'surface' })}">mechanical fix</span>`);
   return tags.join('');
 }
 
@@ -307,6 +307,21 @@ function renderGroup(
   return `<details class="result-section group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold leading-6 tracking-tight"><span class="min-w-0"><span class="${identifier}">${escapeHtml(group.id)}</span> · ${escapeHtml(group.title)}</span>${optionalTag}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
 }
 
+/**
+ * Escapes a URL for a large heading and marks where it may wrap: after the scheme and
+ * before each path slash. The host then moves to its own line as a whole instead of
+ * breaking mid-word on a phone. overflow-wrap still breaks a host too long for any line.
+ */
+function breakableUrl(url: string): string {
+  const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/]*)(.*)$/i.exec(url);
+  if (!match) return escapeHtml(url);
+  const [, scheme = '', host = '', path = ''] = match;
+  return `${escapeHtml(scheme)}<wbr>${escapeHtml(host)}${path
+    .split('/')
+    .map((part) => escapeHtml(part))
+    .join('<wbr>/')}`;
+}
+
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
   const counts = countVerdicts(result);
   const priorities = prioritize(result);
@@ -328,7 +343,7 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${escapeHtml(options.displayUrl ?? result.target.url)}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${breakableUrl(options.displayUrl ?? result.target.url)}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">

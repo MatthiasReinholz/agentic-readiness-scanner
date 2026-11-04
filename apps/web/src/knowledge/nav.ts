@@ -52,7 +52,6 @@ function groupHref(group: Group): string {
 }
 
 export const KB_CSS = `
-.kb-filter-bar{margin-inline:calc(-1 * var(--page-gutter));padding-inline:var(--page-gutter)}
 .kb-progress{position:fixed;inset:0 0 auto 0;height:3px;z-index:50;background:hsl(var(--primary));transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
 .kb-cell{display:block;width:1.5rem;height:1.5rem;flex:none;border-radius:4px;background:hsl(var(--muted));border:1px solid hsl(var(--input));transition:transform .15s,background .15s}
 .kb-cell:hover,.kb-cell:focus-visible{transform:translateY(-2px);outline:2px solid hsl(var(--ring));outline-offset:2px;background:hsl(var(--primary)/.6)}
@@ -93,12 +92,14 @@ export function journeyRail(currentGroup?: string): string {
       .map((group) => {
         const index = catalog.groups.indexOf(group) + 1;
         const current = group.id === currentGroup;
-        return `<li class="min-w-0 flex-1"><a class="kb-step group flex flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-center hover:bg-muted/60" href="${groupHref(group)}" title="${escapeHtml(`${group.id} ${group.title}`)}"${current ? ' aria-current="step"' : ''}><span class="kb-dot grid size-7 place-items-center rounded-full border border-border bg-card font-mono text-xs text-muted-foreground transition-colors group-hover:border-primary/60">${index}</span><span class="kb-label whitespace-nowrap text-xs text-muted-foreground">${escapeHtml(JOURNEY_STEP[group.id] ?? group.title)}</span></a></li>`;
+        return `<li class="min-w-[4.25em] flex-1 text-xs"><a class="kb-step group flex flex-col items-center gap-1.5 rounded-lg py-2 text-center hover:bg-muted/60" href="${groupHref(group)}" title="${escapeHtml(`${group.id} ${group.title}`)}"${current ? ' aria-current="step"' : ''}><span class="kb-dot relative grid size-7 place-items-center rounded-full border border-border bg-card font-mono text-xs text-muted-foreground transition-colors group-hover:border-primary/60">${index}</span><span class="kb-label whitespace-nowrap text-xs text-muted-foreground">${escapeHtml(JOURNEY_STEP[group.id] ?? group.title)}</span></a></li>`;
       })
       .join('');
-    return `<div class="min-w-0"><p class="mb-1 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">${label}</p><ol class="relative flex before:absolute before:left-6 before:right-6 before:top-[1.4rem] before:h-px before:bg-border">${steps}</ol></div>`;
+    const count = catalog.groups.filter((group) => group.dimension === dimension).length;
+    // The rail runs from the first dot's centre to the last: half a step in from each end.
+    return `<div class="min-w-0"><p class="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">${label}</p><ol class="relative flex before:absolute before:left-[calc(50%/var(--steps))] before:right-[calc(50%/var(--steps))] before:top-[1.4rem] before:h-px before:bg-border" style="--steps:${count}">${steps}</ol></div>`;
   };
-  return `<nav aria-label="The agent's journey" class="rounded-md overflow-x-auto" tabindex="0"><div class="grid min-w-[36rem] grid-cols-[4fr_5fr] gap-4">${half('ingestion', 'Agentic ingestion')}${half('commerce', 'Agentic commerce')}</div></nav>`;
+  return `<nav aria-label="The agent's journey" class="rounded-md overflow-x-auto" tabindex="0"><div class="grid gap-3 md:grid-cols-[4fr_5fr] md:gap-4">${half('ingestion', 'Agentic ingestion')}${half('commerce', 'Agentic commerce')}</div></nav>`;
 }
 
 /** Every check as one cell, grouped by section; the current check and section stand out. */

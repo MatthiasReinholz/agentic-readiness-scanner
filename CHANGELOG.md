@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- **UI alignment audit across every page, width and theme.**
+  - The https:// prefix in the scan form now sits on the same line as the typed text. The input's vertical padding had pushed its text 5px below the prefix.
+  - The "checks explained" links on the home page sit at the bottom of each card, level across a row. The headline breaks into balanced lines on phones.
+  - The report hero's JSON, Markdown and Badge links share a baseline with the meta line. The level badge aligns with its heading, and a long URL title wraps after the scheme instead of mid-word.
+  - The knowledge base's journey rail runs from the first step to the last without crossing the step numbers, and stacks into two rows on phones instead of being cut off. The filter bar's border matches the content width.
+  - Check-map section titles wrap instead of being cut off at tablet widths. Tags on report cards and the legal summary counts align with their neighbours. The history page hero matches the other report heroes.
+  - Monospace labels use a full font stack, so Chrome and Firefox show a sans monospace instead of Courier.
+
 ## [0.14.0] - 2026-11-04
 
 ### Added

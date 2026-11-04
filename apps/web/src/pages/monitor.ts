@@ -17,7 +17,7 @@ function form(scan: StoredScan, idPrefix: string): string {
 
 function offer(scan: StoredScan, config: AppConfig, titleId: string, title: string): string {
   return `<div><h2 id="${titleId}" class="flex flex-wrap items-center gap-2.5 text-lg font-semibold tracking-tight">${title}</h2>
-<p class="mt-1.5 text-base leading-7 text-muted-foreground">${escapeHtml(config.appName)} can rescan <strong class="font-semibold text-foreground">${escapeHtml(scan.host)}</strong> every ${config.monitoring.intervalDays} days and email you when the level, a score or any check result changes. Useful after a theme update, a plugin change or a platform release.</p></div>`;
+<p class="mt-1.5 text-sm leading-6 text-muted-foreground">${escapeHtml(config.appName)} can rescan <strong class="font-semibold text-foreground">${escapeHtml(scan.host)}</strong> every ${config.monitoring.intervalDays} days and email you when the level, a score or any check result changes. Useful after a theme update, a plugin change or a platform release.</p></div>`;
 }
 
 /** The signup block shown between the scores and the sections of a report. */
