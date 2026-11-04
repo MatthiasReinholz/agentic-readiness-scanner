@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-04
+
 ### Changed
 
 - **Levels follow what agent checkout programmes require** (catalog 0.10.0, scoring 0.8.0). Level 3 is now Trusted merchant (return, shipping, privacy and terms pages and a contact) and Level 4 Identifiable products. Every checkout programme asks for the policies before it lists a store; none requires a GTIN.
