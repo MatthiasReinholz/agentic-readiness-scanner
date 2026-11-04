@@ -171,11 +171,11 @@ describe('A4.1 MCP server discoverable', () => {
     });
   });
 
-  it('fails when nothing answers, listing every URL tried', async () => {
+  it('does not score an absent card, and lists every URL tried', async () => {
     const outcome = await runCheck(mcpServerDiscoverable, targetFor(), mapFetcher({}));
-    expect(outcome.verdict).toBe('fail');
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
     expect(outcome.message).toBe(
-      'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths',
+      'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths (optional, so its absence is not scored)',
     );
     expect(outcome.evidence).toEqual({
       tried: [
@@ -254,7 +254,7 @@ describe('A4.1 MCP server discoverable', () => {
       targetFor(),
       mapFetcher({ [`${origin}/llms.txt`]: { status: 403, body: '' } }),
     );
-    expect(llmsRefused.verdict).toBe('fail');
+    expect(llmsRefused).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
   });
 
   it('never sends more than six requests however many hints there are', async () => {
@@ -269,7 +269,7 @@ describe('A4.1 MCP server discoverable', () => {
       [`${origin}/llms.txt`]: '- [one](/mcp-one)\n- [two](/mcp-two)\n- [three](/mcp-three)\n',
     });
     const outcome = await runCheck(mcpServerDiscoverable, targetFor(), fetcher);
-    expect(outcome.verdict).toBe('fail');
+    expect(outcome.verdict).toBe('skip');
     expect(fetcher.requestCount).toBeLessThanOrEqual(6);
     expect(outcome.evidence.hints).toEqual([`${origin}/mcp-one`, `${origin}/mcp-two`]);
   });
@@ -350,14 +350,15 @@ describe('A4.2 API catalog', () => {
     });
   });
 
-  it('fails on 404 and 410: the catalog is absent', async () => {
+  it('does not score an absent catalog (404 or 410)', async () => {
     const outcome = await run();
-    expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toBe('api-catalog returned HTTP 404');
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(outcome.message).toBe(
+      'no API catalog at /.well-known/api-catalog (optional, so its absence is not scored)',
+    );
     expect(outcome.evidence).toEqual({ url, status: 404, content_type: '' });
     const gone = await run({ status: 410, body: '' });
-    expect(gone.verdict).toBe('fail');
-    expect(gone.message).toBe('api-catalog returned HTTP 410');
+    expect(gone).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
   });
 
   it('skips with reason error when the request was throttled or failed', async () => {
@@ -532,6 +533,13 @@ describe('A4.3 OAuth discovery for the MCP endpoint', () => {
     expect(outcome.evidence).toMatchObject({ endpoint_status: 401 });
     expect(outcome.evidence.tried).toHaveLength(4);
     expect(requests).toBe(4);
+  });
+
+  it('needs no OAuth discovery when the endpoint does not ask for authorization', async () => {
+    // MCP makes authorization optional: an open endpoint (Shopify's, Wix's) is not a gap.
+    const { outcome } = await run({ [endpoint]: { status: 405, body: '' } });
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(outcome.message).toMatch(/does not ask for authorization \(HTTP 405\)/);
   });
 
   it('looks up metadata on the endpoint host and skips the path form for a root endpoint', async () => {
@@ -772,12 +780,12 @@ describe('A4.5 A2A agent card', () => {
     ).toBe(true);
   });
 
-  it('fails when neither path answers JSON, and does not probe the legacy path after a 200', async () => {
+  it('does not score an absent card, fails a broken one, and does not probe the legacy path after a 200', async () => {
     const none = await run({});
-    expect(none.verdict).toBe('fail');
+    expect(none).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
     expect(none.evidence).toMatchObject({ status: 404, legacy_status: 404, path: null });
     const legacyHtml = await run({ [legacy]: HTML });
-    expect(legacyHtml.verdict).toBe('fail');
+    expect(legacyHtml.verdict).toBe('skip');
     const fetcher = mapFetcher({ [current]: HTML, [legacy]: json(complete) });
     const soft = await runCheck(a2aAgentCard, targetFor(), fetcher);
     expect(soft.verdict).toBe('fail');

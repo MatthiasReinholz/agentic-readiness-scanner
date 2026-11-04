@@ -95,6 +95,21 @@ describe('HTML report', () => {
   });
 });
 
+describe('undetermined level', () => {
+  it('says the next level is not decided instead of listing fixes', async () => {
+    const result = await scan('https://blog.example/', {
+      fetcher: fixtureFetcher(fixture('content-site')),
+    });
+    const copy = structuredClone(result);
+    copy.level = { value: 0, name: 'Not reachable', next_gate: ['A2.4'], undetermined: ['A2.4'] };
+    const html = renderHtml(copy);
+    expect(html).toMatch(
+      /Level 1 \(Reachable\) is not decided: .* could not be checked in this scan/,
+    );
+    expect(renderMarkdown(copy)).toMatch(/is not decided/);
+  });
+});
+
 describe('Markdown report', () => {
   it('scores each section and embeds the composed brief', async () => {
     const result = await scan('https://blog.example/', {

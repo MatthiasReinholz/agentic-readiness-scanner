@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- **Levels follow what agent checkout programmes require** (catalog 0.10.0, scoring 0.8.0). Level 3 is now Trusted merchant (return, shipping, privacy and terms pages and a contact) and Level 4 Identifiable products. Every checkout programme asks for the policies before it lists a store; none requires a GTIN.
+- **A warning that is about intent no longer means "Not reachable".** A missing robots.txt, or one served as an HTML page, means "allow all" (RFC 9309), and one minor crawler blocked still leaves the site reachable. These warnings on A1.1 and A2.2 now meet the Level 1 gate (`warn_meets_gate` in the catalog). Every other warning still holds the level back.
+- **The scanner never counts a check it could not answer as a failure.** A rate limit, a gateway error or no response is now inconclusive in A1.1, A1.5, B1.2, B1.8 and B5.1. A refused or rate-limited policy page is inconclusive in B4.1 and B4.2. Checks that depend on an inconclusive check say "not evaluated", not "did not pass". When only unanswered checks stand before the next level, the result carries `level.undetermined` and the report says the level is not decided.
+- **Absent optional files are not scored:** A1.4 (Link headers), A4.1 (MCP server card), A4.2 (API catalog) and A4.5 (A2A agent card) are not applicable when nothing is published. A broken file still fails. A4.3 no longer fails an MCP endpoint that does not ask for authorization, which the MCP specification makes optional.
+- **A1.6, A3.10 and B1.6 are informational.** No agent documents reading the links in llms.txt or the viewport tag, or a freshness threshold for feeds.
+
+### Fixed
+
+- **An invalid GTIN can no longer pass the identity level.** B3.2 now fails on a GTIN with a wrong check digit or a prefix Google rejects (02, 04 and 2 for in-store and internal numbers, 05, 98 and 99 for coupons), and the level needs it to pass. It passes when no product declares a GTIN, so brand plus part number still identifies products without one.
+- **Level 5 needs a complete checkout declaration.** B5.2 no longer reads a UCP profile that lists only catalog capabilities as a checkout. B5.3 requires the fields the ACP discovery RFC makes mandatory: `protocol.supported_versions` and `capabilities.services`.
+
+### Removed
+
+- **B1.3 Store API not rate-limited for reads.** WooCommerce's rate limiter is off by default and covers only POST requests, so product reads never meet it. Its knowledge-base URL redirects to the Store API article.
+
+### Changed
+
 - **Reports speak plain language and open with an overview at a glance.** The two scores are now called **Visible to AI** (can AI find and read your site?) and **Shoppable by AI** (can AI understand, trust and buy from your store?). The JSON keys stay `ingestion` and `commerce`. Each section has a short name and a question: Findable, Open to AI, Readable, Connectable, Browsable, Well described, Identifiable, Trustworthy and Buyable. The report's first card shows both scores with their sections, a coloured score and one clickable cell per check. The detailed results below keep the technical names and the evidence. The catalog carries the names (`label` and `question` on each group, `dimensions.json`), so the Markdown report, the knowledge base and the MCP tool use the same words.
 - **Plainer level names:** Level 1 is now Reachable (was Crawlable), and Level 5 is Checkout-ready (was Transactable). The next-level sentence lists the fixes by name, without check ids.
 

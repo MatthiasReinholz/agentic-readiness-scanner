@@ -252,6 +252,7 @@ function runAny(
   const definition: CheckDefinition = getCheck(check.id) ?? {
     id: check.id,
     laws: [],
+    warn_meets_gate: false,
     markets: [],
     group: check.id.slice(0, 2),
     title: check.id,
@@ -361,8 +362,10 @@ describe('B5.1 UCP business profile', () => {
     expect(challenged.message).toMatch(
       /^\/\.well-known\/ucp was refused \(a Cloudflare challenge \(HTTP 403\)\)/,
     );
+    // A rate limit says nothing about the profile: inconclusive, not refused.
     const limited = await run(mapFetcher({ [url]: { status: 429, body: '' } }));
-    expect(limited.message).toMatch(/^\/\.well-known\/ucp was refused \(HTTP 429\)/);
+    expect(limited).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+    expect(limited.message).toMatch(/^\/\.well-known\/ucp was rate limited \(HTTP 429\)/);
   });
 
   it('warns when a 2026-08-25 or later profile still carries signing_keys instead of keys', async () => {
@@ -397,9 +400,11 @@ describe('B5.1 UCP business profile', () => {
     const text = await run(mapFetcher({ [url]: 'ucp: yes' }));
     expect(text.verdict).toBe('fail');
     expect(text.message).toBe('/.well-known/ucp is not valid JSON');
-    const broken = await run(mapFetcher({ [url]: { status: 503, body: '' } }));
+    const broken = await run(mapFetcher({ [url]: { status: 500, body: '' } }));
     expect(broken.verdict).toBe('fail');
-    expect(broken.message).toBe('/.well-known/ucp returned HTTP 503');
+    expect(broken.message).toBe('/.well-known/ucp returned HTTP 500');
+    const unavailable = await run(mapFetcher({ [url]: { status: 503, body: '' } }));
+    expect(unavailable).toMatchObject({ verdict: 'skip', skipReason: 'error' });
   });
 
   it('fails when the JSON lacks the required shape and names the missing part', async () => {
@@ -528,6 +533,16 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
     expect(outcome.skipReason).toBe('error');
   });
 
+  it('does not read a catalog-only shopping service as a checkout', async () => {
+    const catalogOnly = {
+      ...profile.ucp,
+      capabilities: { 'dev.ucp.shopping.catalog.search': [{ version: '2026-08-25' }] },
+    };
+    const outcome = await run(catalogOnly, mapFetcher({ [endpoint]: { status: 404, body: '' } }));
+    expect(outcome.evidence).toMatchObject({ checkout: false, checkout_capability: false });
+    expect(outcome.verdict).not.toBe('pass');
+  });
+
   it('passes when checkout and a payment handler are declared, probing the REST endpoint', async () => {
     const fetcher = mapFetcher({ [endpoint]: { status: 401, body: '{"error":"unauthorized"}' } });
     const outcome = await run(profile.ucp, fetcher);
@@ -538,6 +553,7 @@ describe('B5.2 UCP checkout capability and payment handler', () => {
     expect(outcome.evidence).toEqual({
       checkout: true,
       checkout_capability: true,
+      capabilities: ['dev.ucp.shopping.checkout'],
       shopping_transports: ['rest'],
       handlers: ['gpay-1'],
       handlers_without_spec: 0,
@@ -714,7 +730,7 @@ describe('B5.3 ACP discovery document', () => {
     );
     expect(outcome.verdict).toBe('fail');
     expect(outcome.message).toBe(
-      'ACP discovery document is missing protocol.name "acp", a protocol.version string, an https api_base_url, a transports array containing "rest"',
+      'ACP discovery document is missing protocol.name "acp", a protocol.version string, an https api_base_url, a transports array containing "rest", a non-empty protocol.supported_versions, a capabilities.services list',
     );
     expect(outcome.evidence).toMatchObject({
       protocol: { name: 'acp-ish', version: null },

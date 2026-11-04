@@ -244,6 +244,17 @@ export async function runChecks(options: RunOptions): Promise<RunOutput> {
         });
         continue;
       }
+      if (parentSkip === 'error') {
+        // The parent met a refusal or a transient failure: the site was not judged, so
+        // neither is this check. Say so rather than calling the parent a failure.
+        record(definition, {
+          verdict: 'skip',
+          skipReason: 'error',
+          message: `not evaluated: ${failedParent} could not be evaluated in this scan`,
+          evidence: { dependency: failedParent },
+        });
+        continue;
+      }
       record(
         definition,
         parentSkip === 'not_applicable'

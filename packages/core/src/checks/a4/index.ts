@@ -5,20 +5,14 @@ import { hasLinkRelation, parseLinkHeader } from '../../parsers/link-header.js';
 import { parseLlmsTxt } from '../../parsers/llms-txt.js';
 import { probeMcpEndpoint } from '../mcp.js';
 import type { Target } from '../../target/types.js';
-import { describeFailure, productPages } from '../shared.js';
+import {
+  describeFailure,
+  inconclusive,
+  isTransient,
+  productPages,
+  transientPhrase,
+} from '../shared.js';
 import { defineCheck, fail, pass, skip, warn, type CheckOutcome, type Evidence } from '../types.js';
-
-/** Statuses that say nothing about the resource: throttling or a gateway failure. */
-const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
-
-function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
-  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
-}
-
-/** "was rate limited (HTTP 429)" or "failed (HTTP 503)" / "failed (no response)". */
-function transientPhrase(response: Pick<FetchedResponse, 'status' | 'error'>): string {
-  return `${response.status === 429 ? 'was rate limited' : 'failed'} (${describeFailure(response)})`;
-}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -257,8 +251,21 @@ export const mcpServerDiscoverable = defineCheck('A4.1', async ({ target, fetche
       { tried, hints, refused: refusals.map((attempt) => attempt.url) },
     );
   }
-  return fail(
-    'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths',
+  // A card URL that answers 200 without a usable card is published but broken.
+  const broken = tried.filter(
+    (attempt) =>
+      attempt.status === 200 && attempt.url !== catalogUrl && !attempt.url.endsWith('/llms.txt'),
+  );
+  if (broken.length > 0) {
+    return fail(
+      `${broken.map((attempt) => attempt.url).join(', ')} answered 200 but holds no MCP server card with a name and an endpoint`,
+      { tried, hints },
+    );
+  }
+  // An optional discovery file few stores publish: absence is not a verdict (ADR 0012).
+  return skip(
+    'not_applicable',
+    'no MCP server card found via ai-catalog.json, an endpoint hint or the community paths (optional, so its absence is not scored)',
     { tried, hints },
   );
 });
@@ -315,6 +322,13 @@ export const apiCatalogPublished = defineCheck('A4.2', async ({ target, fetcher 
     return skip(
       'error',
       `the API catalog could not be judged because the request ${transientPhrase(response)}`,
+      evidence,
+    );
+  }
+  if (response.status === 404 || response.status === 410) {
+    return skip(
+      'not_applicable',
+      'no API catalog at /.well-known/api-catalog (optional, so its absence is not scored)',
       evidence,
     );
   }
@@ -434,8 +448,18 @@ export const oauthDiscoveryForMcp = defineCheck('A4.3', async ({ fetcher, outcom
       evidence,
     );
   }
+  // MCP makes authorization optional: an endpoint that does not ask for it needs no
+  // discovery metadata. Only an endpoint that answers 401 without saying where to sign in
+  // leaves an agent stuck.
+  if (endpointResponse.status !== 401) {
+    return skip(
+      'not_applicable',
+      `the MCP endpoint does not ask for authorization (HTTP ${endpointResponse.status}), and MCP makes authorization optional, so no OAuth discovery is needed`,
+      evidence,
+    );
+  }
   return fail(
-    'no protected resource metadata, resource_metadata challenge or authorization server metadata for the MCP endpoint',
+    'the MCP endpoint answers 401, but there is no protected resource metadata, resource_metadata challenge or authorization server metadata to tell an agent where to sign in',
     evidence,
   );
 });
@@ -576,8 +600,16 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
     });
     return warn('A2A agent card found only at the pre-0.3 path /.well-known/agent.json', evidence);
   }
-  return fail(
-    'no A2A agent card at /.well-known/agent-card.json or /.well-known/agent.json',
+  if (isTransient(first) || isTransient(second)) {
+    return inconclusive(
+      'the A2A agent card request',
+      isTransient(first) ? first : second,
+      evidence,
+    );
+  }
+  return skip(
+    'not_applicable',
+    'no A2A agent card at /.well-known/agent-card.json or /.well-known/agent.json (optional, so its absence is not scored)',
     evidence,
   );
 });

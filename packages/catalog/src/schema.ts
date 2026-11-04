@@ -152,6 +152,12 @@ export const CheckDefinitionSchema = z.object({
   requires: z.array(RequirementSchema).default([]),
   /** Checks whose failure makes this check meaningless; the runner skips dependents. */
   depends_on: z.array(z.string().regex(CHECK_ID_PATTERN)).default([]),
+  /**
+   * True when a warning on this check still satisfies a level gate and lifts its ceiling:
+   * the warning is about stated intent or a minor gap, not about whether agents can reach
+   * the site (robots.txt missing means "allow all"; one minor crawler blocked).
+   */
+  warn_meets_gate: z.boolean().default(false),
   /** Public specifications the check is grounded in. A check without one does not ship. */
   spec: z.array(SpecReferenceSchema).min(1),
   /** Legal-signals checks: the law registry entries the check relates to. */

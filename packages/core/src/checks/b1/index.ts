@@ -1,8 +1,14 @@
 import { platformLabel } from '@agentic-readiness/catalog';
 
-import { contentType, type FetchedResponse, type Fetcher } from '../../http/types.js';
+import { contentType, type Fetcher } from '../../http/types.js';
 import { looksLikeProductSitemap } from '../../parsers/sitemap.js';
-import { type StoreApiProduct, storeApiProducts, storeApiUrl } from '../shared.js';
+import {
+  inconclusive,
+  isTransient,
+  type StoreApiProduct,
+  storeApiProducts,
+  storeApiUrl,
+} from '../shared.js';
 import { type CheckOutcome, defineCheck, fail, pass, skip, warn } from '../types.js';
 import {
   feedRejection,
@@ -40,6 +46,8 @@ export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher })
     content_type: contentType(response),
     total,
   };
+  // A throttled or failed read says nothing about whether the API is open (ADR 0012).
+  if (isTransient(response)) return inconclusive('the Store API request', response, evidence);
   if (response.status === 401 || response.status === 403) {
     return fail(`Store API requires authentication (HTTP ${response.status})`, evidence);
   }
@@ -59,103 +67,6 @@ export const storeApiReachable = defineCheck('B1.2', async ({ target, fetcher })
   } catch {
     return fail('Store API returned a non-JSON body', evidence);
   }
-});
-
-/**
- * Rate-limit headers worth recording: the IETF draft names WooCommerce emits (RateLimit-*
- * plus its own RateLimit-Retry-After), the HTTP Retry-After, and the X-RateLimit-* family
- * that proxies and WAFs add.
- */
-const RATE_LIMIT_HEADERS = [
-  'retry-after',
-  'ratelimit-limit',
-  'ratelimit-remaining',
-  'ratelimit-reset',
-  'ratelimit-retry-after',
-  'x-ratelimit-limit',
-  'x-ratelimit-remaining',
-  'x-ratelimit-reset',
-] as const;
-
-function rateLimitHeaders(response: FetchedResponse): Record<string, string> {
-  const found: Record<string, string> = {};
-  for (const name of RATE_LIMIT_HEADERS) {
-    const value = response.headers[name];
-    if (value !== undefined) found[name] = value;
-  }
-  return found;
-}
-
-/**
- * The fetcher caches by URL, so three reads of one URL would be one request. Distinct page
- * sizes are always valid (unlike page numbers past the last page, which WordPress answers
- * with HTTP 400) and none of them collides with the URLs B1.2 and B1.4 read.
- */
-const SEQUENTIAL_READ_PAGE_SIZES = [2, 3, 4] as const;
-
-interface SequentialRead {
-  url: string;
-  status: number;
-  headers: Record<string, string>;
-  /** True when this answer came from the fetcher's one retry after a 429, 503 or dropped connection. */
-  retried?: boolean;
-}
-
-function signalsRateLimit(read: SequentialRead): boolean {
-  return (
-    'retry-after' in read.headers ||
-    'ratelimit-retry-after' in read.headers ||
-    read.headers['ratelimit-remaining'] === '0' ||
-    read.headers['x-ratelimit-remaining'] === '0'
-  );
-}
-
-export const storeApiNotRateLimited = defineCheck('B1.3', async ({ target, fetcher }) => {
-  const requests: SequentialRead[] = [];
-  for (const perPage of SEQUENTIAL_READ_PAGE_SIZES) {
-    const url = storeApiUrl(target, `/products?per_page=${perPage}`);
-    const response = await fetcher.fetch(url);
-    requests.push({
-      url,
-      status: response.status,
-      headers: rateLimitHeaders(response),
-      ...(response.retried ? { retried: true } : {}),
-    });
-  }
-  const evidence = { requests };
-  const limited = requests.find((read) => read.status === 429);
-  if (limited) {
-    return fail(`Store API rate-limited a sequential read (HTTP 429 on ${limited.url})`, evidence);
-  }
-  const failed = requests.find((read) => read.status >= 500 || read.status === 0);
-  if (failed) {
-    return fail(
-      failed.status === 0
-        ? `Store API read got no response (${failed.url})`
-        : `Store API read returned HTTP ${failed.status} (${failed.url})`,
-      evidence,
-    );
-  }
-  // The fetcher retries one 429 or 503 after Retry-After; the recovered answer would
-  // otherwise hide the very throttling this check looks for.
-  const recovered = requests.find((read) => read.retried);
-  if (recovered) {
-    return warn(
-      `Store API throttled a sequential read once (${recovered.url} answered 429 or 503 first and recovered on retry after Retry-After)`,
-      evidence,
-    );
-  }
-  const throttled = requests.find(signalsRateLimit);
-  if (throttled) {
-    return warn(
-      `Store API reads succeed but signal a rate limit (${Object.keys(throttled.headers).join(', ')})`,
-      evidence,
-    );
-  }
-  return pass(
-    `${requests.length} sequential Store API reads succeeded without throttling`,
-    evidence,
-  );
 });
 
 /** Fields whose absence fails B1.4: an agent cannot quote or reserve without them. */

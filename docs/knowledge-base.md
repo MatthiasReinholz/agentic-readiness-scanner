@@ -1,6 +1,6 @@
 # Knowledge base
 
-The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 103 articles: 79 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
+The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 102 articles: 78 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
 
 ## Where the content lives
 
@@ -132,7 +132,6 @@ Every check with its article slug. A slug never changes.
 | A4.9  | shopware-agentic-files                  |
 | B1.1  | ecommerce-platform-detection            |
 | B1.2  | store-api-reachable                     |
-| B1.3  | store-api-rate-limits                   |
 | B1.4  | store-api-product-completeness          |
 | B1.5  | public-product-feed                     |
 | B1.6  | product-feed-freshness                  |

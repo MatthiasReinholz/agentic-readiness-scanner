@@ -217,7 +217,7 @@ function shopifyGroupPage(variants: Record<string, unknown>[]): string {
 describe('B3.2 GTIN valid', () => {
   const url = 'https://shop.example/product/mug/';
 
-  it('skips for the right reason with no pages and with no GTINs', async () => {
+  it('skips with no pages and passes when no product declares a GTIN', async () => {
     expect(await runCheck(gtinValid, targetFor(), mapFetcher({}))).toMatchObject({
       verdict: 'skip',
       skipReason: 'not_applicable',
@@ -228,7 +228,20 @@ describe('B3.2 GTIN valid', () => {
         targetFor({ products: [url] }),
         mapFetcher({ [url]: productPage() }),
       ),
-    ).toMatchObject({ verdict: 'skip', skipReason: 'dependency_failed' });
+    ).toMatchObject({ verdict: 'pass', evidence: { checked: 0, invalid: 0 } });
+  });
+
+  it('fails GTINs with a valid check digit but a prefix reserved outside open trade', async () => {
+    // 2000000000008: restricted circulation (in-store); 9800000000007: coupon range; 400000000008: a UPC in the in-store range.
+    for (const gtin of ['2000000000008', '9800000000007', '400000000008']) {
+      const result = await runCheck(
+        gtinValid,
+        targetFor({ products: [url] }),
+        mapFetcher({ [url]: productPage(gtin) }),
+      );
+      expect(result.verdict, gtin).toBe('fail');
+      expect(result.message).toMatch(/prefix reserved for in-store, internal or coupon numbers/);
+    }
   });
 
   it('passes on GS1-valid check digits and fails on invalid ones', async () => {
@@ -245,7 +258,9 @@ describe('B3.2 GTIN valid', () => {
       mapFetcher({ [url]: productPage('4006381333932') }),
     );
     expect(invalid.verdict).toBe('fail');
-    expect(invalid.message).toBe('1 of 1 GTIN(s) fail the GS1 check digit: 4006381333932');
+    expect(invalid.message).toBe(
+      '1 of 1 GTIN(s) are not valid trade item numbers (wrong GS1 check digit): 4006381333932',
+    );
     expect(invalid.evidence).toMatchObject({
       checked: 1,
       invalid: 1,

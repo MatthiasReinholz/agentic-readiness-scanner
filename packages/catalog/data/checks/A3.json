@@ -190,7 +190,7 @@
     "title": "Mobile viewport declared",
     "question": "Does the page declare itself usable on a phone, which is the device Google indexes with?",
     "method": "Read the meta viewport of each sampled product page that answered (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly. A site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width and allows zooming. Warn when a page has no viewport tag, a tag without width=device-width (such as a fixed pixel width), or a tag that forbids zooming (user-scalable=no or 0, or maximum-scale below 1). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
-    "weight": 1,
+    "weight": "info",
     "spec": [
       {
         "title": "Google Search Central blog: mobile-first indexing, the last step (2024)",

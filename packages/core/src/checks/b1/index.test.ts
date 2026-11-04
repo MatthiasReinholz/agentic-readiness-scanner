@@ -1,21 +1,13 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { Fetcher, FetchOptions } from '../../http/types.js';
 import type { SitemapSummary } from '../../target/types.js';
-import {
-  fixtureFetcher,
-  mapFetcher,
-  type MapResponse,
-  runCheck,
-  targetFor,
-} from '../../testing/index.js';
+import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/index.js';
 import {
   feedFreshness,
   productFeedDiscoverable,
   sitemapMatchesStoreApi,
   sitemapProductCountComplete,
-  storeApiNotRateLimited,
   storeApiProductComplete,
 } from './index.js';
 import type { CheckOutcome } from '../types.js';
@@ -35,137 +27,6 @@ const GOOD_FIXTURE = join(
 );
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
-const EMPTY_LIST: MapResponse = { status: 200, headers: JSON_HEADERS, body: '[]' };
-
-describe('B1.3 Store API not rate-limited for reads', () => {
-  const urls = [2, 3, 4].map((perPage) => `${STORE_API}?per_page=${perPage}`);
-  const reads = (overrides: Partial<Record<string, MapResponse>> = {}) =>
-    mapFetcher(Object.fromEntries(urls.map((url) => [url, overrides[url] ?? EMPTY_LIST])));
-
-  it('passes when three distinct reads answer 200 and sends three real requests', async () => {
-    const fetcher = reads();
-    const outcome = await runCheck(storeApiNotRateLimited, targetFor(), fetcher);
-    expect(outcome.verdict).toBe('pass');
-    expect(fetcher.requestCount).toBe(3);
-    expect(fetcher.log.map((entry) => entry.url)).toEqual(urls);
-    expect(outcome.evidence).toMatchObject({
-      requests: urls.map((url) => ({ url, status: 200, headers: {} })),
-    });
-  });
-
-  it('fails on a 429', async () => {
-    const url = urls[2] ?? '';
-    const outcome = await runCheck(
-      storeApiNotRateLimited,
-      targetFor(),
-      reads({ [url]: { status: 429, headers: { 'retry-after': '10' }, body: '' } }),
-    );
-    expect(outcome.verdict).toBe('fail');
-    expect(outcome.message).toContain('HTTP 429');
-    expect(outcome.evidence).toMatchObject({
-      requests: [
-        { status: 200 },
-        { status: 200 },
-        { url, status: 429, headers: { 'retry-after': '10' } },
-      ],
-    });
-  });
-
-  it('fails on a 5xx and when nothing answered', async () => {
-    const url = urls[1] ?? '';
-    const server = await runCheck(
-      storeApiNotRateLimited,
-      targetFor(),
-      reads({ [url]: { status: 503, body: 'down' } }),
-    );
-    expect(server.verdict).toBe('fail');
-    expect(server.message).toBe(`Store API read returned HTTP 503 (${url})`);
-    const network = await runCheck(
-      storeApiNotRateLimited,
-      targetFor(),
-      reads({ [url]: { status: 0 } }),
-    );
-    expect(network.verdict).toBe('fail');
-    expect(network.message).toMatch(/no response/);
-  });
-
-  it("warns when a read succeeded only on the fetcher's retry after a 429 or 503", async () => {
-    const inner = reads();
-    const retried: Fetcher = {
-      get requestCount() {
-        return inner.requestCount;
-      },
-      budget: inner.budget,
-      fetch: async (url: string, options?: FetchOptions) => {
-        const response = await inner.fetch(url, options);
-        return url === urls[1] ? { ...response, retried: true } : response;
-      },
-    };
-    const outcome = await runCheck(storeApiNotRateLimited, targetFor(), retried);
-    expect(outcome.verdict).toBe('warn');
-    expect(outcome.message).toBe(
-      `Store API throttled a sequential read once (${urls[1] ?? ''} answered 429 or 503 first and recovered on retry after Retry-After)`,
-    );
-    expect(outcome.evidence).toMatchObject({
-      requests: [{ status: 200 }, { status: 200, retried: true }, { status: 200 }],
-    });
-  });
-
-  it('warns when a Retry-After or RateLimit-Retry-After header appears on a 200', async () => {
-    for (const header of ['retry-after', 'ratelimit-retry-after']) {
-      const outcome = await runCheck(
-        storeApiNotRateLimited,
-        targetFor(),
-        reads({
-          [urls[0] ?? '']: { status: 200, headers: { ...JSON_HEADERS, [header]: '5' }, body: '[]' },
-        }),
-      );
-      expect(outcome.verdict, header).toBe('warn');
-      expect(outcome.message).toContain(header);
-      expect(outcome.evidence).toMatchObject({
-        requests: [{ headers: { [header]: '5' } }, { headers: {} }, { headers: {} }],
-      });
-    }
-  });
-
-  it('warns when the remaining quota reaches 0 and records the RateLimit headers', async () => {
-    const outcome = await runCheck(
-      storeApiNotRateLimited,
-      targetFor(),
-      reads({
-        [urls[2] ?? '']: {
-          status: 200,
-          headers: {
-            ...JSON_HEADERS,
-            'RateLimit-Limit': '25',
-            'RateLimit-Remaining': '0',
-            'RateLimit-Reset': '7',
-          },
-          body: '[]',
-        },
-      }),
-    );
-    expect(outcome.verdict).toBe('warn');
-    expect(outcome.evidence).toMatchObject({
-      requests: [
-        {},
-        {},
-        {
-          headers: { 'ratelimit-limit': '25', 'ratelimit-remaining': '0', 'ratelimit-reset': '7' },
-        },
-      ],
-    });
-  });
-
-  it('passes on the good WooCommerce fixture', async () => {
-    const outcome = await runCheck(
-      storeApiNotRateLimited,
-      targetFor({ origin: 'https://ceramics.example' }),
-      fixtureFetcher(GOOD_FIXTURE),
-    );
-    expect(outcome.verdict).toBe('pass');
-  });
-});
 
 describe('B1.4 Store API product completeness', () => {
   const url = `${STORE_API}?per_page=20`;

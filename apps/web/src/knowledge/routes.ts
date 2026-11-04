@@ -88,6 +88,15 @@ function alternates(config: AppConfig, path: string, as: 'html' | 'markdown'): s
     : `<${url}>; rel="canonical"; type="text/html"`;
 }
 
+/**
+ * Slugs of articles whose check was removed, and where their readers go instead. B1.3
+ * (Store API not rate-limited for reads) left in catalog 0.10.0: WooCommerce's limiter is
+ * off by default and covers only POST requests, so reads never meet it.
+ */
+const RETIRED_ARTICLES: Record<string, string> = {
+  'store-api-rate-limits': 'store-api-reachable',
+};
+
 export function createKnowledgeRoutes(config: AppConfig): Hono {
   const app = new Hono();
 
@@ -151,6 +160,11 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
     if (/^[abc]\d\.\d+$/i.test(slug)) {
       const byId = articleByCheckId(slug);
       if (byId) return c.redirect(`${articlePath(byId)}${asMarkdown ? '.md' : ''}`, 301);
+    }
+    // An article whose check left the catalog moves to the closest one that remains.
+    const replacement = RETIRED_ARTICLES[slug];
+    if (replacement) {
+      return c.redirect(`/knowledge-base/${replacement}${asMarkdown ? '.md' : ''}`, 301);
     }
     const article = articleBySlug(slug);
     if (article) {

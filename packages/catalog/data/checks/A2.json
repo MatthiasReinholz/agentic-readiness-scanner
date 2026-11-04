@@ -39,7 +39,7 @@
     "group": "A2",
     "title": "Search and assistant crawlers may read product pages",
     "question": "Do the crawlers that feed AI answers get in?",
-    "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the crawlers that build the indexes behind AI answers: Googlebot and Bingbot (Google AI Overviews and AI Mode, Microsoft Copilot, ChatGPT search, whose results come from Microsoft's index, and Claude search via Brave), Applebot, Storebot-Google (Google's Shopping surfaces), OAI-SearchBot, Claude-SearchBot, PerplexityBot (a blocked page is reduced to domain, headline and a short summary), Amzn-SearchBot, DuckAssistBot, MistralAI-Index and meta-webindexer. Fail when Googlebot or Bingbot is disallowed or when two or more of the others are. Warn when exactly one is. Pass otherwise, including when there is no robots.txt. The evidence shows the effective rule per crawler.",
+    "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the crawlers that build the indexes behind AI answers: Googlebot and Bingbot (Google AI Overviews and AI Mode, Microsoft Copilot, ChatGPT search, whose results come from Microsoft's index, and Claude search via Brave), Applebot, Storebot-Google (Google's Shopping surfaces), OAI-SearchBot, Claude-SearchBot, PerplexityBot (a blocked page is reduced to domain, headline and a short summary), Amzn-SearchBot, DuckAssistBot, MistralAI-Index and meta-webindexer. Fail when Googlebot or Bingbot is disallowed or when two or more of the others are. Warn when exactly one is. Pass otherwise, including when there is no robots.txt. A warning still meets the Level 1 gate, because the crawlers behind the largest AI answer surfaces can read the page. The evidence shows the effective rule per crawler.",
     "weight": 3,
     "depends_on": ["A1.1"],
     "spec": [
@@ -95,7 +95,8 @@
         "title": "Meta web crawlers",
         "url": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers"
       }
-    ]
+    ],
+    "warn_meets_gate": true
   },
   {
     "id": "A2.3",

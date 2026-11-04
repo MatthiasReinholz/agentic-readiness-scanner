@@ -33,11 +33,8 @@ export { hasPriceText };
  * Statuses that say nothing about the resource: the server throttled the scanner or a
  * gateway failed. A probe that meets one is inconclusive, never a verdict.
  */
-export const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
-
-export function isTransient(response: Pick<FetchedResponse, 'status'>): boolean {
-  return response.status === 0 || TRANSIENT_STATUSES.has(response.status);
-}
+export { isTransient, TRANSIENT_STATUSES } from '../shared.js';
+import { isTransient } from '../shared.js';
 
 export interface SampledProductPages {
   /** The sampled product pages that answered 2xx: the ones a check may judge. */

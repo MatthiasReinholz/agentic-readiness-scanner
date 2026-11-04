@@ -4,7 +4,7 @@
     "group": "B4",
     "title": "Return policy page found",
     "question": "Can an agent find and read the return policy?",
-    "method": "Follow the home-page link whose label or path names returns, refunds, exchanges, withdrawal, Widerruf, Rückgabe, retour, reso or their equivalents, as whole words. A label made of policy words outranks a product name that carries the word, a footer link outranks a body link, and product, listing and account URLs are never chosen. On Shopify the platform's own policy page replaces a missing pick or one matched only weakly, such as by path alone. Fail when no link is found, when the linked page does not answer 200 or when it is a product page rather than a policy. Warn when it carries 100 words or fewer. Pass otherwise. Every checkout programme (Google Merchant Center and UCP, the OpenAI feed, Stripe, Shopify channels) asks for a return policy URL.",
+    "method": "Follow the home-page link whose label or path names returns, refunds, exchanges, withdrawal, Widerruf, Rückgabe, retour, reso or their equivalents, as whole words. A label made of policy words outranks a product name that carries the word, a footer link outranks a body link, and product, listing and account URLs are never chosen. On Shopify the platform's own policy page replaces a missing pick or one matched only weakly, such as by path alone. Fail when no link is found, when the linked page does not answer 200 or when it is a product page rather than a policy. Skipped as inconclusive when the page refused the scanner or was rate limited (a refusal says nothing about the policy, so it never costs the level). Warn when it carries 100 words or fewer. Pass otherwise. Every checkout programme (Google Merchant Center and UCP, the OpenAI feed, Stripe, Shopify channels) asks for a return policy URL.",
     "weight": 3,
     "spec": [
       {
@@ -14,6 +14,10 @@
       {
         "title": "Google Merchant Center: checkout requirements and best practices",
         "url": "https://support.google.com/merchants/answer/9158778"
+      },
+      {
+        "title": "Google Merchant Center: requirements for agent checkout through UCP (return policy, customer support)",
+        "url": "https://developers.google.com/merchant/ucp/guides/overview/merchant-center"
       }
     ]
   },
@@ -22,12 +26,16 @@
     "group": "B4",
     "title": "Shipping policy page found",
     "question": "Can an agent find shipping costs, regions and delivery times?",
-    "method": "The same link heuristics as B4.1 for shipping, delivery, Versand, Lieferung, livraison, spedizione, envío and their compounds (Versandkosten counts, Versandlager does not), with the same Shopify fallback. Fail when no link is found, when the linked page does not answer 200 or when it is a product page. Warn when its text names no amount with a currency, no delivery time in days and no shipping keyword such as free shipping, Versandkosten or worldwide. Pass otherwise.",
+    "method": "The same link heuristics as B4.1 for shipping, delivery, Versand, Lieferung, livraison, spedizione, envío and their compounds (Versandkosten counts, Versandlager does not), with the same Shopify fallback. Fail when no link is found, when the linked page does not answer 200 or when it is a product page. Skipped as inconclusive when the page refused the scanner or was rate limited. Warn when its text names no amount with a currency, no delivery time in days and no shipping keyword such as free shipping, Versandkosten or worldwide. Pass otherwise.",
     "weight": 3,
     "spec": [
       {
         "title": "schema.org OfferShippingDetails",
         "url": "https://schema.org/OfferShippingDetails"
+      },
+      {
+        "title": "OpenAI product feed specification: shipping",
+        "url": "https://developers.openai.com/commerce/specs/feed"
       }
     ]
   },
@@ -42,6 +50,10 @@
       {
         "title": "WordPress privacy policy page",
         "url": "https://wordpress.org/documentation/article/settings-privacy-screen/"
+      },
+      {
+        "title": "OpenAI product feed specification: seller_tos and seller_privacy_policy",
+        "url": "https://developers.openai.com/commerce/specs/feed"
       }
     ]
   },
@@ -74,6 +86,10 @@
       {
         "title": "schema.org ContactPoint",
         "url": "https://schema.org/ContactPoint"
+      },
+      {
+        "title": "Google Merchant Center: requirements for agent checkout through UCP (return policy, customer support)",
+        "url": "https://developers.google.com/merchant/ucp/guides/overview/merchant-center"
       }
     ]
   },
