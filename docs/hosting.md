@@ -48,7 +48,7 @@ Configuration comes from Space variables, set with `sf env set NAME value` (secr
 
 ### Stepped scans
 
-Scans run as jobs in steps ([decision 0017](decisions/0017-stepped-hosted-scans.md)). A `scan_jobs` row keeps the resumable state between steps, and `scan_job_cache` keeps the responses a step fetched (gzipped). Each step runs inside one request. The next step is run by whichever comes first:
+Scans run as jobs in steps ([decision 0017](decisions/0017-stepped-hosted-scans.md)). A `scan_jobs` row keeps the resumable state between steps, and `scan_job_cache_parts` keeps the responses a step fetched (gzipped, split into parts of 48 KiB so that no database operation reaches Spacefast's limit of 64 KiB). Each step runs inside one request. The next step is run by whichever comes first:
 
 1. the page calling `POST /api/scan/jobs/<id>/continue`
 2. the worker calling that endpoint itself after a step (through `waitUntil`)
@@ -59,16 +59,16 @@ A lease on the row keeps two steps from running at once. An isolate runs at most
 
 ### Storage and cleanup
 
-| Table            | Holds                                                                                       | Removed                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `scans`          | full results of root scans                                                                  | after `RETENTION_DAYS`                                           |
-| `targets`        | one row per host: first and last seen, scan count, last level, scores, platform and profile | never                                                            |
-| `scan_history`   | one row per distinct state of a host                                                        | never                                                            |
-| `scan_progress`  | the events of a scan in flight, for the page's poll                                         | an hour after the last update                                    |
-| `scan_jobs`      | stepped scans                                                                               | running jobs fail after 30 minutes, finished ones go after a day |
-| `scan_job_cache` | responses fetched by a step                                                                 | when the job ends, or after 2 hours                              |
-| `scan_limits`    | the host reservations                                                                       | after a day                                                      |
-| `monitors`       | monitoring subscriptions (tokens stored as SHA-256 only)                                    | unconfirmed ones after 48 hours                                  |
+| Table                  | Holds                                                                                       | Removed                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `scans`                | full results of root scans                                                                  | after `RETENTION_DAYS`                                           |
+| `targets`              | one row per host: first and last seen, scan count, last level, scores, platform and profile | never                                                            |
+| `scan_history`         | one row per distinct state of a host                                                        | never                                                            |
+| `scan_progress`        | the events of a scan in flight, for the page's poll                                         | an hour after the last update                                    |
+| `scan_jobs`            | stepped scans                                                                               | running jobs fail after 30 minutes, finished ones go after a day |
+| `scan_job_cache_parts` | responses fetched by a step                                                                 | when the job ends, or after 2 hours                              |
+| `scan_limits`          | the host reservations                                                                       | after a day                                                      |
+| `monitors`             | monitoring subscriptions (tokens stored as SHA-256 only)                                    | unconfirmed ones after 48 hours                                  |
 
 The daily cleanup cron does these removals. The hourly sweeper also removes the job rows of one-time scans once they are an hour old. Results are stored through `SqlResultStore`. Fix text is stripped before storage and re-attached from the catalog on read, which keeps rows small.
 
