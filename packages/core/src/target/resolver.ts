@@ -74,13 +74,31 @@ const POLICY_PATTERNS: Record<PolicyKind, RegExp> = {
     /\b(contacts?|contactez|kontakt|contatt[io]|contacto|support|help|hilfe|aide|ayuda|customer service|kundenservice|kundendienst|service client|servizio clienti|atenci(?:ó|o)n al cliente)\b/i,
 };
 
-/** Path segments that name a listing (collection, category or shop index). */
-const LISTING_SEGMENT =
-  /^(shop|store|collections?|collection|product-category|category|categories|cat|c|kategorie|kategorien|categorie|categoria|categorias|catalog|catalogue)$/i;
+/**
+ * Path segments that only a shop uses for its listings: a collection, a product category,
+ * a shop or catalog index.
+ */
+const STORE_LISTING_SEGMENT =
+  /^(shop|store|collections?|product-category|product-categories|catalog|catalogue)$/i;
+/**
+ * Path segments a shop uses for categories but a blog or news site uses just as often
+ * (WordPress puts every post category under /category/). They pick a listing page on a
+ * site already known to sell, but never make a site a store on their own.
+ */
+const GENERIC_LISTING_SEGMENT =
+  /^(category|categories|cat|c|kategorie|kategorien|categorie|categoria|categorias)$/i;
+
+const isListingSegment = (segment: string): boolean =>
+  STORE_LISTING_SEGMENT.test(segment) || GENERIC_LISTING_SEGMENT.test(segment);
 
 /** True when the path has a listing segment: /collections/socks, /shop/, /c/shoes. */
 export function isListingPath(pathname: string): boolean {
-  return pathname.split('/').some((segment) => LISTING_SEGMENT.test(segment));
+  return pathname.split('/').some(isListingSegment);
+}
+
+/** True when the path has a segment only a shop uses: /collections/socks, /shop/. */
+export function isStoreListingPath(pathname: string): boolean {
+  return pathname.split('/').some((segment) => STORE_LISTING_SEGMENT.test(segment));
 }
 
 /** Kept for callers that tested the old pattern; same semantics as isListingPath on a path. */
@@ -104,7 +122,7 @@ export function chooseListing(urls: readonly string[]): string | undefined {
     }
     if (!isListingPath(pathname) || looksLikeProductUrl(href)) continue;
     const segments = pathname.split('/').filter(Boolean);
-    const index = segments.findIndex((segment) => LISTING_SEGMENT.test(segment));
+    const index = segments.findIndex(isListingSegment);
     const depth = segments.length - index;
     const entry = counts.get(href) ?? { url: href, depth, count: 0 };
     entry.count += 1;
@@ -120,7 +138,8 @@ export function chooseListing(urls: readonly string[]): string | undefined {
 
 /**
  * Signs that a page sells something, in the languages the policy patterns cover: an
- * add-to-cart phrase or a cart path in the HTML, or Product, Offer or ItemList JSON-LD.
+ * add-to-cart phrase or a cart path in the HTML, or Product, Offer or OnlineStore JSON-LD.
+ * ItemList is not one: content sites use it for lists of articles.
  */
 const STORE_TEXT_SIGNAL =
   /add[-_ ]?to[-_ ]?(?:cart|bag|basket)|in den (?:warenkorb|einkaufswagen)|ajouter au panier|aggiungi al carrello|a(?:ñ|n)adir al carrito|in winkelwagen|do koszyka|lägg i (?:varukorg|kundvagn)|læg i kurv|legg i handlekurv|lisää ostoskoriin|в корзину|カートに入れる|加入购物车|加入購物車|장바구니/i;
@@ -130,7 +149,7 @@ const STORE_PATH_SIGNAL =
 export function hasStoreSignals(doc: HtmlDocument, body: string): boolean {
   if (STORE_TEXT_SIGNAL.test(body) || STORE_PATH_SIGNAL.test(body)) return true;
   return extractJsonLd(doc).nodes.some((node) =>
-    hasType(node, 'Product', 'ProductGroup', 'Offer', 'AggregateOffer', 'ItemList', 'OnlineStore'),
+    hasType(node, 'Product', 'ProductGroup', 'Offer', 'AggregateOffer', 'OnlineStore'),
   );
 }
 
@@ -658,7 +677,8 @@ export async function resolveTarget(
   const hostname = new URL(origin).hostname;
   const homeDoc = new HtmlDocument(blocked ? '' : home.body);
   const match = blocked ? null : matchPlatform(homeDoc, home);
-  const platform = match?.platform ?? 'unknown';
+  let platform = match?.platform ?? 'unknown';
+  let platformSignal = match?.signal ?? null;
   const shopifyHosted = platform === 'shopify' ? isShopifyServed(home) : undefined;
   if (shopifyHosted === false) {
     warnings.push(
@@ -736,11 +756,11 @@ export async function resolveTarget(
     );
   }
   const listing = chooseListing(anchorUrls);
-  if (
-    products.length === 0 &&
-    !blocked &&
-    (listing !== undefined || hasStoreSignals(homeDoc, home.body))
-  ) {
+  // Only a listing path no blog uses (/shop, /collections/...) is evidence of a store. A
+  // /category/ link is on every WordPress blog, so on its own it decides nothing.
+  const storeListing = listing !== undefined && isStoreListingPath(new URL(listing).pathname);
+  const homeStoreSignals = hasStoreSignals(homeDoc, home.body);
+  if (products.length === 0 && !blocked && (storeListing || homeStoreSignals)) {
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
     // still a store; a few linked pages are fetched and kept when they are product pages.
     products = await optionalStep(
@@ -778,14 +798,33 @@ export async function resolveTarget(
     );
   }
 
+  // A WordPress site that also sells (a shop next to a blog or a marketplace) often shows
+  // no WooCommerce marker on its home page, but its product pages do. One product page is
+  // fingerprinted, and the checks reuse it from the fetcher's cache.
+  const firstProduct = products[0];
+  if (platform === 'wordpress' && firstProduct) {
+    const productMatch = await optionalStep(
+      async () => {
+        const response = await fetcher.fetch(firstProduct);
+        return response.status === 200
+          ? matchPlatform(new HtmlDocument(response.body), response)
+          : null;
+      },
+      null,
+      'platform detection on a product page',
+      warnings,
+    );
+    if (productMatch?.platform === 'woocommerce') {
+      platform = 'woocommerce';
+      platformSignal = `${productMatch.signal ?? 'WooCommerce markup'} on a product page`;
+    }
+  }
+
   // A refused home page says nothing about what the site sells; without an override the
   // scan assumes a store so the commerce dimension is reported as not evaluated rather
   // than as not applicable.
   const storeSignals =
-    blocked !== undefined ||
-    products.length > 0 ||
-    listing !== undefined ||
-    hasStoreSignals(homeDoc, home.body);
+    blocked !== undefined || products.length > 0 || storeListing || homeStoreSignals;
   const profile = selectProfile(platform, storeSignals, options.profile);
   emitProgress(options.onProgress, {
     type: 'phase',
@@ -805,7 +844,7 @@ export async function resolveTarget(
     origin,
     hostname,
     platform,
-    ...(match?.signal ? { platformSignal: match.signal } : {}),
+    ...(platformSignal ? { platformSignal } : {}),
     profile,
     home,
     homeDoc,

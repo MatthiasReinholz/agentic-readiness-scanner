@@ -160,6 +160,20 @@
   text-decoration: underline;
   text-underline-offset: 4px;
 }
+/* A report heading links to the site it describes: a thin underline marks the link
+   without weighing on the large type, and turns solid on hover. */
+.site-hero .hero-title-link {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.05em;
+  text-underline-offset: 0.12em;
+  text-decoration-color: hsl(var(--hero-foreground) / 0.4);
+}
+.site-hero .hero-title-link:hover {
+  color: inherit;
+  text-decoration-color: currentColor;
+  text-underline-offset: 0.12em;
+}
 .site-hero a:focus-visible {
   outline: 3px solid hsl(var(--hero-foreground));
   outline-offset: 4px;
@@ -277,15 +291,10 @@
   box-shadow: var(--shadow-soft);
 }
 .hero-form input,
-.hero-form select,
 .hero-form button {
   min-width: 0;
   height: auto;
   min-height: 3.25rem;
-}
-.hero-form input,
-.hero-form select {
-  background: hsl(var(--card));
 }
 /*
  * The scan form's URL field: a fixed "https://" prefix and the input share one bordered
@@ -353,10 +362,11 @@
   font-size: 0.75rem;
   line-height: 1.8;
 }
-/* Let actual available space and text size decide when all three controls fit. */
-@container (min-width: 46rem) {
+/* Let actual available space and text size decide when the field and the button fit
+   on one line. */
+@container (min-width: 32rem) {
   .hero-form {
-    grid-template-columns: minmax(0, 1fr) 13.75rem auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 .home-checks {

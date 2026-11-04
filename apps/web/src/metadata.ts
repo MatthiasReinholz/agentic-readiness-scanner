@@ -1,5 +1,5 @@
 /** Hosted-page discovery and sharing metadata. Values describe public, visible content only. */
-import { catalog } from '@agentic-readiness/catalog';
+import { catalog, platformLabel } from '@agentic-readiness/catalog';
 import { escapeHtml, SCANNER_VERSION, scoreText } from '@agentic-readiness/core';
 import {
   SOCIAL_IMAGES,
@@ -170,6 +170,32 @@ export function homeMetadata(config: AppConfig): string {
   )}`;
 }
 
+/**
+ * The search result for a report: a title that names the site and its level, and a
+ * description that asks the question a searcher has and answers it with the level, the
+ * scores and the platform, in about 160 characters. A store's description says that a
+ * checkout was not verified, because a high score never claims that one works.
+ */
+export function reportSnippet(
+  result: StoredScan['result'],
+  hostname: string,
+): { title: string; description: string } {
+  const sells = result.scores.commerce !== null;
+  const platform = platformLabel(result.target.platform);
+  const level = `Level ${String(result.level.value)} (${result.level.name})`;
+  const scores = [
+    `ingestion ${scoreText(result, 'ingestion')}`,
+    ...(sells ? [`commerce ${scoreText(result, 'commerce')}`] : []),
+  ].join(', ');
+  const subject = platform ? `${platform} ${sells ? 'store' : 'site'} at ${level}` : level;
+  return {
+    title: `${hostname}: AI agent readiness ${level}`,
+    description: sells
+      ? `Is ${hostname} ready for AI shopping agents? ${subject}: ${scores}. Public signals, checkout not verified.`
+      : `Is ${hostname} ready for AI agents? ${subject}: ${scores}. From public signals, with a fix for every finding.`,
+  };
+}
+
 /** No sampled URLs, query strings, evidence or personal signup data enter sharing metadata. */
 export function reportMetadata(
   config: AppConfig,
@@ -181,8 +207,7 @@ export function reportMetadata(
   const hostname = new URL(origin).hostname;
   const path = pagePath;
   const url = `${config.baseUrl}${path}`;
-  const title = `Agentic readiness report for ${hostname}`;
-  const description = `Level ${result.level.value} (${result.level.name}). Ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}. Public signals only, checkout not verified.`;
+  const { title, description } = reportSnippet(result, hostname);
   const graph = [
     {
       ...webPage(config, path, title, description, 'report'),

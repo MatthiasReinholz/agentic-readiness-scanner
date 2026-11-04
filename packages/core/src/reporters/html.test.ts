@@ -75,8 +75,12 @@ describe('HTML report', () => {
     const result = await scan('https://blog.example/', {
       fetcher: fixtureFetcher(fixture('content-site')),
     });
-    const title = (html: string) => /<h1 class="hero-title">(.*?)<\/h1>/.exec(html)?.[1];
+    const title = (html: string) =>
+      /<h1 class="hero-title"><a class="hero-title-link" href="[^"]+">(.*?)<\/a><\/h1>/.exec(
+        html,
+      )?.[1];
     expect(title(renderHtml(result))).toBe('https://<wbr>blog.example');
+    expect(renderHtml(result)).toContain('<a class="hero-title-link" href="https://blog.example">');
     expect(
       title(renderHtml(result, { displayUrl: 'https://shop.example/en/sale?a=1&b=<2>' })),
     ).toBe('https://<wbr>shop.example<wbr>/en<wbr>/sale?a=1&amp;b=&lt;2&gt;');

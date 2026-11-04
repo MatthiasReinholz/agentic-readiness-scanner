@@ -4,6 +4,7 @@ import {
   diffSnapshots,
   escapeHtml,
   scoreTone,
+  siteHeadingLink,
   type ResultDiff,
 } from '@agentic-readiness/core';
 import { badge, button, card, icon, panel, identifier } from '@agentic-readiness/ui';
@@ -168,7 +169,7 @@ export function historyPage(config: AppConfig, input: HistoryPageInput): string 
     })
     .join('');
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness history</p><h1 class="hero-title">${escapeHtml(host)}</h1><p class="hero-meta">${entries.length} distinct state${entries.length === 1 ? '' : 's'} across ${totalScans} scan${totalScans === 1 ? '' : 's'}${latest ? ` · first scanned ${when(entries[entries.length - 1]?.firstAt ?? latest.firstAt)} · last scanned ${when(latest.lastAt)}` : ''}</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness history</p><h1 class="hero-title">${siteHeadingLink(latest ? new URL(latest.url).origin : `https://${host}`, escapeHtml(host))}</h1><p class="hero-meta">${entries.length} distinct state${entries.length === 1 ? '' : 's'} across ${totalScans} scan${totalScans === 1 ? '' : 's'}${latest ? ` · first scanned ${when(entries[entries.length - 1]?.firstAt ?? latest.firstAt)} · last scanned ${when(latest.lastAt)}` : ''}</p></div>
 <p class="hero-meta"><a href="/h/${escapeHtml(host)}.json">JSON</a> · <a href="/badge/${escapeHtml(host)}.svg">Badge</a></p>
 </div>`;
   const body = `
