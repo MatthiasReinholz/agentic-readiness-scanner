@@ -71,6 +71,18 @@ describe('HTML report', () => {
     expect(standalone).not.toContain('rel="canonical"');
   });
 
+  it('lets the URL title wrap after the scheme and before path slashes, escaped', async () => {
+    const result = await scan('https://blog.example/', {
+      fetcher: fixtureFetcher(fixture('content-site')),
+    });
+    const title = (html: string) => /<h1 class="hero-title">(.*?)<\/h1>/.exec(html)?.[1];
+    expect(title(renderHtml(result))).toBe('https://<wbr>blog.example');
+    expect(
+      title(renderHtml(result, { displayUrl: 'https://shop.example/en/sale?a=1&b=<2>' })),
+    ).toBe('https://<wbr>shop.example<wbr>/en<wbr>/sale?a=1&amp;b=&lt;2&gt;');
+    expect(title(renderHtml(result, { displayUrl: 'shop.example' }))).toBe('shop.example');
+  });
+
   it('maps scores to tones', () => {
     expect(scoreTone(null)).toBe('text-muted-foreground');
     expect(scoreTone(49)).toBe('text-destructive');

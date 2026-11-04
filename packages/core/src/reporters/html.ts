@@ -313,10 +313,13 @@ function renderGroup(
  * breaking mid-word on a phone. overflow-wrap still breaks a host too long for any line.
  */
 function breakableUrl(url: string): string {
-  const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/]*)(.*)$/i.exec(url);
-  if (!match) return escapeHtml(url);
-  const [, scheme = '', host = '', path = ''] = match;
-  return `${escapeHtml(scheme)}<wbr>${escapeHtml(host)}${path
+  const schemeEnd = url.indexOf('://');
+  if (schemeEnd < 1) return escapeHtml(url);
+  const rest = url.slice(schemeEnd + 3);
+  const slash = rest.indexOf('/');
+  const host = slash < 0 ? rest : rest.slice(0, slash);
+  const path = slash < 0 ? '' : rest.slice(slash);
+  return `${escapeHtml(url.slice(0, schemeEnd + 3))}<wbr>${escapeHtml(host)}${path
     .split('/')
     .map((part) => escapeHtml(part))
     .join('<wbr>/')}`;
