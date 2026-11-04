@@ -13,6 +13,7 @@ import {
   hasStoreSignals,
   isListingPath,
   isShopifyServed,
+  isStoreListingPath,
   policyLinkScore,
   resolveTarget,
 } from './resolver.js';
@@ -287,6 +288,57 @@ describe('resolveTarget on a refused home page', () => {
   });
 });
 
+describe('profile detection', () => {
+  const robots = 'User-agent: *\nAllow: /\n';
+
+  it('keeps a blog with category links and an article ItemList a content site', async () => {
+    const home = `<html><head><meta name="generator" content="WordPress 6.8"><script type="application/ld+json">{"@context":"https://schema.org","@type":"ItemList","itemListElement":[]}</script></head><body><a href="/category/news/">News</a><a href="/category/news/">News</a><a href="/2026/11/hello/">Hello</a></body></html>`;
+    const target = await resolveTarget(
+      'https://blog.example/',
+      mapFetcher({ 'https://blog.example/': home, 'https://blog.example/robots.txt': robots }),
+    );
+    expect(target.platform).toBe('wordpress');
+    expect(target.sampled.listing).toBe('https://blog.example/category/news/');
+    expect(target.profile.id).toBe('content-site');
+  });
+
+  it('treats a shop-only listing path as a store', async () => {
+    const home = '<html><body><a href="/collections/socks">Socks</a></body></html>';
+    const target = await resolveTarget(
+      'https://shop.example/',
+      mapFetcher({ 'https://shop.example/': home, 'https://shop.example/robots.txt': robots }),
+    );
+    expect(target.profile.id).toBe('other-store');
+  });
+
+  it('recognises WooCommerce from a product page when the home page shows only WordPress', async () => {
+    const home =
+      '<html><head><meta name="generator" content="WordPress 6.8"></head><body><a href="/product/poster/">Poster</a></body></html>';
+    const product =
+      '<html><body class="product-template-default single-product woocommerce"><button class="single_add_to_cart_button">Add to cart</button></body></html>';
+    const target = await resolveTarget(
+      'https://mixed.example/',
+      mapFetcher({
+        'https://mixed.example/': home,
+        'https://mixed.example/robots.txt': robots,
+        'https://mixed.example/product/poster/': product,
+      }),
+    );
+    expect(target.platform).toBe('woocommerce');
+    expect(target.platformSignal).toBe('woocommerce body class on a product page');
+    expect(target.profile.id).toBe('woocommerce-store');
+  });
+
+  it('tells shop-only listing paths from category paths a blog uses as well', () => {
+    expect(isStoreListingPath('/collections/socks')).toBe(true);
+    expect(isStoreListingPath('/product-category/posters/')).toBe(true);
+    expect(isStoreListingPath('/shop/')).toBe(true);
+    expect(isStoreListingPath('/category/news/')).toBe(false);
+    expect(isStoreListingPath('/c/shoes')).toBe(false);
+    expect(isListingPath('/c/shoes')).toBe(true);
+  });
+});
+
 describe('store signals and listing choice', () => {
   it('recognises a German store without platform markers or product URL patterns', () => {
     const body =
@@ -297,6 +349,9 @@ describe('store signals and listing choice', () => {
     const jsonld =
       '<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"X"}</script></head><body></body></html>';
     expect(hasStoreSignals(new HtmlDocument(jsonld), jsonld)).toBe(true);
+    const articles =
+      '<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"ItemList","itemListElement":[]}</script></head><body></body></html>';
+    expect(hasStoreSignals(new HtmlDocument(articles), articles)).toBe(false);
   });
 
   it('prefers a concrete collection over a product page or a bare shop index', () => {

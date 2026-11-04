@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **Profile detection is reliable, so the scan form no longer asks for a profile.** Six of twelve well-known content sites had been classed as stores. A `/category/` link, which every WordPress blog has, counted as a product listing, and `ItemList` JSON-LD for article lists counted as a store signal. Now only shop-specific listing paths (`/shop`, `/collections/…`, `/product-category/…`, `/catalog`) count, and `ItemList` does not. Tested on 12 content sites and 18 stores across Shopify, WooCommerce, Wix, BigCommerce and custom platforms: every site serving its real pages is classed correctly. The API still accepts a `profile` override.
+- **WooCommerce is recognised from a product page.** A WordPress site that also sells, such as a shop next to a blog, often shows no WooCommerce marker on its home page. When a WordPress site has product pages, the scanner fingerprints the first one, so the WooCommerce checks run.
+- **Result pages link to the site they describe, with a search snippet that answers the question.** The report heading links to the scanned site, as do the history and legal pages. The title names the site and its level, and the description asks whether the site is ready for AI agents and answers with the level, the scores and the platform.
+
 ### Fixed
 
 - **UI alignment audit across every page, width and theme.**

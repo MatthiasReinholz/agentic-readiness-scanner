@@ -10,9 +10,6 @@ import {
   icon,
   input,
   identifier,
-  nativeSelect,
-  nativeSelectChevron,
-  nativeSelectWrapper,
 } from '@agentic-readiness/ui';
 
 import type { AppConfig } from '../config.js';
@@ -32,12 +29,6 @@ function sync(){var m=/^\\s*https:\\/\\//i.exec(i.value);if(m){var at=Math.max(0
 i.addEventListener('input',sync);window.addEventListener('pageshow',sync);sync()})();`;
 
 export function homePage(config: AppConfig, error?: string): string {
-  const profiles = catalog.profiles
-    .map(
-      (profile) =>
-        `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.title)}</option>`,
-    )
-    .join('');
   const groups = catalog.groups
     .map(
       (group) =>
@@ -52,7 +43,6 @@ export function homePage(config: AppConfig, error?: string): string {
 ${error ? `<div class="${alert({ variant: 'destructive' })} hero-error mt-4" role="alert">${icon('circle-alert')}<strong class="font-semibold">${escapeHtml(error)}</strong></div>` : ''}
 <form method="post" action="/scan" id="scan-form" class="hero-form">
 <label class="${cn(input, 'py-0')} url-field"><span class="url-field-prefix" aria-hidden="true">https://</span><input type="text" name="url" placeholder="example.com" required aria-label="Store URL, such as example.com" autocomplete="url" inputmode="url" autocapitalize="none" spellcheck="false"></label>
-<div class="${nativeSelectWrapper}"><select class="${nativeSelect}" name="profile" aria-label="Profile"><option value="">Detect profile</option>${profiles}</select>${icon('chevron-down', nativeSelectChevron)}</div>
 <button type="submit" class="${button({ size: 'lg' })} hero-submit">Scan my store${icon('arrow-right')}</button>
 </form>
 <p class="hero-trust"><span>Public signals only</span><span>No credentials needed</span><span>A fix for every finding</span></p>

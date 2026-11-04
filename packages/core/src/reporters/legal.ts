@@ -27,7 +27,7 @@ import {
 } from '@agentic-readiness/ui';
 
 import { htmlDocument, pageHero, siteFooter, siteHeader } from './html-theme.js';
-import { escapeHtml } from './shared.js';
+import { escapeHtml, siteHeadingLink } from './shared.js';
 
 export type LegalStatus = 'found' | 'review' | 'not_found' | 'not_applicable' | 'not_checked';
 
@@ -334,7 +334,7 @@ export function renderLegalHtml(result: ScanResult, options: LegalReportOptions 
       ? `<a class="underline underline-offset-4" href="${escapeHtml(options.markdownUrl)}" rel="nofollow">Markdown</a>`
       : '',
   ].filter(Boolean);
-  const hero = `<div class="hero-summary"><div class="min-w-0"><p class="hero-eyebrow">Legal signals · technical evaluation</p><h1 class="hero-title">${escapeHtml(host)}</h1><p class="hero-meta">Scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC · not legal advice</p></div>${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}</div>`;
+  const hero = `<div class="hero-summary"><div class="min-w-0"><p class="hero-eyebrow">Legal signals · technical evaluation</p><h1 class="hero-title">${siteHeadingLink(new URL(result.target.url).origin, escapeHtml(host))}</h1><p class="hero-meta">Scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC · not legal advice</p></div>${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}</div>`;
   const body = `${renderLegalSectionHtml(result, options)}
 ${siteFooter(`Legal signals are reported, never scored. Catalog ${escapeHtml(result.catalog_version)} · scanner ${escapeHtml(result.scanner_version)}${options.footerHtml ? `<br>${options.footerHtml}` : ''}`)}`;
   return htmlDocument(

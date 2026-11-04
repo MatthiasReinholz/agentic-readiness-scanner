@@ -47,6 +47,7 @@ import {
   platformResults,
   scopeLines,
   scoreText,
+  siteHeadingLink,
   type GroupedResults,
 } from './shared.js';
 
@@ -346,7 +347,7 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${breakableUrl(options.displayUrl ?? result.target.url)}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${siteHeadingLink(result.target.url, breakableUrl(options.displayUrl ?? result.target.url))}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">

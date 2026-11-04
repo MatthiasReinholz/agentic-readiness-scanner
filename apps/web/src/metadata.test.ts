@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
-import { jsonLd, reportMetadata, type SchemaNode } from './metadata.js';
+import { jsonLd, reportMetadata, reportSnippet, type SchemaNode } from './metadata.js';
 import { MemoryResultStore } from './store/memory.js';
 import type { StoredScan } from './store/types.js';
 
@@ -148,7 +148,14 @@ describe('server-rendered discovery and sharing metadata', () => {
     expect(response.headers.get('link')).toContain(`<${url}>; rel="canonical"`);
     const html = await response.text();
     expect(html).toContain(`<link rel="canonical" href="${url}">`);
-    expect(html).toContain('<title>Agentic readiness report for ceramics.example</title>');
+    expect(html).toContain(
+      `<title>ceramics.example: AI agent readiness Level ${String(result.level.value)} (${result.level.name})</title>`,
+    );
+    // The heading links to the site the report describes, with no nofollow.
+    expect(html).toContain(
+      '<h1 class="hero-title"><a class="hero-title-link" href="https://ceramics.example',
+    );
+    expect(html).not.toMatch(/hero-title-link[^>]*rel=/);
     const graph = graphOf(html);
     expect(graph.find((node) => node['@type'] === 'Report')).toMatchObject({
       '@id': `${url}#report`,
@@ -199,13 +206,27 @@ describe('server-rendered discovery and sharing metadata', () => {
     expect(expired.headers.get('x-robots-tag')).toBeNull();
   });
 
+  it('writes a search snippet that asks the question and answers it within 160 characters', () => {
+    const copy = structuredClone(result);
+    copy.target.platform = 'shopify';
+    const { title, description } = reportSnippet(copy, 'ceramics.example');
+    expect(title).toBe(
+      `ceramics.example: AI agent readiness Level ${String(copy.level.value)} (${copy.level.name})`,
+    );
+    expect(description).toMatch(
+      /^Is ceramics\.example ready for AI shopping agents\? Shopify store at Level \d \(.+\): ingestion .+, commerce .+\. Public signals, checkout not verified\.$/,
+    );
+    expect(description.length).toBeLessThanOrEqual(170);
+  });
+
   it('omits an unscored commerce measurement and sensitive URL parts from metadata', () => {
     const copy = structuredClone(result);
     copy.scores.commerce = null;
     copy.target.url = 'https://ceramics.example/private-path?token=private-token#private-fragment';
     const metadata = reportMetadata(config, storedScan(copy));
-    expect(metadata.description).toContain('commerce not applicable');
-    expect(metadata.description).toContain('checkout not verified');
+    expect(metadata.description).toMatch(/^Is ceramics\.example ready for AI agents\? /);
+    expect(metadata.description).not.toContain('commerce');
+    expect(metadata.description).not.toContain('checkout');
     expect(metadata.head).not.toMatch(/private-path|private-token|private-fragment/);
     const dataset = graphOf(metadata.head).find((node) => node['@type'] === 'Dataset');
     expect(dataset?.variableMeasured).toHaveLength(2);

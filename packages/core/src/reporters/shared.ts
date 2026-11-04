@@ -47,6 +47,16 @@ export function ceilingSentence(
     : `Cannot exceed ${String(ceiling.value)} while ${ceiling.reason}.${lift}`;
 }
 
+/**
+ * The site a report is about, linked from the report's heading: a plain followed link
+ * with the site's own address as its text, on the page that describes that site. Only
+ * http and https addresses are linked; anything else stays text.
+ */
+export function siteHeadingLink(url: string, labelHtml: string): string {
+  if (!/^https?:\/\//i.test(url)) return labelHtml;
+  return `<a class="hero-title-link" href="${escapeHtml(url)}">${labelHtml}</a>`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
