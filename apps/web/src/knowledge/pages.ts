@@ -6,6 +6,7 @@
  * also exists as Markdown for agents, and carries schema.org structured data for search.
  */
 import {
+  dimensionCopy,
   catalog,
   getCheck,
   getGroup,
@@ -393,7 +394,7 @@ export function knowledgeGroupPage(config: AppConfig, group: Group): string {
     group.description.length > 170
       ? `${group.description.slice(0, 167).replace(/\s+\S*$/, '')}...`
       : group.description;
-  const dimension = group.dimension === 'ingestion' ? 'Agentic ingestion' : 'Agentic commerce';
+  const dimension = dimensionCopy(group.dimension === 'ingestion' ? 'ingestion' : 'commerce').label;
   const position = catalog.groups.indexOf(group);
   const previous = catalog.groups[position - 1];
   const next = catalog.groups[position + 1];

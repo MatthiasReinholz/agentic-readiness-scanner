@@ -1,4 +1,5 @@
 import {
+  dimensionCopy,
   AGENT_WORKING_RULES,
   getCheck,
   PLATFORM_LABEL,
@@ -140,12 +141,12 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   lines.push('');
   lines.push(`**Level ${result.level.value}: ${result.level.name}.** ${nextGateSentence(result)}`);
   lines.push('');
-  for (const [label, dimension] of [
-    ['Ingestion', 'ingestion'],
-    ['Commerce', 'commerce'],
-  ] as const) {
+  for (const dimension of ['ingestion', 'commerce'] as const) {
+    const copy = dimensionCopy(dimension);
     const ceiling = ceilingSentence(result, dimension);
-    lines.push(`- ${label} score: ${scoreText(result, dimension)}${ceiling ? `. ${ceiling}` : ''}`);
+    lines.push(
+      `- **${copy.label}** (${dimension} score): ${scoreText(result, dimension)}${ceiling ? `. ${ceiling}` : ''}`,
+    );
   }
   for (const dimension of ['ingestion', 'commerce'] as const) {
     const score = dimensionScore(result.scores, dimension);
@@ -214,13 +215,15 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
     for (const priority of priorities.informational) lines.push(compactItem(priority));
     lines.push('');
   }
-  lines.push('## Results by section');
+  lines.push('## Every check, section by section');
   lines.push('');
   for (const group of groupResults(result)) {
     const score = scoreGroup(result.results, group.id);
     lines.push(
-      `### ${group.id}. ${group.title} (${score === null ? 'not applicable' : `${score}/100`})`,
+      `### ${group.label}: ${group.question} (${score === null ? 'not applicable' : `${score}/100`})`,
     );
+    lines.push('');
+    lines.push(`${group.id} ${group.title}.`);
     lines.push('');
     for (const item of group.results) lines.push(verdictLine(item));
     lines.push('');

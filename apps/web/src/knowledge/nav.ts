@@ -9,7 +9,12 @@
  *   - a reading progress bar and, on the index, a filter by text and priority.
  * Everything is server-rendered links; the script only adds highlighting and filtering.
  */
-import { catalog, type CheckDefinition, type Group } from '@agentic-readiness/catalog';
+import {
+  catalog,
+  dimensionCopy,
+  type CheckDefinition,
+  type Group,
+} from '@agentic-readiness/catalog';
 import { knowledge, type KnowledgeArticle } from '@agentic-readiness/catalog/knowledge';
 import { escapeHtml, tierOf, type Tier } from '@agentic-readiness/core';
 
@@ -99,7 +104,7 @@ export function journeyRail(currentGroup?: string): string {
     // The rail runs from the first dot's centre to the last: half a step in from each end.
     return `<div class="min-w-0"><p class="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">${label}</p><ol class="relative flex before:absolute before:left-[calc(50%/var(--steps))] before:right-[calc(50%/var(--steps))] before:top-[1.4rem] before:h-px before:bg-border" style="--steps:${count}">${steps}</ol></div>`;
   };
-  return `<nav aria-label="The agent's journey" class="rounded-md overflow-x-auto" tabindex="0"><div class="grid gap-3 md:grid-cols-[4fr_5fr] md:gap-4">${half('ingestion', 'Agentic ingestion')}${half('commerce', 'Agentic commerce')}</div></nav>`;
+  return `<nav aria-label="The agent's journey" class="rounded-md overflow-x-auto" tabindex="0"><div class="grid gap-3 md:grid-cols-[4fr_5fr] md:gap-4">${half('ingestion', dimensionCopy('ingestion').label)}${half('commerce', dimensionCopy('commerce').label)}</div></nav>`;
 }
 
 /** Every check as one cell, grouped by section; the current check and section stand out. */

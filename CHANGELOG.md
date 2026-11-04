@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- **Reports speak plain language and open with an overview at a glance.** The two scores are now called **Visible to AI** (can AI find and read your site?) and **Shoppable by AI** (can AI understand, trust and buy from your store?). The JSON keys stay `ingestion` and `commerce`. Each section has a short name and a question: Findable, Open to AI, Readable, Connectable, Browsable, Well described, Identifiable, Trustworthy and Buyable. The report's first card shows both scores with their sections, a coloured score and one clickable cell per check. The detailed results below keep the technical names and the evidence. The catalog carries the names (`label` and `question` on each group, `dimensions.json`), so the Markdown report, the knowledge base and the MCP tool use the same words.
+- **Plainer level names:** Level 1 is now Reachable (was Crawlable), and Level 5 is Checkout-ready (was Transactable). The next-level sentence lists the fixes by name, without check ids.
+
+### Changed
+
 - **Profile detection is reliable, so the scan form no longer asks for a profile.** Six of twelve well-known content sites had been classed as stores. A `/category/` link, which every WordPress blog has, counted as a product listing, and `ItemList` JSON-LD for article lists counted as a store signal. Now only shop-specific listing paths (`/shop`, `/collections/…`, `/product-category/…`, `/catalog`) count, and `ItemList` does not. Tested on 12 content sites and 18 stores across Shopify, WooCommerce, Wix, BigCommerce and custom platforms: every site serving its real pages is classed correctly. The API still accepts a `profile` override.
 - **WooCommerce is recognised from a product page.** A WordPress site that also sells, such as a shop next to a blog, often shows no WooCommerce marker on its home page. When a WordPress site has product pages, the scanner fingerprints the first one, so the WooCommerce checks run.
 - **Result pages link to the site they describe, with a search snippet that answers the question.** The report heading links to the scanned site, as do the history and legal pages. The title names the site and its level, and the description asks whether the site is ready for AI agents and answers with the level, the scores and the platform.

@@ -138,7 +138,7 @@ describe('scan of a content site', () => {
     expect(result.target.platform).toBe('wordpress');
     expect(result.target.profile).toBe('content-site');
     expect(result.scores.commerce).toBeNull();
-    expect(result.level).toEqual({ value: 1, name: 'Crawlable', next_gate: [] });
+    expect(result.level).toEqual({ value: 1, name: 'Reachable', next_gate: [] });
     expect(
       result.results
         .filter((item) => item.group.startsWith('B'))

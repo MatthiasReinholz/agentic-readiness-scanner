@@ -61,7 +61,7 @@ describe('computeLevel', () => {
       result('A2.4', 'pass'),
       result('A3.2', 'pass'),
     ];
-    expect(computeLevel(crawlable)).toMatchObject({ value: 1, name: 'Crawlable' });
+    expect(computeLevel(crawlable)).toMatchObject({ value: 1, name: 'Reachable' });
     expect(computeLevel(crawlable).next_gate).toEqual([
       'A1.3',
       'B1.2',
@@ -110,7 +110,7 @@ describe('computeLevel', () => {
     ];
     expect(computeLevel(results, catalog, contentSite)).toEqual({
       value: 1,
-      name: 'Crawlable',
+      name: 'Reachable',
       next_gate: [],
     });
   });

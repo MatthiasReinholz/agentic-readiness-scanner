@@ -20,26 +20,18 @@ import {
   panel,
 } from '@agentic-readiness/ui';
 
-import {
-  dimensionScore,
-  incompleteScoreSentence,
-  scoreGroup,
-  type DimensionScore,
-} from '../scoring.js';
+import { scoreGroup } from '../scoring.js';
 import { CHECK_MAP_CSS, CHECK_MAP_SCRIPT, checkMapHtml } from './check-map.js';
 import { htmlDocument, pageHero, scoreTone, siteFooter, siteHeader } from './html-theme.js';
 import {
   groupIsOptional,
   prioritize,
-  skipPhrases,
   TIER_LABEL,
   type Priorities,
   type Priority,
   type Tier,
 } from './priorities.js';
 import {
-  ceilingSentence,
-  countVerdicts,
   escapeHtml,
   failedResults,
   groupResults,
@@ -105,32 +97,12 @@ function copyButton(targetId: string, labelText: string): string {
   return `<button type="button" class="${button({ variant: 'outline', size: 'sm' })}" data-copy="${targetId}">${icon('copy')}<span data-copy-label>${labelText}</span></button>`;
 }
 
-function scoreCard(
-  label: string,
-  dimension: DimensionScore,
-  scoredNote: string,
-  ceiling: string | null = null,
-): string {
-  const score = dimension.value;
-  const tone = scoreTone(score);
-  const note =
-    dimension.state === 'incomplete'
-      ? incompleteScoreSentence(dimension)
-      : dimension.state === 'not_applicable'
-        ? 'Not scored for this profile'
-        : scoredNote;
-  const value =
-    dimension.state === 'incomplete'
-      ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">Incomplete</div>`
-      : score === null
-        ? `<div class="mt-1.5 text-[2rem] font-extrabold leading-none text-muted-foreground">n/a</div>`
-        : `<div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none ${tone}">${score}<small class="text-sm font-semibold text-muted-foreground">/ 100</small></div>`;
-  const meter =
-    score === null
-      ? ''
-      : `<div class="mt-3 h-1.5 overflow-hidden rounded-full bg-muted ${tone}" aria-hidden="true"><i class="block h-full rounded-full bg-current" style="width:${score}%"></i></div>`;
-  return `<div class="${card} p-4"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">${escapeHtml(label)}</div>${value}${meter}<div class="mt-2 text-sm text-muted-foreground">${escapeHtml(note)}</div>${ceiling ? `<div class="mt-2 text-sm leading-6" data-ceiling>${escapeHtml(ceiling)}</div>` : ''}</div>`;
-}
+/** The profile as a reader says it: what the scanner took the site for. */
+const PROFILE_PHRASE: Record<string, string> = {
+  'woocommerce-store': 'a WooCommerce store',
+  'other-store': 'an online store',
+  'content-site': 'a content site that sells nothing',
+};
 
 function promptFor(result: ScanResult, item: CheckResult, reportUrl?: string): string | null {
   const definition = getCheck(item.id);
@@ -286,7 +258,7 @@ function renderGroup(
   const counts = { pass: 0, warn: 0, fail: 0, skip: 0 };
   for (const item of group.results) counts[item.verdict] += 1;
   const meta = [
-    `<span>${escapeHtml(group.dimension)}</span>`,
+    `<span><span class="${identifier}">${escapeHtml(group.id)}</span> ${escapeHtml(group.title)}</span>`,
     counts.fail ? `<span class="text-destructive">${counts.fail} fail</span>` : '',
     counts.warn ? `<span class="text-warning">${counts.warn} warn</span>` : '',
     counts.pass ? `<span class="text-success">${counts.pass} pass</span>` : '',
@@ -305,7 +277,7 @@ function renderGroup(
   const optionalTag = optional
     ? `<span class="${badge({ variant: 'outline' })}" data-group-optional>nice to have</span>`
     : '';
-  return `<details class="result-section group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold leading-6 tracking-tight"><span class="min-w-0"><span class="${identifier}">${escapeHtml(group.id)}</span> · ${escapeHtml(group.title)}</span>${optionalTag}</h2><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-sm text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
+  return `<details class="result-section group/section ${card} overflow-hidden" data-group="${escapeHtml(group.id)}" id="group-${escapeHtml(group.id)}"><summary class="${SECTION_SUMMARY_CLASS}">${disclosureChevron('section')}<div class="min-w-0"><h2 class="flex flex-wrap items-center gap-2 text-base font-semibold leading-6 tracking-tight"><span class="min-w-0">${escapeHtml(group.label)}</span>${optionalTag}</h2><p class="text-sm text-muted-foreground">${escapeHtml(group.question)}</p><div class="mt-1 flex flex-wrap gap-x-2.5 gap-y-1 text-xs text-muted-foreground">${meta}</div></div>${scoreMarkup}</summary><ul class="divide-y divide-border py-1">${group.results.map((item) => renderCheck(result, item, options)).join('')}</ul></details>`;
 }
 
 /**
@@ -327,7 +299,6 @@ function breakableUrl(url: string): string {
 }
 
 export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}): string {
-  const counts = countVerdicts(result);
   const priorities = prioritize(result);
   const openCounts = (['blocking', 'expected', 'nice_to_have', 'informational'] as const)
     .filter((tier) => priorities.counts[tier] > 0)
@@ -347,7 +318,7 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
   const hero = `<div class="hero-summary">
-<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${siteHeadingLink(result.target.url, breakableUrl(options.displayUrl ?? result.target.url))}</h1>${platformHero(result)}<p class="hero-meta">Profile ${escapeHtml(result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
+<div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${siteHeadingLink(result.target.url, breakableUrl(options.displayUrl ?? result.target.url))}</h1>${platformHero(result)}<p class="hero-meta">Checked as ${escapeHtml(PROFILE_PHRASE[result.target.profile] ?? result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">
@@ -355,15 +326,10 @@ ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 <div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(result.level.name)}</h2>${gate ? `<p class="mt-1.5">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold underline underline-offset-4" href="#priorities">What to do</a></p>` : ''}</div>
 </div>`;
   const body = `${checkMapHtml(result, card)}
-<section class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Scores">
-${scoreCard('Agentic ingestion', dimensionScore(result.scores, 'ingestion'), 'Can agents find and read the site?', ceilingSentence(result, 'ingestion'))}
-${scoreCard('Agentic commerce', dimensionScore(result.scores, 'commerce'), 'Can agents trust and buy?', ceilingSentence(result, 'commerce'))}
-<div class="${card} p-4 sm:col-span-2 lg:col-span-1"><div class="text-xs font-bold uppercase tracking-wider text-muted-foreground">Checks</div><div class="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-[2rem] font-extrabold leading-none">${counts.pass + counts.warn + counts.fail}<small class="text-sm font-semibold text-muted-foreground">evaluated</small></div><div class="mt-3 flex flex-wrap gap-3"><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.pass}${counts.pass}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.warn}${counts.warn}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.fail}${counts.fail}</span><span class="inline-flex min-w-0 flex-1 basis-28 flex-wrap items-center gap-2 font-bold tabular-nums">${VERDICT_BADGE.skip}${counts.skip}</span></div><div class="mt-2 text-sm text-muted-foreground">${escapeHtml(skipPhrases(result).join(' · ').replace('did not apply', 'did not apply to this site'))}</div></div>
-</section>
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A commerce score above 60 needs a checkout an agent can use to be advertised. It never means a channel approved the products or that a checkout works.</span></div>`}
 ${renderPriorities(priorities)}
 ${options.afterScoresHtml ?? ''}
-<div class="mb-3 mt-10 flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold tracking-tight">Results by section</h2><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
+<div class="mb-3 mt-10 flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-lg font-semibold tracking-tight">Every check, section by section</h2><p class="mt-0.5 text-sm text-muted-foreground">The evidence behind each verdict, with a fix for every finding.</p></div><button type="button" class="${button({ variant: 'outline', size: 'sm' })}" id="expand-all" aria-expanded="false">Expand all</button></div>
 <div class="space-y-3">${sections}</div>
 ${prompts ? `<section class="${panel} mt-8"><div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-lg font-semibold tracking-tight">All fix briefs</h2><p class="mt-1 text-sm text-muted-foreground">One brief per finding, ready for a coding agent working on the store.</p></div>${copyButton('all-prompts', 'Copy all')}</div><textarea class="${textarea} mt-3.5 min-h-[260px]" id="all-prompts" readonly aria-label="All fix briefs">${escapeHtml(prompts)}</textarea></section>` : ''}
 <section class="mt-8" id="scope"><h2 class="text-lg font-semibold tracking-tight">What this scan did and did not do</h2><ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">${scopeLines(

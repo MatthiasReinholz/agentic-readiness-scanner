@@ -128,7 +128,12 @@ export type CatalogFix = z.infer<typeof CatalogFixSchema>;
 
 export const GroupSchema = z.object({
   id: z.string().regex(GROUP_ID_PATTERN),
+  /** The technical name, for experts and the knowledge base: "Discoverability". */
   title: z.string().min(1),
+  /** The short plain name every reader understands: "Findable". Required for readiness groups. */
+  label: z.string().min(1).optional(),
+  /** The plain question the section answers: "Can AI find your site and products?" */
+  question: z.string().min(1).optional(),
   dimension: DimensionSchema,
   description: z.string().min(1),
 });
@@ -216,11 +221,23 @@ export const ProfileSchema = z.object({
 });
 export type Profile = z.infer<typeof ProfileSchema>;
 
+/** What a reader sees for a scored dimension: a short name and the question it answers. */
+export const DimensionCopySchema = z.object({
+  id: z.enum(['ingestion', 'commerce']),
+  /** The headline name: "Visible to AI". */
+  label: z.string().min(1),
+  /** The plain question the score answers: "Can AI find and read your site?" */
+  question: z.string().min(1),
+});
+export type DimensionCopy = z.infer<typeof DimensionCopySchema>;
+
 export const CatalogSchema = z.object({
   /** Semantic version of the check catalog. Any change to checks or fixes bumps it. */
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
   /** Semantic version of the scoring rules (weights, levels). Versioned apart from evidence. */
   scoring_version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  /** Reader-facing names of the two scores; the result keys stay ingestion and commerce. */
+  dimensions: z.array(DimensionCopySchema).length(2),
   groups: z.array(GroupSchema).min(1),
   checks: z.array(CheckDefinitionSchema).min(1),
   levels: z.array(LevelSchema).min(1),
@@ -322,6 +339,12 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
   for (const group of catalog.groups) {
     if (group.dimension === 'legal')
       problems.push(`group ${group.id}: legal groups belong in legal.groups`);
+    if (!group.label || !group.question)
+      problems.push(`group ${group.id}: readiness groups need a label and a question`);
+  }
+  for (const id of ['ingestion', 'commerce'] as const) {
+    if (!catalog.dimensions.some((dimension) => dimension.id === id))
+      problems.push(`dimensions: missing ${id}`);
   }
   const legalGroups = new Map(catalog.legal.groups.map((group) => [group.id, group]));
   const lawIds = new Set<string>();

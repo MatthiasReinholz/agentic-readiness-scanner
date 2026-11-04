@@ -16,7 +16,7 @@ export const AUTHOR = {
   url: 'https://matthiasreinholz.com/about/',
 } as const;
 export const HOME_DESCRIPTION =
-  'Scan public signals for agentic ingestion and commerce readiness. Get a shareable report with evidence, prioritized findings and a fix for every finding.';
+  'Can AI find, read and buy from your store? Scan any URL to see how visible and shoppable it is for AI agents, with evidence and a fix for every finding.';
 export type SchemaNode = Record<string, unknown>;
 
 /** Escape HTML raw-text delimiters without changing the JSON values after parsing. */

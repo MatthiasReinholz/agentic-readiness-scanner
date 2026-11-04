@@ -79,7 +79,7 @@ function securityTxtExpires(now: Date): string {
 function llmsTxt(config: AppConfig): string {
   return `# ${config.appName}
 
-> Scans any store URL for agentic ingestion and agentic commerce readiness. Public signals only. Every finding ships with a fix.
+> Scans any store URL for how ready it is for AI agents: Visible to AI (can AI find and read the site, the agentic ingestion score) and Shoppable by AI (can AI understand, trust and buy, the agentic commerce score). Public signals only. Every finding ships with a fix.
 
 ## Use it
 

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "ingestion",
+    "label": "Visible to AI",
+    "question": "Can AI find and read your site?"
+  },
+  {
+    "id": "commerce",
+    "label": "Shoppable by AI",
+    "question": "Can AI understand, trust and buy from your store?"
+  }
+]
