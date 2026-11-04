@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-04
+
 ### Added
 
 - **Three checks for what agents do once they reach a store** (catalog 0.8.0):
