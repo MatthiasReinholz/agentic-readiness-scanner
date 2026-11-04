@@ -48,10 +48,34 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
 export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
   const sitemap = target.sitemap;
   if (!sitemap) {
-    return fail(
-      'no sitemap found via robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml',
-      { declared_in_robots: target.robots?.sitemaps ?? [] },
-    );
+    const discovery = target.sitemapDiscovery;
+    const declared = target.robots?.sitemaps ?? [];
+    // "No sitemap" is only a finding when every request answered; a 429, a server error or
+    // a cut-off budget leaves the question open.
+    if (discovery && !discovery.complete) {
+      return skip(
+        'error',
+        `could not tell whether a sitemap exists: ${discovery.reason ?? 'sitemap discovery did not finish'}`,
+        { declared_in_robots: declared, tried: discovery.tried ?? [] },
+      );
+    }
+    const tried = discovery?.tried;
+    const where =
+      tried && tried.length > 0
+        ? `${declared.length > 0 ? 'robots.txt or ' : ''}${tried
+            .map((url) => {
+              try {
+                return new URL(url).pathname;
+              } catch {
+                return url;
+              }
+            })
+            .join(', ')}`
+        : 'robots.txt, /sitemap.xml, /sitemap_index.xml or /wp-sitemap.xml';
+    return fail(`no sitemap found via ${where}`, {
+      declared_in_robots: declared,
+      ...(tried ? { tried } : {}),
+    });
   }
   const evidence = {
     url: sitemap.url,

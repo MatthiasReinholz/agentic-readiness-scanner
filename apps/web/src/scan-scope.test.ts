@@ -355,7 +355,9 @@ describe('root profiles and one-time scans', () => {
       id: string;
       result: ScanResult;
     };
-    expect(body.result.target.url).toBe('https://destination.example');
+    // A home page that leaves for another site is not evaluated in its place: the scan
+    // stays on the typed origin and reports the redirect.
+    expect(body.result.target.url).toBe('https://ceramics.example');
     expect((await h.history.forHost('ceramics.example', 10))[0]?.url).toBe(
       'https://ceramics.example',
     );
