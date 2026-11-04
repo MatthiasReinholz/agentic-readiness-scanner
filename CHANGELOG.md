@@ -13,6 +13,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - **The scanner never counts a check it could not answer as a failure.** A rate limit, a gateway error or no response is now inconclusive in A1.1, A1.5, B1.2, B1.8 and B5.1. A refused or rate-limited policy page is inconclusive in B4.1 and B4.2. Checks that depend on an inconclusive check say "not evaluated", not "did not pass". When only unanswered checks stand before the next level, the result carries `level.undetermined` and the report says the level is not decided.
 - **Absent optional files are not scored:** A1.4 (Link headers), A4.1 (MCP server card), A4.2 (API catalog) and A4.5 (A2A agent card) are not applicable when nothing is published. A broken file still fails. A4.3 no longer fails an MCP endpoint that does not ask for authorization, which the MCP specification makes optional.
 - **A1.6, A3.10 and B1.6 are informational.** No agent documents reading the links in llms.txt or the viewport tag, or a freshness threshold for feeds.
+- **Reports speak plain language and open with an overview at a glance.** The two scores are now called **Visible to AI** (can AI find and read your site?) and **Shoppable by AI** (can AI understand, trust and buy from your store?). The JSON keys stay `ingestion` and `commerce`. Each section has a short name and a question: Findable, Open to AI, Readable, Connectable, Browsable, Well described, Identifiable, Trustworthy and Buyable. The report's first card shows both scores with their sections, a coloured score and one clickable cell per check. The detailed results below keep the technical names and the evidence. The catalog carries the names (`label` and `question` on each group, `dimensions.json`), so the Markdown report, the knowledge base and the MCP tool use the same words.
+- **Plainer level names:** Level 1 is now Reachable (was Crawlable), and Level 5 is Checkout-ready (was Transactable). The next-level sentence lists the fixes by name, without check ids.
+- **Profile detection is reliable, so the scan form no longer asks for a profile.** Six of twelve well-known content sites had been classed as stores. A `/category/` link, which every WordPress blog has, counted as a product listing, and `ItemList` JSON-LD for article lists counted as a store signal. Now only shop-specific listing paths (`/shop`, `/collections/…`, `/product-category/…`, `/catalog`) count, and `ItemList` does not. Tested on 12 content sites and 18 stores across Shopify, WooCommerce, Wix, BigCommerce and custom platforms: every site serving its real pages is classed correctly. The API still accepts a `profile` override.
+- **WooCommerce is recognised from a product page.** A WordPress site that also sells, such as a shop next to a blog, often shows no WooCommerce marker on its home page. When a WordPress site has product pages, the scanner fingerprints the first one, so the WooCommerce checks run.
+- **Result pages link to the site they describe, with a search snippet that answers the question.** The report heading links to the scanned site, as do the history and legal pages. The title names the site and its level, and the description asks whether the site is ready for AI agents and answers with the level, the scores and the platform.
 
 ### Fixed
 
@@ -22,27 +27,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Applebot follows the Googlebot group** when robots.txt has no Applebot group, as Apple documents.
 - **Stable product samples:** pages are picked by a hash of the URL, so a new product changes a store's sample by at most one page. Rescans compare the same products.
 - **Fewer wasted requests:** a URL already met as a redirect hop is served from cache, and a timeout cut short by a scan step is retried in the next step instead of being recorded as a failure.
-
 - **An invalid GTIN can no longer pass the identity level.** B3.2 now fails on a GTIN with a wrong check digit or a prefix Google rejects (02, 04 and 2 for in-store and internal numbers, 05, 98 and 99 for coupons), and the level needs it to pass. It passes when no product declares a GTIN, so brand plus part number still identifies products without one.
 - **Level 5 needs a complete checkout declaration.** B5.2 no longer reads a UCP profile that lists only catalog capabilities as a checkout. B5.3 requires the fields the ACP discovery RFC makes mandatory: `protocol.supported_versions` and `capabilities.services`.
-
-### Removed
-
-- **B1.3 Store API not rate-limited for reads.** WooCommerce's rate limiter is off by default and covers only POST requests, so product reads never meet it. Its knowledge-base URL redirects to the Store API article.
-
-### Changed
-
-- **Reports speak plain language and open with an overview at a glance.** The two scores are now called **Visible to AI** (can AI find and read your site?) and **Shoppable by AI** (can AI understand, trust and buy from your store?). The JSON keys stay `ingestion` and `commerce`. Each section has a short name and a question: Findable, Open to AI, Readable, Connectable, Browsable, Well described, Identifiable, Trustworthy and Buyable. The report's first card shows both scores with their sections, a coloured score and one clickable cell per check. The detailed results below keep the technical names and the evidence. The catalog carries the names (`label` and `question` on each group, `dimensions.json`), so the Markdown report, the knowledge base and the MCP tool use the same words.
-- **Plainer level names:** Level 1 is now Reachable (was Crawlable), and Level 5 is Checkout-ready (was Transactable). The next-level sentence lists the fixes by name, without check ids.
-
-### Changed
-
-- **Profile detection is reliable, so the scan form no longer asks for a profile.** Six of twelve well-known content sites had been classed as stores. A `/category/` link, which every WordPress blog has, counted as a product listing, and `ItemList` JSON-LD for article lists counted as a store signal. Now only shop-specific listing paths (`/shop`, `/collections/…`, `/product-category/…`, `/catalog`) count, and `ItemList` does not. Tested on 12 content sites and 18 stores across Shopify, WooCommerce, Wix, BigCommerce and custom platforms: every site serving its real pages is classed correctly. The API still accepts a `profile` override.
-- **WooCommerce is recognised from a product page.** A WordPress site that also sells, such as a shop next to a blog, often shows no WooCommerce marker on its home page. When a WordPress site has product pages, the scanner fingerprints the first one, so the WooCommerce checks run.
-- **Result pages link to the site they describe, with a search snippet that answers the question.** The report heading links to the scanned site, as do the history and legal pages. The title names the site and its level, and the description asks whether the site is ready for AI agents and answers with the level, the scores and the platform.
-
-### Fixed
-
 - **Hosted scans reuse the pages earlier steps fetched.** Spacefast refuses a database operation above 64 KiB, and the scan cache wrote each gzipped response in one statement of up to a megabyte, so writes of larger pages failed and the next step fetched them again. Responses are now split into rows of 48 KiB in a new table, `scan_job_cache_parts`, and read back one row per statement. A response that packs to more than a megabyte is still not cached. The old `scan_job_cache` table is dropped.
 - **UI alignment audit across every page, width and theme.**
   - The https:// prefix in the scan form now sits on the same line as the typed text. The input's vertical padding had pushed its text 5px below the prefix.
@@ -52,6 +38,9 @@ All notable changes to this project are documented here. The format follows [Kee
   - Check-map section titles wrap instead of being cut off at tablet widths. Tags on report cards and the legal summary counts align with their neighbours. The history page hero matches the other report heroes.
   - Monospace labels use a full font stack, so Chrome and Firefox show a sans monospace instead of Courier.
 
+### Removed
+
+- **B1.3 Store API not rate-limited for reads.** WooCommerce's rate limiter is off by default and covers only POST requests, so product reads never meet it. Its knowledge-base URL redirects to the Store API article.
 ## [0.14.0] - 2026-11-04
 
 ### Added
