@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-05
+
 ### Added
 
 - **Guides on crawl services and large catalogs.** [How crawl services like Cloudflare's /crawl read your store](https://agentic-readiness-scanner.space.fast/knowledge-base/guides/crawl-services) explains that /crawl is the service's own API, not an endpoint a website publishes, and what such services read: robots.txt, sitemaps, Content Signals and server-rendered HTML. [How to serve a catalog of millions of products](https://agentic-readiness-scanner.space.fast/knowledge-base/guides/large-catalogs) covers sitemap indexes, API pagination and feed size limits.
