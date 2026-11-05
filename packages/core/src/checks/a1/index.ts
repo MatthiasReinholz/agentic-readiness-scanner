@@ -139,8 +139,14 @@ export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {
     entries_read: sitemap?.urls.length ?? 0,
     child_sitemaps: sitemap?.childSitemaps.length ?? 0,
   };
-  if ((sitemap?.productUrls.length ?? 0) > 0) {
-    return pass(`${sitemap?.productUrls.length ?? 0} product URL(s) in sitemap`, evidence);
+  if (sitemap && sitemap.productUrls.length > 0) {
+    if (sitemap.productUrlsBy === 'id-shape') {
+      return pass(
+        `${sitemap.productUrls.length} product URL(s) in sitemap, recognised by the product identifier they end in (such as ${pathOf(sitemap.productUrls[0] ?? sitemap.url)}) because no URL matched a product pattern`,
+        { ...evidence, recognised_by: 'id-shape' },
+      );
+    }
+    return pass(`${sitemap.productUrls.length} product URL(s) in sitemap`, evidence);
   }
   if (productSitemaps.length > 0) {
     return warn(

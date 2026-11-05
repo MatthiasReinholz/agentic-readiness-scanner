@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { mapFetcher, runCheck, targetFor } from '../../testing/index.js';
-import { sitemapReachable } from './index.js';
+import { productUrlsInSitemap, sitemapReachable } from './index.js';
 
 describe('A1.2 when no sitemap was read', () => {
   it('skips with reason error instead of failing when discovery did not finish', async () => {
@@ -68,5 +68,27 @@ describe('A1.2 sitemap protocol limits', () => {
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toMatch(/50,000 entries and 50 MB .*sitemap-products-1\.xml is 76 MB/);
     expect(outcome.evidence.oversized).toEqual(oversized);
+  });
+});
+
+describe('A1.3 product URLs recognised by their identifier', () => {
+  it('passes and says how the URLs were recognised', async () => {
+    const productUrls = [
+      'https://shop.example/blue-sock/PLID211',
+      'https://shop.example/red-sock/PLID212',
+    ];
+    const sitemap = {
+      url: 'https://shop.example/sitemap.xml',
+      kind: 'urlset' as const,
+      childSitemaps: [],
+      fetchedSitemaps: [],
+      urls: productUrls,
+      productUrls,
+      productUrlsBy: 'id-shape' as const,
+    };
+    const outcome = await runCheck(productUrlsInSitemap, targetFor({ sitemap }), mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/recognised by the product identifier .*\/blue-sock\/PLID211/);
+    expect(outcome.evidence.recognised_by).toBe('id-shape');
   });
 });
