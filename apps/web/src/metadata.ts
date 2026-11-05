@@ -1,6 +1,6 @@
 /** Hosted-page discovery and sharing metadata. Values describe public, visible content only. */
 import { catalog, platformLabel } from '@agentic-readiness/catalog';
-import { escapeHtml, SCANNER_VERSION, scoreText } from '@agentic-readiness/core';
+import { escapeHtml, levelLabel, SCANNER_VERSION, scoreText } from '@agentic-readiness/core';
 import {
   SOCIAL_IMAGES,
   SOCIAL_IMAGE_WIDTH,
@@ -182,7 +182,7 @@ export function reportSnippet(
 ): { title: string; description: string } {
   const sells = result.scores.commerce !== null;
   const platform = platformLabel(result.target.platform);
-  const level = `Level ${String(result.level.value)} (${result.level.name})`;
+  const level = `Level ${String(result.level.value)} (${levelLabel(result)})`;
   const scores = [
     `ingestion ${scoreText(result, 'ingestion')}`,
     ...(sells ? [`commerce ${scoreText(result, 'commerce')}`] : []),
