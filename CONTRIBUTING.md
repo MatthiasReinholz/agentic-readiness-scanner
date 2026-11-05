@@ -5,7 +5,7 @@ Thank you for helping stores become readable and buyable by AI agents. This guid
 ## Branching model
 
 - `main` is protected and stays releasable.
-- `feature/<topic>` for normal work.
+- `feature/<topic>`, `fix/<topic>` or `docs/<topic>` for normal work.
 - `release/<x.y.z>` for release preparation only, created by the `prepare-release` workflow.
 - `hotfix/<x.y.z>` for urgent fixes branched from `main`.
 
@@ -59,6 +59,8 @@ A check is a catalog entry, a fix, a knowledge-base article, an implementation a
 7. **Record fixtures** in `fixtures/stores`: the good store should pass the check and, where it makes sense, another fixture should fail it.
 8. **Regenerate the docs** with `pnpm docs:generate` and validate with `pnpm --filter @agentic-readiness/catalog validate`.
 9. **Add a changelog line** under Unreleased in `CHANGELOG.md`.
+
+Legal-signal checks follow the same steps with three differences. The definition goes in `packages/catalog/data/legal/checks/<section>.json` with weight `info`, the markets it is limited to (none means every store) and the ids of the laws it relates to, which must exist in `packages/catalog/data/legal/laws.json`. The implementation goes in `packages/core/src/checks/legal`, built with `defineLegalCheck` and listed in that folder's `index.ts`. The article follows the legal-signals rules in [docs/knowledge-base.md](docs/knowledge-base.md) ([decision 0015](docs/decisions/0015-legal-signals.md)).
 
 A change to a check's definition, weight or fix is a catalog change: bump `version` in `packages/catalog/data/meta.json`. A change to weights, levels or the scoring formulas also bumps `scoring_version` ([docs/scoring.md](docs/scoring.md)).
 

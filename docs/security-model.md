@@ -11,7 +11,7 @@ The scanner fetches URLs that strangers type in. By construction, that makes it 
 - credentials in the URL
 - `localhost`, single-label hostnames, and names ending in `.local`, `.internal`, `.localhost`, `.home.arpa`, `.intranet` or `.lan`
 - private, loopback, link-local, carrier-grade NAT, multicast and reserved IPv4 ranges
-- the IPv6 unspecified and loopback addresses, unique local (`fc00::/7`) and link-local (`fe80::/10`) addresses, and IPv4-mapped forms of the blocked IPv4 ranges
+- the IPv6 unspecified and loopback addresses, unique local (`fc00::/7`), link-local (`fe80::/10`) and multicast (`ff00::/8`) addresses, and IPv4-mapped forms of the blocked IPv4 ranges
 
 Every redirect hop is checked again. DNS resolution happens on the platform, so protection against names that resolve to private addresses depends on the host's outbound policy (see [hosting.md](hosting.md)). That platform-level block was verified on 2026-10-31: scans of `http://127.0.0.1.nip.io/` and `http://10.0.0.1.nip.io/` on the live deployment both failed with HTTP 530 from the platform.
 
@@ -25,7 +25,7 @@ Response bodies are decoded with the charset the `Content-Type` header declares,
 - Requests are sequential, with at least 150 ms between them, and never fan out in parallel against a target.
 - Each request is retried at most once, and never beyond the budget. After a dropped connection the retry waits 500 ms. After a 429 or 503 it waits what `Retry-After` asks when that is five seconds or less, and one second when the header is absent. A longer `Retry-After` is honoured by not retrying.
 - After a 429 the interval between requests grows to one second, then two, for the rest of the scan. Once a 429 persists after its retry, later 429s are not retried. After three persistent 429s the scan stops and the remaining checks say so. Every request that still failed, and every 429, is listed under the scan warnings.
-- The scanner sends GET, HEAD and OPTIONS only, with one exception: a read-only JSON-RPC `server/discover` POST to an MCP endpoint (Model Context Protocol, the standard way AI agents call tools) that the site or its platform documents. Checks A4.4, A4.8, B5.8 and B5.9 send it. If the server refuses it with a plain HTTP 400, as servers on the 2025 session transport do, the scanner sends the `initialize` handshake once instead. Neither creates anything on the server beyond the session the handshake opens.
+- The scanner sends GET, HEAD and OPTIONS only, with two exceptions, both read-only JSON-RPC POSTs to an MCP endpoint (Model Context Protocol, the standard way AI agents call tools) that the site or its platform documents. Checks A4.4, A4.8, B5.8 and B5.9 send `server/discover`. If the server refuses it with a plain HTTP 400, as servers on the 2025 session transport do, the scanner sends the `initialize` handshake once instead. B5.11 sends `tools/list` to the MCP server a UCP profile declares, and when the server asks for a session, the `initialize` handshake, its `initialized` notification and `tools/list` again, at most four requests. None of them calls a tool or creates anything on the server beyond the session the handshake opens.
 
 ## Honest behaviour toward targets
 

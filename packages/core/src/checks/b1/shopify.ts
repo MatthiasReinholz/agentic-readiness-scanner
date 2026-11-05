@@ -1,7 +1,7 @@
 import { contentType } from '../../http/types.js';
 import { HtmlDocument } from '../../parsers/html.js';
 import { isRecord, looksLikeHtml, parseJson } from '../json.js';
-import { blockedByRobots, describeFailure } from '../shared.js';
+import { blockedByRobots, describeFailure, inconclusive, isTransient } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 
 const HANDLE_SAMPLE = 5;
@@ -73,6 +73,8 @@ export const shopifyProductsJsonReadable = defineCheck('B1.8', async ({ target, 
       evidence,
     );
   }
+  // A gateway error says nothing about the endpoint either (ADR 0012).
+  if (isTransient(response)) return inconclusive('products.json', response, evidence);
   if (response.status === 401) {
     return fail(
       'products.json requires authentication (HTTP 401): the storefront is password-protected or the public JSON endpoints are disabled',

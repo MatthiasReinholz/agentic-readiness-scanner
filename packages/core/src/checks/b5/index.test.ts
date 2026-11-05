@@ -786,7 +786,8 @@ describe('B5.4 ACP feed fields', () => {
     seller_privacy_policy: 'https://shop.example/privacy/',
     seller_tos: 'https://shop.example/terms/',
   };
-  const sellerOnly = { ...required, item_id: '3' };
+  // Opts into checkout without the seller policy fields it then needs.
+  const sellerOnly = { ...required, item_id: '3', is_eligible_checkout: true };
   const bare = { id: '4', title: 'Bowl' };
   const run = (evidence: Record<string, unknown>, fetcher: Fetcher = mapFetcher({})) =>
     runCheck(acpFeedFields, targetFor(), fetcher, outcomesWith('B1.5', evidence));
@@ -868,6 +869,13 @@ describe('B5.4 ACP feed fields', () => {
     });
     expect(optedOut.verdict).toBe('pass');
     expect(optedOut.evidence).toMatchObject({ flags: [{ is_eligible_checkout: false }] });
+    // Checkout is off unless an item opts in, so an item without the flag needs no policy fields.
+    const noFlag = await run({
+      feed_url: feedUrl,
+      format: 'json',
+      items: [{ ...required, return_policy: 'https://shop.example/returns/', return_window: '30' }],
+    });
+    expect(noFlag.verdict).toBe('pass');
   });
 
   it('fails when required fields are missing, naming them', async () => {

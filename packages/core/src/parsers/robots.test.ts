@@ -107,3 +107,16 @@ describe('usage-preference lines', () => {
     expect(robots.unknownLines).toEqual([]);
   });
 });
+
+describe('groups that match the same user agent', () => {
+  it('combines their rules, as RFC 9309 requires', () => {
+    const robots = parseRobotsTxt(
+      'User-agent: GPTBot\nDisallow: /private/\n\nUser-agent: *\nAllow: /\n\nUser-agent: GPTBot\nDisallow: /products/\n\nUser-agent: *\nDisallow: /cart/\n',
+    );
+    expect(isAllowed(robots, 'GPTBot', '/products/mug')).toBe(false);
+    expect(isAllowed(robots, 'GPTBot', '/private/x')).toBe(false);
+    expect(isAllowed(robots, 'GPTBot', '/about')).toBe(true);
+    expect(isAllowed(robots, 'ClaudeBot', '/cart/')).toBe(false);
+    expect(isAllowed(robots, 'ClaudeBot', '/products/mug')).toBe(true);
+  });
+});

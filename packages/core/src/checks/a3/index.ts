@@ -147,7 +147,40 @@ export function isSignInPage(doc: HtmlDocument, requestedUrl: string, finalUrl: 
   return passwordForm && !looksLikeProductPage(doc);
 }
 
+/**
+ * A3.2 when no product page was sampled. A site that sells nothing is judged by its home
+ * page: an empty shell that a script fills in shows HTML readers nothing at all. A store
+ * without a sampled product page is not judged here, because its product pages are what
+ * agents need and none was read.
+ */
+function homeContentOutcome(target: Target): CheckOutcome {
+  const sells = target.profile.dimensions.includes('commerce');
+  if (sells) {
+    if (target.productDiscovery?.complete === false) {
+      return skip(
+        'error',
+        `not evaluated: no product page could be sampled (${target.productDiscovery.reason ?? 'product discovery stopped early'})`,
+      );
+    }
+    return skip('not_applicable', 'no product pages were found to sample');
+  }
+  const links = target.homeDoc.anchors().length;
+  const words = target.homeDoc.wordCount();
+  const evidence = { judged: 'home', url: target.home.finalUrl, links, words };
+  if (target.homeDoc.isEmptyShell()) {
+    return fail(
+      `the home page is an empty shell: its HTML has ${links} link(s) and ${words} word(s) outside scripts, so agents that read HTML without running JavaScript see nothing`,
+      evidence,
+    );
+  }
+  return pass(
+    `the home page carries its content in the HTML (${words} words, ${links} links)`,
+    evidence,
+  );
+}
+
 export const serverRenderedProductContent = defineCheck('A3.2', async ({ target, fetcher }) => {
+  if (target.sampled.products.length === 0) return homeContentOutcome(target);
   const { pages, unavailable, failed, note } = await sampledProductPages(target, fetcher);
   if (unavailable) return unavailable;
   const perPage: Record<
@@ -204,7 +237,7 @@ export const serverRenderedProductContent = defineCheck('A3.2', async ({ target,
     complete,
     pages.length,
     `${complete} of ${pages.length} sampled product page(s) carry title, price and description in raw HTML${note}`,
-    { pages: perPage, complete, total: pages.length, failed },
+    { judged: 'products', pages: perPage, complete, total: pages.length, failed },
     0,
   );
 });

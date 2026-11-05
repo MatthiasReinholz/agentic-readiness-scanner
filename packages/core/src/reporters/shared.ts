@@ -180,10 +180,29 @@ const LEVEL_ZERO_CAUSES: readonly { gate: string; name: string; sentence: string
   },
 ];
 
+/** A3.2 has three Level 0 stories: empty product pages, an empty home page, or no product page read. */
+const HOME_NOT_READABLE = {
+  gate: 'A3.2',
+  name: 'Not readable',
+  sentence:
+    'The site answers, but its home page is empty until JavaScript runs. Most AI fetchers read the HTML without running scripts, so they see nothing.',
+};
+const NO_PRODUCT_READ = {
+  gate: 'A3.2',
+  name: 'No product page found',
+  sentence:
+    'The scanner found no product page to read, so it cannot confirm that agents can read the catalog. List product pages in the sitemap or link them from the home page.',
+};
+
 function levelZeroCauses(result: ScanResult): (typeof LEVEL_ZERO_CAUSES)[number][] {
   if (result.level.value !== 0 || (result.level.undetermined?.length ?? 0) > 0) return [];
   const missed = new Set(result.level.next_gate);
-  return LEVEL_ZERO_CAUSES.filter((cause) => missed.has(cause.gate));
+  const content = result.results.find((item) => item.id === 'A3.2');
+  return LEVEL_ZERO_CAUSES.filter((cause) => missed.has(cause.gate)).map((cause) => {
+    if (cause.gate !== 'A3.2' || !content) return cause;
+    if (content.verdict === 'skip') return NO_PRODUCT_READ;
+    return content.evidence.judged === 'home' ? HOME_NOT_READABLE : cause;
+  });
 }
 
 /**

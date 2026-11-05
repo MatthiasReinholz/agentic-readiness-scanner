@@ -105,7 +105,8 @@ describe('computeLevel', () => {
       result('A1.1', 'pass'),
       result('A2.2', 'pass'),
       result('A2.4', 'pass'),
-      { ...result('A3.2', 'skip'), skip_reason: 'not_applicable' as const },
+      // A content site's A3.2 judges its home page, so it is in the profile and passes.
+      result('A3.2', 'pass'),
       { ...result('B2.1', 'skip'), skip_reason: 'not_applicable' as const },
     ];
     expect(computeLevel(results, catalog, contentSite)).toEqual({

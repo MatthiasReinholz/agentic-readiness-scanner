@@ -438,16 +438,6 @@ export const oauthDiscoveryForMcp = defineCheck('A4.3', async ({ fetcher, outcom
     return pass(`the endpoint answers 401 with WWW-Authenticate naming ${challengeUrl}`, evidence);
   }
 
-  const serverUrl = `${resource.origin}/.well-known/oauth-authorization-server`;
-  const serverResponse = await probe(fetcher, serverUrl, tried);
-  const serverMetadata = serverResponse.status === 200 ? parseJson(serverResponse.body) : undefined;
-  if (isAuthorizationServerMetadata(serverMetadata)) {
-    evidence.issuer = serverMetadata.issuer;
-    return warn(
-      `only authorization server metadata (issuer ${serverMetadata.issuer}) was found, not the protected resource metadata for the MCP endpoint`,
-      evidence,
-    );
-  }
   // MCP makes authorization optional: an endpoint that does not ask for it needs no
   // discovery metadata. Only an endpoint that answers 401 without saying where to sign in
   // leaves an agent stuck.
@@ -455,6 +445,17 @@ export const oauthDiscoveryForMcp = defineCheck('A4.3', async ({ fetcher, outcom
     return skip(
       'not_applicable',
       `the MCP endpoint does not ask for authorization (HTTP ${endpointResponse.status}), and MCP makes authorization optional, so no OAuth discovery is needed`,
+      evidence,
+    );
+  }
+
+  const serverUrl = `${resource.origin}/.well-known/oauth-authorization-server`;
+  const serverResponse = await probe(fetcher, serverUrl, tried);
+  const serverMetadata = serverResponse.status === 200 ? parseJson(serverResponse.body) : undefined;
+  if (isAuthorizationServerMetadata(serverMetadata)) {
+    evidence.issuer = serverMetadata.issuer;
+    return warn(
+      `only authorization server metadata (issuer ${serverMetadata.issuer}) was found, not the protected resource metadata for the MCP endpoint`,
       evidence,
     );
   }
@@ -586,9 +587,12 @@ export const a2aAgentCard = defineCheck('A4.5', async ({ target, fetcher }) => {
   const legacyCard = second.status === 200 ? parseJson(second.body) : undefined;
   if (isRecord(legacyCard)) {
     if (!isA2aAgentCard(legacyCard)) {
+      // Other agent-discovery drafts use /.well-known/agent.json too; their file is not a
+      // broken A2A card, so there is nothing to score.
       evidence.legacy_is_a2a = false;
-      return fail(
-        'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills). Other agent-discovery drafts use that path too',
+      return skip(
+        'not_applicable',
+        'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json is not an A2A card (it lacks name, description, url or supportedInterfaces, version, capabilities and skills), so it belongs to another agent-discovery draft',
         evidence,
       );
     }

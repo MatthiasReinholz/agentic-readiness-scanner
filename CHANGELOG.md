@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- **A3.2 also judges sites that sell nothing** (catalog 0.12.0). It is now called Server-rendered content. Without sampled product pages, a content site is judged by its home page: an empty shell that JavaScript fills in fails, so a JavaScript-only site no longer reaches Level 1 with nothing for agents to read. Most AI crawlers and fetchers do not run JavaScript; Googlebot does. The scanner judges what the server sends, not the framework: a site that renders on the server passes.
+
+### Fixed
+
+- **A store without a sampled product page is no longer called "Not readable".** Its Level 0 now reads "No product page found", because no page was read.
+- **robots.txt groups that name the same crawler are combined**, as RFC 9309 requires. A file that names GPTBot twice, or has two `User-agent: *` groups, was read from the first group only. This affects A2.1, A2.2, A2.5, A2.7 and the platform crawler checks.
+- **More honest non-answers** (decision 0012):
+  - B1.4, B1.7 and B1.8 are inconclusive on a rate limit, a gateway error or no answer, instead of failing.
+  - B4.3 is inconclusive when the privacy or terms page refused the scanner, was challenged or rate limited. It no longer counts a challenge page served with HTTP 200 as the policy.
+- **B1.4 judges every product entry.** Entries without a name and permalink as text were dropped before the check. They now count as incomplete.
+- **A4.3 checks for authorization first.** An open MCP endpoint is not scored, even when the origin publishes authorization server metadata. **A4.5** no longer fails a site whose `/.well-known/agent.json` belongs to another agent-discovery draft.
+- **B5.4 follows the OpenAI feed specification on checkout.** The seller policy fields are needed only on items that opt into checkout with `is_eligible_checkout` true, because checkout is off by default.
+- **Knowledge base and documentation audit.** Every article, fix, guide and project document was checked against the catalog and the code. Stale text was corrected, for example:
+  - B3.2 had still described the check before 0.15.0.
+  - A1.1 and A2.2 said a warning holds the level.
+  - Some articles said A2.1, A2.2 and A2.5 skip on an HTML robots.txt.
+  - The A4 articles still treated absent optional files as failures.
+  - Some B4 and C2 articles left out the sitemap fallback.
+
+  Methods now name every inconclusive case. The Level 4 description matches B3.1's 80 percent rule. Page metadata uses the score names Visible to AI and Shoppable by AI. Claims without a public source were removed.
+
 ## [0.16.0] - 2026-11-05
 
 ### Added

@@ -10,6 +10,7 @@ import {
   storeApiUrl,
 } from '../shared.js';
 import { type CheckOutcome, defineCheck, fail, pass, skip, warn } from '../types.js';
+import { parseJson } from '../json.js';
 import {
   feedRejection,
   isProductFeed,
@@ -99,6 +100,9 @@ function missingProductFields(product: StoreApiProduct): string[] {
 export const storeApiProductComplete = defineCheck('B1.4', async ({ target, fetcher }) => {
   const url = storeApiUrl(target, '/products?per_page=20');
   const response = await fetcher.fetch(url);
+  if (isTransient(response)) {
+    return inconclusive('the Store API product list', response, { url, status: response.status });
+  }
   const products = await storeApiProducts(target, fetcher, 20);
   if (!products) {
     return fail(
@@ -115,13 +119,22 @@ export const storeApiProductComplete = defineCheck('B1.4', async ({ target, fetc
       products_checked: 0,
     });
   }
-  const incomplete = products
-    .map((product) => ({
+  // storeApiProducts keeps only entries with a string name and permalink, so the checks
+  // never dereference a mangled entry. The ones it left out lack required fields too.
+  const listed = parseJson(response.body);
+  const dropped = Array.isArray(listed) ? listed.length - products.length : 0;
+  const incomplete = [
+    ...products.map((product) => ({
       id: product.id,
       name: product.name,
       missing: missingProductFields(product),
-    }))
-    .filter((entry) => entry.missing.length > 0);
+    })),
+    ...Array.from({ length: Math.max(0, dropped) }, () => ({
+      id: null,
+      name: null,
+      missing: ['name or permalink'],
+    })),
+  ].filter((entry) => entry.missing.length > 0);
   const evidence = {
     url,
     products_checked: products.length,
@@ -200,6 +213,9 @@ export const sitemapMatchesStoreApi = defineCheck('B1.7', async ({ target, fetch
       'not every product sitemap was read within budget, so a count comparison would be unfair',
       evidence,
     );
+  }
+  if (storeApiTotal === null && isTransient(response)) {
+    return inconclusive('the Store API product list', response, evidence);
   }
   if (storeApiTotal === null) {
     return fail(

@@ -120,14 +120,34 @@ describe('undetermined level', () => {
 });
 
 describe('Level 0 named by its cause', () => {
-  const atLevelZero = async (gates: string[]) => {
+  const atLevelZero = async (
+    gates: string[],
+    content: Partial<{ verdict: 'pass' | 'fail' | 'skip'; judged: string }> = {
+      verdict: 'fail',
+      judged: 'products',
+    },
+  ) => {
     const result = await scan('https://blog.example/', {
       fetcher: fixtureFetcher(fixture('content-site')),
     });
     const copy = structuredClone(result);
     copy.level = { value: 0, name: 'Not reachable', next_gate: gates };
+    const a32 = copy.results.find((item) => item.id === 'A3.2');
+    if (a32) {
+      a32.verdict = content.verdict ?? 'fail';
+      a32.evidence = content.judged ? { judged: content.judged } : {};
+    }
     return copy;
   };
+
+  it('names an empty home page and a store without a sampled product page differently', async () => {
+    const home = await atLevelZero(['A3.2'], { verdict: 'fail', judged: 'home' });
+    expect(levelLabel(home)).toBe('Not readable');
+    expect(levelCauseSentence(home)).toMatch(/home page is empty until JavaScript runs/);
+    const none = await atLevelZero(['A3.2'], { verdict: 'skip' });
+    expect(levelLabel(none)).toBe('No product page found');
+    expect(levelCauseSentence(none)).toMatch(/found no product page to read/);
+  });
 
   it('calls a site that answers but shows no product content without JavaScript not readable', async () => {
     const result = await atLevelZero(['A3.2']);

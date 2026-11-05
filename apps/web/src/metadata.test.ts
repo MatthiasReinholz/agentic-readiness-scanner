@@ -169,14 +169,14 @@ describe('server-rendered discovery and sharing metadata', () => {
       expect.arrayContaining([
         {
           '@type': 'PropertyValue',
-          name: 'Agentic ingestion score',
+          name: 'Visible to AI score (ingestion)',
           value: result.scores.ingestion,
           minValue: 0,
           maxValue: 100,
         },
         {
           '@type': 'PropertyValue',
-          name: 'Agentic commerce score',
+          name: 'Shoppable by AI score (commerce)',
           value: result.scores.commerce,
           minValue: 0,
           maxValue: 100,
@@ -231,7 +231,9 @@ describe('server-rendered discovery and sharing metadata', () => {
     const dataset = graphOf(metadata.head).find((node) => node['@type'] === 'Dataset');
     expect(dataset?.variableMeasured).toHaveLength(2);
     expect(dataset?.variableMeasured).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ name: 'Agentic commerce score' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Shoppable by AI score (commerce)' }),
+      ]),
     );
   });
 
