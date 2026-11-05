@@ -28,6 +28,12 @@ export interface SitemapSummary {
    * is over it too). Optional so summaries built by hand stay valid.
    */
   oversized?: { url: string; bytes: number }[];
+  /**
+   * How productUrls were recognised when no URL matched a product pattern or a product
+   * sitemap name: `id-shape` when they share one product-identifier shape (/<slug>/PLID123)
+   * on a site already known to sell. Absent for the usual patterns.
+   */
+  productUrlsBy?: 'id-shape';
 }
 
 /**

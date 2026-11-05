@@ -41,7 +41,7 @@
     "group": "A1",
     "title": "Product URLs in sitemap",
     "question": "Does the sitemap list product pages?",
-    "method": "Read the sitemap found by A1.2 and, in a sitemap index, its child sitemaps with product sitemaps first (WooCommerce wp-sitemap-posts-product-*.xml, product-sitemap.xml, Shopify sitemap_products_1.xml and similar names). Pass when at least one product URL is read: any entry of a product sitemap, or an entry whose path has a product segment such as /product/ or /products/. Warn when the index lists a child sitemap with \"product\" in its URL but no product URL could be read within the request limit. Fail otherwise. Skipped as inconclusive when sitemap discovery stopped on a rate limit or server error.",
+    "method": "Read the sitemap found by A1.2 and, in a sitemap index, its child sitemaps with product sitemaps first (WooCommerce wp-sitemap-posts-product-*.xml, product-sitemap.xml, Shopify sitemap_products_1.xml and similar names). Pass when at least one product URL is read: any entry of a product sitemap, or an entry whose path has a product segment such as /product/ or /products/. On a site already checked as a store, where neither matches, entries that share one product-identifier shape (/<slug>/PLID123: a slug, then an identifier with the same letter prefix, for at least 80% of 20 or more entries read) count as product URLs, and the message says so. Warn when the index lists a child sitemap with \"product\" in its URL but no product URL could be read within the request limit. Fail otherwise. Skipped as inconclusive when sitemap discovery stopped on a rate limit or server error.",
     "weight": 2,
     "depends_on": ["A1.2"],
     "spec": [

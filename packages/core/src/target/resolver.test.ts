@@ -583,6 +583,8 @@ describe('stores whose pages are rendered with JavaScript', () => {
     expect(target.sampled.policies.returns).toBe('https://mega.example/help/returns-policy');
     expect(target.warnings.some((w) => w.includes('rendered with JavaScript'))).toBe(true);
     expect(target.warnings.some((w) => w.includes('end in a product identifier'))).toBe(true);
+    expect(target.sitemap?.productUrlsBy).toBe('id-shape');
+    expect(target.sitemap?.productUrls).toHaveLength(30);
   });
 
   it('keeps a shell without a shop title a content site, and still says it is a shell', async () => {

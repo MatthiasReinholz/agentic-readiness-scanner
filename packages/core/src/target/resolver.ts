@@ -1050,6 +1050,11 @@ export async function resolveTarget(
       const shaped = idTailProductUrls(preferMarket(sitemap?.urls ?? [], scope));
       if (shaped.length > 0) {
         products = sample(shaped, hostname, sampleSize);
+        if (sitemap) {
+          // The sitemap does list the products; A1.3 reports them with how they were told.
+          sitemap.productUrls = shaped;
+          sitemap.productUrlsBy = 'id-shape';
+        }
         warnings.push(
           `no sampled page could be confirmed as a product page by its HTML, so ${products.length} of ${shaped.length} sitemap URL(s) that end in a product identifier, such as ${new URL(shaped[0] ?? origin).pathname}, were sampled as product pages`,
         );
