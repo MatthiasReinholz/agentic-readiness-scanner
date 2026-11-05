@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Guides on crawl services and large catalogs.** [How crawl services like Cloudflare's /crawl read your store](https://agentic-readiness-scanner.space.fast/knowledge-base/guides/crawl-services) explains that /crawl is the service's own API, not an endpoint a website publishes, and what such services read: robots.txt, sitemaps, Content Signals and server-rendered HTML. [How to serve a catalog of millions of products](https://agentic-readiness-scanner.space.fast/knowledge-base/guides/large-catalogs) covers sitemap indexes, API pagination and feed size limits.
+- **A2.5 includes Cloudflare's crawl service** (catalog 0.11.0). `CloudflareBrowserRenderingCrawler` runs the crawls developers and agents start with Cloudflare's /crawl API. Cloudflare documents that it obeys robots.txt, so a Disallow for it is a real block.
+- **A1.2 warns about sitemaps over the protocol limits:** a file that declares more than 50 MB, or more than 50,000 entries counted in one file. A passing result names the shape it found: a sitemap index and its number of child sitemaps, or a sitemap and its number of URLs.
+
+### Fixed
+
+- **Stores rendered with JavaScript are no longer called sites that sell nothing.** A home page that is an empty shell (a script, fewer than 3 links and fewer than 50 words in its HTML) with a shop title is checked as an online store, and the report warns that agents reading HTML see an empty page. When no sampled page can be confirmed as a product page, sitemap URLs that share one product-identifier shape (`/<slug>/PLID123`) are sampled as product pages, so the product checks report what agents get.
+- **Policy pages are also found in the sitemap.** When the home page links no return, shipping, privacy or terms page, a sitemap URL that names the policy document (`/refund-policy`) is used. When the home page is an empty shell, B4.1, B4.2, B4.3 and B4.5 say that agents have no link to follow, and the B4.1 article lists what makes a policy page machine-readable.
+- **A2.3 no longer says no operator honours Content-Signal.** Cloudflare documents that its /crawl service rejects a crawl whose declared purpose the site's Content-Signal forbids.
+- **The A1.2 article now says gzipped sitemaps are read.** It had said they were not.
+
 ## [0.15.0] - 2026-11-04
 
 ### Changed

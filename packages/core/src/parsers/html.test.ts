@@ -272,3 +272,19 @@ describe('HtmlDocument.productImage on Shopify-style markup', () => {
     expect(onlyHelpers.productImage(base, cdn)).toBeNull();
   });
 });
+
+describe('HtmlDocument.isEmptyShell', () => {
+  it('recognises a page that a script fills in the browser', () => {
+    const shell =
+      '<html><head><title>Online Shopping</title><script src="/_next/app.js"></script></head><body><div id="root"></div><script>self.__next_f=[]</script></body></html>';
+    expect(new HtmlDocument(shell).isEmptyShell()).toBe(true);
+  });
+
+  it('does not call a small page without scripts a shell, nor a page with links and text', () => {
+    expect(new HtmlDocument('<html><body><a href="/a">A</a></body></html>').isEmptyShell()).toBe(
+      false,
+    );
+    const full = `<html><body><script src="/app.js"></script>${'<a href="/x">Link</a>'.repeat(5)}<p>${'word '.repeat(80)}</p></body></html>`;
+    expect(new HtmlDocument(full).isEmptyShell()).toBe(false);
+  });
+});

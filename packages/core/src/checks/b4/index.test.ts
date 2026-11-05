@@ -520,3 +520,13 @@ describe('B4 checks on the good WooCommerce fixture', () => {
     expect(readable.evidence).toMatchObject({ readable: 4, total: 4 });
   });
 });
+
+describe('policy links on a home page rendered with JavaScript', () => {
+  it('says why no link was found when the home page is an empty shell', async () => {
+    const target = { ...targetFor(), homeShell: true };
+    const outcome = await runCheck(returnPolicyFound, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toMatch(/no links until JavaScript runs/);
+    expect(outcome.evidence.home_shell).toBe(true);
+  });
+});

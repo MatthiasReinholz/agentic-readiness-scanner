@@ -57,7 +57,13 @@ export const SEARCH_CRAWLERS: readonly SearchCrawler[] = [
   { token: 'meta-webindexer', feeds: 'Meta AI search citations', core: false },
 ];
 
-/** Fetchers assistants use when a person asks about a page; most ignore robots.txt. */
+/**
+ * Fetchers that act when a person or an agent asks, not on a crawl schedule of their own.
+ * The assistants' fetchers mostly ignore robots.txt because a person asked for the page.
+ * CloudflareBrowserRenderingCrawler runs the jobs developers and agents start with
+ * Cloudflare's /crawl API, and Cloudflare documents that it obeys robots.txt, so for it a
+ * Disallow is a real block.
+ */
 export const USER_FETCHERS = [
   'ChatGPT-User',
   'Claude-User',
@@ -66,4 +72,5 @@ export const USER_FETCHERS = [
   'meta-externalfetcher',
   'Amzn-User',
   'MistralAI-User',
+  'CloudflareBrowserRenderingCrawler',
 ] as const;

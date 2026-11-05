@@ -15,6 +15,7 @@ import {
   isShopifyServed,
   isStoreListingPath,
   policyLinkScore,
+  policyUrlsInSitemap,
   resolveTarget,
 } from './resolver.js';
 
@@ -543,5 +544,67 @@ describe('brand names in policy labels', () => {
     expect(findPolicyLinks(doc, 'https://www.ikea.com')).toEqual({
       shipping: 'https://www.ikea.com/us/en/customer-service/services/delivery/',
     });
+  });
+});
+
+describe('stores whose pages are rendered with JavaScript', () => {
+  const robots = 'User-agent: *\nAllow: /\nSitemap: https://mega.example/sitemap.xml\n';
+  const shell = (title: string) =>
+    `<html><head><title>${title}</title><script src="/_next/static/app.js"></script></head><body><div id="__next"></div><script>self.__next_f=self.__next_f||[]</script></body></html>`;
+  const productUrls = Array.from(
+    { length: 30 },
+    (_, i) => `https://mega.example/blue-cotton-sock-${i}/PLID${2000 + i}`,
+  );
+  const sitemap = `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[
+    ...productUrls,
+    'https://mega.example/help/returns-policy',
+  ]
+    .map((loc) => `<url><loc>${loc}</loc></url>`)
+    .join('')}</urlset>`;
+  const site = (title: string) => {
+    const record: Record<string, string> = {
+      'https://mega.example/': shell(title),
+      'https://mega.example/robots.txt': robots,
+      'https://mega.example/sitemap.xml': sitemap,
+    };
+    for (const url of productUrls) record[url] = shell(title);
+    return record;
+  };
+
+  it('checks a shell whose title names a shop as a store and samples ID-shaped product URLs', async () => {
+    const target = await resolveTarget(
+      'https://mega.example/',
+      mapFetcher(site("Mega: Online Shopping | the country's leading online store")),
+    );
+    expect(target.homeShell).toBe(true);
+    expect(target.profile.id).toBe('other-store');
+    expect(target.sampled.products.length).toBeGreaterThan(0);
+    expect(target.sampled.products.every((url) => /\/PLID\d+$/.test(url))).toBe(true);
+    expect(target.sampled.policies.returns).toBe('https://mega.example/help/returns-policy');
+    expect(target.warnings.some((w) => w.includes('rendered with JavaScript'))).toBe(true);
+    expect(target.warnings.some((w) => w.includes('end in a product identifier'))).toBe(true);
+  });
+
+  it('keeps a shell without a shop title a content site, and still says it is a shell', async () => {
+    const target = await resolveTarget('https://mega.example/', mapFetcher(site('Mega News')));
+    expect(target.homeShell).toBe(true);
+    expect(target.profile.id).toBe('content-site');
+    expect(target.sampled.products).toEqual([]);
+  });
+});
+
+describe('policyUrlsInSitemap', () => {
+  it('fills only missing kinds, from URLs that name the policy document', () => {
+    const urls = [
+      'https://shop.example/blog/how-returns-work',
+      'https://shop.example/pages/refund-policy',
+      'https://shop.example/legal/privacy-policy',
+      'https://other.example/shipping-policy',
+    ];
+    expect(
+      policyUrlsInSitemap(urls, 'https://shop.example', {
+        privacy: 'https://shop.example/datenschutz',
+      }),
+    ).toEqual({ returns: 'https://shop.example/pages/refund-policy' });
   });
 });

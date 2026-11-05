@@ -54,6 +54,10 @@ function hasRelToken(rel: string, token: string): boolean {
   return rel.toLowerCase().split(/\s+/).includes(token);
 }
 
+/** Fewer links than this, and fewer words than SHELL_MAX_WORDS, make a page an empty shell. */
+export const SHELL_MAX_LINKS = 3;
+export const SHELL_MAX_WORDS = 50;
+
 export class HtmlDocument {
   readonly dom: Document;
 
@@ -135,6 +139,18 @@ export class HtmlDocument {
       });
     }
     return result;
+  }
+
+  /**
+   * True when the HTML is an empty shell that a script fills in the browser: it loads at
+   * least one script, and has fewer than SHELL_MAX_LINKS links and fewer than
+   * SHELL_MAX_WORDS words outside scripts and styles. An agent that reads HTML without
+   * running JavaScript sees nothing on such a page. A small page without scripts is just
+   * small.
+   */
+  isEmptyShell(): boolean {
+    if (this.elements('script').length === 0) return false;
+    return this.anchors().length < SHELL_MAX_LINKS && this.wordCount() < SHELL_MAX_WORDS;
   }
 
   /**

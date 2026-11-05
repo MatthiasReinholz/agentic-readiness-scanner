@@ -23,6 +23,7 @@ import { extractJsonLd, hasType } from '../parsers/jsonld.js';
 import { looksLikeProductPage } from '../parsers/product-page.js';
 import { parseRobotsTxt, type RobotsTxt } from '../parsers/robots.js';
 import {
+  idTailProductUrls,
   looksLikeProductSitemap,
   looksLikeProductUrl,
   parseSitemap,
@@ -192,6 +193,18 @@ export function hasStoreSignals(doc: HtmlDocument, body: string): boolean {
 }
 
 /**
+ * Words in a page title or meta description that say the site sells: "online store",
+ * "shop", "webshop" and their equivalents. Read only when the page itself is an empty
+ * shell, because then the title is the one thing an HTML reader can see.
+ */
+const STORE_TITLE_SIGNAL =
+  /\b(?:shop|shops|shopping|store|stores|webshop|onlineshop|e-?shop|e-?commerce|boutique|tienda|negozio|loja|winkel|sklep|butik|verkkokauppa|nettbutikk|nettbutikken|kaufen|acheter|comprar|comprare)\b/i;
+
+export function hasStoreTitle(doc: HtmlDocument): boolean {
+  return STORE_TITLE_SIGNAL.test(`${doc.title() ?? ''} ${doc.meta('description') ?? ''}`);
+}
+
+/**
  * Paths that belong to a signed-in or transactional area. A link there may carry the word
  * "contact" or "returns" (an account's support form, a returns portal), but it is not the
  * public policy page an agent can read, and it usually answers with a login wall.
@@ -334,6 +347,41 @@ export function findPolicyLinks(
   return result;
 }
 
+/** The policy kinds a sitemap URL may stand in for; contact and imprint need a link. */
+const SITEMAP_POLICY_KINDS: readonly PolicyKind[] = ['returns', 'shipping', 'privacy', 'terms'];
+
+/**
+ * Policy pages the home page does not link, taken from the sitemap when one of its URLs
+ * names the policy document in its last path segment (/returns-policy, /privacy-policy).
+ * Only the document form counts, scored like a footer path match without a label, so a
+ * blog post about returns does not stand in for the policy. The checks still fetch the
+ * page and judge its content.
+ */
+export function policyUrlsInSitemap(
+  urls: readonly string[],
+  origin: string,
+  found: Partial<Record<PolicyKind, string>>,
+): Partial<Record<PolicyKind, string>> {
+  const missing = SITEMAP_POLICY_KINDS.filter((kind) => !found[kind]);
+  if (missing.length === 0 || urls.length === 0) return {};
+  const brand = registrableDomain(new URL(origin).hostname).split('.')[0];
+  const result: Partial<Record<PolicyKind, string>> = {};
+  for (const href of urls) {
+    const url = resolveHttpUrl(href, origin);
+    if (url?.origin !== origin) continue;
+    if (ACCOUNT_AREA_PATTERN.test(url.pathname)) continue;
+    if (looksLikeProductUrl(url.href) || LISTING_PATTERN.test(url.pathname)) continue;
+    const segment = lastSegment(url.pathname);
+    if (!POLICY_DOCUMENT_SEGMENT.test(segment)) continue;
+    for (const kind of missing) {
+      if (result[kind]) continue;
+      const score = policyLinkScore({ href, text: '', inFooter: false }, url.pathname, kind, brand);
+      if (score > 0) result[kind] = url.href;
+    }
+  }
+  return result;
+}
+
 /**
  * Score 4 and above means the link's label names the policy, or a footer link's path names
  * the policy document (/refund-policy); below it only a path or a stray word matched.
@@ -452,6 +500,16 @@ export function preferMarket(urls: readonly string[], scope: MarketScope | null)
   return inMarket.length > 0 ? inMarket : [...urls];
 }
 
+/** The sitemaps protocol's size limit for one file, uncompressed: 50 MB. */
+export const SITEMAP_MAX_BYTES = 52_428_800;
+
+/** The Content-Length a response declared, or null when absent or not a number. */
+function declaredLength(response: FetchedResponse): number | null {
+  const value = response.headers['content-length'];
+  if (value === undefined || !/^\d+$/.test(value.trim())) return null;
+  return Number(value.trim());
+}
+
 export interface SitemapDiscoveryOptions {
   /** Sitemap requests at most, child sitemaps included. */
   maxFetches: number;
@@ -510,6 +568,11 @@ export async function discoverSitemap(
     }
     if (response.status !== 200) continue;
     const parsed = parseSitemap(response.body);
+    const oversized: { url: string; bytes: number }[] = [];
+    const recordSize = (sitemapUrl: string, answer: FetchedResponse): void => {
+      const bytes = declaredLength(answer);
+      if (bytes !== null && bytes > SITEMAP_MAX_BYTES) oversized.push({ url: sitemapUrl, bytes });
+    };
     if (parsed.kind === 'invalid') {
       warnings.push(`sitemap at ${url} did not parse: ${parsed.error ?? 'unknown error'}`);
       continue;
@@ -553,7 +616,9 @@ export async function discoverSitemap(
       urls,
       productUrls: urls.filter(looksLikeProductUrl),
       lastmods,
+      oversized,
     };
+    recordSize(url, response);
     if (parsed.kind === 'index') {
       const productFirst = [...parsed.sitemaps].sort(
         (a, b) =>
@@ -576,6 +641,7 @@ export async function discoverSitemap(
           warnings.push(`child sitemap ${childUrl} answered HTTP ${childResponse.status}`);
           continue;
         }
+        recordSize(childUrl, childResponse);
         const childParsed = parseSitemap(childResponse.body);
         if (childParsed.partial) {
           warnings.push(
@@ -943,7 +1009,17 @@ export async function resolveTarget(
   // Only a listing path no blog uses (/shop, /collections/...) is evidence of a store. A
   // /category/ link is on every WordPress blog, so on its own it decides nothing.
   const storeListing = listing !== undefined && isStoreListingPath(new URL(listing).pathname);
-  const homeStoreSignals = hasStoreSignals(homeDoc, home.body);
+  // An empty shell shows an HTML reader nothing to judge by but its title. A shell whose
+  // title says it is a shop is treated as one, so the report says what agents miss
+  // instead of calling a store a site that sells nothing.
+  const homeShell = !blocked && homeDoc.isEmptyShell();
+  const shellStore = homeShell && hasStoreTitle(homeDoc);
+  if (homeShell) {
+    warnings.push(
+      `the home page HTML has ${homeDoc.anchors().length} link(s) and ${homeDoc.wordCount()} word(s) outside scripts: it is rendered with JavaScript, so agents that read HTML without running scripts see an empty page${shellStore ? '. Its title names a shop, so it was checked as an online store' : ''}`,
+    );
+  }
+  const homeStoreSignals = hasStoreSignals(homeDoc, home.body) || shellStore;
   let productDiscoveryCut: string | null = null;
   if (products.length === 0 && !blocked && (storeListing || homeStoreSignals)) {
     // A store whose product URLs follow no known pattern (thomann.de: /de/<slug>.htm) is
@@ -966,6 +1042,19 @@ export async function resolveTarget(
       .slice(before)
       .find((warning) => warning.startsWith('product discovery was cut short'));
     if (cut && products.length === 0) productDiscoveryCut = cut;
+    if (products.length === 0 && productDiscoveryCut === null) {
+      // Product pages that show nothing without JavaScript cannot be confirmed by their
+      // content. On a site already known to sell, sitemap URLs that share one product-ID
+      // shape (/<slug>/PLID<n>) are sampled instead, so the product checks report what an
+      // agent reading those pages gets.
+      const shaped = idTailProductUrls(preferMarket(sitemap?.urls ?? [], scope));
+      if (shaped.length > 0) {
+        products = sample(shaped, hostname, sampleSize);
+        warnings.push(
+          `no sampled page could be confirmed as a product page by its HTML, so ${products.length} of ${shaped.length} sitemap URL(s) that end in a product identifier, such as ${new URL(shaped[0] ?? origin).pathname}, were sampled as product pages`,
+        );
+      }
+    }
   }
   if (products.length === 0) {
     warnings.push(
@@ -976,6 +1065,13 @@ export async function resolveTarget(
   }
   const ranked = rankPolicyLinks(homeDoc, origin, home.finalUrl);
   const policies = findPolicyLinks(homeDoc, origin, home.finalUrl);
+  const fromSitemap = policyUrlsInSitemap(sitemap?.urls ?? [], origin, policies);
+  if (Object.keys(fromSitemap).length > 0) {
+    Object.assign(policies, fromSitemap);
+    warnings.push(
+      `the home page links no ${Object.keys(fromSitemap).join(', ')} page, so the sitemap's ${Object.values(fromSitemap).join(', ')} was used`,
+    );
+  }
   if (platform === 'shopify') {
     const weak = new Set(
       (Object.keys(ranked) as PolicyKind[]).filter(
@@ -1056,6 +1152,7 @@ export async function resolveTarget(
     sampled,
     warnings,
     ...(blocked ? { blocked } : {}),
+    ...(homeShell ? { homeShell } : {}),
     ...(shopifyHosted === undefined ? {} : { shopifyHosted }),
   };
 }

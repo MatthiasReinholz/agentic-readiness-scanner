@@ -22,6 +22,12 @@ export interface SitemapSummary {
    * valid; the resolver always records it.
    */
   lastmods?: string[];
+  /**
+   * Sitemap files whose Content-Length is above the sitemaps protocol limit of 50 MB
+   * (52,428,800 bytes, which applies to the uncompressed file, so a larger compressed file
+   * is over it too). Optional so summaries built by hand stay valid.
+   */
+  oversized?: { url: string; bytes: number }[];
 }
 
 /**
@@ -107,6 +113,12 @@ export interface Target {
    * runner; A2.4 reports the reason.
    */
   blocked?: HomeBlocked;
+  /**
+   * True when the home page HTML is an empty shell that JavaScript fills in: almost no
+   * links and almost no words outside scripts. Agents that read HTML see nothing there,
+   * which is why no policy or contact link could be found on it.
+   */
+  homeShell?: boolean;
   /**
    * For Shopify: true when Shopify itself serves the origin (its response headers or the
    * rel="ucp" Link header are present), false for a headless storefront that only loads
