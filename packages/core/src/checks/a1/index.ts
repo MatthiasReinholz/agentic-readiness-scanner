@@ -56,6 +56,9 @@ export const robotsTxtExists = defineCheck('A1.1', ({ target }) => {
   return fail(`robots.txt returned HTTP ${response.status}`, evidence);
 });
 
+/** The sitemaps protocol's limit on entries in one sitemap or sitemap index file. */
+const SITEMAP_MAX_ENTRIES = 50_000;
+
 export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
   const sitemap = target.sitemap;
   if (!sitemap) {
@@ -94,11 +97,34 @@ export const sitemapReachable = defineCheck('A1.2', ({ target }) => {
     child_sitemaps: sitemap.childSitemaps.length,
     urls: sitemap.urls.length,
     declared_in_robots: target.robots?.sitemaps.includes(sitemap.url) ?? false,
+    ...(sitemap.oversized && sitemap.oversized.length > 0 ? { oversized: sitemap.oversized } : {}),
   };
   if (sitemap.urls.length === 0 && sitemap.childSitemaps.length === 0) {
     return warn('sitemap is reachable but lists no URLs', evidence);
   }
-  return pass(`sitemap ${sitemap.kind} at ${sitemap.url}`, evidence);
+  // The sitemaps protocol caps one file at 50,000 entries and 50 MB uncompressed; a crawler
+  // stops reading past the limit, so the rest of a large catalog goes unseen. Only what
+  // the scanner can measure is judged: a declared Content-Length, or an entry count read
+  // in full.
+  const limits: string[] = [];
+  for (const file of sitemap.oversized ?? []) {
+    limits.push(`${file.url} is ${(file.bytes / 1_048_576).toFixed(0)} MB`);
+  }
+  const rootEntries = sitemap.kind === 'index' ? sitemap.childSitemaps.length : sitemap.urls.length;
+  if (rootEntries > SITEMAP_MAX_ENTRIES) {
+    limits.push(`${sitemap.url} lists ${rootEntries} entries`);
+  }
+  if (limits.length > 0) {
+    return warn(
+      `sitemap breaks the protocol limit of 50,000 entries and 50 MB per file (${limits.join(', ')}): split it into files under both limits and list them in a sitemap index`,
+      evidence,
+    );
+  }
+  const shape =
+    sitemap.kind === 'index'
+      ? `sitemap index at ${sitemap.url} with ${sitemap.childSitemaps.length} child sitemap(s)`
+      : `sitemap at ${sitemap.url} with ${sitemap.urls.length} URL(s)`;
+  return pass(shape, evidence);
 });
 
 export const productUrlsInSitemap = defineCheck('A1.3', ({ target }) => {

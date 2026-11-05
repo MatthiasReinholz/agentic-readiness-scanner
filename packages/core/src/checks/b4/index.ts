@@ -9,6 +9,7 @@ import { describeFailure, hasProductMarkup, inconclusive, isTransient, pathOf } 
 import { registrableDomain } from '../../http/domain.js';
 import { looksLikeProductUrl } from '../../parsers/sitemap.js';
 import { ACCOUNT_AREA_PATTERN, isListingPath } from '../../target/resolver.js';
+import type { Target } from '../../target/types.js';
 import { defineCheck, fail, outcomeForRatio, pass, skip, warn } from '../types.js';
 
 /**
@@ -38,11 +39,22 @@ function unreadable(response: FetchedResponse): boolean {
   );
 }
 
+/**
+ * Why a link was not found. On a home page that is an empty JavaScript shell the policy
+ * may well exist for people, but an agent reading the HTML has nothing to follow.
+ */
+function missingLink(target: Target, message: string): string {
+  return target.homeShell
+    ? `${message}: the home page HTML has no links until JavaScript runs, so agents that read HTML cannot follow one`
+    : message;
+}
+
 export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher }) => {
   const url = target.sampled.policies.returns;
   if (!url)
-    return fail('no return or refund policy link found on the homepage', {
+    return fail(missingLink(target, 'no return or refund policy link found on the homepage'), {
       candidates: target.sampled.policies,
+      ...(target.homeShell ? { home_shell: true } : {}),
     });
   const response = await fetcher.fetch(url);
   const doc = new HtmlDocument(response.body);
@@ -65,8 +77,9 @@ export const returnPolicyFound = defineCheck('B4.1', async ({ target, fetcher })
 export const shippingPolicyFound = defineCheck('B4.2', async ({ target, fetcher }) => {
   const url = target.sampled.policies.shipping;
   if (!url)
-    return fail('no shipping or delivery policy link found on the homepage', {
+    return fail(missingLink(target, 'no shipping or delivery policy link found on the homepage'), {
       candidates: target.sampled.policies,
+      ...(target.homeShell ? { home_shell: true } : {}),
     });
   const response = await fetcher.fetch(url);
   const doc = new HtmlDocument(response.body);
@@ -120,6 +133,10 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
       );
   }
   const detail = problems.length > 0 ? ` (${problems.join(', ')})` : '';
+  if (found === 0 && !privacyUrl && !termsUrl && target.homeShell) {
+    evidence.home_shell = true;
+    return fail(missingLink(target, 'no privacy policy or terms link on the home page'), evidence);
+  }
   if (found === 2) return pass('privacy policy and terms pages found and readable', evidence);
   if (found === 1)
     return warn(`only one of privacy policy and terms is readable${detail}`, evidence);
@@ -340,7 +357,10 @@ export const contactChannel = defineCheck('B4.5', ({ target }) => {
   if (crossOrigin.size > 0) {
     return warn(`only a contact link on another site: ${first(crossOrigin)}`, evidence);
   }
-  return fail('no mailto:, tel: or contact page link on the home page', evidence);
+  return fail(
+    missingLink(target, 'no mailto:, tel: or contact page link on the home page'),
+    evidence,
+  );
 });
 
 /** Policy kinds an agent reads for terms; imprint and contact are identity (B4.4, B4.5). */

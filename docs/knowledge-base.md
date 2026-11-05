@@ -10,7 +10,7 @@ The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. 
 
 ## Guides
 
-Some topics belong to no single check: how the scanner works, why it reports what it reports, or a subject that spans several sections. These are guides, at `/knowledge-base/guides/<slug>`. They are listed on `/knowledge-base/guides` and at the top of the index. Like articles, they are served as Markdown and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. There is 1 guide so far, `crawler-blocks-and-browser-scans`.
+Some topics belong to no single check: how the scanner works, why it reports what it reports, or a subject that spans several sections. These are guides, at `/knowledge-base/guides/<slug>`. They are listed on `/knowledge-base/guides` and at the top of the index. Like articles, they are served as Markdown and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. There are 3 guides so far: `crawler-blocks-and-browser-scans`, `crawl-services` and `large-catalogs`.
 
 - `packages/catalog/knowledge/guides/<slug>.md` holds each guide. The file name is the slug.
 - The front matter is the same as for articles (`slug`, `headline`, `description`, `keywords`), plus `related`: the check ids the guide is about, comma-separated. Each related check's article links back to the guide under "Guides on this topic", and the guide lists them under "Checks this guide is about".

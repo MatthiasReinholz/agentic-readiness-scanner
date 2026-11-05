@@ -23,12 +23,16 @@
     "group": "A1",
     "title": "Sitemap declared and reachable",
     "question": "Is there a sitemap an agent can fetch?",
-    "method": "Try the Sitemap: lines from robots.txt, then the usual paths in the order the platform uses them (/wp-sitemap.xml and /sitemap_index.xml first on WordPress, /sitemap.xml first elsewhere; /wp-sitemap.xml only on WordPress), on the store's own origin only and with at most four sitemap requests in all. Discovery stops at the first rate limit or server error, and a home page that refused the scanner gets only the sitemaps robots.txt declares. The first that answers 200 with parseable sitemap XML is used. Pass when it lists at least one URL or child sitemap, warn when it lists neither, fail when no candidate answers with a sitemap, naming the paths tried. Skipped as inconclusive when discovery stopped on a rate limit or server error, because absence is then not established.",
+    "method": "Try the Sitemap: lines from robots.txt, then the usual paths in the order the platform uses them (/wp-sitemap.xml and /sitemap_index.xml first on WordPress, /sitemap.xml first elsewhere; /wp-sitemap.xml only on WordPress), on the store's own origin only and with at most four sitemap requests in all. Discovery stops at the first rate limit or server error, and a home page that refused the scanner gets only the sitemaps robots.txt declares. The first that answers 200 with parseable sitemap XML is used. Pass when it lists at least one URL or child sitemap, warn when it lists neither or when a sitemap file read breaks the protocol limits (a Content-Length above 50 MB, which counts against the uncompressed size, or more than 50,000 entries counted in one file), fail when no candidate answers with a sitemap, naming the paths tried. Skipped as inconclusive when discovery stopped on a rate limit or server error, because absence is then not established.",
     "weight": 2,
     "spec": [
       {
         "title": "Sitemaps XML format",
         "url": "https://www.sitemaps.org/protocol.html"
+      },
+      {
+        "title": "Google Search Central: manage large sitemaps with a sitemap index",
+        "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/large-sitemaps"
       }
     ]
   },

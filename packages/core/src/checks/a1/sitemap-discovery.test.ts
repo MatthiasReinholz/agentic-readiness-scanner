@@ -41,3 +41,32 @@ describe('A1.2 when no sitemap was read', () => {
     expect(outcome.message).toMatch(/^no sitemap found via robots\.txt, \/sitemap\.xml/);
   });
 });
+
+describe('A1.2 sitemap protocol limits', () => {
+  const sitemap = {
+    url: 'https://shop.example/sitemap.xml',
+    kind: 'index' as const,
+    childSitemaps: ['https://shop.example/sitemap-products-1.xml'],
+    fetchedSitemaps: ['https://shop.example/sitemap-products-1.xml'],
+    urls: ['https://shop.example/product/a/'],
+    productUrls: ['https://shop.example/product/a/'],
+  };
+
+  it('passes a sitemap index within the limits and names its shape', async () => {
+    const outcome = await runCheck(sitemapReachable, targetFor({ sitemap }), mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/sitemap index .* with 1 child sitemap/);
+  });
+
+  it('warns when a sitemap file declares more than 50 MB', async () => {
+    const oversized = [{ url: 'https://shop.example/sitemap-products-1.xml', bytes: 80_000_000 }];
+    const outcome = await runCheck(
+      sitemapReachable,
+      targetFor({ sitemap: { ...sitemap, oversized } }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/50,000 entries and 50 MB .*sitemap-products-1\.xml is 76 MB/);
+    expect(outcome.evidence.oversized).toEqual(oversized);
+  });
+});

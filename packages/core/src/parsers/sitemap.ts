@@ -187,6 +187,54 @@ export function looksLikeProductSitemap(url: string): boolean {
   return PRODUCT_SITEMAP_NAME_PATTERNS.some((pattern) => pattern.test(name));
 }
 
+/**
+ * The last path segment of a product URL that ends in an identifier rather than a
+ * /product/ segment: /mens-hidden-sock/PLID211, /blue-kettle/12345, /lamp/p-48213. A short
+ * letter prefix, an optional separator and at least three digits, after a slug segment.
+ */
+const ID_TAIL_SEGMENT = /^([a-z]{0,6})[-_]?(\d{3,})(?:\.html?)?$/i;
+const SLUG_SEGMENT = /^(?=.*[a-z])[a-z0-9]+(?:[-_][a-z0-9]+)+$/i;
+/** URLs needed before a shared shape counts, and the share that must have it. */
+const ID_TAIL_MIN_URLS = 20;
+const ID_TAIL_MIN_SHARE = 0.8;
+
+function idTailKey(url: string): string | null {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const match = ID_TAIL_SEGMENT.exec(segments[segments.length - 1] ?? '');
+  if (!match) return null;
+  if (!SLUG_SEGMENT.test(segments[segments.length - 2] ?? '')) return null;
+  return (match[1] ?? '').toLowerCase();
+}
+
+/**
+ * Sitemap URLs that share one product-identifier shape: a slug followed by an identifier
+ * with the same letter prefix (takealot.com lists millions of /<slug>/PLID<n> pages). The
+ * shape counts only when at least ID_TAIL_MIN_URLS URLs are read and ID_TAIL_MIN_SHARE of
+ * them have it, so a blog with a few numbered posts never matches. This is a hint, not
+ * proof: the resolver uses it only for a site already known to sell.
+ */
+export function idTailProductUrls(urls: readonly string[]): string[] {
+  if (urls.length < ID_TAIL_MIN_URLS) return [];
+  const byKey = new Map<string, string[]>();
+  for (const url of urls) {
+    const key = idTailKey(url);
+    if (key === null) continue;
+    const list = byKey.get(key) ?? [];
+    list.push(url);
+    byKey.set(key, list);
+  }
+  let best: string[] = [];
+  for (const list of byKey.values()) if (list.length > best.length) best = list;
+  return best.length >= urls.length * ID_TAIL_MIN_SHARE ? best : [];
+}
+
 export function looksLikeProductUrl(url: string): boolean {
   return PRODUCT_URL_PATTERN.test(url);
 }

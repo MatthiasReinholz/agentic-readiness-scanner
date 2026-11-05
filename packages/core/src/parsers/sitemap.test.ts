@@ -5,6 +5,7 @@ import {
   looksLikeProductSitemap,
   looksLikeProductUrl,
   parseSitemap,
+  idTailProductUrls,
 } from './sitemap.js';
 
 describe('parseSitemap', () => {
@@ -114,5 +115,36 @@ describe('truncated sitemaps', () => {
     ]);
     expect(parsed.entries[0]).toEqual({ loc: 'https://a.example/p/0/', lastmod: '2026-10-01' });
     expect(parseSitemap('<html>not a sitemap').kind).toBe('invalid');
+  });
+});
+
+describe('product URLs that end in an identifier', () => {
+  const shaped = (n: number) =>
+    Array.from(
+      { length: n },
+      (_, i) => `https://shop.example/blue-cotton-sock-${i}/PLID${1000 + i}`,
+    );
+
+  it('finds the shared /<slug>/<prefix><digits> shape of a marketplace sitemap', () => {
+    const urls = [
+      ...shaped(30),
+      'https://shop.example/about-us',
+      'https://shop.example/help/returns',
+    ];
+    expect(idTailProductUrls(urls)).toHaveLength(30);
+  });
+
+  it('needs enough URLs and a dominant share before it counts', () => {
+    expect(idTailProductUrls(shaped(10))).toEqual([]);
+    const mixed = [
+      ...shaped(20),
+      ...Array.from({ length: 20 }, (_, i) => `https://news.example/stories/article-title-${i}`),
+    ];
+    expect(idTailProductUrls(mixed)).toEqual([]);
+  });
+
+  it('ignores numbers that are not after a slug segment', () => {
+    const urls = Array.from({ length: 30 }, (_, i) => `https://blog.example/2026/${1000 + i}`);
+    expect(idTailProductUrls(urls)).toEqual([]);
   });
 });
