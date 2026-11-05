@@ -16,6 +16,8 @@ import {
   countVerdicts,
   groupResults,
   platformSentence,
+  levelCauseSentence,
+  levelLabel,
   nextGateSentence,
   scopeLines,
   scoreText,
@@ -139,11 +141,10 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   lines.push('');
   lines.push(`**Platform:** ${platformSentence(result)}`);
   lines.push('');
-  const levelName =
-    result.level.value === 0 && (result.level.undetermined?.length ?? 0) > 0
-      ? 'Not decided yet'
-      : result.level.name;
-  lines.push(`**Level ${result.level.value}: ${levelName}.** ${nextGateSentence(result)}`);
+  const cause = levelCauseSentence(result);
+  lines.push(
+    `**Level ${result.level.value}: ${levelLabel(result)}.** ${cause ? `${cause} ` : ''}${nextGateSentence(result)}`,
+  );
   lines.push('');
   for (const dimension of ['ingestion', 'commerce'] as const) {
     const copy = dimensionCopy(dimension);

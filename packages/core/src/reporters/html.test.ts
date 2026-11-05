@@ -11,7 +11,14 @@ import { renderBadge } from './badge.js';
 import { renderHtml } from './html.js';
 import { scoreTone, THEME_STORAGE_KEY } from './html-theme.js';
 import { renderMarkdown } from './markdown.js';
-import { ceilingSentence, escapeHtml, platformResults, shownResults } from './shared.js';
+import {
+  ceilingSentence,
+  escapeHtml,
+  levelCauseSentence,
+  levelLabel,
+  platformResults,
+  shownResults,
+} from './shared.js';
 
 const fixture = (name: string) =>
   join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'fixtures', 'stores', name);
@@ -109,6 +116,41 @@ describe('undetermined level', () => {
     expect(renderMarkdown(copy)).toMatch(/is not decided/);
     expect(html).toContain('Not decided yet');
     expect(renderMarkdown(copy)).toContain('**Level 0: Not decided yet.**');
+  });
+});
+
+describe('Level 0 named by its cause', () => {
+  const atLevelZero = async (gates: string[]) => {
+    const result = await scan('https://blog.example/', {
+      fetcher: fixtureFetcher(fixture('content-site')),
+    });
+    const copy = structuredClone(result);
+    copy.level = { value: 0, name: 'Not reachable', next_gate: gates };
+    return copy;
+  };
+
+  it('calls a site that answers but shows no product content without JavaScript not readable', async () => {
+    const result = await atLevelZero(['A3.2']);
+    expect(levelLabel(result)).toBe('Not readable');
+    expect(levelCauseSentence(result)).toMatch(/until JavaScript runs/);
+    const html = renderHtml(result);
+    expect(html).toContain('>Not readable</h2>');
+    expect(html).toContain('see empty pages');
+    expect(renderMarkdown(result)).toMatch(/\*\*Level 0: Not readable\.\*\* The site answers, but/);
+  });
+
+  it('keeps "Not reachable" for a block and names robots.txt closures', async () => {
+    expect(levelLabel(await atLevelZero(['A2.4', 'A3.2']))).toBe('Not reachable');
+    const closed = await atLevelZero(['A2.2']);
+    expect(levelLabel(closed)).toBe('Closed to AI crawlers');
+    expect(levelCauseSentence(closed)).toMatch(/robots\.txt keeps the crawlers/);
+  });
+
+  it('leaves the catalog name and adds no cause above Level 0', async () => {
+    const result = await atLevelZero([]);
+    result.level = { value: 2, name: 'Readable catalog', next_gate: ['B4.1'] };
+    expect(levelLabel(result)).toBe('Readable catalog');
+    expect(levelCauseSentence(result)).toBe('');
   });
 });
 

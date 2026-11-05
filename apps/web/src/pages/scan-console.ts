@@ -145,7 +145,7 @@ if(d.reused){$('sc-status').textContent=NOTE.reused;setPhase('checks');$('sc-req
 var i=0;function next(){if(i<replay.length){var r=replay[i++];cell(r.id,r.verdict);if(r.verdict!=='skip')blip(r.verdict);if(r.verdict!=='pass'&&r.verdict!=='skip'){var c=box.querySelector('.sc-cell[data-id="'+r.id+'"]');var t=TAG[r.verdict];log([[t[0]+' ',t[1]],[c?c.title:r.id,'']])}shown=20+80*i/replay.length;paint();$('sc-checks').textContent=i+'/'+replay.length;setTimeout(next,step);return}
 shown=100;paint();box.querySelectorAll('.sc-phase').forEach(function(el){el.setAttribute('data-s','done')});
 if(!reduce)box.querySelectorAll('.sc-cell:not([style*="none"])').forEach(function(el,k){setTimeout(function(){el.classList.add('sc-wave')},k*12)});
-$('sc-status').textContent=NOTE.done;$('sc-host').textContent='Level '+d.level.value+' · '+d.level.name;
+$('sc-status').textContent=NOTE.done;$('sc-host').textContent='Level '+d.level.value+' · '+(d.level_label||d.level.name);
 log([['done ','sc-pass'],['level '+d.level.value+' · ingestion '+d.scores.ingestion+(d.scores.commerce===null?(d.scores.coverage&&d.scores.coverage.commerce!==null?' · commerce incomplete':''):' · commerce '+d.scores.commerce)+' · '+d.requests+' requests in '+(d.duration_ms/1000).toFixed(1)+' s','']]);
 $('sc-quip').classList.remove('sc-caret');$('sc-quip').textContent='› Opening the report…';setTimeout(function(){try{sessionStorage.setItem('ars-arrived',d.report_url+'|'+(d.duration_ms/1000).toFixed(1)+' s')}catch(_){}var r=box.querySelector('.sc-radar');if(r)r.classList.add('sc-handoff');location.href=d.report_url},reduce?400:1200)}
 next()}

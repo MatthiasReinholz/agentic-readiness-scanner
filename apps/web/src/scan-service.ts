@@ -9,6 +9,7 @@ import {
   type ResumableScanOptions,
   type ScanState,
   type ScanStep,
+  levelLabel,
 } from '@agentic-readiness/core';
 
 import type { AppConfig } from './config.js';
@@ -330,6 +331,7 @@ export function donePayload(outcome: FinishedOutcome): Record<string, unknown> {
     reused: outcome.reused,
     scanned_at: result.scanned_at,
     level: result.level,
+    level_label: levelLabel(result),
     scores: {
       ingestion: result.scores.ingestion,
       commerce: result.scores.commerce,

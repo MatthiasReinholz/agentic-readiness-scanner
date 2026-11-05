@@ -35,6 +35,8 @@ import {
   escapeHtml,
   failedResults,
   groupResults,
+  levelCauseSentence,
+  levelLabel,
   nextGateSentence,
   platformResults,
   scopeLines,
@@ -95,16 +97,6 @@ function disclosureChevron(scope: 'section' | 'fix'): string {
 
 function copyButton(targetId: string, labelText: string): string {
   return `<button type="button" class="${button({ variant: 'outline', size: 'sm' })}" data-copy="${targetId}">${icon('copy')}<span data-copy-label>${labelText}</span></button>`;
-}
-
-/**
- * The level's name for the hero. When the scan could not answer what stands before
- * Level 1, "Not reachable" would claim something unverified, so it reads "Not decided yet".
- */
-function levelHeading(result: ScanResult): string {
-  return result.level.value === 0 && (result.level.undetermined?.length ?? 0) > 0
-    ? 'Not decided yet'
-    : result.level.name;
 }
 
 /** The profile as a reader says it: what the scanner took the site for. */
@@ -327,13 +319,14 @@ export function renderHtml(result: ScanResult, options: HtmlReportOptions = {}):
   ].filter(Boolean);
   const appName = options.appName ?? 'Agentic Readiness Scanner';
   const gate = nextGateSentence(result);
+  const cause = levelCauseSentence(result);
   const hero = `<div class="hero-summary">
 <div class="min-w-0"><p class="hero-eyebrow">Agentic readiness report</p><h1 class="hero-title">${siteHeadingLink(result.target.url, breakableUrl(options.displayUrl ?? result.target.url))}</h1>${platformHero(result)}<p class="hero-meta">Checked as ${escapeHtml(PROFILE_PHRASE[result.target.profile] ?? result.target.profile)} · scanned ${escapeHtml(result.scanned_at.slice(0, 16).replace('T', ' '))} UTC</p></div>
 ${links.length > 0 ? `<p class="hero-meta">${links.join(' · ')}</p>` : ''}
 </div>
 <div class="hero-level mt-6">
 <div class="lv-badge inline-grid size-[5.5rem] place-items-center rounded-2xl border border-primary/40 bg-primary/10 text-4xl font-extrabold leading-none text-primary"><small class="text-xs font-bold uppercase tracking-[0.12em] text-current">Level</small>${result.level.value}</div>
-<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(levelHeading(result))}</h2>${gate ? `<p class="mt-1.5">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold underline underline-offset-4" href="#priorities">What to do</a></p>` : ''}</div>
+<div><h2 class="text-lg font-semibold tracking-tight">${escapeHtml(levelLabel(result))}</h2>${cause ? `<p class="mt-1.5">${escapeHtml(cause)}</p>` : ''}${gate ? `<p class="mt-1.5">${escapeHtml(gate)}</p>` : ''}${openCounts.length > 0 ? `<p class="mt-1.5 text-sm">Open findings: ${escapeHtml(openCounts.join(' · '))}. <a class="font-semibold underline underline-offset-4" href="#priorities">What to do</a></p>` : ''}</div>
 </div>`;
   const body = `${checkMapHtml(result, card)}
 ${result.scores.commerce === null ? '' : `<div class="${alert({ variant: 'info' })} mt-4" role="note">${icon('info')}<span>A commerce score above 60 needs a checkout an agent can use to be advertised. It never means a channel approved the products or that a checkout works.</span></div>`}
@@ -357,7 +350,7 @@ ${siteFooter(`Catalog ${escapeHtml(result.catalog_version)} · scoring ${escapeH
       heroHtml: pageHero(hero),
       description:
         options.description ??
-        `Level ${result.level.value} (${result.level.name}), ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}.`,
+        `Level ${result.level.value} (${levelLabel(result)}), ingestion ${scoreText(result, 'ingestion')}, commerce ${scoreText(result, 'commerce')}.`,
       head: `<style>${CHECK_MAP_CSS}</style>${options.head ?? ''}`,
       scripts: [EXPAND_SCRIPT, COPY_SCRIPT, CHECK_MAP_SCRIPT, ...(options.scripts ?? [])],
     },

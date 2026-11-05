@@ -149,6 +149,63 @@ export function verdictSymbol(verdict: CheckResult['verdict']): string {
   }
 }
 
+/**
+ * Why a store sits at Level 0, by the Level 1 gate it misses, in the order an agent meets
+ * them: it cannot get in (A2.4, A1.1), it may not crawl (A2.2), or it gets in and reads
+ * nothing (A3.2). Each cause has a short name for the heading and a sentence for the
+ * reader. The level stays 0; only its explanation changes.
+ */
+const LEVEL_ZERO_CAUSES: readonly { gate: string; name: string; sentence: string }[] = [
+  {
+    gate: 'A2.4',
+    name: 'Not reachable',
+    sentence: 'An agent that says who it is gets a block or a challenge instead of the store.',
+  },
+  {
+    gate: 'A1.1',
+    name: 'Not reachable',
+    sentence: 'robots.txt answers with an error, and crawlers then assume they may fetch nothing.',
+  },
+  {
+    gate: 'A2.2',
+    name: 'Closed to AI crawlers',
+    sentence:
+      'The site answers, but robots.txt keeps the crawlers behind AI answers away from product pages.',
+  },
+  {
+    gate: 'A3.2',
+    name: 'Not readable',
+    sentence:
+      'The site answers, but its product pages show no title, price or description until JavaScript runs. Most AI fetchers read the HTML without running scripts, so they see empty pages.',
+  },
+];
+
+function levelZeroCauses(result: ScanResult): (typeof LEVEL_ZERO_CAUSES)[number][] {
+  if (result.level.value !== 0 || (result.level.undetermined?.length ?? 0) > 0) return [];
+  const missed = new Set(result.level.next_gate);
+  return LEVEL_ZERO_CAUSES.filter((cause) => missed.has(cause.gate));
+}
+
+/**
+ * The level's name as reports show it. Level 0 is named by its cause, so a site that
+ * answers but shows agents nothing reads "Not readable", not "Not reachable". When the
+ * scan could not answer what stands before Level 1, it reads "Not decided yet".
+ */
+export function levelLabel(result: ScanResult): string {
+  if (result.level.value === 0 && (result.level.undetermined?.length ?? 0) > 0) {
+    return 'Not decided yet';
+  }
+  return levelZeroCauses(result)[0]?.name ?? result.level.name;
+}
+
+/** One or two sentences on why a store is at Level 0, or '' at any other level. */
+export function levelCauseSentence(result: ScanResult): string {
+  return levelZeroCauses(result)
+    .map((cause) => cause.sentence)
+    .filter((sentence, index, all) => all.indexOf(sentence) === index)
+    .join(' ');
+}
+
 export function nextGateSentence(result: ScanResult, catalog: Catalog = defaultCatalog): string {
   if (result.level.value >= 5) return 'This store has reached the highest level.';
   const next = catalog.levels.find((level) => level.value === result.level.value + 1);
