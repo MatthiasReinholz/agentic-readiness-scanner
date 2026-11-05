@@ -701,10 +701,11 @@ export const acpFeedFields = defineCheck('B5.4', async ({ fetcher, outcomes }) =
   };
   const missingRequired = countMissing((item) => item.missing_required);
   const missingReturn = countMissing((item) => item.missing_return);
-  // The seller policy fields are required for checkout; an item that opts out of checkout
-  // with is_eligible_checkout false (or enable_checkout false) does not need them.
+  // The OpenAI feed spec makes the seller policy fields conditionally required for
+  // checkout, and checkout is off unless an item opts in with is_eligible_checkout (or
+  // enable_checkout) true. Only items that opt in need them.
   const missingCheckout = countMissing((item) =>
-    item.flags.is_eligible_checkout === false ? [] : item.missing_checkout_policy,
+    item.flags.is_eligible_checkout === true ? item.missing_checkout_policy : [],
   );
   evidence.items_sampled = sample.length;
   evidence.fields = items_.map((item) => item.fields);

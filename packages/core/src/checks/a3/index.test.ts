@@ -39,10 +39,40 @@ function productHtml(options: { title?: boolean; price?: boolean; words?: number
 }
 
 describe('A3.2 server-rendered product content', () => {
-  it('does not apply without sampled product pages', async () => {
+  it('does not apply to a store without sampled product pages', async () => {
     const outcome = await runCheck(serverRenderedProductContent, targetFor(), mapFetcher({}));
     expect(outcome.verdict).toBe('skip');
     expect(outcome.skipReason).toBe('not_applicable');
+  });
+
+  it('is not evaluated for a store whose product discovery stopped early', async () => {
+    const target = {
+      ...targetFor(),
+      productDiscovery: { complete: false, reason: 'the sitemap answered 429' },
+    };
+    const outcome = await runCheck(serverRenderedProductContent, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('skip');
+    expect(outcome.skipReason).toBe('error');
+  });
+
+  it('judges the home page of a site that sells nothing', async () => {
+    const shell =
+      '<html><head><title>News</title><script src="/app.js"></script></head><body><div id="root"></div></body></html>';
+    const empty = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ platform: 'unknown', profile: 'content-site', homeHtml: shell }),
+      mapFetcher({}),
+    );
+    expect(empty.verdict).toBe('fail');
+    expect(empty.message).toMatch(/empty shell/);
+    expect(empty.evidence.judged).toBe('home');
+    const full = `<html><head><title>News</title><script src="/app.js"></script></head><body>${'<a href="/a">Story</a>'.repeat(4)}<p>${'word '.repeat(60)}</p></body></html>`;
+    const readable = await runCheck(
+      serverRenderedProductContent,
+      targetFor({ platform: 'unknown', profile: 'content-site', homeHtml: full }),
+      mapFetcher({}),
+    );
+    expect(readable.verdict).toBe('pass');
   });
 
   it('passes when every page carries title, price and description in raw HTML', async () => {

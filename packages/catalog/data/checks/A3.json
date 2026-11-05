@@ -25,9 +25,9 @@
   {
     "id": "A3.2",
     "group": "A3",
-    "title": "Server-rendered product content",
-    "question": "Are title, price and description present in the raw HTML without JavaScript?",
-    "method": "Parse the raw HTML of the sampled product pages that answered, without running JavaScript. A page is complete when it carries a title (a <title> or a Product name in JSON-LD), a price (a JSON-LD offer price, an amount with a currency in the text, or an element with a price class) and a description (a meta description, a JSON-LD description or more than 80 words of text). Pass when every page is complete, warn when only some are, fail when none is (an empty app shell). Fail as well when a product URL lands on a sign-in or password page (it was redirected to a login or password path, or what answered is a password form with no product content): Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts. A product page that merely links to the account area is a product page. A page that could not be fetched is named and never scored. Skipped when no product page was sampled or none could be fetched.",
+    "title": "Server-rendered content",
+    "question": "Can an agent that does not run JavaScript read the content?",
+    "method": "Parse the raw HTML of the sampled product pages that answered, without running JavaScript. A page is complete when it carries a title (a <title> or a Product name in JSON-LD), a price (a JSON-LD offer price, an amount with a currency in the text, or an element with a price class) and a description (a meta description, a JSON-LD description or more than 80 words of text). Pass when every page is complete, warn when only some are, fail when none is (an empty app shell). Fail as well when a product URL lands on a sign-in or password page (it was redirected to a login or password path, or what answered is a password form with no product content): Google's landing-page rules say a product page must not require registration or sign-in, and Shopify's password page makes a store ineligible for agentic storefronts. A product page that merely links to the account area is a product page. A page that could not be fetched is named and never scored. When no product page was sampled, a site that sells nothing is judged by its home page: fail when it is an empty shell (it loads a script and its HTML has fewer than 3 links and fewer than 50 words outside scripts), pass otherwise. A store without a sampled product page is skipped (not evaluated when product discovery stopped early), and so is a store whose sampled pages could not be fetched. Most AI crawlers and fetchers read HTML without running scripts (Googlebot renders JavaScript; the Vercel and MERJ study of AI crawler traffic found no major AI crawler that does), so content that only appears after scripts run is missing for them.",
     "weight": 3,
     "spec": [
       {
@@ -37,9 +37,12 @@
       {
         "title": "Google Merchant Center: the link attribute and its landing page requirements",
         "url": "https://support.google.com/merchants/answer/6324416"
+      },
+      {
+        "title": "Vercel: The rise of the AI crawler (JavaScript rendering by AI crawlers)",
+        "url": "https://vercel.com/blog/the-rise-of-the-ai-crawler"
       }
-    ],
-    "requires": ["products"]
+    ]
   },
   {
     "id": "A3.3",
@@ -64,7 +67,7 @@
     "group": "A3",
     "title": "Canonical is correct and hreflang is well-formed",
     "question": "Does each product page name itself as the URL to index, so the index holds the page the agent was sent to?",
-    "method": "Read rel=canonical from the HTML and from the Link response header of each sampled product page that answered. Problems are checked in this order, and the first one found sets the verdict. Fail when a page carries no canonical. Warn when a page carries several or conflicting canonicals, a relative canonical, a canonical on another host, a canonical on http while the page is https, or a canonical naming a different URL than the one that answered (the sampled page is then a duplicate and the other URL is what gets indexed, so sitemaps should list that one). For hreflang alternates, warn when they appear on some sampled pages only, when an alternate URL is relative, or when a page names fewer than two languages and no x-default. The alternate pages are not fetched, so reciprocity is not judged. Pass when every sampled page's canonical is absolute and resolves to the page itself. Skipped when no product page was sampled or none could be fetched.",
+    "method": "Read rel=canonical from the HTML and from the Link response header of each sampled product page that answered. Problems are checked in this order, and the first one found sets the verdict. Fail when a page carries no canonical. Warn when a page carries conflicting canonicals (several identical ones are fine), a relative canonical, a canonical on another host, a canonical on http while the page is https, or a canonical naming a different URL than the one that answered (the sampled page is then a duplicate and the other URL is what gets indexed, so sitemaps should list that one). For hreflang alternates, warn when they appear on some sampled pages only, when an alternate URL is relative, or when a page names fewer than two languages and no x-default. The alternate pages are not fetched, so reciprocity is not judged. Pass when every sampled page's canonical is absolute and resolves to the page itself. Skipped when no product page was sampled or none could be fetched.",
     "weight": 1,
     "spec": [
       {
@@ -189,7 +192,7 @@
     "group": "A3",
     "title": "Mobile viewport declared",
     "question": "Does the page declare itself usable on a phone, which is the device Google indexes with?",
-    "method": "Read the meta viewport of each sampled product page that answered (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly. A site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width and allows zooming. Warn when a page has no viewport tag, a tag without width=device-width (such as a fixed pixel width), or a tag that forbids zooming (user-scalable=no or 0, or maximum-scale below 1). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
+    "method": "Informational. Read the meta viewport of each sampled product page that answered (the home page when none were sampled). Google crawls and indexes with the smartphone crawler only and documents the viewport tag as the signal that a page is mobile friendly. A site not accessible on a mobile device is no longer indexable. Pass when every page declares width=device-width and allows zooming. Warn when a page has no viewport tag, a tag without width=device-width (such as a fixed pixel width), or a tag that forbids zooming (user-scalable=no or 0, or maximum-scale below 1). The scanner does not render pages, so content parity between desktop and mobile is not judged.",
     "weight": "info",
     "spec": [
       {

@@ -4,7 +4,7 @@
     "group": "C2",
     "title": "Privacy notice linked from the home page",
     "question": "Can a visitor reach a privacy notice from the home page, and does it give a way to contact the business?",
-    "method": "Take the privacy page found in the home page links or, failing that, a home page link whose label or path names privacy in the page language (privacy, Datenschutz, confidentialité, privacidad, privacidade, riservatezza, tratamiento de datos and the like), and read it. Found when the page loads and gives an email address or a postal address. Review when the page cannot be read or gives neither. Not found when no privacy link is found. Whether the notice names a company is recorded as evidence but does not change the verdict.",
+    "method": "Take the privacy page found in the home page links (or, when the home page links none, a sitemap URL that names the privacy policy document, such as /privacy-policy) or, failing that, a home page link whose label or path names privacy in the page language (privacy, Datenschutz, confidentialité, privacidad, privacidade, riservatezza, tratamiento de datos and the like), and read it. Found when the page loads and gives an email address or a postal address. Review when the page cannot be read or gives neither. Not found when neither the home page nor the sitemap leads to a privacy notice. Whether the notice names a company is recorded as evidence but does not change the verdict.",
     "weight": "info",
     "laws": [
       "eu-gdpr-art13",
@@ -18,7 +18,10 @@
       "co-ley-1581"
     ],
     "spec": [
-      { "title": "GDPR, Article 13", "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj" },
+      {
+        "title": "GDPR, Article 13",
+        "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+      },
       {
         "title": "California Online Privacy Protection Act, Bus. & Prof. Code §22577(b)",
         "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=22577"
@@ -36,7 +39,10 @@
     "depends_on": ["C2.1"],
     "laws": ["eu-gdpr-art37", "br-lgpd", "ca-qc-law25"],
     "spec": [
-      { "title": "GDPR, Article 37(7)", "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj" },
+      {
+        "title": "GDPR, Article 37(7)",
+        "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+      },
       {
         "title": "Brazil LGPD (Lei 13.709/2018), Article 41",
         "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
@@ -73,7 +79,10 @@
     "markets": ["US"],
     "laws": ["us-ca-ccpa-regs", "us-co-cpa", "eu-gdpr-art21"],
     "spec": [
-      { "title": "Global Privacy Control specification", "url": "https://w3c.github.io/gpc/" },
+      {
+        "title": "Global Privacy Control specification",
+        "url": "https://w3c.github.io/gpc/"
+      },
       {
         "title": "CCPA Regulations §7025, opt-out preference signals",
         "url": "https://cppa.ca.gov/regulations/"

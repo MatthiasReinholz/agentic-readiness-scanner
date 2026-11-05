@@ -176,7 +176,9 @@ describe('B1.8 Shopify products.json readable', () => {
     expect(shape.verdict).toBe('fail');
     expect(shape.message).toBe('products.json returned JSON without a products array');
     const down = await answer({ status: 503, body: '' });
-    expect(down.verdict).toBe('fail');
-    expect(down.message).toBe('products.json returned HTTP 503');
+    expect(down).toMatchObject({ verdict: 'skip', skipReason: 'error' });
+    const gone = await answer({ status: 410, body: '' });
+    expect(gone.verdict).toBe('fail');
+    expect(gone.message).toBe('products.json returned HTTP 410');
   });
 });

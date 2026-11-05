@@ -161,19 +161,24 @@ const DOCUMENTED_FALLBACKS: Readonly<Record<string, string>> = {
   applebot: 'googlebot',
 };
 
+/**
+ * RFC 9309 section 2.2.1: when several groups match the same user agent, their rules are
+ * combined into one group. A robots.txt that names GPTBot in two places, or has two "*"
+ * groups, is read as the union of their rules.
+ */
+function mergeGroups(groups: readonly RobotsGroup[]): RobotsGroup | null {
+  if (groups.length === 0) return null;
+  if (groups.length === 1) return groups[0] ?? null;
+  return {
+    agents: [...new Set(groups.flatMap((group) => group.agents))],
+    rules: groups.flatMap((group) => group.rules),
+  };
+}
+
 function namedGroup(robots: RobotsTxt, token: string): RobotsGroup | null {
-  let best: RobotsGroup | null = null;
-  let bestLength = -1;
-  for (const group of robots.groups) {
-    for (const agent of group.agents) {
-      if (agent === '*') continue;
-      if (token === agent && agent.length > bestLength) {
-        best = group;
-        bestLength = agent.length;
-      }
-    }
-  }
-  return best;
+  return mergeGroups(
+    robots.groups.filter((group) => group.agents.some((agent) => agent !== '*' && agent === token)),
+  );
 }
 
 /**
@@ -188,7 +193,7 @@ export function groupFor(robots: RobotsTxt, productToken: string): RobotsGroup |
   const fallback = DOCUMENTED_FALLBACKS[token];
   const borrowed = fallback ? namedGroup(robots, fallback) : null;
   if (borrowed) return borrowed;
-  return robots.groups.find((group) => group.agents.includes('*')) ?? null;
+  return mergeGroups(robots.groups.filter((group) => group.agents.includes('*')));
 }
 
 /** True when the group explicitly names the token (not via "*"). */

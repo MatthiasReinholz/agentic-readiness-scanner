@@ -256,7 +256,7 @@ export function reportMetadata(
         },
         {
           '@type': 'PropertyValue',
-          name: 'Agentic ingestion score',
+          name: 'Visible to AI score (ingestion)',
           value: result.scores.ingestion,
           minValue: 0,
           maxValue: 100,
@@ -266,7 +266,7 @@ export function reportMetadata(
           : [
               {
                 '@type': 'PropertyValue',
-                name: 'Agentic commerce score',
+                name: 'Shoppable by AI score (commerce)',
                 value: result.scores.commerce,
                 minValue: 0,
                 maxValue: 100,

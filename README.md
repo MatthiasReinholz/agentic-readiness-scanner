@@ -6,7 +6,7 @@ AI agents increasingly shop on a person's behalf. They search for products, comp
 
 The scanner tells you how your store looks to such an agent. You give it a public store URL. It reads only what any visitor could read, runs 78 checks, gives the store a readiness level and two scores, and returns a report in which every finding comes with a fix.
 
-> Status: version **0.13.0** (catalog 0.7.0, scoring 0.7.0), released 2026-11-03. The hosted scanner runs at <https://agentic-readiness-scanner.space.fast/>. `@agentic-readiness/cli` and `@agentic-readiness/core` are on npm. See the [roadmap](#roadmap) and the [changelog](CHANGELOG.md).
+> Status: version **0.16.0** (catalog 0.11.1, scoring 0.8.0), released 2026-11-05. The hosted scanner runs at <https://agentic-readiness-scanner.space.fast/>. `@agentic-readiness/cli` and `@agentic-readiness/core` are on npm. See the [roadmap](#roadmap) and the [changelog](CHANGELOG.md).
 
 ## What it checks
 
@@ -48,14 +48,16 @@ A report answers four questions, in this order.
 1. **Which platform is this?** The top line names the recognised platform and the platform checks that ran.
 2. **Which level does the store hold?** Levels go from 0 to 5. A level is gated, not averaged: the store holds it only when every gate check of that level and of all lower levels passes. The report lists the checks between the store and the next level.
 
-   | Level | Name                  | What an agent can do                                                                                  |
-   | ----- | --------------------- | ----------------------------------------------------------------------------------------------------- |
-   | 0     | Not reachable         | Nothing yet. robots.txt blocks AI crawlers, honest requests are challenged, or pages need JavaScript. |
-   | 1     | Reachable             | Read robots.txt, and read product pages without a challenge. Product content is in the HTML.          |
-   | 2     | Readable catalog      | List the catalog. Product pages may appear in AI answers and carry Product data with a full offer.    |
-   | 3     | Trusted merchant      | Find the return, shipping, privacy and terms pages and a way to contact the merchant.                 |
-   | 4     | Identifiable products | Identify each product by a valid GTIN, or by brand and maker's part number (MPN).                     |
-   | 5     | Checkout-ready        | Find a checkout it can use: a UCP profile, an ACP document or an active Shopify agentic storefront.   |
+   | Level | Name                  | What an agent can do                                                                                                                   |
+   | ----- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+   | 0     | Not reachable         | Nothing yet. Honest requests are blocked or challenged, robots.txt keeps the crawlers behind AI answers out, or pages need JavaScript. |
+   | 1     | Reachable             | Read robots.txt, and read product pages without a challenge. Product content is in the HTML.                                           |
+   | 2     | Readable catalog      | List the catalog. Product pages may appear in AI answers and carry Product data with a full offer.                                     |
+   | 3     | Trusted merchant      | Find the return, shipping, privacy and terms pages and a way to contact the merchant.                                                  |
+   | 4     | Identifiable products | Identify each product by a valid GTIN, or by brand and maker's part number (MPN).                                                      |
+   | 5     | Checkout-ready        | Find a checkout it can use: a UCP profile, an ACP document or an active Shopify agentic storefront.                                    |
+
+   Reports name Level 0 by its cause: **Not reachable** (blocked, challenged or a robots.txt error), **Closed to AI crawlers** (robots.txt keeps the crawlers behind AI answers away from product pages), **Not readable** (pages are empty without JavaScript) or **No product page found** (no product page could be read). The JSON keeps the catalog name in `level.name`.
 
    Level 5 means the public prerequisites are in place. It does not mean a purchase was tested. ACP (Agentic Commerce Protocol) is another open specification for agent checkout. A content site (a site that sells nothing) is scanned with the `content-site` profile, which runs only the ingestion checks and stops at Level 1. Stores use `woocommerce-store` or `other-store`. The scanner picks the profile, and `--profile` overrides it.
 
@@ -207,6 +209,7 @@ Shipped so far (details in the [changelog](CHANGELOG.md)):
 - **0.1 to 0.3:** the catalog, engine, CLI, MCP server and hosted scanner with badge and monitoring, then fixes with briefs for coding agents, an audited catalog that judges crawlers by purpose, honest fetching, history per host and `diff`.
 - **0.4 to 0.9:** the technical SEO audit, reports that lead with what to fix, the two npm packages and a live scan console.
 - **0.10 to 0.13:** the knowledge base, legal signals, score coverage, scans in steps, score caps, and 13 recognised platforms with their own checks.
+- **0.14 to 0.16:** checks for what agents do once they reach a store, levels that follow what agent checkout programmes require, plain-language reports, Level 0 named by its cause, stores rendered with JavaScript checked as stores, and knowledge-base guides on crawler blocks, crawl services and large catalogs.
 
 Planned for 1.0: a recorded reference store per platform with a nightly comparison, Web Bot Auth signatures (a way for a site to verify who sent a request) on the scanner's own requests, and the result contract declared stable.
 

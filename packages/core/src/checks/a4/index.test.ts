@@ -508,19 +508,27 @@ describe('A4.3 OAuth discovery for the MCP endpoint', () => {
     expect(requests).toBe(3);
   });
 
-  it('warns when only authorization server metadata exists', async () => {
+  it('warns when the endpoint answers 401 and only authorization server metadata exists', async () => {
     const { outcome, requests } = await run({
       [serverMetadata]: json(authorizationServer),
-      [endpoint]: { status: 405, headers: { allow: 'POST' }, body: '' },
+      [endpoint]: { status: 401, headers: { 'www-authenticate': 'Bearer realm="shop"' }, body: '' },
     });
     expect(outcome.verdict).toBe('warn');
     expect(outcome.message).toContain('issuer https://shop.example');
     expect(outcome.evidence).toMatchObject({
       issuer: 'https://shop.example',
-      endpoint_status: 405,
-      www_authenticate: null,
+      endpoint_status: 401,
     });
     expect(requests).toBe(4);
+  });
+
+  it('does not score an open endpoint even when authorization server metadata exists', async () => {
+    const { outcome, requests } = await run({
+      [serverMetadata]: json(authorizationServer),
+      [endpoint]: { status: 405, headers: { allow: 'POST' }, body: '' },
+    });
+    expect(outcome).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(requests).toBe(3);
   });
 
   it('fails when nothing is found, including a 401 without resource_metadata, within four requests', async () => {
@@ -762,10 +770,8 @@ describe('A4.5 A2A agent card', () => {
         discovery_version: '0.1',
       }),
     });
-    expect(adp.verdict).toBe('fail');
-    expect(adp.message).toBe(
-      'no A2A agent card: /.well-known/agent-card.json is absent and the JSON at /.well-known/agent.json lacks the A2A fields (name, description, url or supportedInterfaces, version, capabilities, skills). Other agent-discovery drafts use that path too',
-    );
+    expect(adp).toMatchObject({ verdict: 'skip', skipReason: 'not_applicable' });
+    expect(adp.message).toMatch(/belongs to another agent-discovery draft/);
     expect(adp.evidence).toMatchObject({ legacy_status: 200, legacy_is_a2a: false, path: null });
     expect(isA2aAgentCard({ name: 'x', description: 'y', url: 'u', version: '1' })).toBe(false);
     expect(

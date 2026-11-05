@@ -116,6 +116,7 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
   };
   let found = 0;
   const problems: string[] = [];
+  const unanswered: FetchedResponse[] = [];
   for (const [kind, url] of [
     ['privacy', privacyUrl],
     ['terms', termsUrl],
@@ -126,11 +127,23 @@ export const privacyAndTermsFound = defineCheck('B4.3', async ({ target, fetcher
     }
     const response = await fetcher.fetch(url);
     evidence[`${kind}_status`] = response.status;
-    if (response.status === 200) found += 1;
-    else
+    if (response.status === 200 && !isChallengePage(response)) found += 1;
+    else {
+      // A refused, challenged or throttled page says nothing about the policy (ADR 0012).
+      if (unreadable(response)) unanswered.push(response);
       problems.push(
         `the ${kind === 'privacy' ? 'privacy policy' : 'terms'} link ${url} answered ${describeFailure(response)}`,
       );
+    }
+  }
+  const linked = [privacyUrl, termsUrl].filter(Boolean).length;
+  const firstUnanswered = unanswered[0];
+  if (firstUnanswered && found + unanswered.length === linked && found < 2) {
+    return inconclusive(
+      found === 1 ? 'the other policy page' : 'the privacy policy and terms pages',
+      firstUnanswered,
+      evidence,
+    );
   }
   const detail = problems.length > 0 ? ` (${problems.join(', ')})` : '';
   if (found === 0 && !privacyUrl && !termsUrl && target.homeShell) {

@@ -36,7 +36,7 @@ It would seem natural to run the scan in the visitor's browser: a real browser, 
 
 Under the same-origin policy, a script on one site can send a request to another site but cannot read the answer, unless the other site allows it with Cross-Origin Resource Sharing (CORS) headers. Without that permission the browser hands the script an error, or with the `no-cors` mode an opaque response with no status and no body. This is what stops any page you open from reading your webmail or your bank in the background with your login.
 
-Stores do not send CORS permission for their pages, robots.txt or sitemaps. In a test from the hosted scanner on 3 November 2026, every one of them was unreadable. Only a few APIs that opt in on purpose could be read, such as the WordPress REST API index, Shopify's `products.json` and a published commerce profile. A scan needs far more than those.
+Stores do not send CORS permission for their pages, robots.txt or sitemaps, so a browser refuses to hand them to another site's script. Only an API that opts in on purpose by sending an `Access-Control-Allow-Origin` header can be read that way. A scan needs far more than those.
 
 ### Iframes and windows do not help
 

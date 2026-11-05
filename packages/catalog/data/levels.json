@@ -48,7 +48,7 @@
   {
     "value": 4,
     "name": "Identifiable products",
-    "description": "Level 3, and every sampled product carries a valid GTIN or a brand with the maker's part number, no declared GTIN is invalid, and the brand is named as an entity.",
+    "description": "Level 3, and at least 80 percent of sampled products carry a GTIN, or every product without one carries a brand with the maker's part number. No declared GTIN is invalid, and the brand is named as an entity.",
     "gates": [
       ["A1.1"],
       ["A2.2"],
