@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-05
+
 ### Changed
 
 - **A3.2 also judges sites that sell nothing** (catalog 0.12.0). It is now called Server-rendered content. Without sampled product pages, a content site is judged by its home page: an empty shell that JavaScript fills in fails, so a JavaScript-only site no longer reaches Level 1 with nothing for agents to read. Most AI crawlers and fetchers do not run JavaScript; Googlebot does. The scanner judges what the server sends, not the framework: a site that renders on the server passes.
