@@ -117,11 +117,11 @@ export class ScanPendingError extends Error {
 
 interface LocalScanState {
   /** First steps this isolate is running, by host, so a second request joins them. */
-  starting: Map<string, { persistent: boolean; promise: Promise<ScanOutcome> }>;
+  starting: Map<string, { persistent: boolean; promise: Promise<ScanOutcome>; since: number }>;
   limiter: MemoryScanLimiter;
   jobs: MemoryScanJobStore;
-  /** Steps this isolate runs right now. */
-  active: number;
+  /** Steps this isolate runs right now, with the time each started. */
+  active: Set<{ since: number }>;
 }
 // Scope state to the result store: app instances and hosted MCP share it, tests stay isolated.
 const localStates = new WeakMap<ScanDependencies['store'], LocalScanState>();
@@ -132,7 +132,7 @@ function stateFor(deps: ScanDependencies): LocalScanState {
       starting: new Map(),
       limiter: new MemoryScanLimiter(),
       jobs: new MemoryScanJobStore(),
-      active: 0,
+      active: new Set(),
     };
     localStates.set(deps.store, state);
   }
@@ -147,6 +147,19 @@ export function jobsFor(deps: ScanDependencies): ScanJobStore {
 const MAX_CONCURRENT_SCANS = 4;
 /** A lease outlives its step by this much, so a step the platform cut off frees it soon. */
 const LEASE_MARGIN_MS = 15_000;
+
+/**
+ * Local bookkeeping older than a step plus its lease margin belongs to a request the
+ * platform cut off without running its `finally`: the isolate lives on, the promise never
+ * settles. Such entries are dropped instead of counting forever, so an isolate that lost a
+ * few requests that way keeps taking scans.
+ */
+function forgetAbandoned(state: LocalScanState, config: AppConfig, at: number): void {
+  const limit = config.scanStepMs + LEASE_MARGIN_MS;
+  for (const step of state.active) if (at - step.since > limit) state.active.delete(step);
+  for (const [host, start] of state.starting)
+    if (at - start.since > limit) state.starting.delete(host);
+}
 /** Claims without a saved step after which a job is given up. */
 const MAX_ATTEMPTS = 3;
 /** The longest a one-time scan's state or result stays on the server. */
@@ -195,6 +208,7 @@ export async function scanOrReuse(
     return { persistence: 'stored', scan: latest, reused: true };
   }
   const state = stateFor(deps);
+  forgetAbandoned(state, deps.config, now().getTime());
   const starting = state.starting.get(host);
   if (starting && persistent && starting.persistent) {
     const outcome = await starting.promise;
@@ -219,7 +233,7 @@ export async function scanOrReuse(
       60,
     );
   }
-  if (state.active >= MAX_CONCURRENT_SCANS) {
+  if (state.active.size >= MAX_CONCURRENT_SCANS) {
     throw new ScanRequestError('The scanner is busy. Try again in a minute.', 503);
   }
   // Reserve synchronously in local state before the first await, then atomically in SQL.
@@ -268,11 +282,12 @@ export async function scanOrReuse(
     await jobs.create(job);
     return advanceJob(deps, job.id, onProgress, { deliver: true });
   })();
-  state.starting.set(host, { persistent, promise: first });
+  const entry = { persistent, promise: first, since: now().getTime() };
+  state.starting.set(host, entry);
   try {
     return await first;
   } finally {
-    state.starting.delete(host);
+    if (state.starting.get(host) === entry) state.starting.delete(host);
   }
 }
 
@@ -398,7 +413,9 @@ export async function advanceJob(
   const lease = await jobs.claim(job.id, now(), stepMs + LEASE_MARGIN_MS);
   if (!lease) return pendingOutcome(job, true);
   const local = stateFor(deps);
-  local.active += 1;
+  forgetAbandoned(local, deps.config, now().getTime());
+  const running = { since: now().getTime() };
+  local.active.add(running);
   try {
     const recorder = await ProgressRecorder.open(deps.progress, job.progressToken);
     const fail = async (message: string, status: number): Promise<never> => {
@@ -455,44 +472,59 @@ export async function advanceJob(
       await jobs.save({ ...job, updatedAt: now().toISOString() }, lease, { keepAttempts: true });
       throw error;
     }
-    if (!step.done) {
-      const next: ScanJob = { ...job, state: step.state, updatedAt: now().toISOString() };
-      await jobs.save(next, lease);
-      await recorder.flush();
-      return pendingOutcome(next);
+    // Storing what the step did can fail too (a refused or lost database operation). The
+    // step is then freed at once, attempts kept, so the next trigger retries it instead of
+    // waiting out the lease, and the reason reaches the log rather than only its name.
+    try {
+      if (!step.done) {
+        const next: ScanJob = { ...job, state: step.state, updatedAt: now().toISOString() };
+        await jobs.save(next, lease);
+        await recorder.flush();
+        return pendingOutcome(next);
+      }
+      const result = step.result;
+      let outcome: FinishedOutcome;
+      let finished: ScanJob;
+      if (job.persistent) {
+        const stored: StoredScan = {
+          id: newScanId(),
+          host: job.host,
+          createdAt: now().toISOString(),
+          result,
+        };
+        await deps.store.put(stored);
+        await deps.targets?.record(stored);
+        await deps.history?.record(stored);
+        outcome = { persistence: 'stored', scan: stored, reused: false };
+        finished = {
+          ...job,
+          status: 'done',
+          state: null,
+          scanId: stored.id,
+          updatedAt: stored.createdAt,
+        };
+      } else {
+        outcome = { persistence: 'disposable', result, reused: false };
+        finished = { ...job, status: 'done', state: null, result, updatedAt: now().toISOString() };
+      }
+      await jobs.save(finished, lease);
+      await jobs.cacheClear(job.id).catch(() => undefined);
+      if (!job.persistent && options.deliver) await jobs.delete(job.id);
+      await recorder.finish('done', donePayload(outcome));
+      return outcome;
+    } catch (error) {
+      console.error(
+        '[scan-job] storing a step failed:',
+        job.id,
+        error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      );
+      await jobs
+        .save({ ...job, updatedAt: now().toISOString() }, lease, { keepAttempts: true })
+        .catch(() => undefined);
+      throw error;
     }
-    const result = step.result;
-    let outcome: FinishedOutcome;
-    let finished: ScanJob;
-    if (job.persistent) {
-      const stored: StoredScan = {
-        id: newScanId(),
-        host: job.host,
-        createdAt: now().toISOString(),
-        result,
-      };
-      await deps.store.put(stored);
-      await deps.targets?.record(stored);
-      await deps.history?.record(stored);
-      outcome = { persistence: 'stored', scan: stored, reused: false };
-      finished = {
-        ...job,
-        status: 'done',
-        state: null,
-        scanId: stored.id,
-        updatedAt: stored.createdAt,
-      };
-    } else {
-      outcome = { persistence: 'disposable', result, reused: false };
-      finished = { ...job, status: 'done', state: null, result, updatedAt: now().toISOString() };
-    }
-    await jobs.save(finished, lease);
-    await jobs.cacheClear(job.id).catch(() => undefined);
-    if (!job.persistent && options.deliver) await jobs.delete(job.id);
-    await recorder.finish('done', donePayload(outcome));
-    return outcome;
   } finally {
-    local.active -= 1;
+    local.active.delete(running);
   }
 }
 

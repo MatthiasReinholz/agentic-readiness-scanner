@@ -7,7 +7,7 @@
  * runs again in the next step. Only the scan's overall limits (request budget, number of
  * steps, active time) end checks with the usual `budget_exhausted` skip.
  *
- * The state is plain JSON of a few KiB: versions, settings, counted requests, decided
+ * The state is plain JSON, tens of KB on a store with rich evidence: versions, settings, counted requests, decided
  * outcomes, politeness and failures. No response bodies; a step re-reads the pages it
  * needs (never counted twice against the budget), or takes them from a ResponseCache
  * the host provides. Split into steps over the same responses, a scan yields the same

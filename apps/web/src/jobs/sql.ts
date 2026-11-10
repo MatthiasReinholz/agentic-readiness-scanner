@@ -10,8 +10,14 @@ import {
   operationBytes,
   type SqlDatabase,
 } from '../store/sql-store.js';
-import { attachFixes, stripFixes } from '../store/sql.js';
-import { packJson, unpackJson } from './codec.js';
+import {
+  JSON_COLUMN_BUDGET,
+  decodeJsonColumn,
+  fitJsonColumn,
+  omitLargestEvidence,
+} from '../store/json-column.js';
+import { attachFixes, shrinkResult, stripFixes } from '../store/sql.js';
+import { packJson, unpackJson } from '../store/codec.js';
 import { EXPIRED } from './memory.js';
 import type { ScanJob, ScanJobStatus, ScanJobStore } from './types.js';
 
@@ -83,7 +89,37 @@ const PART_SQL = `INSERT INTO scan_job_cache_parts (job_id, request_key, part, p
 const COLUMNS =
   'id, host, url, profile, persistent, status, state_json, progress_token, attempts, created_at, updated_at, scan_id, result_json, error, error_status';
 
-function toJob(row: Record<string, unknown>): ScanJob {
+/**
+ * A copy of the state with its largest remaining evidence replaced by a note, for a state
+ * too large to store even packed; null when no evidence is left to drop.
+ */
+export function shrinkState(state: ScanState): ScanState | null {
+  const outcomes = Object.fromEntries(
+    Object.entries(state.outcomes).map(([id, outcome]) => [id, { ...outcome }]),
+  );
+  const legal = Object.fromEntries(
+    Object.entries(state.legal_outcomes).map(([id, outcome]) => [id, { ...outcome }]),
+  );
+  if (!omitLargestEvidence([...Object.values(outcomes), ...Object.values(legal)])) return null;
+  return { ...state, outcomes, legal_outcomes: legal };
+}
+
+/**
+ * The state and result columns as written: packed, and fitted to one operation. A job
+ * holds one or the other (a state while running, a one-time result when done); should it
+ * hold both, they share the budget.
+ */
+async function jobColumns(job: ScanJob): Promise<[string | null, string | null]> {
+  const budget = job.state && job.result ? JSON_COLUMN_BUDGET / 2 : JSON_COLUMN_BUDGET;
+  return [
+    job.state ? await fitJsonColumn('scan_jobs.state_json', job.state, budget, shrinkState) : null,
+    job.result
+      ? await fitJsonColumn('scan_jobs.result_json', stripFixes(job.result), budget, shrinkResult)
+      : null,
+  ];
+}
+
+async function toJob(row: Record<string, unknown>): Promise<ScanJob> {
   const reader = new RowReader('scan_jobs', row);
   const profile = reader.nullableString('profile');
   const state = reader.nullableString('state_json');
@@ -95,13 +131,13 @@ function toJob(row: Record<string, unknown>): ScanJob {
     ...(profile !== null ? { profile } : {}),
     persistent: reader.number('persistent') === 1,
     status: reader.string('status') as ScanJobStatus,
-    state: state ? (JSON.parse(state) as ScanState) : null,
+    state: state ? ((await decodeJsonColumn(state)) as ScanState) : null,
     progressToken: reader.nullableString('progress_token'),
     attempts: reader.number('attempts'),
     createdAt: reader.string('created_at'),
     updatedAt: reader.string('updated_at'),
     scanId: reader.nullableString('scan_id'),
-    result: result ? attachFixes(JSON.parse(result) as ScanResult) : null,
+    result: result ? attachFixes((await decodeJsonColumn(result)) as ScanResult) : null,
     error: reader.nullableString('error'),
     errorStatus: reader.nullableNumber('error_status'),
   };
@@ -122,6 +158,7 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
 
   async create(job: ScanJob): Promise<void> {
     await this.ensureSchema();
+    const [state, result] = await jobColumns(job);
     await this.db
       .prepare(
         `INSERT INTO scan_jobs (id, host, url, profile, persistent, status, state_json, progress_token, attempts, created_at, updated_at, scan_id, result_json, error, error_status)
@@ -134,13 +171,13 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
         job.profile ?? null,
         job.persistent ? 1 : 0,
         job.status,
-        job.state ? JSON.stringify(job.state) : null,
+        state,
         job.progressToken,
         job.attempts,
         job.createdAt,
         job.updatedAt,
         job.scanId,
-        job.result ? JSON.stringify(stripFixes(job.result)) : null,
+        result,
         job.error,
         job.errorStatus,
       )
@@ -153,7 +190,7 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
       .prepare(`SELECT ${COLUMNS} FROM scan_jobs WHERE id = ?`)
       .bind(id)
       .first();
-    return row ? toJob(row) : null;
+    return row ? await toJob(row) : null;
   }
 
   async runningForHost(host: string): Promise<ScanJob | null> {
@@ -164,7 +201,7 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
       )
       .bind(host)
       .first();
-    return row ? toJob(row) : null;
+    return row ? await toJob(row) : null;
   }
 
   async claim(id: string, now: Date, leaseMs: number): Promise<string | null> {
@@ -189,6 +226,7 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
 
   async save(job: ScanJob, leaseToken: string, options: { keepAttempts?: boolean } = {}) {
     await this.ensureSchema();
+    const [state, result] = await jobColumns(job);
     await this.db
       .prepare(
         `UPDATE scan_jobs SET status = ?, state_json = ?, attempts = ${options.keepAttempts ? 'attempts' : '0'},
@@ -197,10 +235,10 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
       )
       .bind(
         job.status,
-        job.state ? JSON.stringify(job.state) : null,
+        state,
         job.updatedAt,
         job.scanId,
-        job.result ? JSON.stringify(stripFixes(job.result)) : null,
+        result,
         job.error,
         job.errorStatus,
         job.id,
@@ -219,7 +257,7 @@ export class SqlScanJobStore extends SqlStore implements ScanJobStore {
       )
       .bind(before, now)
       .all();
-    return results.map(toJob);
+    return Promise.all(results.map(toJob));
   }
 
   async expireRunning(createdBefore: string, now: string): Promise<number> {

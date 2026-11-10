@@ -114,7 +114,10 @@ export function createJobRoutes(deps: ScanDependencies): Hono {
   const respondError = (c: Context, error: unknown) => {
     if (error instanceof ScanRequestError)
       return c.json({ status: 'failed', error: error.message }, error.status as 400 | 404 | 500);
-    console.error('[scan-job]', error instanceof Error ? error.name : 'UnexpectedError');
+    console.error(
+      '[scan-job]',
+      error instanceof Error ? `${error.name}: ${error.message}` : 'UnexpectedError',
+    );
     return c.json({ status: 'failed', error: 'The scan step failed. It is retried shortly.' }, 500);
   };
 

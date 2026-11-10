@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SqlProgressStore } from '../progress/sql.js';
 import { FakeSqlDatabase } from './fake-sql.js';
+import { decodeJsonColumn } from './json-column.js';
 import { clampLimit, RowReader } from './sql-store.js';
 import { SqlResultStore, stripFixes } from './sql.js';
 import type { StoredScan } from './types.js';
@@ -71,9 +72,11 @@ describe('SqlResultStore', () => {
       stored.result.scores.commerce,
     ]);
     const json = insertedJson(db);
-    expect(json).toBe(JSON.stringify(stripFixes(stored.result)));
+    expect(json).toMatch(/^gz:/);
+    const written = await decodeJsonColumn(json);
+    expect(written).toEqual(stripFixes(stored.result));
     expect(stored.result.results.some((item) => item.fix !== undefined)).toBe(true);
-    expect(json).not.toContain('"fix"');
+    expect(JSON.stringify(written)).not.toContain('"fix"');
 
     db.script(/SELECT .* FROM scans WHERE id = \?/, [
       { id: stored.id, host: stored.host, created_at: stored.createdAt, result: json },
@@ -167,12 +170,10 @@ describe('SqlProgressStore', () => {
     const upsert = db.executed.find((statement) =>
       statement.sql.includes('ON DUPLICATE KEY UPDATE'),
     );
-    expect(upsert?.values).toEqual([
-      'a'.repeat(32),
-      '[{"seq":1}]',
-      null,
-      '2026-11-02T00:00:00.000Z',
-    ]);
+    const [token, events, final, updatedAt] = upsert?.values ?? [];
+    expect([token, final, updatedAt]).toEqual(['a'.repeat(32), null, '2026-11-02T00:00:00.000Z']);
+    expect(await decodeJsonColumn(String(events))).toEqual([{ seq: 1 }]);
+    // The scripted row is plain JSON, as rows were written before packing: still readable.
     expect(await store.load('a'.repeat(32))).toEqual({
       events: [{ seq: 1 }],
       final: null,

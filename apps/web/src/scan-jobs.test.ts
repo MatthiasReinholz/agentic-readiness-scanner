@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
-import { packJson, unpackJson } from './jobs/codec.js';
+import { packJson, unpackJson } from './store/codec.js';
 import { MemoryScanJobStore } from './jobs/memory.js';
 import { ProgressRecorder } from './jobs/progress.js';
 import { PART_CHARS, SqlScanJobStore } from './jobs/sql.js';
@@ -282,6 +282,41 @@ describe('hosted scans in steps', () => {
     await h.app.request('/internal/cron/scan-jobs', { headers: { 'x-spacefast-cron': '1' } });
     expect(await h.jobs.get(String(abandoned.job_id))).toBeNull();
   }, 30_000);
+
+  it('keep taking scans after steps the platform cut off without finishing them', async () => {
+    // A request the platform gives up on can leave its step's promise unsettled for good;
+    // such steps must not count against the isolate's limit forever.
+    let clock = Date.parse('2026-11-03T12:00:00Z');
+    const app = createApp({
+      config: configFromEnv({ APP_BASE_URL: 'https://scanner.example', SCAN_STEP_MS: '20000' }),
+      store: new MemoryResultStore(),
+      jobs: new MemoryScanJobStore(),
+      fetchFactory: () => () => new Promise<Response>(() => undefined),
+      minIntervalMs: 0,
+      now: () => new Date(clock),
+    });
+    const scanOf = (host: string) =>
+      app.request('/api/scan', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: `https://${host}/` }),
+      });
+    for (const host of ['a.example', 'b.example', 'c.example', 'd.example']) void scanOf(host);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect((await scanOf('e.example')).status).toBe(503);
+
+    clock += 20_000 + 15_001;
+    const status: Promise<number> = Promise.resolve(scanOf('f.example')).then(
+      (response) => response.status,
+    );
+    const stillRunning = new Promise<string>((resolve) => {
+      setTimeout(() => {
+        resolve('running');
+      }, 50);
+    });
+    const next = await Promise.race([status, stillRunning]);
+    expect(next).toBe('running');
+  });
 
   it('keep robots away from the waiting pages', async () => {
     const h = harness();
