@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cloudflareManagedRobots, edgeVendors } from './bot-management.js';
+import { cloudflareManagedRobots, edgeSignals, edgeVendors } from './bot-management.js';
 import type { FetchedResponse } from './types.js';
 
 function response(headers: Record<string, string>): FetchedResponse {
@@ -26,9 +26,7 @@ describe('edgeVendors', () => {
     expect(edgeVendors(response({ 'x-vercel-id': 'fra1::x' }))).toEqual(['vercel']);
     expect(edgeVendors(response({ 'x-amz-cf-id': 'abc' }))).toEqual(['aws']);
     expect(edgeVendors(response({ server: 'AkamaiGHost' }))).toEqual(['akamai']);
-    expect(edgeVendors(response({ 'x-served-by': 'cache-fra-1', via: '1.1 varnish' }))).toEqual([
-      'fastly',
-    ]);
+    expect(edgeVendors(response({ 'x-served-by': 'cache-fra-1' }))).toEqual(['fastly']);
     expect(edgeVendors(response({ 'x-iinfo': '1-2-3' }))).toEqual(['imperva']);
   });
 
@@ -42,6 +40,14 @@ describe('edgeVendors', () => {
 
   it('does not take cf-ray alone for Cloudflare, since the scanner itself fetches through it', () => {
     expect(edgeVendors(response({ server: 'Varnish', 'cf-ray': '8f-FRA' }))).toEqual([]);
+  });
+});
+
+describe('edgeSignals', () => {
+  it('records the header that showed each vendor', () => {
+    expect(edgeSignals(response({ server: 'Vercel', 'x-vercel-id': 'fra1::x' }))).toEqual([
+      { id: 'vercel', header: 'x-vercel-id: fra1::x' },
+    ]);
   });
 });
 

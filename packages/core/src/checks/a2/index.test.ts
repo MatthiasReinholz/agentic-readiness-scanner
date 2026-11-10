@@ -263,7 +263,10 @@ describe('A2.14 AI crawler rules at the edge', () => {
     const outcome = await runCheck(edgeAiCrawlerRules, target, mapFetcher({}));
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toMatch(/^served through Vercel\. .*AI Bots managed ruleset/);
-    expect(outcome.evidence).toMatchObject({ vendors: ['vercel'] });
+    expect(outcome.evidence).toMatchObject({
+      vendors: ['vercel'],
+      signals: { vercel: 'x-vercel-id: fra1::abc' },
+    });
   });
 
   it('names the platform when a hosted platform runs the edge', async () => {
