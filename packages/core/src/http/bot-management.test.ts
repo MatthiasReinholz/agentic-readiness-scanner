@@ -20,7 +20,9 @@ function response(headers: Record<string, string>): FetchedResponse {
 
 describe('edgeVendors', () => {
   it('recognises each vendor by its own header', () => {
-    expect(edgeVendors(response({ 'cf-ray': '8f-FRA' }))).toEqual(['cloudflare']);
+    expect(edgeVendors(response({ server: 'cloudflare', 'cf-ray': '8f-FRA' }))).toEqual([
+      'cloudflare',
+    ]);
     expect(edgeVendors(response({ 'x-vercel-id': 'fra1::x' }))).toEqual(['vercel']);
     expect(edgeVendors(response({ 'x-amz-cf-id': 'abc' }))).toEqual(['aws']);
     expect(edgeVendors(response({ server: 'AkamaiGHost' }))).toEqual(['akamai']);
@@ -31,11 +33,15 @@ describe('edgeVendors', () => {
   });
 
   it('lists a bot manager before the CDN it runs on, and nothing without a sign', () => {
-    expect(edgeVendors(response({ 'x-datadome': 'protected', 'cf-ray': '8f' }))).toEqual([
+    expect(edgeVendors(response({ 'x-datadome': 'protected', server: 'cloudflare' }))).toEqual([
       'datadome',
       'cloudflare',
     ]);
     expect(edgeVendors(response({ server: 'nginx', via: '1.1 proxy' }))).toEqual([]);
+  });
+
+  it('does not take cf-ray alone for Cloudflare, since the scanner itself fetches through it', () => {
+    expect(edgeVendors(response({ server: 'Varnish', 'cf-ray': '8f-FRA' }))).toEqual([]);
   });
 });
 

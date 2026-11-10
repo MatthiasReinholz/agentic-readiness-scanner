@@ -119,7 +119,9 @@ const EDGE_FINGERPRINTS: readonly {
 }[] = [
   { id: 'datadome', matches: (h) => 'x-datadome' in h || 'x-dd-b' in h },
   { id: 'imperva', matches: (h) => 'x-iinfo' in h || /imperva|incapsula/i.test(h['x-cdn'] ?? '') },
-  { id: 'cloudflare', matches: (h) => 'cf-ray' in h || /^cloudflare$/i.test(h.server ?? '') },
+  // Not cf-ray: the hosted scanner fetches from Cloudflare's network, which adds cf-ray to
+  // every answer it relays. A site behind Cloudflare also answers with server: cloudflare.
+  { id: 'cloudflare', matches: (h) => /^cloudflare$/i.test(h.server ?? '') },
   { id: 'vercel', matches: (h) => 'x-vercel-id' in h || /^vercel$/i.test(h.server ?? '') },
   { id: 'aws', matches: (h) => 'x-amz-cf-id' in h || /cloudfront/i.test(h.via ?? '') },
   {
