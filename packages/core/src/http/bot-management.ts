@@ -129,9 +129,18 @@ const EDGE_FINGERPRINTS: readonly { id: string; headers: readonly [string, RegEx
       ['x-cdn', /imperva|incapsula/i],
     ],
   },
-  // Not cf-ray: the hosted scanner fetches from Cloudflare's network, which adds cf-ray to
-  // every answer it relays. A site behind Cloudflare also answers with server: cloudflare.
-  { id: 'cloudflare', headers: [['server', /^cloudflare$/i]] },
+  // Neither cf-ray nor server: cloudflare. The hosted scanner fetches from Cloudflare's
+  // network, which adds cf-ray and rewrites the server header on every answer it relays,
+  // whoever serves the site. These come from the site's own Cloudflare zone: the bot
+  // management cookie, network error reporting to Cloudflare, and a mitigation verdict.
+  {
+    id: 'cloudflare',
+    headers: [
+      ['set-cookie', /(?:^|[\s,;])__cf_bm=/],
+      ['report-to', /nel\.cloudflare\.com/i],
+      ['cf-mitigated', null],
+    ],
+  },
   {
     id: 'vercel',
     headers: [
