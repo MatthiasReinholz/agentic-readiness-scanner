@@ -58,6 +58,12 @@ describe('edgeVendors', () => {
 });
 
 describe('edgeSignals', () => {
+  it('keeps only the matched part of a header, never a cookie value', () => {
+    expect(edgeSignals(response({ 'set-cookie': '__cf_bm=secret-token; path=/' }))).toEqual([
+      { id: 'cloudflare', header: 'set-cookie: __cf_bm=' },
+    ]);
+  });
+
   it('records the header that showed each vendor', () => {
     expect(edgeSignals(response({ server: 'Vercel', 'x-vercel-id': 'fra1::x' }))).toEqual([
       { id: 'vercel', header: 'x-vercel-id: fra1::x' },
