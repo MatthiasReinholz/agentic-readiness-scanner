@@ -110,37 +110,82 @@ export function isChallengeOrBlockServedAsSuccess(response: FetchedResponse): bo
 
 /**
  * Headers by which a CDN or bot manager shows itself on an ordinary answer, keyed by the
- * crawler registry's bot-manager ids. Each is the vendor's request-id or service header;
- * a site can sit behind one of these without any of them, so no match proves nothing.
+ * crawler registry's bot-manager ids. Each is the vendor's request-id or service header; a
+ * pattern of null means the header's presence is enough. A site can sit behind one of these
+ * without any of them, so no match proves nothing.
  */
-const EDGE_FINGERPRINTS: readonly {
-  id: string;
-  matches: (h: Record<string, string>) => boolean;
-}[] = [
-  { id: 'datadome', matches: (h) => 'x-datadome' in h || 'x-dd-b' in h },
-  { id: 'imperva', matches: (h) => 'x-iinfo' in h || /imperva|incapsula/i.test(h['x-cdn'] ?? '') },
+const EDGE_FINGERPRINTS: readonly { id: string; headers: readonly [string, RegExp | null][] }[] = [
+  {
+    id: 'datadome',
+    headers: [
+      ['x-datadome', null],
+      ['x-dd-b', null],
+    ],
+  },
+  {
+    id: 'imperva',
+    headers: [
+      ['x-iinfo', null],
+      ['x-cdn', /imperva|incapsula/i],
+    ],
+  },
   // Not cf-ray: the hosted scanner fetches from Cloudflare's network, which adds cf-ray to
   // every answer it relays. A site behind Cloudflare also answers with server: cloudflare.
-  { id: 'cloudflare', matches: (h) => /^cloudflare$/i.test(h.server ?? '') },
-  { id: 'vercel', matches: (h) => 'x-vercel-id' in h || /^vercel$/i.test(h.server ?? '') },
-  { id: 'aws', matches: (h) => 'x-amz-cf-id' in h || /cloudfront/i.test(h.via ?? '') },
+  { id: 'cloudflare', headers: [['server', /^cloudflare$/i]] },
+  {
+    id: 'vercel',
+    headers: [
+      ['x-vercel-id', null],
+      ['server', /^vercel$/i],
+    ],
+  },
+  {
+    id: 'aws',
+    headers: [
+      ['x-amz-cf-id', null],
+      ['via', /cloudfront/i],
+    ],
+  },
   {
     id: 'akamai',
-    matches: (h) => 'akamai-grn' in h || /akamai/i.test(h.server ?? ''),
+    headers: [
+      ['akamai-grn', null],
+      ['server', /akamai/i],
+    ],
   },
   {
     id: 'fastly',
-    matches: (h) =>
-      'x-fastly-request-id' in h ||
-      (/^cache-/i.test(h['x-served-by'] ?? '') && /varnish/i.test(h.via ?? '')),
+    headers: [
+      ['x-fastly-request-id', null],
+      ['x-served-by', /^cache-/i],
+    ],
   },
 ];
 
+/** A vendor recognised on a response, with the header that showed it. */
+export interface EdgeSignal {
+  id: string;
+  /** "server: Vercel", for the evidence: what the scanner saw, not what it guessed. */
+  header: string;
+}
+
 /** The CDNs and bot managers a response names, in the order above (bot managers first). */
+export function edgeSignals(response: FetchedResponse): EdgeSignal[] {
+  const found: EdgeSignal[] = [];
+  for (const vendor of EDGE_FINGERPRINTS) {
+    for (const [name, pattern] of vendor.headers) {
+      const value = response.headers[name];
+      if (value === undefined || (pattern !== null && !pattern.test(value))) continue;
+      found.push({ id: vendor.id, header: `${name}: ${value.slice(0, 80)}` });
+      break;
+    }
+  }
+  return found;
+}
+
+/** The ids alone, for callers that only need to know who is in front of the site. */
 export function edgeVendors(response: FetchedResponse): string[] {
-  return EDGE_FINGERPRINTS.filter((vendor) => vendor.matches(response.headers)).map(
-    (vendor) => vendor.id,
-  );
+  return edgeSignals(response).map((signal) => signal.id);
 }
 
 const CLOUDFLARE_MANAGED_BLOCK =

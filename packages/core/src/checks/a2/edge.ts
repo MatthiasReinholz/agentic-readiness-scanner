@@ -8,7 +8,7 @@
  */
 import { listForProse, platformLabel, type KnownPlatform } from '@agentic-readiness/catalog';
 
-import { cloudflareManagedRobots, edgeVendors } from '../../http/bot-management.js';
+import { cloudflareManagedRobots, edgeSignals } from '../../http/bot-management.js';
 import { parseRobotsTxt } from '../../parsers/robots.js';
 import { BOT_MANAGERS } from '../crawlers.js';
 import { defineCheck, pass, warn } from '../types.js';
@@ -37,8 +37,10 @@ function managedDisallowed(block: string): string[] {
 }
 
 export const edgeAiCrawlerRules = defineCheck('A2.14', ({ target }) => {
-  const ids = edgeVendors(target.home);
-  const vendors = BOT_MANAGERS.filter((manager) => ids.includes(manager.id));
+  const signals = edgeSignals(target.home);
+  const vendors = BOT_MANAGERS.filter((manager) =>
+    signals.some((signal) => signal.id === manager.id),
+  );
   const block =
     target.robotsResponse.status === 200
       ? cloudflareManagedRobots(target.robotsResponse.body)
@@ -52,6 +54,7 @@ export const edgeAiCrawlerRules = defineCheck('A2.14', ({ target }) => {
   }));
   const evidence = {
     vendors: vendors.map((vendor) => vendor.id),
+    signals: Object.fromEntries(signals.map((signal) => [signal.id, signal.header])),
     platform_edge: platform,
     cloudflare_managed_robots: block === null ? null : { disallowed: managedDisallowed(block) },
     settings,
