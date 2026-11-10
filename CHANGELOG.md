@@ -23,6 +23,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- **A2.14 recognises Cloudflare by `server: cloudflare` only.** The hosted scanner fetches through Cloudflare's network, which adds `cf-ray` to every answer, so `cf-ray` named Cloudflare in front of every site.
 - **Bytespider is no longer listed as a training crawler.** Only third parties claim that purpose, and its operator's page could not be read; it stays out until it can be verified.
 - **A2.2 no longer says Claude's search draws on Brave**, which no Anthropic page states. Brave's own statement that it does not crawl what Googlebot may not is kept, with its source.
 
