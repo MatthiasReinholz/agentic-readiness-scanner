@@ -1,0 +1,643 @@
+{
+  "tokens": [
+    {
+      "token": "GPTBot",
+      "operator": "OpenAI",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of OpenAI's foundation models",
+      "robots": "honours",
+      "ip_ranges": "https://openai.com/gptbot.json",
+      "docs": "https://developers.openai.com/api/docs/bots",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "ClaudeBot",
+      "operator": "Anthropic",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of Anthropic's models",
+      "robots": "honours",
+      "ip_ranges": "https://claude.com/crawling/bots.json",
+      "docs": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Google-Extended",
+      "operator": "Google",
+      "kind": "token",
+      "purposes": ["training", "search"],
+      "tier": "assistant",
+      "feeds": "training of Gemini models and grounding of answers in Gemini Apps, not Google Search",
+      "robots": "honours",
+      "docs": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "verified": "2026-11-10",
+      "note": "A robots.txt token only: Googlebot does the fetching. Google ties training and Gemini grounding to this one token, so disallowing it also keeps the site out of Gemini app answers."
+    },
+    {
+      "token": "Applebot-Extended",
+      "operator": "Apple",
+      "kind": "token",
+      "purposes": ["training"],
+      "feeds": "training of Apple's foundation models, including Apple Intelligence",
+      "robots": "honours",
+      "docs": "https://support.apple.com/en-us/119829",
+      "verified": "2026-11-10",
+      "note": "A robots.txt token only: it does not crawl, and Apple documents that it does not affect search."
+    },
+    {
+      "token": "meta-externalagent",
+      "operator": "Meta",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of Meta's AI models and indexing content for Meta products",
+      "robots": "honours",
+      "docs": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Amazonbot",
+      "operator": "Amazon",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "Amazon products and services, including training of Amazon's AI models",
+      "robots": "honours",
+      "ip_ranges": "https://developer.amazon.com/amazonbot/ip-addresses/",
+      "docs": "https://developer.amazon.com/amazonbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "CCBot",
+      "operator": "Common Crawl",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "Common Crawl's open web archive, a common source of AI training data",
+      "robots": "honours",
+      "ip_ranges": "https://index.commoncrawl.org/ccbot.json",
+      "docs": "https://commoncrawl.org/ccbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "MistralAI-Training",
+      "operator": "Mistral AI",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of Mistral's models",
+      "robots": "honours",
+      "docs": "https://docs.mistral.ai/robots",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "KimiBot",
+      "operator": "Moonshot AI",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of Moonshot's Kimi models",
+      "robots": "honours",
+      "ip_ranges": "https://www.kimi.com/policies/kimibot.json",
+      "docs": "https://www.kimi.com/policies/kimi-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "AI2Bot",
+      "operator": "Ai2",
+      "kind": "crawler",
+      "purposes": ["training"],
+      "feeds": "training of Ai2's open language models",
+      "robots": "not-stated",
+      "docs": "https://allenai.org/crawler",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Googlebot",
+      "operator": "Google",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "core",
+      "feeds": "Google Search, AI Overviews, AI Mode and Gemini; Brave Search does not crawl what Googlebot may not",
+      "robots": "honours",
+      "ip_ranges": "https://developers.google.com/static/crawling/ipranges/common-crawlers.json",
+      "renders_javascript": true,
+      "docs": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "see_also": ["https://search.brave.com/help/brave-search-crawler"],
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Bingbot",
+      "operator": "Microsoft",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "core",
+      "feeds": "Bing and Microsoft Copilot; ChatGPT search names Microsoft among its search partners",
+      "robots": "honours",
+      "ip_ranges": "https://www.bing.com/toolbox/bingbot.json",
+      "renders_javascript": true,
+      "docs": "https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0",
+      "see_also": ["https://help.openai.com/en/articles/9237897-searching-the-web-with-chatgpt"],
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Applebot",
+      "operator": "Apple",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Siri, Spotlight and Apple Intelligence",
+      "robots": "honours",
+      "follows": "Googlebot",
+      "ip_ranges": "https://search.developer.apple.com/applebot.json",
+      "renders_javascript": true,
+      "docs": "https://support.apple.com/en-us/119829",
+      "verified": "2026-11-10",
+      "note": "When robots.txt names no Applebot group but names Googlebot, Applebot follows the Googlebot group."
+    },
+    {
+      "token": "Storebot-Google",
+      "operator": "Google",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Google's shopping surfaces",
+      "robots": "honours",
+      "ip_ranges": "https://developers.google.com/static/crawling/ipranges/common-crawlers.json",
+      "docs": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "OAI-SearchBot",
+      "operator": "OpenAI",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "ChatGPT search answers",
+      "robots": "honours",
+      "ip_ranges": "https://openai.com/searchbot.json",
+      "docs": "https://developers.openai.com/api/docs/bots",
+      "verified": "2026-11-10",
+      "note": "OpenAI documents that a site that disallows it can still appear as a plain navigation link."
+    },
+    {
+      "token": "Claude-SearchBot",
+      "operator": "Anthropic",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Claude's search results",
+      "robots": "honours",
+      "ip_ranges": "https://claude.com/crawling/bots.json",
+      "docs": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "PerplexityBot",
+      "operator": "Perplexity",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Perplexity's search and answers",
+      "robots": "honours",
+      "ip_ranges": "https://www.perplexity.ai/perplexitybot.json",
+      "docs": "https://docs.perplexity.ai/docs/resources/perplexity-crawlers",
+      "see_also": [
+        "https://www.perplexity.ai/help-center/en/articles/10354969-how-does-perplexity-follow-robots-txt"
+      ],
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Amzn-SearchBot",
+      "operator": "Amazon",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Alexa and Amazon's search experiences",
+      "robots": "honours",
+      "ip_ranges": "https://developer.amazon.com/amazonbot/searchbot-ip-addresses/",
+      "docs": "https://developer.amazon.com/amazonbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "meta-webindexer",
+      "operator": "Meta",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Meta AI's search results and citations",
+      "robots": "honours",
+      "docs": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "MistralAI-Index",
+      "operator": "Mistral AI",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "assistant",
+      "feeds": "Mistral search, which supports answers in Mistral's assistant",
+      "robots": "not-stated",
+      "ip_ranges": "https://mistral.ai/mistralai-index-ips.json",
+      "docs": "https://docs.mistral.ai/robots",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "YouBot",
+      "operator": "You.com",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "You.com's real-time search",
+      "robots": "honours",
+      "signature_agent": "https://you.com",
+      "docs": "https://you.com/docs/youbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Kimi-SearchBot",
+      "operator": "Moonshot AI",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "Kimi's search results",
+      "robots": "honours",
+      "ip_ranges": "https://www.kimi.com/policies/kimi-searchbot.json",
+      "docs": "https://www.kimi.com/policies/kimi-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "PetalBot",
+      "operator": "Huawei",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "Petal Search and Huawei's assistant and AI search",
+      "robots": "honours",
+      "docs": "https://webmaster.petalsearch.com/site/petalbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Qwantbot",
+      "operator": "Qwant",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "Qwant search and its cited AI answers",
+      "robots": "honours",
+      "docs": "https://help.qwant.com/bot/",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "YandexAdditional",
+      "operator": "Yandex",
+      "kind": "token",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "Yandex's AI answers in search",
+      "robots": "honours",
+      "docs": "https://yandex.com/support/webmaster/en/robot-workings/check-yandex-robots",
+      "verified": "2026-11-10",
+      "note": "A robots.txt token only: Yandex's main robot does the fetching."
+    },
+    {
+      "token": "ExaSearchBot",
+      "operator": "Exa",
+      "kind": "crawler",
+      "purposes": ["search"],
+      "tier": "other",
+      "feeds": "Exa's search API, which AI applications query",
+      "robots": "honours",
+      "signature_agent": "https://crawler.exa.ai",
+      "docs": "https://crawler.exa.ai/",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "ChatGPT-User",
+      "operator": "OpenAI",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "ChatGPT, custom GPTs and GPT Actions fetching a page a person asked about",
+      "robots": "may-ignore",
+      "ip_ranges": "https://openai.com/chatgpt-user.json",
+      "docs": "https://developers.openai.com/api/docs/bots",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Claude-User",
+      "operator": "Anthropic",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "Claude fetching a page to answer a person's question",
+      "robots": "honours",
+      "ip_ranges": "https://claude.com/crawling/bots.json",
+      "docs": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Claude-Agent",
+      "operator": "Anthropic",
+      "kind": "agent",
+      "purposes": ["actions"],
+      "tier": "assistant",
+      "feeds": "the browser Anthropic hosts for Claude to complete tasks for a person",
+      "robots": "not-stated",
+      "renders_javascript": true,
+      "docs": "https://support.claude.com/en/articles/18234133-how-do-anthropic-hosted-browsers-identify-themselves-when-they-browse-the-web-on-a-user-s-behalf",
+      "verified": "2026-11-10",
+      "note": "Sends a browser user agent with the token Claude-Agent. Anthropic publishes its addresses in a SAIL file at https://claude.com/.well-known/sail."
+    },
+    {
+      "token": "Perplexity-User",
+      "operator": "Perplexity",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "Perplexity fetching a page to answer a person's question",
+      "robots": "may-ignore",
+      "ip_ranges": "https://www.perplexity.ai/perplexity-user.json",
+      "docs": "https://docs.perplexity.ai/docs/resources/perplexity-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Google-Agent",
+      "operator": "Google",
+      "kind": "agent",
+      "purposes": ["actions"],
+      "tier": "assistant",
+      "feeds": "agents hosted on Google's infrastructure that browse for a person",
+      "robots": "may-ignore",
+      "ip_ranges": "https://developers.google.com/static/crawling/ipranges/user-triggered-agents.json",
+      "signature_agent": "https://agent.bot.goog",
+      "docs": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers",
+      "see_also": ["https://developers.google.com/crawling/docs/crawlers-fetchers/web-bot-auth"],
+      "verified": "2026-11-10",
+      "note": "Google signs some of its requests with Web Bot Auth, not all."
+    },
+    {
+      "token": "Google-GeminiNotebook",
+      "operator": "Google",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "Google's notebook assistant fetching a source a person adds",
+      "robots": "may-ignore",
+      "docs": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers",
+      "verified": "2026-11-10",
+      "note": "Called Google-NotebookLM until July 2026."
+    },
+    {
+      "token": "meta-externalfetcher",
+      "operator": "Meta",
+      "kind": "fetcher",
+      "purposes": ["answers", "actions"],
+      "tier": "assistant",
+      "feeds": "Meta AI fetching a link a person shared and completing tasks on websites",
+      "robots": "may-ignore",
+      "docs": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Amzn-User",
+      "operator": "Amazon",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "Alexa fetching a page live to answer a question",
+      "robots": "may-ignore",
+      "ip_ranges": "https://developer.amazon.com/amazonbot/live-ip-addresses/",
+      "docs": "https://developer.amazon.com/amazonbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "MistralAI-User",
+      "operator": "Mistral AI",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "Mistral's assistant fetching a page a person asked about",
+      "robots": "honours",
+      "ip_ranges": "https://mistral.ai/mistralai-user-ips.json",
+      "docs": "https://docs.mistral.ai/robots",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "DuckAssistBot",
+      "operator": "DuckDuckGo",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "assistant",
+      "feeds": "DuckDuckGo's AI-assisted answers, fetched live",
+      "robots": "honours",
+      "ip_ranges": "https://duckduckgo.com/duckassistbot.json",
+      "docs": "https://duckduckgo.com/duckduckgo-help-pages/results/duckassistbot",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "Kimi-User",
+      "operator": "Moonshot AI",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "other",
+      "feeds": "Kimi fetching a page a person asked about",
+      "robots": "may-ignore",
+      "ip_ranges": "https://www.kimi.com/policies/kimi-user.json",
+      "docs": "https://www.kimi.com/policies/kimi-crawlers",
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "CloudflareBrowserRenderingCrawler",
+      "operator": "Cloudflare",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "other",
+      "feeds": "crawl jobs developers and agents start with Cloudflare's /crawl API",
+      "robots": "honours",
+      "renders_javascript": true,
+      "docs": "https://developers.cloudflare.com/browser-rendering/reference/robots-txt",
+      "see_also": ["https://developers.cloudflare.com/browser-rendering/rest-api/crawl-endpoint/"],
+      "verified": "2026-11-10"
+    },
+    {
+      "token": "FirecrawlAgent",
+      "operator": "Firecrawl",
+      "kind": "fetcher",
+      "purposes": ["answers"],
+      "tier": "other",
+      "feeds": "crawl jobs developers and agents start with Firecrawl's API",
+      "robots": "honours",
+      "docs": "https://docs.firecrawl.dev/advanced-scraping-guide",
+      "verified": "2026-11-10",
+      "note": "FirecrawlAgent is the robots.txt token; Firecrawl says not to assume it is also the user agent."
+    }
+  ],
+  "legacy": [
+    {
+      "token": "anthropic-ai",
+      "operator": "Anthropic",
+      "status": "undocumented",
+      "replaced_by": ["ClaudeBot", "Claude-SearchBot", "Claude-User"],
+      "docs": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "verified": "2026-11-10",
+      "note": "Anthropic's crawler documentation does not list it."
+    },
+    {
+      "token": "claude-web",
+      "operator": "Anthropic",
+      "status": "undocumented",
+      "replaced_by": ["ClaudeBot", "Claude-SearchBot", "Claude-User"],
+      "docs": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "verified": "2026-11-10",
+      "note": "Anthropic's crawler documentation does not list it."
+    },
+    {
+      "token": "Google-NotebookLM",
+      "operator": "Google",
+      "status": "renamed",
+      "replaced_by": ["Google-GeminiNotebook"],
+      "docs": "https://developers.google.com/crawling/docs/changelog",
+      "verified": "2026-11-10",
+      "note": "Google renamed the fetcher in July 2026 and kept the old token until August 2026."
+    },
+    {
+      "token": "FacebookBot",
+      "operator": "Meta",
+      "status": "undocumented",
+      "replaced_by": ["meta-externalagent", "meta-webindexer"],
+      "docs": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers",
+      "verified": "2026-11-10",
+      "note": "Meta's crawler documentation no longer lists it."
+    },
+    {
+      "token": "MistralBot",
+      "operator": "Mistral AI",
+      "status": "undocumented",
+      "replaced_by": ["MistralAI-Training", "MistralAI-Index", "MistralAI-User"],
+      "docs": "https://docs.mistral.ai/robots",
+      "verified": "2026-11-10",
+      "note": "Mistral's crawler documentation does not list it."
+    },
+    {
+      "token": "cohere-ai",
+      "operator": "Cohere",
+      "status": "undocumented",
+      "replaced_by": [],
+      "docs": "https://docs.cohere.com/docs/cohere-web-crawlers",
+      "verified": "2026-11-10",
+      "note": "Cohere states that it runs no crawler at this time."
+    },
+    {
+      "token": "cohere-training-data-crawler",
+      "operator": "Cohere",
+      "status": "undocumented",
+      "replaced_by": [],
+      "docs": "https://docs.cohere.com/docs/cohere-web-crawlers",
+      "verified": "2026-11-10",
+      "note": "Cohere states that it runs no crawler at this time."
+    }
+  ],
+  "agents": [
+    {
+      "id": "chatgpt-cloud-browser",
+      "name": "ChatGPT cloud browser (formerly ChatGPT agent and Operator)",
+      "operator": "OpenAI",
+      "identifies_by": "signature",
+      "signature_agent": "https://chatgpt.com",
+      "docs": "https://help.openai.com/en/articles/11845367",
+      "verified": "2026-11-10",
+      "note": "Sends an ordinary browser user agent and signs its requests with Web Bot Auth. It has no robots.txt token. Bot managers recognise it by the signature; OpenAI's article lists the setting per vendor."
+    },
+    {
+      "id": "chatgpt-local-browser",
+      "name": "ChatGPT's built-in browser and Chrome extension",
+      "operator": "OpenAI",
+      "identifies_by": "own-browser",
+      "docs": "https://help.openai.com/en/articles/20001277",
+      "verified": "2026-11-10",
+      "note": "Runs in the person's own browser on their computer, so a site sees that person's browser, cookies and address."
+    },
+    {
+      "id": "gemini-auto-browse",
+      "name": "Gemini in Chrome auto browse",
+      "operator": "Google",
+      "identifies_by": "own-browser",
+      "docs": "https://support.google.com/chrome/answer/16821166",
+      "verified": "2026-11-10",
+      "note": "Runs in the person's Chrome or in a separate browser in Google's cloud. Google does not document how the cloud browser identifies itself."
+    },
+    {
+      "id": "perplexity-comet",
+      "name": "Perplexity Comet",
+      "operator": "Perplexity",
+      "identifies_by": "none",
+      "docs": "https://docs.perplexity.ai/docs/resources/perplexity-crawlers",
+      "verified": "2026-11-10",
+      "note": "Perplexity's crawler documentation names PerplexityBot and Perplexity-User only and documents no identity for its Comet browser."
+    },
+    {
+      "id": "grok",
+      "name": "Grok and Grok Bot",
+      "operator": "xAI",
+      "identifies_by": "none",
+      "docs": "https://docs.x.ai/grok-bot/how-grok-bot-works",
+      "verified": "2026-11-10",
+      "note": "xAI documents no crawler, fetcher, user agent, IP list or robots.txt token for Grok. Grok Bot browses on its own cloud computer as the person it works for and hands CAPTCHAs back to that person."
+    }
+  ],
+  "bot_managers": [
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "ai_setting": "Security > Settings > AI Crawler and Agent access policies, and the Crawlers list in AI Crawl Control",
+      "note": "The policies apply to verified bots and to unverified clients that send a matching user agent. Signed agents such as ChatGPT's cloud browser need an allow policy.",
+      "docs": "https://developers.cloudflare.com/bots/additional-configurations/block-ai-bots/",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "ai_setting": "Firewall > the AI Bots managed ruleset, which sets AI Crawlers and AI Assistants to Log or Deny",
+      "note": "The ruleset allows AI bots until it is set to Deny. Vercel verifies Web Bot Auth signatures without configuration.",
+      "docs": "https://vercel.com/docs/vercel-firewall/vercel-waf/managed-rulesets",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "aws",
+      "name": "Amazon CloudFront",
+      "ai_setting": "AWS WAF Bot Control, its CategoryAI rule and the SignalNonBrowserUserAgent rule",
+      "note": "CategoryAI blocks verified and unverified AI bots once the rule group is on, and SignalNonBrowserUserAgent blocks honest non-browser clients at the Common level.",
+      "docs": "https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "akamai",
+      "name": "Akamai",
+      "ai_setting": "Bot Manager's AI bot categories: AI training crawlers, AI search crawlers, and AI fetchers and agents",
+      "note": "Akamai recognises known bots by user agent together with IP address, network or reverse DNS.",
+      "docs": "https://www.akamai.com/blog/security/introducing-more-granular-controls-ai-bot-traffic",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "fastly",
+      "name": "Fastly",
+      "ai_setting": "the Next-Gen WAF signals for verified and suspected AI crawlers and AI fetchers",
+      "note": "Fastly marks AI crawlers and AI fetchers with their own signals, which rules can block.",
+      "docs": "https://community.fastly.com/t/now-available-fastly-ai-bot-management/3985",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "datadome",
+      "name": "DataDome",
+      "ai_setting": "the policies for the LLM crawler category, by provider and by type (search, agent, user)",
+      "note": "DataDome verifies signed agents with Web Bot Auth.",
+      "docs": "https://docs.datadome.co/docs/bot-authentication",
+      "verified": "2026-11-10"
+    },
+    {
+      "id": "imperva",
+      "name": "Imperva",
+      "ai_setting": "the AI Bot Classification and Management rules of Cloud WAF",
+      "note": "Imperva groups AI bots as their own client classification, so one rule can block them all.",
+      "docs": "https://www.imperva.com/blog/navigating-the-new-era-of-ai-traffic-how-to-identify-and-block-ai-scrapers/",
+      "verified": "2026-11-10"
+    }
+  ]
+}

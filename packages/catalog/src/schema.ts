@@ -64,6 +64,134 @@ export const LawSchema = z.object({
 });
 export type Law = z.infer<typeof LawSchema>;
 
+/**
+ * Crawler registry (decision 0020): every robots.txt product token the access checks
+ * evaluate, documented by its operator. The checks, the fixes, the knowledge base and the
+ * generated docs all read the crawler lists from here, so adding or reclassifying a crawler
+ * is one data change.
+ *
+ * `kind` says how the client reaches a site: a crawler fetches on its own schedule; a
+ * fetcher fetches one page because a person or an agent asked right now; an agent drives a
+ * browser for a person; a token is a robots.txt control that makes no requests of its own
+ * (Google-Extended governs what Googlebot already fetched).
+ */
+export const CrawlerKindSchema = z.enum(['crawler', 'fetcher', 'agent', 'token']);
+export type CrawlerKind = z.infer<typeof CrawlerKindSchema>;
+
+/**
+ * What the operator documents the content is used for. `search`: an index that search
+ * results or AI answers draw on. `answers`: fetched live to answer a request. `actions`: a
+ * browser that acts for a person. `training`: training AI models.
+ */
+export const CrawlerPurposeSchema = z.enum(['training', 'search', 'answers', 'actions']);
+export type CrawlerPurpose = z.infer<typeof CrawlerPurposeSchema>;
+
+/**
+ * How much blocking the token costs, for the clients whose purposes are search, answers or
+ * actions. `core`: the two indexes most AI answers draw on (Google and Bing). `assistant`:
+ * the operator's own index or fetcher for a general-purpose assistant offered worldwide.
+ * `other`: a regional search engine, a developer API or a crawl service.
+ */
+export const CrawlerTierSchema = z.enum(['core', 'assistant', 'other']);
+export type CrawlerTier = z.infer<typeof CrawlerTierSchema>;
+
+/** What the operator documents about robots.txt: obeyed, may be ignored, or nothing said. */
+export const RobotsBehaviourSchema = z.enum(['honours', 'may-ignore', 'not-stated']);
+export type RobotsBehaviour = z.infer<typeof RobotsBehaviourSchema>;
+
+/** RFC 9309 section 2.2.1: a product token is letters, underscores and hyphens (digits allowed here). */
+const PRODUCT_TOKEN = /^[A-Za-z0-9_-]+$/;
+const HTTPS_URL = z.url({ protocol: /^https$/ });
+
+export const CrawlerSchema = z.object({
+  /** The robots.txt product token, spelled as the operator documents it. */
+  token: z.string().regex(PRODUCT_TOKEN),
+  operator: z.string().min(1),
+  kind: CrawlerKindSchema,
+  purposes: z.array(CrawlerPurposeSchema).min(1),
+  /** Required unless the only purpose is training. */
+  tier: CrawlerTierSchema.optional(),
+  /** What loses the site when the token is disallowed, in one phrase for reports. */
+  feeds: z.string().min(1),
+  robots: RobotsBehaviourSchema,
+  /** The token whose group applies, by the operator's documentation, when robots.txt names none. */
+  follows: z.string().regex(PRODUCT_TOKEN).optional(),
+  /** The operator's published IP ranges, for owners who verify traffic in their logs. */
+  ip_ranges: HTTPS_URL.optional(),
+  /** The Signature-Agent of its Web Bot Auth signatures, when the operator documents one. */
+  signature_agent: HTTPS_URL.optional(),
+  /** True or false only when the operator documents it. */
+  renders_javascript: z.boolean().optional(),
+  /** The operator's own documentation of the token. */
+  docs: HTTPS_URL,
+  /** Further public sources for a statement in `feeds` or `note`. */
+  see_also: z.array(HTTPS_URL).default([]),
+  /** Last day the entry was checked against the operator's documentation. */
+  verified: z.iso.date(),
+  note: z.string().min(1).optional(),
+});
+export type Crawler = z.infer<typeof CrawlerSchema>;
+
+/**
+ * A token robots.txt files still name although its operator documents it no longer, or
+ * never did: renamed, or found only in third-party block lists. A group for it reaches none
+ * of the operator's current clients.
+ */
+export const LegacyTokenSchema = z.object({
+  token: z.string().regex(PRODUCT_TOKEN),
+  operator: z.string().min(1),
+  status: z.enum(['renamed', 'undocumented']),
+  /** The operator's current tokens, from `tokens`. Empty when the operator runs no crawler. */
+  replaced_by: z.array(z.string().regex(PRODUCT_TOKEN)),
+  /** The operator's documentation listing its current tokens (or saying it has none). */
+  docs: HTTPS_URL,
+  verified: z.iso.date(),
+  note: z.string().min(1),
+});
+export type LegacyToken = z.infer<typeof LegacyTokenSchema>;
+
+/**
+ * An assistant or agent that reaches sites without a robots.txt token of its own: what a
+ * site owner can know about it. `signature`: Web Bot Auth signatures; `own-browser`: it runs
+ * in the person's own browser and looks like them; `none`: the operator documents nothing.
+ */
+export const AgentIdentitySchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  name: z.string().min(1),
+  operator: z.string().min(1),
+  identifies_by: z.enum(['signature', 'own-browser', 'none']),
+  signature_agent: HTTPS_URL.optional(),
+  docs: HTTPS_URL,
+  verified: z.iso.date(),
+  note: z.string().min(1),
+});
+export type AgentIdentity = z.infer<typeof AgentIdentitySchema>;
+
+/**
+ * A CDN or bot manager the scanner can recognise in front of a site, and where its owner
+ * sets the rules for AI crawlers and agents. Edge rules match user agents, so they can
+ * refuse GPTBot or ChatGPT-User while robots.txt allows them and an honest scan gets in.
+ */
+export const BotManagerSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  name: z.string().min(1),
+  /** Where the owner sets the AI crawler rules, phrased to follow "check". */
+  ai_setting: z.string().min(1),
+  /** What the vendor documents about its default or about signed agents, one sentence. */
+  note: z.string().min(1),
+  docs: HTTPS_URL,
+  verified: z.iso.date(),
+});
+export type BotManager = z.infer<typeof BotManagerSchema>;
+
+export const CrawlerRegistrySchema = z.object({
+  tokens: z.array(CrawlerSchema).min(1),
+  legacy: z.array(LegacyTokenSchema).default([]),
+  agents: z.array(AgentIdentitySchema).default([]),
+  bot_managers: z.array(BotManagerSchema).default([]),
+});
+export type CrawlerRegistry = z.infer<typeof CrawlerRegistrySchema>;
+
 /** 1 = nice to have, 2 = expected, 3 = blocking for agents, "info" = reported, never scored. */
 export const WeightSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal('info')]);
 export type Weight = z.infer<typeof WeightSchema>;
@@ -262,6 +390,8 @@ export const CatalogSchema = z.object({
       laws: z.array(LawSchema),
     })
     .default({ groups: [], checks: [], laws: [] }),
+  /** The crawler registry the access checks evaluate robots.txt against (decision 0020). */
+  crawlers: CrawlerRegistrySchema,
 });
 export type Catalog = z.infer<typeof CatalogSchema>;
 
@@ -402,5 +532,55 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
     }
   }
 
+  problems.push(...validateCrawlerRegistry(catalog.crawlers));
+  return problems;
+}
+
+/**
+ * The registry's own rules: tokens unique without regard to case (robots.txt matching is
+ * case-insensitive), references that resolve, and a tier wherever blocking can cost
+ * visibility in answers.
+ */
+export function validateCrawlerRegistry(registry: CrawlerRegistry): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  const known = new Set(registry.tokens.map((crawler) => crawler.token.toLowerCase()));
+  for (const entry of [...registry.tokens, ...registry.legacy]) {
+    const key = entry.token.toLowerCase();
+    if (seen.has(key)) problems.push(`crawlers: duplicate token ${entry.token}`);
+    seen.add(key);
+  }
+  for (const crawler of registry.tokens) {
+    const answers = crawler.purposes.some((purpose) => purpose !== 'training');
+    if (answers && !crawler.tier)
+      problems.push(`crawlers: ${crawler.token} serves search or answers but has no tier`);
+    if (!answers && crawler.tier)
+      problems.push(`crawlers: ${crawler.token} is training-only and takes no tier`);
+    if (crawler.tier === 'core' && !crawler.purposes.includes('search'))
+      problems.push(`crawlers: ${crawler.token} is core but builds no search index`);
+    if (crawler.follows && !known.has(crawler.follows.toLowerCase()))
+      problems.push(`crawlers: ${crawler.token} follows unknown token ${crawler.follows}`);
+    if (crawler.kind === 'token' && (crawler.ip_ranges || crawler.signature_agent))
+      problems.push(
+        `crawlers: ${crawler.token} makes no requests, so it has no IP ranges or signatures`,
+      );
+    if (new Set(crawler.purposes).size !== crawler.purposes.length)
+      problems.push(`crawlers: ${crawler.token} repeats a purpose`);
+  }
+  for (const legacy of registry.legacy) {
+    for (const token of legacy.replaced_by)
+      if (!known.has(token.toLowerCase()))
+        problems.push(`crawlers: legacy ${legacy.token} is replaced by unknown token ${token}`);
+    if (legacy.status === 'renamed' && legacy.replaced_by.length !== 1)
+      problems.push(`crawlers: renamed token ${legacy.token} needs exactly one replacement`);
+  }
+  const ids = new Set<string>();
+  for (const entry of [...registry.agents, ...registry.bot_managers]) {
+    if (ids.has(entry.id)) problems.push(`crawlers: duplicate id ${entry.id}`);
+    ids.add(entry.id);
+  }
+  for (const agent of registry.agents)
+    if ((agent.identifies_by === 'signature') !== (agent.signature_agent !== undefined))
+      problems.push(`crawlers: agent ${agent.id} needs a signature_agent exactly when it signs`);
   return problems;
 }

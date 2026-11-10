@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **A crawler registry as catalog data** (catalog 0.13.0, scoring 0.9.0, decision 0020). Every crawler, fetcher and browser agent the access checks read lives in `packages/catalog/data/crawlers.json`. Each entry records its operator, purpose, tier, what the operator says about robots.txt, how to verify the traffic, its documentation and the date it was checked. Checks, fixes, articles and `docs/checks.md` read the lists from it; fixes and articles use placeholders such as `{{crawlers:index.core}}` that the build fills in. The registry now covers 39 tokens documented by their operators, up from 28, including Claude-Agent, Google-GeminiNotebook, YouBot, Kimi, PetalBot, Qwant, Yandex's AI token, Exa and Firecrawl.
+- **`/knowledge-base/crawlers`**, the registry as a page and as Markdown. The articles for A2.1, A2.2, A2.5, A2.13 and A2.14 show the part of the registry their check reads.
+- **A2.13 Crawler names in robots.txt are current** (weight 1). It warns when robots.txt names a token its operator renamed or does not document, such as anthropic-ai, claude-web or FacebookBot, without the operator's current tokens, because such a rule reaches no crawler.
+- **A2.14 AI crawler rules at the edge** (info). It recognises the CDN or bot manager in front of the site and Cloudflare's managed block in robots.txt, and says where the owner sets the rules that can refuse AI crawlers robots.txt allows. The scanner still never sends another product's user agent; decision 0020 explains why.
+- **Guide: How AI crawlers, assistants and agents reach your site**, covering training and search crawlers, fetchers, browser agents such as ChatGPT's cloud browser and Claude-Agent, Grok (which documents no crawler), Web Bot Auth, edge rules and how owners check what the real crawlers get.
+- **A2.4 records `Accept-Signature`** when a refusal asks the client to sign its requests (Web Bot Auth).
+
+### Changed
+
+- **A2.2 judges crawlers by tier.** Blocking Googlebot or Bingbot fails; blocking two major assistants' crawlers fails and one warns; regional and developer services are reported without changing the verdict. Google-Extended now counts, because Google documents that it also governs grounding in Gemini Apps: disallowing it warns.
+- **A2.5 separates real blocks from recorded intent.** It fails when a major assistant's fetcher or agent is disallowed and warns when only others are. The message says which disallowed fetchers obey robots.txt and which may fetch anyway.
+- **DuckAssistBot moved from A2.2 to A2.5**, because DuckDuckGo documents it as a live fetcher for AI answers.
+- **B4.6 and C6.2 ask only about core and major-assistant crawlers that fetch pages**, so a regional block or a Google-Extended training reservation no longer makes a policy page count as unreadable.
+- **A2.13 and A2.14 run on a refused home page** too: one needs only robots.txt, the other reads the refusal's headers.
+
+### Fixed
+
+- **Bytespider is no longer listed as a training crawler.** Only third parties claim that purpose, and its operator's page could not be read; it stays out until it can be verified.
+- **A2.2 no longer says Claude's search draws on Brave**, which no Anthropic page states. Brave's own statement that it does not crawl what Googlebot may not is kept, with its source.
+
 ## [0.17.0] - 2026-11-05
 
 ### Changed

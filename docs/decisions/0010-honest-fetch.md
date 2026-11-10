@@ -1,6 +1,7 @@
 # 0010 The scanner identifies itself on every request and never impersonates an agent
 
 Date: 2026-10-31. Status: accepted.
+Revisited in [0020](0020-crawler-registry.md) on 2026-11-10, with the rule kept: a spoofed request would also pollute the owner's AI crawler analytics.
 
 ## Context
 

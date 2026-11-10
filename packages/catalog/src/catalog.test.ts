@@ -7,7 +7,12 @@ import { parseFixMarkdown } from './fixes.js';
 import { parseGuideMarkdown, parseKnowledgeMarkdown } from './knowledge.js';
 import { fixForPlatform } from './platforms.js';
 import { loadCatalogFromDisk, loadGuidesFromDisk, loadKnowledgeFromDisk } from './load.js';
-import { validateCatalogIntegrity } from './schema.js';
+import { crawlerSet, expandCrawlerPlaceholders, CrawlerSetError } from './crawlers.js';
+import {
+  validateCatalogIntegrity,
+  validateCrawlerRegistry,
+  type CrawlerRegistry,
+} from './schema.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -18,8 +23,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 78 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(78);
+  it('has 80 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(80);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });
@@ -241,5 +246,79 @@ describe('legal signals', () => {
       expect(check.laws.length).toBeGreaterThan(0);
       for (const id of check.laws) expect(laws.get(id)?.url).toMatch(/^https:\/\//);
     }
+  });
+});
+
+describe('crawler registry', () => {
+  const catalog = loadCatalogFromDisk(packageRoot);
+  const registry = catalog.crawlers;
+  const tokens = (name: string) => crawlerSet(registry, name).map((crawler) => crawler.token);
+
+  it('documents every token with an operator page and a verification date', () => {
+    for (const crawler of registry.tokens) {
+      expect(crawler.docs, crawler.token).toMatch(/^https:\/\//);
+      expect(crawler.verified, crawler.token).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it('keeps Google and Bing as the only core indexes', () => {
+    expect(tokens('index.core')).toEqual(['Googlebot', 'Bingbot']);
+  });
+
+  it('puts Google-Extended in both the training and the index set', () => {
+    expect(tokens('training')).toContain('Google-Extended');
+    expect(tokens('index')).toContain('Google-Extended');
+  });
+
+  it('narrows sets by tier and by robots behaviour', () => {
+    expect(tokens('fetchers.may-ignore')).toContain('ChatGPT-User');
+    expect(tokens('fetchers.honours')).toContain('Claude-User');
+    expect(tokens('fetchers.assistant')).not.toContain('FirecrawlAgent');
+  });
+
+  it('rejects unknown sets, filters and placeholder typos', () => {
+    expect(() => crawlerSet(registry, 'bots')).toThrow(CrawlerSetError);
+    expect(() => crawlerSet(registry, 'index.major')).toThrow(CrawlerSetError);
+    expect(() => expandCrawlerPlaceholders('{{ crawlers:index }}', registry)).toThrow(
+      CrawlerSetError,
+    );
+  });
+
+  it('writes lists, robots.txt lines and counts, and leaves other braces alone', () => {
+    expect(expandCrawlerPlaceholders('{{crawlers:index.core}}', registry)).toBe(
+      'Googlebot and Bingbot',
+    );
+    expect(expandCrawlerPlaceholders('{{robots:index.core}}', registry)).toBe(
+      'User-agent: Googlebot\nUser-agent: Bingbot',
+    );
+    expect(expandCrawlerPlaceholders('{{count:index.core}}', registry)).toBe('2');
+    expect(expandCrawlerPlaceholders('{{ request.locale.iso_code }}', registry)).toBe(
+      '{{ request.locale.iso_code }}',
+    );
+  });
+
+  it('leaves no placeholder in the generated catalog', () => {
+    expect(JSON.stringify(catalog)).not.toMatch(/\{\{(crawlers|robots|count):/);
+  });
+
+  it('reports duplicate tokens, missing tiers and dangling references', () => {
+    const first = registry.tokens[0];
+    const legacy = registry.legacy[0];
+    if (!first || !legacy) throw new Error('the registry needs a token and a legacy entry');
+    const broken: CrawlerRegistry = {
+      ...registry,
+      tokens: [
+        ...registry.tokens,
+        { ...first, token: 'gptbot' },
+        { ...first, token: 'NoTier', purposes: ['search'] },
+        { ...first, token: 'Follower', follows: 'Nobody' },
+      ],
+      legacy: [{ ...legacy, token: 'old-bot', replaced_by: ['Ghost'] }],
+    };
+    const problems = validateCrawlerRegistry(broken);
+    expect(problems).toContain('crawlers: duplicate token gptbot');
+    expect(problems).toContain('crawlers: NoTier serves search or answers but has no tier');
+    expect(problems).toContain('crawlers: Follower follows unknown token Nobody');
+    expect(problems).toContain('crawlers: legacy old-bot is replaced by unknown token Ghost');
   });
 });

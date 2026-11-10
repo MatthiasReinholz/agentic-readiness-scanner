@@ -6,6 +6,14 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  AGENT_IDENTITY_LABEL,
+  CRAWLER_KIND_LABEL,
+  CRAWLER_PURPOSE_LABEL,
+  CRAWLER_TIER_LABEL,
+  crawlerSet,
+  ROBOTS_BEHAVIOUR_LABEL,
+} from './crawlers.js';
 import { loadCatalogFromDisk } from './load.js';
 import { PLATFORM_LABEL } from './platforms.js';
 import type { Catalog, CheckDefinition } from './schema.js';
@@ -19,6 +27,60 @@ function escapeCell(text: string): string {
 
 function weightLabel(check: CheckDefinition): string {
   return check.weight === 'info' ? 'info' : String(check.weight);
+}
+
+/** The crawler registry as tables: which token each access check evaluates, and why. */
+function crawlerRegistryLines(catalog: Catalog): string[] {
+  const registry = catalog.crawlers;
+  const lines: string[] = ['## Crawler registry', ''];
+  lines.push(
+    `The access checks evaluate robots.txt for ${registry.tokens.length} product tokens, each documented by its operator, from \`packages/catalog/data/crawlers.json\` (decision 0020). A2.1 reads the training tokens, A2.2 the crawlers behind search indexes, A2.5 the fetchers and agents that act for a person, and A2.13 the outdated names below. Blocking a core index fails A2.2 on its own; blocking two major assistants' crawlers fails it, one warns, and regional or developer services are reported without changing the verdict.`,
+  );
+  lines.push('');
+  const sections: [string, string][] = [
+    ['Training (A2.1)', 'training'],
+    ['Search indexes behind AI answers (A2.2)', 'index'],
+    ['Fetchers and agents acting for a person (A2.5)', 'fetchers'],
+  ];
+  for (const [title, set] of sections) {
+    lines.push(`### ${title}`, '');
+    lines.push('| Token | Operator | Kind | Purposes | Tier | robots.txt | Feeds | Verified |');
+    lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+    for (const crawler of crawlerSet(registry, set)) {
+      lines.push(
+        `| [${crawler.token}](${crawler.docs}) | ${escapeCell(crawler.operator)} | ${CRAWLER_KIND_LABEL[crawler.kind]} | ${crawler.purposes.map((purpose) => CRAWLER_PURPOSE_LABEL[purpose]).join(', ')} | ${crawler.tier ? CRAWLER_TIER_LABEL[crawler.tier] : '–'} | ${ROBOTS_BEHAVIOUR_LABEL[crawler.robots]} | ${escapeCell(crawler.feeds)} | ${crawler.verified} |`,
+      );
+    }
+    lines.push('');
+  }
+  lines.push('### Outdated names (A2.13)', '');
+  lines.push('| Token | Operator | Status | Current tokens | Verified |');
+  lines.push('| --- | --- | --- | --- | --- |');
+  for (const legacy of registry.legacy) {
+    lines.push(
+      `| [${legacy.token}](${legacy.docs}) | ${escapeCell(legacy.operator)} | ${legacy.status} | ${legacy.replaced_by.join(', ') || 'none (no crawler)'} | ${legacy.verified} |`,
+    );
+  }
+  lines.push('');
+  lines.push('### Assistants without a robots.txt token', '');
+  lines.push('| Agent | Operator | Identifies by | Verified |');
+  lines.push('| --- | --- | --- | --- |');
+  for (const agent of registry.agents) {
+    lines.push(
+      `| [${escapeCell(agent.name)}](${agent.docs}) | ${escapeCell(agent.operator)} | ${AGENT_IDENTITY_LABEL[agent.identifies_by]} | ${agent.verified} |`,
+    );
+  }
+  lines.push('');
+  lines.push('### Bot managers (A2.14)', '');
+  lines.push('| Vendor | Where the AI crawler rules are set | Verified |');
+  lines.push('| --- | --- | --- |');
+  for (const manager of registry.bot_managers) {
+    lines.push(
+      `| [${manager.name}](${manager.docs}) | ${escapeCell(manager.ai_setting)} | ${manager.verified} |`,
+    );
+  }
+  lines.push('');
+  return lines;
 }
 
 export function renderChecksDoc(catalog: Catalog): string {
@@ -93,6 +155,7 @@ export function renderChecksDoc(catalog: Catalog): string {
     }
     lines.push('');
   }
+  lines.push(...crawlerRegistryLines(catalog));
   if (catalog.legal.checks.length > 0) {
     lines.push('## Legal signals');
     lines.push('');

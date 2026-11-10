@@ -12,6 +12,7 @@ This file is for coding agents and automated contributors working in this reposi
 ## Source of truth
 
 - Check definitions, weights, dependencies, spec URLs and fixes live in `packages/catalog/data` and `packages/catalog/fixes`. Never hard-code any of these in `packages/core`. Knowledge-base articles live in `packages/catalog/knowledge` (rules in [docs/knowledge-base.md](docs/knowledge-base.md)).
+- Crawler, fetcher and agent tokens live in `packages/catalog/data/crawlers.json` (decision 0020), each with its operator's documentation and a `verified` date. Checks read them only through `packages/core/src/checks/crawlers.ts`. Fixes, articles and guides write crawler lists as placeholders (`{{crawlers:index.core}}`), never by hand. A token seen only in third-party block lists does not go in.
 - `docs/checks.md` and `packages/catalog/src/generated` are generated. Edit the data, run `pnpm docs:generate`, commit the result.
 - The result object schema in `packages/catalog/src/result.ts` is a published contract. Breaking changes bump the `schema` id, not just the version.
 - Versions live in every `package.json`, `packages/core/src/version.ts` and `CHANGELOG.md`. `scripts/release/bump-version.mjs` keeps them aligned. Do not edit them by hand.

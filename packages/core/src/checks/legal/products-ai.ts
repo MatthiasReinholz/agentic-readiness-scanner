@@ -2,7 +2,7 @@
  * C5 product and price information; C6 AI transparency and content rights. Product
  * checks read the sampled product pages the readiness checks already fetched.
  */
-import { SEARCH_CRAWLERS, TRAINING_CRAWLERS } from '../crawlers.js';
+import { MAJOR_INDEX_CRAWLERS, TRAINING_CRAWLERS } from '../crawlers.js';
 import { elementText, type HtmlDocument } from '../../parsers/html.js';
 import { asString, extractJsonLd, productNodes, type JsonLdNode } from '../../parsers/jsonld.js';
 import {
@@ -211,7 +211,7 @@ export const tdmReservation = defineLegalCheck('C6.2', async ({ target, fetcher 
     }
   })();
   const blockedSearch = robots
-    ? SEARCH_CRAWLERS.filter((crawler) => !isAllowed(robots, crawler.token, productPath)).map(
+    ? MAJOR_INDEX_CRAWLERS.filter((crawler) => !isAllowed(robots, crawler.token, productPath)).map(
         (crawler) => crawler.token,
       )
     : [];

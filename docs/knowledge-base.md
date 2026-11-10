@@ -1,6 +1,6 @@
 # Knowledge base
 
-The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 102 articles: 78 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
+The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. There are 104 articles: 80 for the readiness checks and 24 for the legal-signal checks. The index is at `/knowledge-base`, and each of the 9 readiness sections (A1 to B5) has its own page. Every page is also served as Markdown: append `.md`, or send `Accept: text/markdown`. The index is available as data at `/knowledge-base.json`, the whole knowledge base as one Markdown file at `/llms-full.txt`, and the MCP tool `explain_check` returns an article. Every page is listed in `/llms.txt` (a Markdown index written for AI tools) and `/sitemap.xml`, so people, search engines and agents can all read and cite it. A link by check id, such as `/knowledge-base/A2.2`, redirects to the article.
 
 ## Where the content lives
 
@@ -10,12 +10,22 @@ The hosted scanner publishes one article per check at `/knowledge-base/<slug>`. 
 
 ## Guides
 
-Some topics belong to no single check: how the scanner works, why it reports what it reports, or a subject that spans several sections. These are guides, at `/knowledge-base/guides/<slug>`. They are listed on `/knowledge-base/guides` and at the top of the index. Like articles, they are served as Markdown and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. There are 3 guides so far: `crawler-blocks-and-browser-scans`, `crawl-services` and `large-catalogs`.
+Some topics belong to no single check: how the scanner works, why it reports what it reports, or a subject that spans several sections. These are guides, at `/knowledge-base/guides/<slug>`. They are listed on `/knowledge-base/guides` and at the top of the index. Like articles, they are served as Markdown and listed in `/knowledge-base.json`, `/llms.txt`, `/llms-full.txt` and the sitemap. There are 4 guides so far: `ai-crawlers-and-agents`, `crawler-blocks-and-browser-scans`, `crawl-services` and `large-catalogs`.
 
 - `packages/catalog/knowledge/guides/<slug>.md` holds each guide. The file name is the slug.
 - The front matter is the same as for articles (`slug`, `headline`, `description`, `keywords`), plus `related`: the check ids the guide is about, comma-separated. Each related check's article links back to the guide under "Guides on this topic", and the guide lists them under "Checks this guide is about".
 - Sections are free, with two fixed ends. The first is `## In short` (the answer, in two or three sentences that stand alone). The last is `## Sources`, a list of at least two `- [title](https://...)` links to public sources. At least two sections sit between them, and no heading repeats. Every claim must be traceable to a source or to the scanner's own code. An optional `## FAQ` follows the article rules (3 to 6 `###` questions) and becomes FAQPage structured data (markup that tells search engines the page answers questions).
 - The Markdown subset and the writing rules below apply unchanged. Articles and guides may link to each other (`/knowledge-base/<slug>`, `/knowledge-base/guides/<slug>`). The catalog build fails on a link that does not resolve or a related check that does not exist.
+
+## The crawler registry
+
+`/knowledge-base/crawlers` lists every crawler, fetcher and browser agent the access checks read, generated from `packages/catalog/data/crawlers.json` ([decision 0020](decisions/0020-crawler-registry.md)). The articles for A2.1, A2.2, A2.5, A2.13 and A2.14 show the part of the registry their check reads under "Crawlers this check reads". Articles, guides and fixes never type a crawler list by hand. They write a placeholder that the catalog build fills from the registry:
+
+- `{{crawlers:<set>}}` becomes a list for prose: "Googlebot and Bingbot".
+- `{{robots:<set>}}` becomes one `User-agent:` line per token, for robots.txt snippets.
+- `{{count:<set>}}` becomes the number of tokens.
+
+A set is `training`, `index`, `fetchers` or `answers`, optionally narrowed by a tier (`core`, `assistant`, `other`) or a robots.txt behaviour (`honours`, `may-ignore`, `not-stated`), joined with dots: `index.core`, `fetchers.may-ignore`. An unknown set fails the build. Naming one crawler as an example in prose is fine.
 
 ## Legal-signals articles
 
@@ -107,6 +117,8 @@ Every check with its article slug. A slug never changes.
 | A2.10 | webflow-traffic-control                 |
 | A2.11 | square-online-search-visibility         |
 | A2.12 | salesforce-robots-txt-staging-preset    |
+| A2.13 | robots-txt-crawler-names-current        |
+| A2.14 | edge-ai-crawler-rules                   |
 | A3.1  | markdown-copy-of-product-pages          |
 | A3.2  | server-rendered-product-content         |
 | A3.3  | page-weight-crawler-limits              |

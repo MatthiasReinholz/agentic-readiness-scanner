@@ -2,7 +2,7 @@
  * Bot settings of hosted site builders. Each writes a documented group of user agents
  * into robots.txt with one switch; the checks recognise the group and name the switch.
  */
-import { SEARCH_CRAWLERS, USER_FETCHERS } from '../crawlers.js';
+import { ANSWER_AGENTS } from '../crawlers.js';
 import { defineCheck, fail, pass, skip, warn } from '../types.js';
 import { disallowed } from './shared.js';
 
@@ -80,13 +80,6 @@ export const WEBFLOW_AI_BOTS = [
 function switchedOn(blocked: readonly string[], group: readonly string[]): boolean {
   return blocked.length >= Math.ceil(group.length * 0.6);
 }
-
-/** Agents whose loss removes the site from AI answers: index crawlers and user-triggered fetchers. */
-const ANSWER_AGENTS = new Set(
-  [...SEARCH_CRAWLERS.map((crawler) => crawler.token), ...USER_FETCHERS, 'YouBot'].map((token) =>
-    token.toLowerCase(),
-  ),
-);
 
 export const squarespaceAiCrawlerSetting = defineCheck('A2.9', ({ target }) => {
   if (!target.robots) {

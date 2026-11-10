@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { z } from 'zod';
 
+import { CrawlerSetError, expandCrawlerPlaceholders } from './crawlers.js';
 import { parseFixMarkdown } from './fixes.js';
 import {
   articleLinks,
@@ -22,6 +23,7 @@ import {
   DimensionCopySchema,
   CeilingSchema,
   CheckDefinitionSchema,
+  CrawlerRegistrySchema,
   GroupSchema,
   LawSchema,
   LevelSchema,
@@ -58,6 +60,17 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
   const levels = z.array(LevelSchema).parse(readJson(join(dataDir, 'levels.json')));
   const profiles = z.array(ProfileSchema).parse(readJson(join(dataDir, 'profiles.json')));
   const ceilings = z.array(CeilingSchema).parse(readJson(join(dataDir, 'ceilings.json')));
+  const crawlers = CrawlerRegistrySchema.parse(readJson(join(dataDir, 'crawlers.json')));
+  // Crawler lists in methods and fixes come from the registry, never typed by hand.
+  const expand = (text: string, where: string): string => {
+    try {
+      return expandCrawlerPlaceholders(text, crawlers);
+    } catch (error) {
+      if (!(error instanceof CrawlerSetError)) throw error;
+      problems.push(`${where}: ${error.message}`);
+      return text;
+    }
+  };
 
   const fixFiles = new Set(readdirSync(fixesDir).filter((name) => name.endsWith('.md')));
   const readChecks = (dir: string) => {
@@ -81,8 +94,11 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
         }
         fixFiles.delete(fixFile);
         try {
-          const fix = parseFixMarkdown(readFileSync(join(fixesDir, fixFile), 'utf8'), fixFile);
-          found.push({ ...source, fix });
+          const fix = parseFixMarkdown(
+            expand(readFileSync(join(fixesDir, fixFile), 'utf8'), `fixes/${fixFile}`),
+            fixFile,
+          );
+          found.push({ ...source, method: expand(source.method, `${source.id} method`), fix });
         } catch (error) {
           problems.push(error instanceof Error ? error.message : String(error));
         }
@@ -110,6 +126,7 @@ export function loadCatalogFromDisk(packageRoot: string): Catalog {
     ceilings,
     profiles,
     legal,
+    crawlers,
   });
   if (!catalogParse.success) {
     problems.push(...catalogParse.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
@@ -139,7 +156,11 @@ export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): Kn
     }
     files.delete(file);
     try {
-      articles.push(parseKnowledgeMarkdown(readFileSync(join(dir, file), 'utf8'), file));
+      const source = expandCrawlerPlaceholders(
+        readFileSync(join(dir, file), 'utf8'),
+        catalog.crawlers,
+      );
+      articles.push(parseKnowledgeMarkdown(source, file));
     } catch (error) {
       problems.push(error instanceof Error ? error.message : String(error));
     }
@@ -153,7 +174,7 @@ export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): Kn
   }
   for (const article of articles)
     for (const link of articleLinks(article))
-      if (!slugs.has(link))
+      if (!slugs.has(link) && !RESERVED_SLUGS.includes(link))
         problems.push(`${article.id}: link to unknown article /knowledge/${link}`);
   for (const reserved of RESERVED_SLUGS)
     if (slugs.has(reserved))
@@ -162,8 +183,8 @@ export function loadKnowledgeFromDisk(packageRoot: string, catalog: Catalog): Kn
   return articles;
 }
 
-/** Article slugs that would shadow a hub page under /knowledge-base. */
-const RESERVED_SLUGS = ['guides', 'legal-signals'];
+/** Hub pages under /knowledge-base: no article may take their slug, and any page may link to them. */
+const RESERVED_SLUGS = ['guides', 'legal-signals', 'crawlers'];
 
 /**
  * Loads `knowledge/guides/`: articles about topics no single check covers, sorted by
@@ -182,7 +203,11 @@ export function loadGuidesFromDisk(
     .filter((name) => name.endsWith('.md'))
     .sort()) {
     try {
-      guides.push(parseGuideMarkdown(readFileSync(join(dir, file), 'utf8'), file));
+      const source = expandCrawlerPlaceholders(
+        readFileSync(join(dir, file), 'utf8'),
+        catalog.crawlers,
+      );
+      guides.push(parseGuideMarkdown(source, file));
     } catch (error) {
       problems.push(error instanceof Error ? error.message : String(error));
     }
@@ -195,7 +220,7 @@ export function loadGuidesFromDisk(
       if (!checkIds.has(id))
         problems.push(`guides/${guide.slug}: related check ${id} does not exist`);
     for (const link of articleLinks(guide))
-      if (!articleSlugs.has(link))
+      if (!articleSlugs.has(link) && !RESERVED_SLUGS.includes(link))
         problems.push(`guides/${guide.slug}: link to unknown article /knowledge-base/${link}`);
     for (const link of guideLinks(guide))
       if (!guideSlugs.has(link))

@@ -123,11 +123,12 @@ function unmetRequirement(definition: CheckDefinition, target: Target): Requirem
 }
 
 /** Checks that read only robots.txt (when it parsed), the sitemap (when one answered) or the refusal itself. */
-const ROBOTS_CHECKS: ReadonlySet<string> = new Set(['A2.1', 'A2.2', 'A2.3', 'A2.5']);
+const ROBOTS_CHECKS: ReadonlySet<string> = new Set(['A2.1', 'A2.2', 'A2.3', 'A2.5', 'A2.13']);
 const SITEMAP_CHECKS: ReadonlySet<string> = new Set(['A1.2', 'A1.3', 'A1.7']);
 
 function runsWhenHomeBlocked(id: string, target: Target): boolean {
-  if (id === 'A1.1' || id === 'A2.4') return true;
+  // A2.14 reads the headers of the refusal itself: who refused is what the owner needs.
+  if (id === 'A1.1' || id === 'A2.4' || id === 'A2.14') return true;
   // "every crawler may read the page" would be false comfort when robots.txt was refused too.
   if (ROBOTS_CHECKS.has(id)) return target.robots !== null;
   if (SITEMAP_CHECKS.has(id)) return target.sitemap !== null;

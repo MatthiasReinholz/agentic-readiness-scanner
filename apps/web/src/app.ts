@@ -168,7 +168,10 @@ function robotsTxt(baseUrl: string): string {
     ...disallow,
     '',
     '# The crawlers behind AI answers and the fetchers assistants use (checks A2.2 and A2.5).',
-    ...SEARCH_CRAWLERS.map((crawler) => `User-agent: ${crawler.token}`),
+    // Google-Extended is in both sets; one group per token keeps the rules unambiguous.
+    ...SEARCH_CRAWLERS.filter((crawler) => !TRAINING_CRAWLERS.includes(crawler.token)).map(
+      (crawler) => `User-agent: ${crawler.token}`,
+    ),
     ...USER_FETCHERS.map((token) => `User-agent: ${token}`),
     'Allow: /',
     ...disallow,

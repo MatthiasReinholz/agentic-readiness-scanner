@@ -232,6 +232,36 @@ describe('knowledge base', () => {
   });
 });
 
+describe('crawler registry page', () => {
+  it('lists every registry token as HTML and Markdown, with the sitemap and llms.txt', async () => {
+    const app = testApp();
+    const page = await app.request('/knowledge-base/crawlers');
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    for (const crawler of catalog.crawlers.tokens) expect(html).toContain(`>${crawler.token}<`);
+    const md = await (await app.request('/knowledge-base/crawlers.md')).text();
+    expect(md).toContain('## Outdated names');
+    expect(md).toContain('anthropic-ai');
+    expect(await (await app.request('/sitemap.xml')).text()).toContain('/knowledge-base/crawlers<');
+    expect(await (await app.request('/llms.txt')).text()).toContain('/knowledge-base/crawlers.md');
+  });
+
+  it('shows the crawlers an access check reads under its article, and nothing elsewhere', async () => {
+    const app = testApp();
+    const a22 = await (
+      await app.request('/knowledge-base/search-and-assistant-crawlers-allowed')
+    ).text();
+    expect(a22).toContain('Crawlers this check reads');
+    expect(a22).toContain('>Googlebot<');
+    const a22md = await (
+      await app.request('/knowledge-base/search-and-assistant-crawlers-allowed.md')
+    ).text();
+    expect(a22md).toContain('## Crawlers this check reads');
+    const a31 = await (await app.request('/knowledge-base/markdown-copy-of-product-pages')).text();
+    expect(a31).not.toContain('Crawlers this check reads');
+  });
+});
+
 describe('knowledge-base guides', () => {
   const guide = guides.find((item) => item.slug === 'crawler-blocks-and-browser-scans');
 

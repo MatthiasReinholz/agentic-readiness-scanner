@@ -138,6 +138,24 @@ describe('runChecks on a refused home page', () => {
     expect(skipped?.message).toMatch(/home page refused the scanner \(HTTP 403\), see A2.4/);
     expect(byId.get('A3.2')?.message).toMatch(/see A2.4/);
   });
+
+  it('still names the vendor behind the refusal and reads robots.txt for outdated names', async () => {
+    const base = targetFor({ robots: 'User-agent: anthropic-ai\nDisallow: /\n' });
+    const target = {
+      ...base,
+      home: {
+        ...base.home,
+        status: 403,
+        headers: { ...base.home.headers, 'x-datadome': 'protected' },
+      },
+      blocked: { status: 403, vendor: 'DataDome', challenge: false },
+    };
+    const { results } = await runChecks({ target, fetcher: mapFetcher({}), checks: builtInChecks });
+    const byId = new Map(results.map((r) => [r.id, r]));
+    expect(byId.get('A2.13')?.verdict).toBe('warn');
+    expect(byId.get('A2.14')).toMatchObject({ verdict: 'pass' });
+    expect(byId.get('A2.14')?.message).toMatch(/^served through DataDome/);
+  });
 });
 
 describe('check order under a budget', () => {
