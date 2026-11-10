@@ -271,7 +271,10 @@ describe('A2.14 AI crawler rules at the edge', () => {
 
   it('names the platform when a hosted platform runs the edge', async () => {
     const target = targetFor({ platform: 'shopify', robots: 'User-agent: *\nAllow: /\n' });
-    target.home = { ...target.home, headers: { ...target.home.headers, server: 'cloudflare' } };
+    target.home = {
+      ...target.home,
+      headers: { ...target.home.headers, 'set-cookie': '__cf_bm=x; path=/' },
+    };
     const outcome = await runCheck(edgeAiCrawlerRules, target, mapFetcher({}));
     expect(outcome.verdict).toBe('pass');
     expect(outcome.message).toMatch(/^Shopify runs the edge for this site/);
