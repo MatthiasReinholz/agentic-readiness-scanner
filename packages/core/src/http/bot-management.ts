@@ -185,8 +185,11 @@ export function edgeSignals(response: FetchedResponse): EdgeSignal[] {
   for (const vendor of EDGE_FINGERPRINTS) {
     for (const [name, pattern] of vendor.headers) {
       const value = response.headers[name];
-      if (value === undefined || (pattern !== null && !pattern.test(value))) continue;
-      found.push({ id: vendor.id, header: `${name}: ${value.slice(0, 80)}` });
+      if (value === undefined) continue;
+      // With a pattern, only the matched part is kept: a cookie's value never lands in a report.
+      const shown = pattern === null ? value.slice(0, 80) : pattern.exec(value)?.[0].trim();
+      if (shown === undefined) continue;
+      found.push({ id: vendor.id, header: `${name}: ${shown}` });
       break;
     }
   }
