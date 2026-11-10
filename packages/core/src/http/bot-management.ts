@@ -137,7 +137,8 @@ const EDGE_FINGERPRINTS: readonly { id: string; headers: readonly [string, RegEx
     id: 'cloudflare',
     headers: [
       ['set-cookie', /(?:^|[\s,;])__cf_bm=/],
-      ['report-to', /nel\.cloudflare\.com/i],
+      // The reporting endpoint's URL in full, slashes JSON-escaped or not: "https:\/\/a.nel.cloudflare.com/report".
+      ['report-to', /"url"\s*:\s*"https:(?:\\?\/){2}a\.nel\.cloudflare\.com(?:\\?\/)/i],
       ['cf-mitigated', null],
     ],
   },

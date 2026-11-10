@@ -25,7 +25,10 @@ describe('edgeVendors', () => {
     ]);
     expect(
       edgeVendors(
-        response({ 'report-to': '{"endpoints":[{"url":"https://a.nel.cloudflare.com/report"}]}' }),
+        response({
+          'report-to':
+            '{"endpoints":[{"url":"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=x"}]}',
+        }),
       ),
     ).toEqual(['cloudflare']);
     expect(edgeVendors(response({ 'x-vercel-id': 'fra1::x' }))).toEqual(['vercel']);
@@ -44,6 +47,13 @@ describe('edgeVendors', () => {
 
   it("ignores cf-ray and server: cloudflare, which the hosted scanner's own network adds", () => {
     expect(edgeVendors(response({ server: 'cloudflare', 'cf-ray': '8f-FRA' }))).toEqual([]);
+    expect(
+      edgeVendors(
+        response({
+          'report-to': '{"endpoints":[{"url":"https://nel.cloudflare.com.evil.example/"}]}',
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 
