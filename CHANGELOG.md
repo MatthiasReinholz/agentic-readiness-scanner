@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-10
+
 ### Added
 
 - **A crawler registry as catalog data** (catalog 0.13.0, scoring 0.9.0, decision 0020). Every crawler, fetcher and browser agent the access checks read lives in `packages/catalog/data/crawlers.json`. Each entry records its operator, purpose, tier, what the operator says about robots.txt, how to verify the traffic, its documentation and the date it was checked. Checks, fixes, articles and `docs/checks.md` read the lists from it; fixes and articles use placeholders such as `{{crawlers:index.core}}` that the build fills in. The registry now covers 39 tokens documented by their operators, up from 28, including Claude-Agent, Google-GeminiNotebook, YouBot, Kimi, PetalBot, Qwant, Yandex's AI token, Exa and Firecrawl.
