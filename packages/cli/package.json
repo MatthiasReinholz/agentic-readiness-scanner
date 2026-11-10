@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/cli",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Command line and local MCP server of the Agentic Readiness Scanner, self-contained: npx @agentic-readiness/cli scan <url>.",
   "keywords": [
     "agentic-commerce",
