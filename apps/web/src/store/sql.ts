@@ -9,6 +9,7 @@ import {
 } from '@agentic-readiness/catalog';
 import { computeScores } from '@agentic-readiness/core';
 
+import { decodeJsonColumn, fitJsonColumn, omitLargestEvidence } from './json-column.js';
 import { RowReader, SqlStore, type SqlDatabase } from './sql-store.js';
 import type { ResultStore, StoredScan } from './types.js';
 import { wwwHostMigrations } from '../hosts.js';
@@ -39,6 +40,19 @@ export function stripFixes(result: ScanResult): ScanResult {
       ? { legal: { ...result.legal, results: result.legal.results.map(withoutFix) } }
       : {}),
   };
+}
+
+/**
+ * A copy of the result with its largest remaining evidence replaced by a note, for a result
+ * too large to store even packed; null when no evidence is left to drop.
+ */
+export function shrinkResult(result: ScanResult): ScanResult | null {
+  const results = result.results.map((item) => ({ ...item }));
+  const legal = result.legal
+    ? { ...result.legal, results: result.legal.results.map((item) => ({ ...item })) }
+    : undefined;
+  if (!omitLargestEvidence([...results, ...(legal?.results ?? [])])) return null;
+  return { ...result, results, ...(legal ? { legal } : {}) };
 }
 
 export function attachFixes(result: ScanResult): ScanResult {
@@ -86,7 +100,7 @@ export class SqlResultStore extends SqlStore implements ResultStore {
         scan.result.level.value,
         scan.result.scores.ingestion,
         scan.result.scores.commerce,
-        JSON.stringify(stripFixes(scan.result)),
+        await fitJsonColumn('scans.result', stripFixes(scan.result), undefined, shrinkResult),
       )
       .run();
   }
@@ -97,7 +111,7 @@ export class SqlResultStore extends SqlStore implements ResultStore {
       .prepare('SELECT id, host, created_at, result FROM scans WHERE id = ?')
       .bind(id)
       .first();
-    return row ? rowToScan(row) : null;
+    return row ? await rowToScan(row) : null;
   }
 
   async latestForHost(host: string): Promise<StoredScan | null> {
@@ -108,7 +122,7 @@ export class SqlResultStore extends SqlStore implements ResultStore {
       )
       .bind(host)
       .first();
-    return row ? rowToScan(row) : null;
+    return row ? await rowToScan(row) : null;
   }
 
   async deleteOlderThan(isoTimestamp: string): Promise<number> {
@@ -121,9 +135,9 @@ export class SqlResultStore extends SqlStore implements ResultStore {
   }
 }
 
-function rowToScan(row: Record<string, unknown>): StoredScan {
+async function rowToScan(row: Record<string, unknown>): Promise<StoredScan> {
   const reader = new RowReader('scans', row);
-  const parsed = JSON.parse(reader.string('result')) as ScanResult;
+  const parsed = (await decodeJsonColumn(reader.string('result'))) as ScanResult;
   // Rows stored before scores.groups existed get it recomputed; it is a pure function of results.
   const result = (parsed.scores as Partial<typeof parsed.scores>).groups
     ? parsed

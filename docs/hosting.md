@@ -48,7 +48,7 @@ Configuration comes from Space variables, set with `sf env set NAME value` (secr
 
 ### Stepped scans
 
-Scans run as jobs in steps ([decision 0017](decisions/0017-stepped-hosted-scans.md)). A `scan_jobs` row keeps the resumable state between steps, and `scan_job_cache_parts` keeps the responses a step fetched (gzipped, split into parts of 48 KiB so that no database operation reaches Spacefast's limit of 64 KiB). Each step runs inside one request. The next step is run by whichever comes first:
+Scans run as jobs in steps ([decision 0017](decisions/0017-stepped-hosted-scans.md)). A `scan_jobs` row keeps the resumable state between steps, and `scan_job_cache_parts` keeps the responses a step fetched (gzipped, split into parts of 48 KiB so that no database operation reaches Spacefast's limit of 64 KiB). Large JSON columns (`scans.result`, `scan_jobs.state_json` and `result_json`, and both columns of `scan_progress`) are stored gzipped behind a `gz:` prefix and read in either form; a value that still does not fit drops its largest evidence until it does (`apps/web/src/store/json-column.ts`). Each step runs inside one request. The next step is run by whichever comes first:
 
 1. the page calling `POST /api/scan/jobs/<id>/continue`
 2. the worker calling that endpoint itself after a step (through `waitUntil`)

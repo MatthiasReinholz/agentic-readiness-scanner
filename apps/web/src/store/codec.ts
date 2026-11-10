@@ -1,7 +1,7 @@
 /**
- * Cached responses are stored gzipped and base64-encoded: store pages compress five to
- * ten times, which keeps a two-megabyte page inside what the database broker accepts in
- * one statement. Web-standard streams only, so it runs in the worker and in Node.
+ * JSON gzipped and base64-encoded, for cached responses and large JSON columns (see
+ * json-column.ts): store pages and scan evidence compress five to ten times. Web-standard
+ * streams only, so it runs in the worker and in Node.
  */
 async function pipe(
   bytes: Uint8Array<ArrayBuffer>,

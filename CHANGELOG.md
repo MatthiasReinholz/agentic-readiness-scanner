@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hosted scans of stores with a lot of evidence finish again.** Spacefast refuses any database operation above 64 KiB. A finished scan of an evidence-heavy store is more than that as plain JSON (reynborg.de: 72 KB), so storing its result was refused, the last step was retried until the job gave up, and the page stopped at whatever the first step had decided. Scan results, the state kept between steps, one-time results and the page's progress record are now stored gzipped (about a sixth of the size) and read in either form, so older rows still work. Should a value still not fit, the largest evidence is replaced by a note of its size until it does; verdicts and messages always stay.
+- **A step whose storage fails frees the job at once** instead of holding it for the lease, so the next trigger retries it straight away, and the log names the error rather than only its type.
+- **Steps the platform cuts off no longer count against an isolate forever.** Bookkeeping of a step older than its allowance plus the lease margin is dropped, so an isolate that lost requests that way keeps taking scans instead of answering "The scanner is busy".
+
 ## [0.18.0] - 2026-11-10
 
 ### Added
