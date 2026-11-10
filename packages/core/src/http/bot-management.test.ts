@@ -24,7 +24,9 @@ describe('edgeVendors', () => {
       'cloudflare',
     ]);
     expect(
-      edgeVendors(response({ 'report-to': '{"endpoints":[{"url":"https://a.nel.cloudflare.com/report"}]}' })),
+      edgeVendors(
+        response({ 'report-to': '{"endpoints":[{"url":"https://a.nel.cloudflare.com/report"}]}' }),
+      ),
     ).toEqual(['cloudflare']);
     expect(edgeVendors(response({ 'x-vercel-id': 'fra1::x' }))).toEqual(['vercel']);
     expect(edgeVendors(response({ 'x-amz-cf-id': 'abc' }))).toEqual(['aws']);
@@ -34,14 +36,13 @@ describe('edgeVendors', () => {
   });
 
   it('lists a bot manager before the CDN it runs on, and nothing without a sign', () => {
-    expect(edgeVendors(response({ 'x-datadome': 'protected', 'cf-mitigated': 'challenge' }))).toEqual([
-      'datadome',
-      'cloudflare',
-    ]);
+    expect(
+      edgeVendors(response({ 'x-datadome': 'protected', 'cf-mitigated': 'challenge' })),
+    ).toEqual(['datadome', 'cloudflare']);
     expect(edgeVendors(response({ server: 'nginx', via: '1.1 proxy' }))).toEqual([]);
   });
 
-  it('ignores cf-ray and server: cloudflare, which the hosted scanner's own network adds', () => {
+  it("ignores cf-ray and server: cloudflare, which the hosted scanner's own network adds", () => {
     expect(edgeVendors(response({ server: 'cloudflare', 'cf-ray': '8f-FRA' }))).toEqual([]);
   });
 });
