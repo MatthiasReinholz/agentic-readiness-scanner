@@ -9,6 +9,8 @@ import {
   listingLinksProductsAndPages,
 } from './a1/index.js';
 import {
+  crawlerNamesCurrent,
+  edgeAiCrawlerRules,
   honestFetchNotBlocked,
   noAnswerExclusionDirectives,
   searchCrawlersAllowed,
@@ -104,6 +106,8 @@ export const builtInChecks: readonly Check[] = [
   userFetchersAllowed,
   noAnswerExclusionDirectives,
   renderResourcesNotBlocked,
+  crawlerNamesCurrent,
+  edgeAiCrawlerRules,
   markdownCopyOfProductPages,
   serverRenderedProductContent,
   pageWeightAndResponseTime,

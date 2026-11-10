@@ -3,6 +3,7 @@ export * from './result.js';
 export * from './prompt.js';
 export * from './platforms.js';
 export * from './platform-ids.js';
+export * from './crawlers.js';
 export { catalog } from './generated/catalog.js';
 
 import { catalog } from './generated/catalog.js';

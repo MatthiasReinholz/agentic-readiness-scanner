@@ -107,3 +107,48 @@ export function isChallengeOrBlockServedAsSuccess(response: FetchedResponse): bo
   if (response.status < 200 || response.status >= 300) return false;
   return isChallengePage(response) || isBlockPageServedAs200(response);
 }
+
+/**
+ * Headers by which a CDN or bot manager shows itself on an ordinary answer, keyed by the
+ * crawler registry's bot-manager ids. Each is the vendor's request-id or service header;
+ * a site can sit behind one of these without any of them, so no match proves nothing.
+ */
+const EDGE_FINGERPRINTS: readonly {
+  id: string;
+  matches: (h: Record<string, string>) => boolean;
+}[] = [
+  { id: 'datadome', matches: (h) => 'x-datadome' in h || 'x-dd-b' in h },
+  { id: 'imperva', matches: (h) => 'x-iinfo' in h || /imperva|incapsula/i.test(h['x-cdn'] ?? '') },
+  { id: 'cloudflare', matches: (h) => 'cf-ray' in h || /^cloudflare$/i.test(h.server ?? '') },
+  { id: 'vercel', matches: (h) => 'x-vercel-id' in h || /^vercel$/i.test(h.server ?? '') },
+  { id: 'aws', matches: (h) => 'x-amz-cf-id' in h || /cloudfront/i.test(h.via ?? '') },
+  {
+    id: 'akamai',
+    matches: (h) => 'akamai-grn' in h || /akamai/i.test(h.server ?? ''),
+  },
+  {
+    id: 'fastly',
+    matches: (h) =>
+      'x-fastly-request-id' in h ||
+      (/^cache-/i.test(h['x-served-by'] ?? '') && /varnish/i.test(h.via ?? '')),
+  },
+];
+
+/** The CDNs and bot managers a response names, in the order above (bot managers first). */
+export function edgeVendors(response: FetchedResponse): string[] {
+  return EDGE_FINGERPRINTS.filter((vendor) => vendor.matches(response.headers)).map(
+    (vendor) => vendor.id,
+  );
+}
+
+const CLOUDFLARE_MANAGED_BLOCK =
+  /#\s*BEGIN Cloudflare Managed content([\s\S]*?)(?:#\s*END Cloudflare Managed Content|$)/i;
+
+/**
+ * The managed block Cloudflare puts in front of a site's robots.txt when its AI crawler
+ * policies are on (https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/),
+ * or null. The text between the markers is returned for the caller to parse.
+ */
+export function cloudflareManagedRobots(robotsBody: string): string | null {
+  return CLOUDFLARE_MANAGED_BLOCK.exec(robotsBody)?.[1] ?? null;
+}

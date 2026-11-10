@@ -10,7 +10,7 @@ import { catalog, getCheck, ScanResultSchema } from '@agentic-readiness/core';
 
 | Path                                                           | Holds                                                                      |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `data/checks/<section>.json`                                   | the 78 readiness checks in 9 sections (A1 to B5)                           |
+| `data/checks/<section>.json`                                   | the 80 readiness checks in 9 sections (A1 to B5)                           |
 | `data/legal/`                                                  | the 24 legal-signal checks (C1 to C6), their sections and the law registry |
 | `data/levels.json`, `data/profiles.json`, `data/ceilings.json` | levels and their gates, profiles, score caps                               |
 | `data/meta.json`                                               | the catalog version and the scoring version                                |

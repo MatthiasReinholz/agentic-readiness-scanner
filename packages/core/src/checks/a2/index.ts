@@ -9,7 +9,7 @@ import {
 import { extractJsonLd } from '../../parsers/jsonld.js';
 import { elementText } from '../../parsers/html.js';
 import { mediaTypeOf, parseLinkHeader } from '../../parsers/link-header.js';
-import { isAgentNamed, isAllowed, type RobotsTxt } from '../../parsers/robots.js';
+import { isAllowed, type RobotsTxt } from '../../parsers/robots.js';
 import {
   parseTdmrepJson,
   validateAbsoluteUrl,
@@ -20,129 +20,23 @@ import {
   type SignalValidation,
 } from '../../parsers/usage-preferences.js';
 import {
+  MAJOR_INDEX_CRAWLERS,
   SEARCH_CRAWLERS,
   SHARED_TRAINING_TOKEN,
   TRAINING_CRAWLERS,
   USER_FETCHERS,
 } from '../crawlers.js';
-import { pathOf, productPages } from '../shared.js';
+import { productPages } from '../shared.js';
 import { defineCheck, fail, pass, skip, warn, type CheckOutcome } from '../types.js';
 
 export { SEARCH_CRAWLERS, SHARED_TRAINING_TOKEN, TRAINING_CRAWLERS, USER_FETCHERS };
-
-/** True when a usage line sets a training value in either vocabulary. */
-function statesTraining(robots: RobotsTxt): boolean {
-  return robots.usageLines.some(
-    (line) =>
-      (line.field === 'content-signal' && /\bai-train\s*=/i.test(line.value)) ||
-      (line.field === 'content-usage' && /\btrain-ai\s*=/i.test(line.value)),
-  );
-}
-
-export const trainingPolicyStated = defineCheck('A2.1', ({ target }) => {
-  const robots = target.robots;
-  if (!robots) {
-    return warn('no robots.txt, so no training decision is stated', {
-      shared_token: false,
-      named: 0,
-      total: TRAINING_CRAWLERS.length,
-      usage_line: false,
-      tokens: {},
-    });
-  }
-  const tokens: Record<string, { named: boolean; allowed: boolean }> = {};
-  let named = 0;
-  for (const token of TRAINING_CRAWLERS) {
-    const isNamed = isAgentNamed(robots, token);
-    if (isNamed) named += 1;
-    tokens[token] = { named: isNamed, allowed: isAllowed(robots, token, '/') };
-  }
-  const sharedToken = isAgentNamed(robots, SHARED_TRAINING_TOKEN);
-  const usageLine = statesTraining(robots);
-  const evidence = {
-    shared_token: sharedToken,
-    shared_token_allows: sharedToken ? isAllowed(robots, SHARED_TRAINING_TOKEN, '/') : null,
-    named,
-    total: TRAINING_CRAWLERS.length,
-    usage_line: usageLine,
-    tokens,
-  };
-  if (sharedToken) {
-    return pass(
-      `training decision stated for the shared token ${SHARED_TRAINING_TOKEN}${named > 0 ? ` and ${named} named crawler(s)` : ''}`,
-      evidence,
-    );
-  }
-  if (named > 0) {
-    return pass(
-      `training decision stated for ${named} of ${TRAINING_CRAWLERS.length} documented training crawlers`,
-      evidence,
-    );
-  }
-  if (usageLine) {
-    return pass('training preference stated in a Content-Signal or Content-Usage line', evidence);
-  }
-  return warn('robots.txt states no decision about AI training crawlers', evidence);
-});
-
-export const searchCrawlersAllowed = defineCheck('A2.2', ({ target }) => {
-  const robots = target.robots;
-  const path = target.sampled.products[0] ? pathOf(target.sampled.products[0]) : '/';
-  if (!robots) {
-    return pass('no robots.txt rules, so every crawler may read the page', { path, crawlers: {} });
-  }
-  const crawlers: Record<string, { allowed: boolean; core: boolean; feeds: string }> = {};
-  const blockedCore: string[] = [];
-  const blockedOther: string[] = [];
-  for (const crawler of SEARCH_CRAWLERS) {
-    const allowed = isAllowed(robots, crawler.token, path);
-    crawlers[crawler.token] = { allowed, core: crawler.core, feeds: crawler.feeds };
-    if (!allowed) (crawler.core ? blockedCore : blockedOther).push(crawler.token);
-  }
-  const evidence = { path, crawlers, blocked: [...blockedCore, ...blockedOther] };
-  if (blockedCore.length > 0) {
-    return fail(
-      `${blockedCore.join(' and ')} disallowed on ${path}, so the AI answers built on that index lose the site`,
-      evidence,
-    );
-  }
-  if (blockedOther.length >= 2) {
-    return fail(`${blockedOther.join(', ')} disallowed on ${path}`, evidence);
-  }
-  if (blockedOther.length === 1) {
-    return warn(`${blockedOther[0] ?? ''} disallowed on ${path}`, evidence);
-  }
-  return pass(
-    `all ${SEARCH_CRAWLERS.length} search and assistant crawlers may read ${path}`,
-    evidence,
-  );
-});
-
-export const userFetchersAllowed = defineCheck('A2.5', ({ target }) => {
-  const robots = target.robots;
-  const path = target.sampled.products[0] ? pathOf(target.sampled.products[0]) : '/';
-  if (!robots) {
-    return pass('no robots.txt rules, so user-triggered fetchers are not disallowed', {
-      path,
-      fetchers: {},
-    });
-  }
-  const fetchers: Record<string, boolean> = {};
-  const blocked: string[] = [];
-  for (const token of USER_FETCHERS) {
-    const allowed = isAllowed(robots, token, path);
-    fetchers[token] = allowed;
-    if (!allowed) blocked.push(token);
-  }
-  const evidence = { path, fetchers, blocked };
-  if (blocked.length > 0) {
-    return fail(
-      `${blocked.join(', ')} disallowed on ${path} (most fetch anyway when a person asks, but the rule records intent)`,
-      evidence,
-    );
-  }
-  return pass(`all ${USER_FETCHERS.length} user-triggered fetchers may fetch ${path}`, evidence);
-});
+export {
+  crawlerNamesCurrent,
+  searchCrawlersAllowed,
+  trainingPolicyStated,
+  userFetchersAllowed,
+} from './crawlers.js';
+export { edgeAiCrawlerRules } from './edge.js';
 
 const NOINDEX = /\bnoindex\b/i;
 /**
@@ -264,7 +158,7 @@ export const noAnswerExclusionDirectives = defineCheck('A2.6', async ({ target, 
 
 /** Kept for the policy-readability check, which asks whether the crawlers behind answers may read a page. */
 export function blockedSearchCrawlers(robots: RobotsTxt, path: string): string[] {
-  return SEARCH_CRAWLERS.filter((crawler) => !isAllowed(robots, crawler.token, path)).map(
+  return MAJOR_INDEX_CRAWLERS.filter((crawler) => !isAllowed(robots, crawler.token, path)).map(
     (crawler) => crawler.token,
   );
 }
@@ -282,6 +176,11 @@ interface FetchVerdict {
   detail: string | null;
   /** The bot-management product the response names, when recognisable. */
   vendor: string | null;
+  /**
+   * The Accept-Signature header, when sent: Web Bot Auth's one site-side signal, asking the
+   * client to sign its requests (draft-ietf-webbotauth-httpsig-protocol).
+   */
+  accept_signature?: string;
 }
 
 /**
@@ -291,7 +190,13 @@ interface FetchVerdict {
  * honest clients away.
  */
 function classifyResponse(response: FetchedResponse, early = true): FetchVerdict {
-  const base = { status: response.status, final_url: response.finalUrl, vendor: null };
+  const acceptSignature = response.headers['accept-signature'];
+  const base = {
+    status: response.status,
+    final_url: response.finalUrl,
+    vendor: null,
+    ...(acceptSignature ? { accept_signature: acceptSignature } : {}),
+  };
   if (response.status === 0) {
     return { ...base, outcome: 'not_fetched', detail: response.error ?? 'no response' };
   }

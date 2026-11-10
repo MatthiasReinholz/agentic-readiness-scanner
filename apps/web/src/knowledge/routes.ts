@@ -13,6 +13,9 @@ import {
   articleBySlug,
   articleMarkdown,
   articlePath,
+  crawlerRegistryMarkdown,
+  crawlerRegistryPage,
+  CRAWLERS_PATH,
   groupBySlug,
   groupSlug,
   knowledgeArticlePage,
@@ -56,6 +59,7 @@ export function knowledgeIndexLines(config: AppConfig): string {
       (guide) =>
         `- [Guide: ${guide.headline}](${config.baseUrl}${guidePath(guide)}.md): ${guide.description}`,
     ),
+    `- [AI crawler and agent registry](${config.baseUrl}${CRAWLERS_PATH}.md): every AI crawler, fetcher and browser agent the scanner reads robots.txt for, with its operator and documentation`,
     ...knowledge.map((article) => {
       return `- [${article.id} ${article.headline}](${config.baseUrl}${articlePath(article)}.md): ${article.description}`;
     }),
@@ -70,6 +74,7 @@ function sitemapXml(config: AppConfig): string {
     ...catalog.groups.map((group) => `/knowledge-base/${groupSlug(group)}`),
     LEGAL_HUB_PATH,
     GUIDES_HUB_PATH,
+    CRAWLERS_PATH,
     ...guides.map(guidePath),
     ...knowledge.map(articlePath),
   ];
@@ -140,6 +145,13 @@ export function createKnowledgeRoutes(config: AppConfig): Hono {
     wantsMarkdown(c)
       ? md(c, GUIDES_HUB_PATH, guidesHubMarkdown(config))
       : html(c, GUIDES_HUB_PATH, guidesHubPage(config)),
+  );
+  app.get(`${CRAWLERS_PATH}.md`, (c) => md(c, CRAWLERS_PATH, crawlerRegistryMarkdown(config)));
+  app.get(`${CRAWLERS_PATH}/`, (c) => c.redirect(CRAWLERS_PATH, 301));
+  app.get(CRAWLERS_PATH, (c) =>
+    wantsMarkdown(c)
+      ? md(c, CRAWLERS_PATH, crawlerRegistryMarkdown(config))
+      : html(c, CRAWLERS_PATH, crawlerRegistryPage(config)),
   );
   app.get(`${GUIDES_HUB_PATH}/:file`, (c) => {
     const file = c.req.param('file');

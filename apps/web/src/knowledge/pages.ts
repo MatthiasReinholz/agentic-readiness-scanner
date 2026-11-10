@@ -6,6 +6,7 @@
  * also exists as Markdown for agents, and carries schema.org structured data for search.
  */
 import {
+  CHECK_CRAWLER_SETS,
   dimensionCopy,
   catalog,
   getCheck,
@@ -45,6 +46,13 @@ import {
 import type { AppConfig } from '../config.js';
 import { AUTHOR, jsonLd, metadataHead, siteGraph, socialImage, webPage } from '../metadata.js';
 import { page } from '../pages/layout.js';
+import {
+  crawlerRegistryMarkdown as crawlerRegistryBody,
+  crawlerSectionMarkdown,
+  CRAWLERS_DESCRIPTION,
+  CRAWLERS_PATH,
+  CRAWLERS_TITLE,
+} from './crawlers.js';
 import { faqPairs, markdownToHtml, plainText, section, slugify } from './markdown.js';
 import {
   articleSidebar,
@@ -108,6 +116,7 @@ export function isLegalCheck(check: Pick<CheckDefinition, 'group'>): boolean {
 
 export const LEGAL_HUB_PATH = '/knowledge-base/legal-signals';
 export const GUIDES_HUB_PATH = '/knowledge-base/guides';
+export { CRAWLERS_PATH };
 
 export function guidePath(guide: KnowledgeGuide): string {
   return `${GUIDES_HUB_PATH}/${guide.slug}`;
@@ -538,6 +547,7 @@ ${articleSidebar(check, group, rendered.headings)}
 <dl class="${card} mt-6 divide-y divide-border px-5">${facts}</dl>
 <details class="kb-toc-mobile mt-6 rounded-lg border border-border lg:hidden"><summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">On this page${icon('chevron-down', 'size-4')}</summary><nav class="kb-toc border-t border-border px-4 py-3 text-sm text-muted-foreground">${tocLinks(rendered.headings)}</nav></details>
 <div class="max-w-[72ch]">${rendered.html}</div>
+${crawlerSectionHtml(check.id)}
 ${fixCard(check)}
 ${relatedGuides(check.id)}
 <section class="mt-10 scroll-mt-6" id="sources" aria-labelledby="sources-heading"><h2 id="sources-heading" class="text-xl font-semibold tracking-tight">Sources and specifications</h2><ul class="mt-4 list-disc space-y-2 pl-6 text-sm leading-6 marker:text-muted-foreground/70">${sources}</ul></section>
@@ -661,7 +671,7 @@ updated: ${KNOWLEDGE_UPDATED}
 Check ${check.id} (${check.title}) in section ${group.id}, ${group.title}. Priority: ${TIER_TEXT[tier].toLowerCase()}. ${TIER_HELP[tier]} ${gateSentence(check.id)}${platformSentence(check)}${check.depends_on.length > 0 ? ` Runs after ${check.depends_on.join(', ')}.` : ''}
 
 ${absolute(config, article.body)}
-
+${crawlerSectionMarkdown(check.id) ? `\n${absolute(config, crawlerSectionMarkdown(check.id))}` : ''}
 ## The fix in one step
 
 ${fix.summary}
@@ -1024,7 +1034,7 @@ Legal signal ${check.id} (${check.title}) in ${group.id}, ${group.title}. Report
 ${laws.map((law) => `- [${law.jurisdiction}: ${law.name}](${law.url})${law.applies_from && Date.parse(law.applies_from) > Date.parse(KNOWLEDGE_UPDATED) ? ` (applies from ${law.applies_from})` : ''}: ${law.note}`).join('\n')}
 
 ${absolute(config, article.body)}
-
+${crawlerSectionMarkdown(check.id) ? `\n${absolute(config, crawlerSectionMarkdown(check.id))}` : ''}
 ## The fix in one step
 
 ${fix.summary}
@@ -1050,10 +1060,70 @@ function guideRow(guide: KnowledgeGuide): string {
   return `<li data-text="${escapeHtml(text)}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${guidePath(guide)}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">Guide</span><span class="kb-check-copy min-w-0"><span class="font-semibold group-hover:text-primary">${escapeHtml(guide.headline)}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(guide.description)}</span>${guide.related.length > 0 ? `<span class="mt-1 block text-xs leading-5 text-muted-foreground">About ${guide.related.map(escapeHtml).join(', ')}</span>` : ''}</span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
 }
 
+/** The crawler registry, listed with the guides because it too spans several checks. */
+function registryRow(): string {
+  return `<li data-text="${escapeHtml(`${CRAWLERS_TITLE} ${CRAWLERS_DESCRIPTION}`.toLowerCase())}"><a class="kb-check-row group -mx-3 rounded-lg px-3 py-4 hover:bg-muted/50" href="${CRAWLERS_PATH}"><span class="${identifier} mt-0.5 w-10 text-xs text-muted-foreground">Data</span><span class="kb-check-copy min-w-0"><span class="font-semibold group-hover:text-primary">${CRAWLERS_TITLE}</span><span class="mt-1 block text-sm leading-6 text-muted-foreground">${escapeHtml(CRAWLERS_DESCRIPTION)}</span><span class="mt-1 block text-xs leading-5 text-muted-foreground">About ${Object.keys(CHECK_CRAWLER_SETS).join(', ')}</span></span>${icon('chevron-right', 'kb-check-arrow mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary')}</a></li>`;
+}
+
+/** The registry section of an access-check article, or '' for every other check. */
+function crawlerSectionHtml(checkId: string): string {
+  const markdown = crawlerSectionMarkdown(checkId);
+  if (!markdown) return '';
+  return `<section class="kb-crawlers mt-10 max-w-full overflow-x-auto" aria-label="Crawlers this check reads">${markdownToHtml(markdown).html}</section>`;
+}
+
+/** /knowledge-base/crawlers */
+export function crawlerRegistryPage(config: AppConfig): string {
+  const rendered = markdownToHtml(crawlerRegistryBody());
+  const hero = `
+<p class="hero-eyebrow">Knowledge base · registry</p>
+<h1 class="hero-title">${CRAWLERS_TITLE}</h1>
+<p class="hero-description">${escapeHtml(CRAWLERS_DESCRIPTION)}</p>
+<p class="mt-3 text-sm text-current"><a class="underline underline-offset-4" href="${CRAWLERS_PATH}.md" type="text/markdown">Markdown</a></p>
+`;
+  const body = `
+${breadcrumbs([{ label: 'Knowledge base', href: '/knowledge-base' }, { label: 'Crawler registry' }])}
+<article data-kb-article class="kb-crawlers mt-8 min-w-0 overflow-x-auto">${rendered.html}</article>
+${scanCta()}
+${jsonLd({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      ...webPage(config, CRAWLERS_PATH, CRAWLERS_TITLE, CRAWLERS_DESCRIPTION, 'knowledge'),
+      '@type': 'CollectionPage',
+      name: CRAWLERS_TITLE,
+      description: CRAWLERS_DESCRIPTION,
+      url: `${config.baseUrl}${CRAWLERS_PATH}`,
+      inLanguage: 'en',
+      dateModified: KNOWLEDGE_UPDATED,
+      author: { '@id': `${AUTHOR.url}#person` },
+      citation: [...new Set(catalog.crawlers.tokens.map((crawler) => crawler.docs))],
+    },
+    breadcrumbLd(config, [
+      { name: 'Knowledge base', path: '/knowledge-base' },
+      { name: 'Crawler registry', path: CRAWLERS_PATH },
+    ]),
+    ...siteGraph(config, 'knowledge'),
+  ],
+})}`;
+  return kbPage(
+    config,
+    CRAWLERS_TITLE,
+    CRAWLERS_DESCRIPTION,
+    headFor(config, CRAWLERS_PATH, CRAWLERS_TITLE, CRAWLERS_DESCRIPTION, 'website'),
+    body,
+    hero,
+  );
+}
+
+export function crawlerRegistryMarkdown(config: AppConfig): string {
+  return `# ${CRAWLERS_TITLE}\n\n> ${CRAWLERS_DESCRIPTION}\n\n${absolute(config, crawlerRegistryBody())}\nSource: ${config.baseUrl}${CRAWLERS_PATH}\n`;
+}
+
 /** The guides on the index, above the sections. */
 function guidesCard(): string {
   if (guides.length === 0) return '';
-  return `<section class="${panel} mt-10" aria-labelledby="guides-heading"><div class="flex flex-wrap items-baseline justify-between gap-2"><h2 id="guides-heading" class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="${GUIDES_HUB_PATH}">Guides</a></h2><span class="text-xs text-muted-foreground">Topics across checks and how the scanner works</span></div><ul class="kb-check-list mt-2">${guides.map(guideRow).join('')}</ul></section>`;
+  return `<section class="${panel} mt-10" aria-labelledby="guides-heading"><div class="flex flex-wrap items-baseline justify-between gap-2"><h2 id="guides-heading" class="text-lg font-semibold tracking-tight"><a class="hover:text-primary" href="${GUIDES_HUB_PATH}">Guides</a></h2><span class="text-xs text-muted-foreground">Topics across checks and how the scanner works</span></div><ul class="kb-check-list mt-2">${guides.map(guideRow).join('')}${registryRow()}</ul></section>`;
 }
 
 /** On a check's article: the guides that are about it. */

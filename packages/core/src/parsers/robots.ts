@@ -1,7 +1,10 @@
 /**
  * RFC 9309 robots.txt parser with Content-Signal and Sitemap records.
- * Deterministic and dependency-free; fixture-tested.
+ * Deterministic and fixture-tested. The documented fallbacks between crawlers (Applebot
+ * follows Googlebot) come from the catalog's crawler registry.
  */
+import { catalog, crawlerFallbacks } from '@agentic-readiness/catalog';
+
 export interface RobotsRule {
   type: 'allow' | 'disallow';
   pattern: string;
@@ -153,13 +156,11 @@ export function parseRobotsTxt(text: string): RobotsTxt {
 
 /**
  * Groups a crawler follows, by its operator's documentation, when robots.txt names it in
- * none. Apple: "If robots instructions don't mention Applebot but mention Googlebot, the
- * Apple robot will follow Googlebot instructions" (https://support.apple.com/en-us/119829).
- * Apple documents no such fallback for Applebot-Extended, so it has none here.
+ * none: the `follows` field of the crawler registry. Apple: "If robots instructions don't
+ * mention Applebot but mention Googlebot, the Apple robot will follow Googlebot
+ * instructions" (https://support.apple.com/en-us/119829).
  */
-const DOCUMENTED_FALLBACKS: Readonly<Record<string, string>> = {
-  applebot: 'googlebot',
-};
+const DOCUMENTED_FALLBACKS: Readonly<Record<string, string>> = crawlerFallbacks(catalog.crawlers);
 
 /**
  * RFC 9309 section 2.2.1: when several groups match the same user agent, their rules are

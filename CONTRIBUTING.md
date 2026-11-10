@@ -42,7 +42,7 @@ Useful during work:
 
 A check is a catalog entry, a fix, a knowledge-base article, an implementation and fixtures.
 
-1. **Define it** in `packages/catalog/data/checks/<section>.json` (for example `A2.json`): id, title, the one question it answers, how it is tested, weight (1 nice to have, 2 expected, 3 blocking, or `info` for reported but never scored), platform requirements, dependencies and at least one public spec URL. Before you add a check on an AI convention, read the [check audit](docs/audits/2026-10-31-check-audit.md). It records which conventions have a documented consumer, and the catalog scores only those. Crawler tokens live in `packages/core/src/checks/crawlers.ts`, grouped by what their operator documents them for. A training crawler never costs points.
+1. **Define it** in `packages/catalog/data/checks/<section>.json` (for example `A2.json`): id, title, the one question it answers, how it is tested, weight (1 nice to have, 2 expected, 3 blocking, or `info` for reported but never scored), platform requirements, dependencies and at least one public spec URL. Before you add a check on an AI convention, read the [check audit](docs/audits/2026-10-31-check-audit.md). It records which conventions have a documented consumer, and the catalog scores only those. Crawler tokens live in the crawler registry, `packages/catalog/data/crawlers.json` (see below). A training-only crawler never costs points.
 2. **Write the fix** in `packages/catalog/fixes/<id>.md` with a `## Summary`, an optional `## Snippet` (one fenced block) and an `## Agent prompt` (the brief for a coding agent). Keep all three platform-neutral.
    - Advice that holds on one platform only goes in an optional `## On <platform>` section, named by the platform's label or id (`## On WordPress`, `## On Shopify`, `## On Magento`). The ids are in `packages/catalog/src/platform-ids.ts`. A report adds the section to the agent prompt only when the scan recognised that platform (a WordPress section also applies to WooCommerce). The knowledge base lists every section.
    - Set `auto_fix: true` in the front matter only when the fix is mechanical: a file, setting or markup change that a tool or agent can apply from existing store data.
@@ -59,6 +59,16 @@ A check is a catalog entry, a fix, a knowledge-base article, an implementation a
 7. **Record fixtures** in `fixtures/stores`: the good store should pass the check and, where it makes sense, another fixture should fail it.
 8. **Regenerate the docs** with `pnpm docs:generate` and validate with `pnpm --filter @agentic-readiness/catalog validate`.
 9. **Add a changelog line** under Unreleased in `CHANGELOG.md`.
+
+## Adding or changing a crawler
+
+Every crawler, fetcher and agent token the access checks read is one entry in `packages/catalog/data/crawlers.json` ([decision 0020](docs/decisions/0020-crawler-registry.md)). The checks, the reports, the fixes, the knowledge base and `docs/checks.md` all follow it.
+
+1. **Read the operator's own documentation.** A token goes in only when its operator documents it. A name that appears only in block lists, analytics dashboards or third-party directories does not.
+2. **Fill the entry:** `token` as the operator spells it, `operator`, `kind` (crawler, fetcher, agent or token), `purposes` (training, search, answers, actions), a `tier` unless it is training-only (core, assistant or other, as defined in `packages/catalog/src/schema.ts`), `feeds` (what loses the site when it is blocked), `robots` (honours, may-ignore or not-stated, as the operator says), `follows` when the operator documents a fallback group, the IP list or Signature-Agent when published, `docs` and today's date in `verified`.
+3. **Retire a token** by moving it to `legacy` with `status` (renamed or undocumented) and `replaced_by`. A2.13 then flags robots.txt groups that still name it.
+4. **Run** `pnpm --filter @agentic-readiness/catalog test` and `pnpm docs:generate`. The schema rejects duplicates, missing tiers and dangling references. Tests that expect a fixed list may need updating, which is the point: review what the change does to the verdicts.
+5. **Bump** the catalog `version`, and `scoring_version` when the change moves a token into or out of A2.2's core or assistant tiers.
 
 Legal-signal checks follow the same steps with three differences. The definition goes in `packages/catalog/data/legal/checks/<section>.json` with weight `info`, the markets it is limited to (none means every store) and the ids of the laws it relates to, which must exist in `packages/catalog/data/legal/laws.json`. The implementation goes in `packages/core/src/checks/legal`, built with `defineLegalCheck` and listed in that folder's `index.ts`. The article follows the legal-signals rules in [docs/knowledge-base.md](docs/knowledge-base.md) ([decision 0015](docs/decisions/0015-legal-signals.md)).
 

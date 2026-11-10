@@ -4,7 +4,7 @@ import { HtmlDocument } from '../../parsers/html.js';
 import { asString, extractJsonLd, hasValue, organizationNodes } from '../../parsers/jsonld.js';
 import { isAllowed } from '../../parsers/robots.js';
 import { parseSecurityTxt } from '../../parsers/security-txt.js';
-import { SEARCH_CRAWLERS } from '../a2/index.js';
+import { MAJOR_INDEX_CRAWLERS } from '../crawlers.js';
 import { describeFailure, hasProductMarkup, inconclusive, isTransient, pathOf } from '../shared.js';
 import { registrableDomain } from '../../http/domain.js';
 import { looksLikeProductUrl } from '../../parsers/sitemap.js';
@@ -425,7 +425,7 @@ export const policyPagesAgentReadable = defineCheck(
       const robots = new URL(url).origin === target.origin ? target.robots : null;
       const path = pathOf(url);
       const blocked = robots
-        ? SEARCH_CRAWLERS.map((crawler) => crawler.token).filter(
+        ? MAJOR_INDEX_CRAWLERS.map((crawler) => crawler.token).filter(
             (agent) => !isAllowed(robots, agent, path),
           )
         : [];

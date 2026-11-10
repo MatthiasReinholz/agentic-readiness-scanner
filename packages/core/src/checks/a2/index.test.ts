@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { resolveTarget } from '../../target/resolver.js';
 import { fixtureFetcher, mapFetcher, runCheck, targetFor } from '../../testing/index.js';
 import {
+  crawlerNamesCurrent,
+  edgeAiCrawlerRules,
   honestFetchNotBlocked,
   noAnswerExclusionDirectives,
   renderResourcesNotBlocked,
@@ -87,21 +89,49 @@ describe('A2.2 search and assistant crawlers may read a product page', () => {
     });
   });
 
-  it('warns on one blocked AI search crawler and fails on two', async () => {
+  it("warns on one blocked major assistant's crawler and fails on two", async () => {
     const one = await run('User-agent: PerplexityBot\nDisallow: /\n');
     expect(one.verdict).toBe('warn');
-    expect(one.message).toBe('PerplexityBot disallowed on /product/mug/');
+    expect(one.message).toBe(
+      "disallowed on /product/mug/: PerplexityBot (Perplexity's search and answers)",
+    );
     const two = await run('User-agent: PerplexityBot\nUser-agent: OAI-SearchBot\nDisallow: /\n');
     expect(two.verdict).toBe('fail');
     expect(two.evidence).toMatchObject({ blocked: ['OAI-SearchBot', 'PerplexityBot'] });
   });
 
-  it('never counts a training crawler block against the site', async () => {
+  it('never counts a training-only token against the site', async () => {
+    const searchTokens = new Set(SEARCH_CRAWLERS.map((crawler) => crawler.token));
+    const trainingOnly = TRAINING_CRAWLERS.filter((token) => !searchTokens.has(token));
     const outcome = await run(
-      `${TRAINING_CRAWLERS.map((token) => `User-agent: ${token}`).join('\n')}\nDisallow: /\n`,
+      `${trainingOnly.map((token) => `User-agent: ${token}`).join('\n')}\nDisallow: /\n`,
     );
     expect(outcome.verdict).toBe('pass');
     expect(Object.keys(outcome.evidence.crawlers as object)).toHaveLength(SEARCH_CRAWLERS.length);
+  });
+
+  it('warns on Google-Extended, which Google ties to Gemini app grounding as well as training', async () => {
+    const outcome = await run('User-agent: Google-Extended\nDisallow: /\n');
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(/Google-Extended \(training of Gemini models and grounding/);
+  });
+
+  it('reports regional and developer services without changing the verdict', async () => {
+    const outcome = await run('User-agent: PetalBot\nUser-agent: YandexAdditional\nDisallow: /\n');
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(
+      /PetalBot and YandexAdditional \(regional or developer services\)/,
+    );
+    expect(outcome.evidence).toMatchObject({
+      blocked_by_tier: { core: [], assistant: [], other: ['PetalBot', 'YandexAdditional'] },
+    });
+  });
+
+  it('lets Applebot follow the Googlebot group, as Apple documents', async () => {
+    const outcome = await run('User-agent: Googlebot\nDisallow: /product/\n');
+    expect(outcome.evidence).toMatchObject({
+      crawlers: { Applebot: { allowed: false }, Googlebot: { allowed: false } },
+    });
   });
 });
 
@@ -123,6 +153,131 @@ describe('A2.5 user-triggered fetchers not disallowed', () => {
       blocked: ['ChatGPT-User'],
     });
     expect(Object.keys(blocked.evidence.fetchers as object)).toHaveLength(USER_FETCHERS.length);
+  });
+
+  it('says which disallowed fetchers obey robots.txt and which may fetch anyway', async () => {
+    const outcome = await runCheck(
+      userFetchersAllowed,
+      targetFor({
+        products,
+        robots: 'User-agent: ChatGPT-User\nUser-agent: Claude-User\nDisallow: /\n',
+      }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('fail');
+    expect(outcome.message).toContain('Claude-User obey robots.txt, so this is a real block');
+    expect(outcome.message).toContain(
+      'ChatGPT-User may fetch anyway when a person asks, so the rule records intent',
+    );
+    expect(outcome.evidence).toMatchObject({
+      robots_behaviour: { 'ChatGPT-User': 'may-ignore', 'Claude-User': 'honours' },
+    });
+  });
+
+  it('warns when only developer and regional fetchers are disallowed', async () => {
+    const outcome = await runCheck(
+      userFetchersAllowed,
+      targetFor({ products, robots: 'User-agent: FirecrawlAgent\nDisallow: /\n' }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('warn');
+  });
+});
+
+describe('A2.13 crawler names in robots.txt are current', () => {
+  const run = (robots: string | null) =>
+    runCheck(crawlerNamesCurrent, targetFor({ robots }), mapFetcher({}));
+
+  it('is not applicable without robots.txt and passes without outdated names', async () => {
+    expect((await run(null)).verdict).toBe('skip');
+    const clean = await run('User-agent: ClaudeBot\nDisallow: /\n');
+    expect(clean.verdict).toBe('pass');
+    expect(clean.evidence).toMatchObject({ outdated: [] });
+  });
+
+  it('warns when an outdated name stands without the current tokens, per operator', async () => {
+    const outcome = await run('User-agent: anthropic-ai\nUser-agent: claude-web\nDisallow: /\n');
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toBe(
+      "robots.txt names anthropic-ai and claude-web but none of Anthropic's current tokens (ClaudeBot, Claude-SearchBot and Claude-User). Those groups reach none of the crawlers they were written for, which read their own tokens or the * group",
+    );
+  });
+
+  it('passes when the current tokens are named too, or the operator runs no crawler', async () => {
+    const covered = await run('User-agent: anthropic-ai\nUser-agent: ClaudeBot\nDisallow: /\n');
+    expect(covered.verdict).toBe('pass');
+    expect(covered.message).toMatch(/alongside the current ones/);
+    const cohere = await run('User-agent: cohere-ai\nDisallow: /\n');
+    expect(cohere.verdict).toBe('pass');
+    expect(cohere.message).toBe(
+      'robots.txt names cohere-ai, whose operator runs no crawler, so those groups have no effect',
+    );
+  });
+
+  it('matches names without regard to case', async () => {
+    const outcome = await run('User-agent: FACEBOOKBOT\nDisallow: /\n');
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toContain("Meta's current tokens");
+  });
+});
+
+describe('A2.14 AI crawler rules at the edge', () => {
+  const managed = [
+    '# BEGIN Cloudflare Managed content',
+    'User-Agent: *',
+    'Content-signal: search=yes,ai-train=no',
+    'Allow: /',
+    '',
+    'User-agent: GPTBot',
+    'Disallow: /',
+    '',
+    'User-agent: ClaudeBot',
+    'Disallow: /',
+    '# END Cloudflare Managed Content',
+    '',
+    'User-agent: *',
+    'Disallow: /cart/',
+  ].join('\n');
+
+  it("warns on Cloudflare's managed block and lists what it disallows", async () => {
+    const outcome = await runCheck(
+      edgeAiCrawlerRules,
+      targetFor({ robots: managed }),
+      mapFetcher({}),
+    );
+    expect(outcome.verdict).toBe('warn');
+    expect(outcome.message).toMatch(
+      /Cloudflare's managed block, which disallows gptbot and claudebot/i,
+    );
+    expect(outcome.evidence).toMatchObject({
+      cloudflare_managed_robots: { disallowed: ['gptbot', 'claudebot'] },
+    });
+  });
+
+  it('names a recognised vendor and where its AI rules are set', async () => {
+    const target = targetFor({ robots: 'User-agent: *\nAllow: /\n' });
+    target.home = {
+      ...target.home,
+      headers: { ...target.home.headers, 'x-vercel-id': 'fra1::abc' },
+    };
+    const outcome = await runCheck(edgeAiCrawlerRules, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/^served through Vercel\. .*AI Bots managed ruleset/);
+    expect(outcome.evidence).toMatchObject({ vendors: ['vercel'] });
+  });
+
+  it('names the platform when a hosted platform runs the edge', async () => {
+    const target = targetFor({ platform: 'shopify', robots: 'User-agent: *\nAllow: /\n' });
+    target.home = { ...target.home, headers: { ...target.home.headers, 'cf-ray': '8f-FRA' } };
+    const outcome = await runCheck(edgeAiCrawlerRules, target, mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/^Shopify runs the edge for this site/);
+  });
+
+  it('says so when no vendor is recognised', async () => {
+    const outcome = await runCheck(edgeAiCrawlerRules, targetFor({}), mapFetcher({}));
+    expect(outcome.verdict).toBe('pass');
+    expect(outcome.message).toMatch(/^no CDN or bot manager recognised/);
   });
 });
 

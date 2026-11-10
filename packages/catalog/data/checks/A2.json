@@ -4,7 +4,7 @@
     "group": "A2",
     "title": "Training-crawler policy is stated",
     "question": "Has the site made a decision about AI training crawlers, whatever it is?",
-    "method": "Pass when robots.txt states a training decision in any form: a group for the shared token __usage_ai-training (an IETF draft that Microsoft honours from 2027-02-01 and Google intends to honour from early 2027, with an explicit Google-Extended group taking precedence), groups naming the documented training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, meta-externalagent, Amazonbot, CCBot, Bytespider, MistralAI-Training), or a Content-Signal or Content-Usage line that sets ai-train or train-ai. Allowing and disallowing count the same: blocking training is a licensing decision and never loses points. Warn when nothing is stated or there is no robots.txt. That warning is this project's position that a decision should be explicit, not a vendor rule. The evidence lists the effective verdict per token.",
+    "method": "Pass when robots.txt states a training decision in any form: a group for the shared token __usage_ai-training (an IETF draft that Microsoft honours from 2027-02-01 and Google intends to honour from early 2027, with an explicit Google-Extended group taking precedence), a group naming any of the {{count:training}} training tokens in the crawler registry ({{crawlers:training}}), or a Content-Signal or Content-Usage line that sets ai-train or train-ai. Allowing and disallowing count the same: blocking training is a licensing decision and never loses points here. Google-Extended also governs grounding in Gemini Apps, which A2.2 reports. Warn when nothing is stated or there is no robots.txt. That warning is this project's position that a decision should be explicit, not a vendor rule. The evidence lists the effective verdict per token.",
     "weight": 1,
     "depends_on": ["A1.1"],
     "spec": [
@@ -39,7 +39,7 @@
     "group": "A2",
     "title": "Search and assistant crawlers may read product pages",
     "question": "Do the crawlers that feed AI answers get in?",
-    "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the crawlers that build the indexes behind AI answers: Googlebot and Bingbot (Google AI Overviews and AI Mode, Microsoft Copilot, ChatGPT search, whose results come from Microsoft's index, and Claude search, reported to draw on Brave), Applebot (which follows the Googlebot group when robots.txt has no Applebot group, as Apple documents), Storebot-Google (Google's Shopping surfaces), OAI-SearchBot, Claude-SearchBot, PerplexityBot (a blocked page is reduced to domain, headline and a short summary), Amzn-SearchBot, DuckAssistBot, MistralAI-Index and meta-webindexer. Fail when Googlebot or Bingbot is disallowed or when two or more of the others are. Warn when exactly one is. Pass otherwise, including when there is no robots.txt. A warning still meets the Level 1 gate, because the crawlers behind the largest AI answer surfaces can read the page. The evidence shows the effective rule per crawler.",
+    "method": "Evaluate robots.txt against a sampled product path (the home page when none) for the {{count:index}} crawlers and tokens in the crawler registry whose operators document a search index that AI answers draw on. Core indexes: {{crawlers:index.core}} (Google Search, AI Overviews and AI Mode; Bing and Microsoft Copilot, and ChatGPT search names Microsoft among its search partners). Major assistants: {{crawlers:index.assistant}}. Regional and developer services: {{crawlers:index.other}}. Google-Extended counts because Google ties grounding in Gemini Apps to it as well as training. A crawler follows another crawler's group where its operator documents that (Applebot follows the Googlebot group when robots.txt names no Applebot group). Fail when a core index is disallowed or when two or more major assistants' crawlers are. Warn when exactly one is. Blocks of regional or developer services are reported in the message and the evidence without changing the verdict. Pass otherwise, including when there is no robots.txt. A warning still meets the Level 1 gate, because the crawlers behind the largest AI answer surfaces can read the page. The evidence shows the effective rule per crawler.",
     "weight": 3,
     "depends_on": ["A1.1"],
     "spec": [
@@ -160,7 +160,7 @@
     "group": "A2",
     "title": "User-triggered fetchers are not disallowed",
     "question": "When a person or an agent asks about this site, may it fetch the page?",
-    "method": "Evaluate robots.txt against the sampled product path (the home page when none) for the fetchers that act when a person or an agent asks: ChatGPT-User, Claude-User, Perplexity-User, Google-Agent, meta-externalfetcher, Amzn-User and MistralAI-User, and CloudflareBrowserRenderingCrawler, which runs the crawl jobs developers and agents start with Cloudflare's /crawl API. Fail when any is disallowed, pass otherwise, including when there is no robots.txt. OpenAI, Perplexity, Meta and Amazon document that their fetchers fetch regardless of robots.txt because a person requested the page (Anthropic and Cloudflare honour it, and Mistral does not say), so for most of them a Disallow records intent. The weight is low for that reason.",
+    "method": "Evaluate robots.txt against the sampled product path (the home page when none) for the {{count:fetchers}} fetchers and browser agents in the crawler registry that act when a person or an agent asks: {{crawlers:fetchers.assistant}} for the major assistants, and {{crawlers:fetchers.other}}. Fail when a major assistant's fetcher or agent is disallowed. Warn when only the others are. Pass otherwise, including when there is no robots.txt. The message separates what the operators document: {{crawlers:fetchers.may-ignore}} may fetch regardless because a person asked, so for them a Disallow records intent; {{crawlers:fetchers.honours}} obey robots.txt, so for them it is a real block. The weight is low because most assistant fetches are not governed by robots.txt.",
     "weight": 1,
     "depends_on": ["A1.1"],
     "spec": [
@@ -279,7 +279,7 @@
     "group": "A2",
     "title": "Squarespace AI crawler setting",
     "question": "Does Squarespace's AI crawler block shut out the crawlers behind AI answers?",
-    "method": "On a Squarespace site, evaluate robots.txt at the root for the 26 user agents Squarespace documents for Settings > Crawlers > \"Block known artificial intelligence crawlers\". The setting is taken as on when at least 60% of them (16 of 26) are disallowed. Pass when it is off, or on but blocking only training crawlers. Warn when it is on and also disallows agents that feed AI answers (DuckAssistBot, YouBot). Blocking training crawlers is a licensing choice and never loses points. Not applicable when robots.txt could not be read. No extra request.",
+    "method": "On a Squarespace site, evaluate robots.txt at the root for the 26 user agents Squarespace documents for Settings > Crawlers > \"Block known artificial intelligence crawlers\". The setting is taken as on when at least 60% of them (16 of 26) are disallowed. Pass when it is off, or on but blocking only training crawlers. Warn when it is on and also disallows agents that feed AI answers, as the crawler registry classes them: Google-Extended (which Google also uses for grounding in Gemini Apps), DuckAssistBot and YouBot. Blocking training-only crawlers is a licensing choice and never loses points. Not applicable when robots.txt could not be read. No extra request.",
     "weight": 1,
     "requires": ["squarespace"],
     "spec": [
@@ -347,6 +347,76 @@
       {
         "title": "Google Search Central: Robots.txt introduction (resources pages need)",
         "url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+      }
+    ]
+  },
+  {
+    "id": "A2.13",
+    "group": "A2",
+    "title": "Crawler names in robots.txt are current",
+    "question": "Do the robots.txt groups name the tokens the operators' crawlers actually read?",
+    "method": "Compare the user agents robots.txt names with the outdated names in the crawler registry: tokens an operator renamed (Google-NotebookLM, now Google-GeminiNotebook) and tokens an operator does not document (anthropic-ai and claude-web, FacebookBot, MistralBot, and Cohere's cohere-ai and cohere-training-data-crawler, although Cohere states it runs no crawler). A group for such a token reaches none of the operator's current crawlers, which read the group that names their own token or the * group. Warn when robots.txt names an outdated token but none of that operator's current tokens, so the rule does not do what it says. Pass with a note when the current tokens are named as well, or when the operator runs no crawler. Pass when no outdated token is named. Not applicable without a robots.txt.",
+    "weight": 1,
+    "depends_on": ["A1.1"],
+    "spec": [
+      {
+        "title": "RFC 9309 Robots Exclusion Protocol",
+        "url": "https://www.rfc-editor.org/rfc/rfc9309"
+      },
+      {
+        "title": "Anthropic: crawler and fetcher documentation",
+        "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler"
+      },
+      {
+        "title": "Google crawling infrastructure changelog",
+        "url": "https://developers.google.com/crawling/docs/changelog"
+      },
+      {
+        "title": "Meta web crawlers",
+        "url": "https://developers.facebook.com/docs/sharing/webmasters/web-crawlers"
+      },
+      {
+        "title": "Mistral AI crawlers",
+        "url": "https://docs.mistral.ai/robots"
+      },
+      {
+        "title": "Cohere: web crawlers",
+        "url": "https://docs.cohere.com/docs/cohere-web-crawlers"
+      }
+    ]
+  },
+  {
+    "id": "A2.14",
+    "group": "A2",
+    "title": "AI crawler rules at the edge",
+    "question": "Could the CDN or bot manager in front of the site refuse AI crawlers and assistants that robots.txt allows?",
+    "method": "Recognise the CDN or bot manager in front of the site from the home page's response headers (Cloudflare, Vercel, Amazon CloudFront, Akamai, Fastly, DataDome, Imperva) and look for Cloudflare's managed block in robots.txt. These products can refuse GPTBot, ChatGPT-User and other AI clients by user agent while robots.txt allows them. The scanner identifies itself and never sends another product's user agent (decision 0010), so such a rule is invisible to it: only the owner can see it, in the vendor's settings and logs. Warn when robots.txt carries Cloudflare's managed block, because the site then uses Cloudflare's AI crawler policies, which can also refuse search crawlers and assistants' fetchers at the edge. Otherwise pass, naming the vendor and where its AI crawler rules are set, or saying that none was recognised (one can be present without a visible sign). When the scan recognised a hosted platform (Shopify, Wix, Squarespace, Webflow, BigCommerce, Square Online), the platform runs the edge, and the report names it instead. It also runs when the home page refused the scanner, because the refusal's headers name the vendor that refused. Reported, never scored.",
+    "weight": "info",
+    "depends_on": [],
+    "spec": [
+      {
+        "title": "Cloudflare: AI crawler and agent access policies",
+        "url": "https://developers.cloudflare.com/bots/additional-configurations/block-ai-bots/"
+      },
+      {
+        "title": "Cloudflare: managed robots.txt",
+        "url": "https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/"
+      },
+      {
+        "title": "Vercel: managed rulesets (AI Bots)",
+        "url": "https://vercel.com/docs/vercel-firewall/vercel-waf/managed-rulesets"
+      },
+      {
+        "title": "AWS WAF Bot Control rule group",
+        "url": "https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html"
+      },
+      {
+        "title": "Akamai: granular controls for AI bot traffic",
+        "url": "https://www.akamai.com/blog/security/introducing-more-granular-controls-ai-bot-traffic"
+      },
+      {
+        "title": "OpenAI: allowing ChatGPT's cloud browser through bot protection",
+        "url": "https://help.openai.com/en/articles/11845367"
       }
     ]
   }
