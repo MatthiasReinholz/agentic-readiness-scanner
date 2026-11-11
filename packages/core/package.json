@@ -1,6 +1,6 @@
 {
   "name": "@agentic-readiness/core",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "The Agentic Readiness Scanner engine: fetcher, target resolver, parsers, checks, runner, scoring and reporters, with the catalog and visual system bundled in.",
   "keywords": [
     "agentic-commerce",
