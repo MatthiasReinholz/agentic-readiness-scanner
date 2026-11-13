@@ -22,3 +22,4 @@ Short records of the decisions that shaped the project, in the order they were m
 - [0018 Scores are capped by the capability that decides whether agents can use the store](0018-score-ceilings.md)
 - [0019 The scanner recognises 13 platforms and runs checks for the one it finds](0019-platform-specific-checks.md)
 - [0020 Crawlers live in one registry as catalog data, and the scanner still never impersonates them](0020-crawler-registry.md)
+- [0021 Technology checks record how a store is built on its platform, never scored](0021-technology-checks.md)

@@ -18,6 +18,7 @@ import {
   levelLabel,
   platformResults,
   shownResults,
+  technologyFacts,
 } from './shared.js';
 
 const fixture = (name: string) =>
@@ -272,6 +273,45 @@ describe('platform-bound checks', () => {
     const html = renderHtml({ ...result, target: { ...result.target, platform: 'unknown' } });
     expect(html).toContain('<strong>Not recognised</strong>');
     expect(html).toContain('Only the checks that apply to any site ran.');
+  });
+});
+
+describe('technology facts', () => {
+  it('shows how the store is built next to the platform, linked to the checks', async () => {
+    const woo = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(fixture('good-woocommerce')),
+    });
+    expect(technologyFacts(woo)).toEqual([
+      { label: 'Theme', value: 'Classic theme (ceramics)', check: 'A3.15' },
+      { label: 'Cart', value: 'Cart block', check: 'B5.12' },
+      { label: 'Checkout', value: 'Checkout block', check: 'B5.12' },
+    ]);
+    const html = renderHtml(woo);
+    expect(html).toContain(
+      '<a class="hero-platform-chip hero-technology-chip" href="#B5.12" data-technology="Checkout"><span class="hero-platform-label">Checkout</span><strong>Checkout block</strong></a>',
+    );
+    expect(renderMarkdown(woo)).toContain(
+      '**Built with:** Theme: Classic theme (ceramics); Cart: Cart block; Checkout: Checkout block. Recorded by A3.15 and B5.12, never scored.',
+    );
+  });
+
+  it('leaves out facts of checks that did not pass and facts of another shape', async () => {
+    const woo = await scan('https://ceramics.example/', {
+      fetcher: fixtureFetcher(fixture('good-woocommerce')),
+    });
+    const edited = {
+      ...woo,
+      results: woo.results.map((item) =>
+        item.id === 'B5.12'
+          ? { ...item, verdict: 'skip' as const, skip_reason: 'error' as const }
+          : item.id === 'A3.15'
+            ? { ...item, evidence: { ...item.evidence, facts: [{ label: 'Theme' }, 'x', null] } }
+            : item,
+      ),
+    };
+    expect(technologyFacts(edited)).toEqual([]);
+    expect(renderHtml(edited)).not.toContain('data-technology=');
+    expect(renderMarkdown(edited)).not.toContain('**Built with:**');
   });
 });
 

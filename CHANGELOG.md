@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- **Technology checks: how a store is built on its platform** (catalog 0.14.0, decision 0021). Six informational checks record the platform-specific technology a store uses, as facts shown next to the platform at the top of every report and in a "Built with" line of the Markdown report. They are never scored and gate no level.
+  - **A3.15 WordPress theme type:** block theme, classic theme or headless front end; the theme and child theme; Elementor, Divi, Beaver Builder, WPBakery or Bricks.
+  - **B5.12 WooCommerce cart and checkout type:** the Cart and Checkout blocks or the classic shortcodes. The checkout redirects to the cart while the cart is empty, and many stores keep both pages out of robots.txt, so the check reads their content through the WordPress REST API when the page itself cannot be read.
+  - **A3.16 Shopify storefront type:** an Online Store theme (name, version, Theme Store id) or a headless storefront such as Hydrogen.
+  - **A3.17 BigCommerce storefront type:** a Stencil theme or a headless storefront such as Catalyst.
+  - **A3.18 Adobe Commerce storefront type:** a Luma-based theme, a Hyvä theme or a headless front end, with the theme's Vendor/theme path.
+  - **A3.19 Salesforce storefront type:** SFRA or SiteGenesis, or the Composable Storefront built with PWA Kit.
+- **`technology` in the catalog and `TechnologyFactSchema` in the result contract.** A technology check carries `technology: true` (validated to weight info and one platform) and lists its findings as `evidence.facts`, `{ label, value }` pairs. The schema id is unchanged.
+- **Salesforce's Composable Storefront is recognised as Salesforce Commerce Cloud** by PWA Kit's `/mobify/bundle/` path. It loads none of B2C Commerce's own asset paths, so it was reported as an unknown platform before.
+
 ## [0.18.1] - 2026-11-11
 
 ### Fixed

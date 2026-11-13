@@ -14,6 +14,7 @@ function run(target: Target, fetcher: Fetcher): Promise<CheckOutcome> {
     id,
     laws: [],
     warn_meets_gate: false,
+    technology: false,
     markets: [],
     group: 'B1',
     title: id,

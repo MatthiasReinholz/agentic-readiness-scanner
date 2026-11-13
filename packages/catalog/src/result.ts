@@ -78,6 +78,18 @@ export const CheckResultSchema = z.object({
 });
 export type CheckResult = z.infer<typeof CheckResultSchema>;
 
+/**
+ * One finding of a technology check (a catalog check with `technology: true`), as its
+ * result lists them under `evidence.facts`: `{ label: "Checkout", value: "Checkout block" }`.
+ * Facts describe how the store is built and are never scored. A fact the check could not
+ * establish is left out rather than guessed.
+ */
+export const TechnologyFactSchema = z.object({
+  label: z.string().min(1),
+  value: z.string().min(1),
+});
+export type TechnologyFact = z.infer<typeof TechnologyFactSchema>;
+
 export const LevelResultSchema = z.object({
   value: z.number().int().min(0).max(5),
   name: z.string(),

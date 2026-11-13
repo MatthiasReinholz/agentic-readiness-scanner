@@ -11,3 +11,6 @@ export * from './feed.js';
 export * from './usage-preferences.js';
 export * from './head.js';
 export * from './accessible-name.js';
+export * from './frontend.js';
+export * from './wordpress.js';
+export * from './storefront.js';

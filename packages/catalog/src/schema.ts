@@ -286,6 +286,13 @@ export const CheckDefinitionSchema = z.object({
    * the site (robots.txt missing means "allow all"; one minor crawler blocked).
    */
   warn_meets_gate: z.boolean().default(false),
+  /**
+   * A technology check: it records how the store is built on its platform (the kind of
+   * theme, a headless front end, the cart and checkout pages), never whether that is good.
+   * Always weight info and bound to one platform. Reports list its facts (the
+   * `evidence.facts` of the result, see TechnologyFact) next to the platform.
+   */
+  technology: z.boolean().default(false),
   /** Public specifications the check is grounded in. A check without one does not ship. */
   spec: z.array(SpecReferenceSchema).min(1),
   /** Legal-signals checks: the law registry entries the check relates to. */
@@ -518,6 +525,12 @@ export function validateCatalogIntegrity(catalog: Catalog): string[] {
   for (const check of catalog.checks) {
     if (check.laws.length > 0 || check.markets.length > 0) {
       problems.push(`${check.id}: laws and markets belong to legal checks only`);
+    }
+    if (check.technology) {
+      if (check.weight !== 'info')
+        problems.push(`${check.id}: technology checks are never scored (weight info)`);
+      if (!check.requires.some((requirement) => requirement !== 'products'))
+        problems.push(`${check.id}: a technology check is bound to one platform`);
     }
   }
 

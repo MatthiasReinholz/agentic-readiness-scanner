@@ -4,7 +4,7 @@
     "group": "B1",
     "title": "Platform detected",
     "question": "Which platform serves the store?",
-    "method": "Informational. Recognise the platform from home page fingerprints (and, on a WordPress site with product pages, from the first sampled product page, which can reveal WooCommerce), first match wins, in this order: WooCommerce, Shopify, BigCommerce, Adobe Commerce (Magento), Shopware, PrestaShop, Salesforce Commerce Cloud, Square Online, Ecwid, Wix, Squarespace, Webflow, WordPress (generator tags, body classes, asset hosts, asset paths and response headers). Always passes when it runs, with the platform, the matching fingerprint and the generator tag as evidence. The result selects the profile, the platform-specific checks and the platform notes of fixes. It is never scored and gates no level.",
+    "method": "Informational. Recognise the platform from home page fingerprints (and, on a WordPress site with product pages, from the first sampled product page, which can reveal WooCommerce), first match wins, in this order: WooCommerce, Shopify, BigCommerce, Adobe Commerce (Magento), Shopware, PrestaShop, Salesforce Commerce Cloud, Square Online, Ecwid, Wix, Squarespace, Webflow, WordPress (generator tags, body classes, asset hosts, asset paths such as the Composable Storefront's /mobify/bundle/, and response headers). Always passes when it runs, with the platform, the matching fingerprint and the generator tag as evidence. The result selects the profile, the platform-specific checks and the platform notes of fixes. It is never scored and gates no level.",
     "weight": "info",
     "spec": [
       {

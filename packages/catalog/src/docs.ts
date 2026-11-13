@@ -26,6 +26,7 @@ function escapeCell(text: string): string {
 }
 
 function weightLabel(check: CheckDefinition): string {
+  if (check.technology) return 'info (technology)';
   return check.weight === 'info' ? 'info' : String(check.weight);
 }
 
@@ -96,7 +97,7 @@ export function renderChecksDoc(catalog: Catalog): string {
   );
   lines.push('');
   lines.push(
-    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found.`,
+    `${catalog.checks.length} checks in ${catalog.groups.length} groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found. A technology check (weight "info (technology)") records how the store is built on its platform, such as the kind of theme or checkout, as facts shown next to the platform in every report (decision 0021).`,
   );
   lines.push('');
   lines.push('## Levels');

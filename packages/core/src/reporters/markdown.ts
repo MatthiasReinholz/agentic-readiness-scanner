@@ -16,6 +16,7 @@ import {
   countVerdicts,
   groupResults,
   platformSentence,
+  technologyFacts,
   levelCauseSentence,
   levelLabel,
   nextGateSentence,
@@ -141,6 +142,14 @@ export function renderMarkdown(result: ScanResult, options: MarkdownReportOption
   lines.push('');
   lines.push(`**Platform:** ${platformSentence(result)}`);
   lines.push('');
+  const technology = technologyFacts(result);
+  if (technology.length > 0) {
+    const checks = [...new Set(technology.map((fact) => fact.check))];
+    lines.push(
+      `**Built with:** ${technology.map((fact) => `${fact.label}: ${fact.value}`).join('; ')}. Recorded by ${checks.join(' and ')}, never scored.`,
+    );
+    lines.push('');
+  }
   const cause = levelCauseSentence(result);
   lines.push(
     `**Level ${result.level.value}: ${levelLabel(result)}.** ${cause ? `${cause} ` : ''}${nextGateSentence(result)}`,

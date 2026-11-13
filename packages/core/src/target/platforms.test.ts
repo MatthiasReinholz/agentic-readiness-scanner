@@ -69,6 +69,12 @@ describe('matchPlatform', () => {
       'demandware asset path',
     ],
     [
+      'salesforce',
+      '<html><body><div id="app"></div><script src="/mobify/bundle/1234/main.js"></script></body></html>',
+      {},
+      'PWA Kit bundle path',
+    ],
+    [
       'square',
       '<html><head><meta name="generator" content="Square Online"></head></html>',
       {},

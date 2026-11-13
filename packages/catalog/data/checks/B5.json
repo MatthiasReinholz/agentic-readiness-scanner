@@ -186,5 +186,29 @@
         "url": "https://modelcontextprotocol.io/specification/2026-07-28/server/tools"
       }
     ]
+  },
+  {
+    "id": "B5.12",
+    "group": "B5",
+    "title": "WooCommerce cart and checkout type",
+    "question": "Do the cart and checkout pages use WooCommerce's Cart and Checkout blocks or the classic shortcodes?",
+    "method": "Informational, WooCommerce only. Find the cart page from WooCommerce's settings script (storePages) or its add-to-cart script (cart_url) on the home page or the first sampled product page, else /cart/, and read it as served with an empty cart: the Cart block renders inside wp-block-woocommerce-cart, the classic [woocommerce_cart] shortcode renders the woocommerce-cart-form or, with an empty cart, the wc-empty-cart-message notice. Many stores keep the cart out of robots.txt, which the scanner honours, and the checkout page redirects to the cart while the cart is empty, so read a page that could not be read as served through the WordPress REST API: GET wp/v2/pages/<id> with the id WooCommerce's settings name, else wp/v2/pages?slug= with the slug of the page's address (cart and checkout by default). The Cart and Checkout blocks keep their wp-block-woocommerce-cart and wp-block-woocommerce-checkout wrappers in that content; any other content is the classic shortcode, a page builder or a plugin, and empty content says nothing. Passes with what it could read as facts, leaving out what it could not. Skipped when neither type could be read. At most four requests. Never scored and gates no level.",
+    "weight": "info",
+    "requires": ["woocommerce"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "WooCommerce documentation: Customizing the Cart and Checkout pages",
+        "url": "https://woocommerce.com/document/cart-checkout-blocks-status/"
+      },
+      {
+        "title": "WooCommerce developer docs: Cart and Checkout blocks in block themes",
+        "url": "https://developer.woocommerce.com/docs/theming/block-theme-development/cart-and-checkout/"
+      },
+      {
+        "title": "WooCommerce documentation: Customizing the checkout page",
+        "url": "https://woocommerce.com/document/customizing-the-checkout-page/"
+      }
+    ]
   }
 ]

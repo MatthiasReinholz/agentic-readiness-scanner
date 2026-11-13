@@ -295,5 +295,121 @@
         "url": "https://www.w3.org/TR/html-aam-1.0/"
       }
     ]
+  },
+  {
+    "id": "A3.15",
+    "group": "A3",
+    "title": "WordPress theme type",
+    "question": "Does a block theme, a classic theme or a headless front end render the WordPress site?",
+    "method": "Informational, WordPress and WooCommerce only. Read the home page as served. A block theme renders every page inside the wp-site-blocks wrapper that WordPress's block template canvas prints; a page rendered by a theme without it is a classic theme. WooCommerce's settings object (currentThemeIsFSETheme), when the page carries it, states the kind outright and wins. The theme and any child theme come from the wp-theme- and wp-child-theme- body classes WordPress adds, else from the theme folder in asset URLs. Page builders (Elementor, Divi, Beaver Builder, WPBakery, Bricks) are named from their body classes or asset folders. A home page that shows no theme but a JavaScript framework (Next.js, Nuxt, Gatsby, Remix, React Router, Astro, SvelteKit or Angular) is a headless front end. Passes with the findings as facts whenever it runs. Never scored, gates no level, no extra request.",
+    "weight": "info",
+    "requires": ["wordpress"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "WordPress Developer Resources: What is a theme? (block and classic themes)",
+        "url": "https://developer.wordpress.org/themes/getting-started/what-is-a-theme/"
+      },
+      {
+        "title": "WordPress Developer Resources: Theme structure",
+        "url": "https://developer.wordpress.org/themes/core-concepts/theme-structure/"
+      },
+      {
+        "title": "WordPress code reference: get_body_class()",
+        "url": "https://developer.wordpress.org/reference/functions/get_body_class/"
+      }
+    ]
+  },
+  {
+    "id": "A3.16",
+    "group": "A3",
+    "title": "Shopify storefront type",
+    "question": "Does an Online Store theme, a Hydrogen storefront or another headless front end serve the Shopify store?",
+    "method": "Informational, Shopify only. Read the home page as served. A powered-by response header that names Hydrogen (Oxygen hosting adds itself to the same header) is a Hydrogen storefront. Otherwise the Shopify.theme object that content_for_header writes into every Online Store theme's head is an Online Store theme, named by its schema name and version, with its Theme Store id when Shopify sets one (only for its own themes installed from the Theme Store). Otherwise a domain Shopify does not serve (no Shopify response headers) is a headless storefront, named by its JavaScript framework when one is recognised. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "weight": "info",
+    "requires": ["shopify"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "Shopify themes: Layouts (content_for_header is required)",
+        "url": "https://shopify.dev/docs/storefronts/themes/architecture/layouts"
+      },
+      {
+        "title": "Shopify Admin API: Theme (theme_store_id)",
+        "url": "https://shopify.dev/docs/api/admin-rest/latest/resources/theme"
+      },
+      {
+        "title": "Shopify: Hydrogen, the headless toolkit",
+        "url": "https://shopify.dev/docs/storefronts/headless/hydrogen"
+      }
+    ]
+  },
+  {
+    "id": "A3.17",
+    "group": "A3",
+    "title": "BigCommerce storefront type",
+    "question": "Does a Stencil theme or a headless storefront such as Catalyst serve the BigCommerce store?",
+    "method": "Informational, BigCommerce only. Read the home page as served. A Stencil theme boots through the stencilBootstrap script every Stencil theme calls; the /stencil/ segment in BigCommerce image URLs is not counted, because headless storefronts load the same images. Otherwise a page built with Next.js is a headless storefront on the stack of BigCommerce's Catalyst, and another recognised JavaScript framework is a headless storefront built with it. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "weight": "info",
+    "requires": ["bigcommerce"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "BigCommerce: Stencil overview",
+        "url": "https://docs.bigcommerce.com/docs/storefront/stencil"
+      },
+      {
+        "title": "BigCommerce: Catalyst, the headless storefront framework built on Next.js",
+        "url": "https://docs.bigcommerce.com/docs/storefront/catalyst"
+      }
+    ]
+  },
+  {
+    "id": "A3.18",
+    "group": "A3",
+    "title": "Adobe Commerce storefront type",
+    "question": "Does a Luma-based theme, a Hyvä theme or a headless front end serve the Adobe Commerce (Magento) store?",
+    "method": "Informational, Adobe Commerce (Magento) only. Read the home page as served. The theme comes from the static asset path every theme serves from (/static/[version…/]frontend/<Vendor>/<theme>/). A Hyvä theme is recognised by a Hyva/ theme path or the window.hyva object Hyvä prints on every page, which also covers Hyvä child themes under another vendor's name. Otherwise a page that loads RequireJS or text/x-magento-init scripts runs a theme on the stack of Adobe Commerce's Luma and Blank themes. A home page with neither a theme path nor RequireJS but a recognised JavaScript framework is a headless front end. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "weight": "info",
+    "requires": ["magento"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "Adobe Commerce frontend development: Themes (Luma and Blank)",
+        "url": "https://developer.adobe.com/commerce/frontend-core/guide/themes/"
+      },
+      {
+        "title": "Adobe Commerce frontend development: Introduction to JavaScript (RequireJS)",
+        "url": "https://developer.adobe.com/commerce/frontend-core/javascript/"
+      },
+      {
+        "title": "Hyvä docs: The window.hyva object",
+        "url": "https://docs.hyva.io/hyva-themes/writing-code/the-window-hyva-object.html"
+      }
+    ]
+  },
+  {
+    "id": "A3.19",
+    "group": "A3",
+    "title": "Salesforce storefront type",
+    "question": "Does B2C Commerce render the storefront itself, or does the Composable Storefront built with PWA Kit serve it?",
+    "method": "Informational, Salesforce Commerce Cloud only. Read the home page as served. Assets under /mobify/bundle/, the path PWA Kit's runtime serves its bundle from on Managed Runtime, mean the Composable Storefront built with PWA Kit. Otherwise assets under /on/demandware.static/ mean a storefront B2C Commerce renders on its own servers, the Storefront Reference Architecture (SFRA) or the older SiteGenesis, which the page cannot tell apart. Passes with the finding as a fact whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "weight": "info",
+    "requires": ["salesforce"],
+    "technology": true,
+    "spec": [
+      {
+        "title": "PWA Kit: React storefront for Salesforce B2C Commerce (repository)",
+        "url": "https://github.com/SalesforceCommerceCloud/pwa-kit"
+      },
+      {
+        "title": "PWA Kit runtime: bundle path /mobify/bundle (source)",
+        "url": "https://github.com/SalesforceCommerceCloud/pwa-kit/blob/develop/packages/pwa-kit-runtime/src/utils/ssr-namespace-paths.js"
+      },
+      {
+        "title": "Salesforce Trailhead: B2C Commerce cartridge development",
+        "url": "https://trailhead.salesforce.com/content/learn/modules/b2c-cartridges"
+      }
+    ]
   }
 ]

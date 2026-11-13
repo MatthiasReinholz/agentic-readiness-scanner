@@ -331,6 +331,20 @@
         "content-type": "application/json; charset=UTF-8"
       },
       "body_file": "wp-pages.json"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wp/v2/pages?slug=cart&_fields=id%2Clink%2Ccontent",
+      "headers": {
+        "content-type": "application/json; charset=UTF-8"
+      },
+      "body_file": "wp-pages-cart.json"
+    },
+    {
+      "url": "https://ceramics.example/wp-json/wp/v2/pages?slug=checkout&_fields=id%2Clink%2Ccontent",
+      "headers": {
+        "content-type": "application/json; charset=UTF-8"
+      },
+      "body_file": "wp-pages-checkout.json"
     }
   ]
 }

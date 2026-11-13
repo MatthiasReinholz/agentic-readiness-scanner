@@ -11,7 +11,15 @@ import { prestashopFriendlyUrls } from './prestashop.js';
 import { salesforceRobotsPreset } from './salesforce.js';
 import { shopwareAgenticFiles } from './shopware.js';
 import { squareSearchVisibility } from './square.js';
+import {
+  bigcommerceStorefrontType,
+  magentoStorefrontType,
+  salesforceStorefrontType,
+  shopifyStorefrontType,
+  wordpressThemeType,
+} from './technology.js';
 import { wixSiteMcp } from './wix.js';
+import { woocommerceCartAndCheckout } from './woocommerce-pages.js';
 import { wordpressRestApiReadable, wordpressSearchVisibility } from './wordpress.js';
 
 export const platformChecks: readonly Check[] = [
@@ -27,4 +35,10 @@ export const platformChecks: readonly Check[] = [
   shopwareAgenticFiles,
   magentoGraphqlCatalog,
   bigcommerceStorefrontMcp,
+  wordpressThemeType,
+  woocommerceCartAndCheckout,
+  shopifyStorefrontType,
+  bigcommerceStorefrontType,
+  magentoStorefrontType,
+  salesforceStorefrontType,
 ];
