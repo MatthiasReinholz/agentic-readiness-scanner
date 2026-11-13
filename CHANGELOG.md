@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format follows [Kee
   - **A3.18 Adobe Commerce storefront type:** a Luma-based theme, a Hyvä theme, Breeze or a headless front end, with the theme's Vendor/theme path.
   - **A3.19 Salesforce storefront type:** SFRA or SiteGenesis, or the Composable Storefront built with PWA Kit.
 - **`technology` in the catalog and `TechnologyFactSchema` in the result contract.** A technology check carries `technology: true` (validated to weight info and one platform) and lists its findings as `evidence.facts`, `{ label, value }` pairs. The schema id is unchanged.
+- **A4.10 Poppy discovery document** (weight 1). Reads `/.well-known/poppy.json`, the discovery document of the Personal Agent Protocol (Poppy, draft 0.4, the 1.0 release candidate), and applies the checks a personal agent applies before it uses it: HTTPS redirects that end on exactly the well-known path, `organization.domain` equal to the serving host, the required fields and channels of the spec's JSON Schema, HTTPS URLs throughout, and the issuer link through the domain's protected resource metadata (RFC 9728) and the issuer's metadata (RFC 8414). The file is optional: a site without one is not applicable, not marked down. The check never opens a session or signs in.
 - **Salesforce's Composable Storefront is recognised as Salesforce Commerce Cloud** by PWA Kit's `/mobify/bundle/` path. It loads none of B2C Commerce's own asset paths, so it was reported as an unknown platform before.
 
 ## [0.18.1] - 2026-11-11

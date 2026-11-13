@@ -40,6 +40,7 @@ import {
   oauthDiscoveryForMcp,
   webMcpToolDeclarations,
 } from './a4/index.js';
+import { poppyDiscovery } from './a4/poppy.js';
 import {
   feedFreshness,
   productFeedDiscoverable,
@@ -125,6 +126,7 @@ export const builtInChecks: readonly Check[] = [
   mcpEndpointReachable,
   a2aAgentCard,
   webMcpToolDeclarations,
+  poppyDiscovery,
   woocommerceDetected,
   storeApiReachable,
   storeApiProductComplete,

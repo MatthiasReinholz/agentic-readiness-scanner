@@ -4,7 +4,7 @@ A scan produces two scores from 0 to 100 and one readiness level. The report cal
 
 ## Scores
 
-Each check has a weight in the catalog: 3 (blocking), 2 (expected), 1 (nice to have) or `info` (reported, never scored). Of the 86 readiness checks, 16 carry weight 3, 20 weight 2, 35 weight 1 and 15 are `info`, 6 of them technology checks that record how a store is built on its platform ([decision 0021](decisions/0021-technology-checks.md)).
+Each check has a weight in the catalog: 3 (blocking), 2 (expected), 1 (nice to have) or `info` (reported, never scored). Of the 87 readiness checks, 16 carry weight 3, 20 weight 2, 36 weight 1 and 15 are `info`, 6 of them technology checks that record how a store is built on its platform ([decision 0021](decisions/0021-technology-checks.md)).
 
 For each dimension the score is the sum of the weights of passed checks, divided by the sum of the weights of applicable checks, times 100, rounded. A warn counts half. A skipped check drops out of the denominator, so a store is never punished for a check that did not run. A check is skipped when it does not apply to the profile or platform, when a check it depends on failed, when it is not implemented, or when the scan ran out of budget or time.
 

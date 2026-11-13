@@ -29,7 +29,7 @@
     "label": "Connectable",
     "question": "Can AI tools connect to your store directly?",
     "dimension": "ingestion",
-    "description": "Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog or an A2A agent card? Few stores have them yet, so these checks carry little weight."
+    "description": "Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog, an A2A agent card or a Poppy discovery document? Few stores have them yet, so these checks carry little weight."
   },
   {
     "id": "B1",
