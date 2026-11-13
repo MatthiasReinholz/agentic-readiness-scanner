@@ -39,6 +39,7 @@ import {
   levelLabel,
   nextGateSentence,
   platformResults,
+  technologyFacts,
   scopeLines,
   scoreText,
   siteHeadingLink,
@@ -141,7 +142,15 @@ function platformHero(result: ScanResult): string {
     : checks.length === 0
       ? 'The checks that apply to any site ran.'
       : `${String(checks.length)} platform-specific check${checks.length === 1 ? '' : 's'} included: ${checks.map((item) => `<a href="#${escapeHtml(item.id)}">${escapeHtml(item.id)}</a>`).join(', ')}.`;
-  return `<div class="hero-platform" data-platform="${escapeHtml(result.target.platform)}"><span class="hero-platform-chip"><span class="hero-platform-label">Platform</span><strong>${escapeHtml(name ?? 'Not recognised')}</strong></span><span class="hero-platform-detail">${detail}</span></div>`;
+  // How the store is built on the platform (theme, front end, cart and checkout), each
+  // linking to the technology check that established it. Never scored.
+  const technology = technologyFacts(result)
+    .map(
+      (fact) =>
+        `<a class="hero-platform-chip hero-technology-chip" href="#${escapeHtml(fact.check)}" data-technology="${escapeHtml(fact.label)}"><span class="hero-platform-label">${escapeHtml(fact.label)}</span><strong>${escapeHtml(fact.value)}</strong></a>`,
+    )
+    .join('');
+  return `<div class="hero-platform" data-platform="${escapeHtml(result.target.platform)}"><span class="hero-platform-chip"><span class="hero-platform-label">Platform</span><strong>${escapeHtml(name ?? 'Not recognised')}</strong></span>${technology}<span class="hero-platform-detail">${detail}</span></div>`;
 }
 
 function renderCheck(result: ScanResult, item: CheckResult, options: HtmlReportOptions): string {

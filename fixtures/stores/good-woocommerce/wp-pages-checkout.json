@@ -1,0 +1,10 @@
+[
+  {
+    "id": 8,
+    "link": "https://ceramics.example/checkout/",
+    "content": {
+      "rendered": "\n<div class=\"wp-block-woocommerce-checkout alignwide wc-block-checkout is-loading\"></div>\n",
+      "protected": false
+    }
+  }
+]

@@ -3,10 +3,12 @@ import {
   forOtherPlatform,
   platformLabel,
   requiredPlatform,
+  TechnologyFactSchema,
   type Catalog,
   type CheckResult,
   type Dimension,
   type ScanResult,
+  type TechnologyFact,
 } from '@agentic-readiness/catalog';
 
 import { dimensionScore, type DimensionScore } from '../scoring.js';
@@ -95,6 +97,34 @@ export function platformResults(
     const definition = definitionOf(item.id, catalog);
     return definition !== undefined && requiredPlatform(definition) !== null;
   });
+}
+
+/** A technology fact with the check that established it, for linking. */
+export interface ShownTechnologyFact extends TechnologyFact {
+  check: string;
+}
+
+/**
+ * What the technology checks established about how the store is built, in catalog order:
+ * "Theme: Block theme (twentytwentyfive)", "Checkout: Checkout block". Only checks that
+ * ran and passed contribute, and only facts of the documented shape, so an older or
+ * hand-edited result renders without them rather than with garbage.
+ */
+export function technologyFacts(
+  result: ScanResult,
+  catalog: Catalog = defaultCatalog,
+): ShownTechnologyFact[] {
+  const facts: ShownTechnologyFact[] = [];
+  for (const item of shownResults(result, catalog)) {
+    if (item.verdict !== 'pass' || definitionOf(item.id, catalog)?.technology !== true) continue;
+    const listed = item.evidence.facts;
+    if (!Array.isArray(listed)) continue;
+    for (const fact of listed) {
+      const parsed = TechnologyFactSchema.safeParse(fact);
+      if (parsed.success) facts.push({ ...parsed.data, check: item.id });
+    }
+  }
+  return facts;
 }
 
 /**

@@ -253,6 +253,7 @@ function runAny(
     id: check.id,
     laws: [],
     warn_meets_gate: false,
+    technology: false,
     markets: [],
     group: check.id.slice(0, 2),
     title: check.id,

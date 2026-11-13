@@ -1,0 +1,10 @@
+[
+  {
+    "id": 7,
+    "link": "https://ceramics.example/cart/",
+    "content": {
+      "rendered": "\n<div class=\"wp-block-woocommerce-cart alignwide is-loading\"><div class=\"wp-block-woocommerce-filled-cart-block\"></div><div class=\"wp-block-woocommerce-empty-cart-block\"></div></div>\n",
+      "protected": false
+    }
+  }
+]

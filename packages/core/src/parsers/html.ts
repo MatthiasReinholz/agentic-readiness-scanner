@@ -2,7 +2,7 @@
  * Thin HTML helpers over htmlparser2. Checks never parse HTML themselves.
  */
 import { isTag, isText, type AnyNode, type Document, type Element } from 'domhandler';
-import { findAll, getAttributeValue, getElementsByTagName, textContent } from 'domutils';
+import { existsOne, findAll, getAttributeValue, getElementsByTagName, textContent } from 'domutils';
 import { parseDocument } from 'htmlparser2';
 
 export interface Anchor {
@@ -285,6 +285,14 @@ export class HtmlDocument {
       if (element === second) return false;
     }
     return false;
+  }
+
+  /** True when any element carries `token` as one of its classes (an exact token, not a prefix). */
+  hasClass(token: string): boolean {
+    return existsOne(
+      (element) => (getAttributeValue(element, 'class') ?? '').split(/\s+/).includes(token),
+      this.dom.children,
+    );
   }
 
   /** Elements whose attribute matches, e.g. find('div', 'class', /price/). */

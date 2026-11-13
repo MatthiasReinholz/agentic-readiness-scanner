@@ -1,6 +1,6 @@
 # @agentic-readiness/core
 
-The scanning engine of the [Agentic Readiness Scanner](https://github.com/MatthiasReinholz/agentic-readiness-scanner). The scanner checks whether AI agents that find, compare and buy on a person's behalf can read and use an online store. It reads only public pages, runs 80 checks, and returns a readiness level from 0 to 5, two scores (agentic ingestion and agentic commerce) and a fix for every finding. To try it without code, use the [hosted scanner](https://agentic-readiness-scanner.space.fast/) or the [command line](https://www.npmjs.com/package/@agentic-readiness/cli).
+The scanning engine of the [Agentic Readiness Scanner](https://github.com/MatthiasReinholz/agentic-readiness-scanner). The scanner checks whether AI agents that find, compare and buy on a person's behalf can read and use an online store. It reads only public pages, runs 86 checks, and returns a readiness level from 0 to 5, two scores (agentic ingestion and agentic commerce) and a fix for every finding. To try it without code, use the [hosted scanner](https://agentic-readiness-scanner.space.fast/) or the [command line](https://www.npmjs.com/package/@agentic-readiness/cli).
 
 This package contains the fetcher with its URL policy and request budget, the target resolver, parsers, checks, runner, scoring and reporters. The check catalog and the visual system are bundled in, so it needs nothing else from the repository. It uses only web-standard APIs (`fetch`, `Request`, `Response`), so it runs in Node 24 or later, in workers and in tests.
 

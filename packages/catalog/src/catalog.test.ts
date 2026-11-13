@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseFixMarkdown } from './fixes.js';
 import { parseGuideMarkdown, parseKnowledgeMarkdown } from './knowledge.js';
-import { fixForPlatform } from './platforms.js';
+import { fixForPlatform, requiredPlatform } from './platforms.js';
 import { loadCatalogFromDisk, loadGuidesFromDisk, loadKnowledgeFromDisk } from './load.js';
 import { crawlerSet, expandCrawlerPlaceholders, CrawlerSetError } from './crawlers.js';
 import {
@@ -23,8 +23,8 @@ describe('catalog data', () => {
     expect(validateCatalogIntegrity(catalog)).toEqual([]);
   });
 
-  it('has 80 checks across 9 groups and 6 levels', () => {
-    expect(catalog.checks).toHaveLength(80);
+  it('has 86 checks across 9 groups and 6 levels', () => {
+    expect(catalog.checks).toHaveLength(86);
     expect(catalog.groups).toHaveLength(9);
     expect(catalog.levels).toHaveLength(6);
   });
@@ -40,7 +40,47 @@ describe('catalog data', () => {
     const tagged = catalog.checks
       .filter((check) => check.requires.includes('woocommerce'))
       .map((c) => c.id);
-    expect(tagged).toEqual(['B1.2', 'B1.4', 'B1.7', 'B5.7']);
+    expect(tagged).toEqual(['B1.2', 'B1.4', 'B1.7', 'B5.7', 'B5.12']);
+  });
+
+  it('refuses a technology check that is scored or bound to no platform', () => {
+    const base = catalog.checks.find((check) => check.id === 'A3.15');
+    if (!base) throw new Error('A3.15 missing');
+    const broken = {
+      ...catalog,
+      checks: catalog.checks.map((check) =>
+        check.id === 'A3.15' ? { ...base, weight: 1 as const, requires: [] } : check,
+      ),
+    };
+    expect(validateCatalogIntegrity(broken)).toEqual(
+      expect.arrayContaining([
+        'A3.15: technology checks are never scored (weight info)',
+        'A3.15: a technology check is bound to one platform',
+      ]),
+    );
+  });
+
+  it('keeps technology checks informational and bound to one platform', () => {
+    const technology = catalog.checks.filter((check) => check.technology);
+    expect(technology.map((check) => check.id)).toEqual([
+      'A3.15',
+      'A3.16',
+      'A3.17',
+      'A3.18',
+      'A3.19',
+      'B5.12',
+    ]);
+    for (const check of technology) {
+      expect(check.weight, check.id).toBe('info');
+      expect(requiredPlatform(check), check.id).not.toBeNull();
+    }
+    for (const level of catalog.levels)
+      for (const gate of level.gates)
+        for (const id of gate)
+          expect(
+            technology.some((check) => check.id === id),
+            id,
+          ).toBe(false);
   });
 });
 

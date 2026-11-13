@@ -114,6 +114,9 @@ const FINGERPRINTS: readonly (readonly [KnownPlatform, readonly Fingerprint[]])[
         signal: 'demandware CDN assets',
         test: (p) => hostMatches(p, /demandware\.(net|edgesuite\.net)$/),
       },
+      // The Composable Storefront (PWA Kit) loads none of the above: its runtime serves the
+      // bundle from /mobify/bundle/ (pwa-kit-runtime, ssr-namespace-paths.js).
+      { signal: 'PWA Kit bundle path', test: (p) => p.body.includes('/mobify/bundle/') },
     ],
   ],
   [
