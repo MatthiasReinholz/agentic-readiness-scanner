@@ -349,7 +349,7 @@
     "group": "A3",
     "title": "BigCommerce storefront type",
     "question": "Does a Stencil theme or a headless storefront such as Catalyst serve the BigCommerce store?",
-    "method": "Informational, BigCommerce only. Read the home page as served. A Stencil theme boots through the stencilBootstrap script every Stencil theme calls; the /stencil/ segment in BigCommerce image URLs is not counted, because headless storefronts load the same images. Otherwise a page built with Next.js is a headless storefront on the stack of BigCommerce's Catalyst, and another recognised JavaScript framework is a headless storefront built with it. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "method": "Informational, BigCommerce only. Read the home page as served. A Stencil theme built on Cornerstone, BigCommerce's reference theme that most Stencil themes start from, boots through its stencilBootstrap script; a Stencil theme written from scratch need not call it and then yields no fact; the /stencil/ segment in BigCommerce image URLs is not counted, because headless storefronts load the same images. Otherwise a page built with Next.js is a headless storefront on the stack of BigCommerce's Catalyst, and another recognised JavaScript framework is a headless storefront built with it. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
     "weight": "info",
     "requires": ["bigcommerce"],
     "technology": true,
@@ -361,6 +361,10 @@
       {
         "title": "BigCommerce: Catalyst, the headless storefront framework built on Next.js",
         "url": "https://docs.bigcommerce.com/docs/storefront/catalyst"
+      },
+      {
+        "title": "BigCommerce Cornerstone theme: base layout (stencilBootstrap)",
+        "url": "https://github.com/bigcommerce/cornerstone/blob/master/templates/layout/base.html"
       }
     ]
   },
@@ -368,8 +372,8 @@
     "id": "A3.18",
     "group": "A3",
     "title": "Adobe Commerce storefront type",
-    "question": "Does a Luma-based theme, a Hyvä theme or a headless front end serve the Adobe Commerce (Magento) store?",
-    "method": "Informational, Adobe Commerce (Magento) only. Read the home page as served. The theme comes from the static asset path every theme serves from (/static/[version…/]frontend/<Vendor>/<theme>/). A Hyvä theme is recognised by a Hyva/ theme path or the window.hyva object Hyvä prints on every page, which also covers Hyvä child themes under another vendor's name. Otherwise a page that loads RequireJS or text/x-magento-init scripts runs a theme on the stack of Adobe Commerce's Luma and Blank themes. A home page with neither a theme path nor RequireJS but a recognised JavaScript framework is a headless front end. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
+    "question": "Does a Luma-based theme, a Hyvä theme, Breeze or a headless front end serve the Adobe Commerce (Magento) store?",
+    "method": "Informational, Adobe Commerce (Magento) only. Read the home page as served. The theme comes from the static asset path every theme serves from (/static/[version…/]frontend/<Vendor>/<theme>/). A Hyvä theme is recognised by a Hyva/ theme path or the window.hyva object Hyvä prints on every page, which also covers Hyvä child themes under another vendor's name. Otherwise the breeze/dynamic-js and breeze/async-js script types that Breeze loads instead of RequireJS mean Breeze. Otherwise a page that loads RequireJS or text/x-magento-init scripts runs a theme on the stack of Adobe Commerce's Luma and Blank themes. A home page with neither a theme path nor RequireJS but a recognised JavaScript framework is a headless front end. Passes with the findings as facts whenever it runs and records nothing it cannot see. Never scored, gates no level, no extra request.",
     "weight": "info",
     "requires": ["magento"],
     "technology": true,
@@ -385,6 +389,10 @@
       {
         "title": "Hyvä docs: The window.hyva object",
         "url": "https://docs.hyva.io/hyva-themes/writing-code/the-window-hyva-object.html"
+      },
+      {
+        "title": "Breeze: the module-breeze source (script types and RequireJS removal)",
+        "url": "https://github.com/breezefront/module-breeze"
       }
     ]
   },

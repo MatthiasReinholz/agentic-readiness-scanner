@@ -141,7 +141,8 @@ export const bigcommerceStorefrontType = defineCheck('A3.17', ({ target }) => {
   let message: string;
   if (stencil) {
     facts.push({ label: 'Storefront', value: 'Stencil theme' });
-    message = 'a Stencil theme renders the store, as its stencilBootstrap script shows';
+    message =
+      'a Stencil theme renders the store, as the stencilBootstrap script of Cornerstone-based themes shows';
   } else if (framework?.framework === 'Next.js') {
     facts.push({ label: 'Storefront', value: 'Headless (Next.js, such as Catalyst)' });
     message = `a headless Next.js storefront serves the store (${framework.signal}), the stack of BigCommerce's Catalyst`;
@@ -150,7 +151,7 @@ export const bigcommerceStorefrontType = defineCheck('A3.17', ({ target }) => {
     message = `a headless storefront built with ${framework.framework} serves the store (${framework.signal})`;
   } else {
     message =
-      'the storefront type could not be recognised: the home page has no stencilBootstrap script and no known front-end framework';
+      'the storefront type could not be recognised: the home page has no stencilBootstrap script and no known front-end framework (a Stencil theme not built on Cornerstone shows neither)';
   }
   evidence.facts = facts;
   return pass(message, evidence);
@@ -182,6 +183,7 @@ export const magentoStorefrontType = defineCheck('A3.18', ({ target }) => {
     theme: frontend.theme,
     require_js: frontend.requireJs,
     hyva: frontend.hyva,
+    breeze: frontend.breeze,
     framework: framework?.framework ?? null,
     framework_signal: framework?.signal ?? null,
   };
@@ -191,18 +193,21 @@ export const magentoStorefrontType = defineCheck('A3.18', ({ target }) => {
   if (frontend.hyva) {
     facts.push({ label: 'Theme', value: `Hyvä${themed}` });
     message = `a Hyvä theme renders the store${themed}, as its ${/^hyva\//i.test(frontend.theme ?? '') ? 'theme path' : 'window.hyva script'} shows`;
+  } else if (frontend.breeze) {
+    facts.push({ label: 'Theme', value: `Breeze${themed}` });
+    message = `Breeze renders the store${themed}: the page loads its scripts as breeze/dynamic-js and breeze/async-js instead of RequireJS`;
   } else if (frontend.requireJs) {
     facts.push({ label: 'Theme', value: `Luma-based theme${themed}` });
     message = `a Luma-based theme renders the store${themed}: the page loads RequireJS and x-magento-init scripts, the stack of Adobe Commerce's Luma and Blank themes`;
   } else if (frontend.theme) {
     facts.push({ label: 'Theme', value: `Theme ${frontend.theme}` });
-    message = `the theme ${frontend.theme} renders the store; it loads neither RequireJS nor Hyvä's script, so its family is not recognised`;
+    message = `the theme ${frontend.theme} renders the store; it loads neither RequireJS nor Hyvä's or Breeze's scripts, so its family is not recognised`;
   } else if (framework) {
     facts.push({ label: 'Storefront', value: `Headless (${framework.framework})` });
     message = `a headless storefront built with ${framework.framework} serves the store (${framework.signal}); no Adobe Commerce theme renders the home page`;
   } else {
     message =
-      'the storefront type could not be recognised: the home page shows no theme asset path, no RequireJS, no Hyvä script and no known front-end framework';
+      'the storefront type could not be recognised: the home page shows no theme asset path, no RequireJS, no Hyvä or Breeze scripts and no known front-end framework';
   }
   evidence.facts = facts;
   return pass(message, evidence);

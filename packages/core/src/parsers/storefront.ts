@@ -46,7 +46,11 @@ export function readShopifyTheme(doc: HtmlDocument): ShopifyTheme | null {
   return null;
 }
 
-/** BigCommerce's Stencil themes boot through `window.stencilBootstrap(...)`. */
+/**
+ * Stencil themes built on Cornerstone, BigCommerce's reference theme, boot through
+ * `window.stencilBootstrap(...)` (templates/layout/base.html). A Stencil theme written from
+ * scratch need not, so a missing call proves nothing.
+ */
 export function hasStencilBootstrap(body: string): boolean {
   return body.includes('stencilBootstrap');
 }
@@ -72,6 +76,8 @@ export interface MagentoFrontend {
   requireJs: boolean;
   /** True when the theme path or the page's own script names Hyvä. */
   hyva: boolean;
+  /** True when the page carries Breeze's own script types (breeze/dynamic-js, breeze/async-js). */
+  breeze: boolean;
 }
 
 export function readMagentoFrontend(doc: HtmlDocument, body: string): MagentoFrontend {
@@ -81,5 +87,10 @@ export function readMagentoFrontend(doc: HtmlDocument, body: string): MagentoFro
     doc.scriptsOfType('text/x-magento-init').length > 0 ||
     doc.externalScripts().some((src) => /\/requirejs\/require(?:\.min)?\.js/.test(src));
   const hyva = /^hyva\//i.test(theme ?? '') || /\bwindow\.hyva\b/.test(body);
-  return { theme, requireJs, hyva };
+  // Breeze removes RequireJS and loads its scripts as breeze/dynamic-js and breeze/async-js
+  // (module-breeze, Block/Js.php); it runs as a module under a Luma-based theme too.
+  const breeze =
+    doc.scriptsOfType('breeze/dynamic-js').length > 0 ||
+    doc.scriptsOfType('breeze/async-js').length > 0;
+  return { theme, requireJs, hyva, breeze };
 }

@@ -411,6 +411,15 @@ describe('A3.18 Adobe Commerce storefront type', () => {
     expect(outcome.evidence.facts).toEqual([{ label: 'Theme', value: 'Hyvä (Acme/shop)' }]);
   });
 
+  it('records Breeze from its script types', async () => {
+    const outcome = await run(
+      '<link rel="stylesheet" href="/static/version1/frontend/Swissup/breeze-blank/en_US/css/styles.css"><script type="breeze/async-js" src="/static/version1/frontend/Swissup/breeze-blank/en_US/Swissup_Breeze/bundles/1/core.min.js"></script>',
+    );
+    expect(outcome.evidence.facts).toEqual([
+      { label: 'Theme', value: 'Breeze (Swissup/breeze-blank)' },
+    ]);
+  });
+
   it('records a headless storefront when no theme renders the home page', async () => {
     const outcome = await run('<div id="__nuxt"></div>');
     expect(outcome.evidence.facts).toEqual([{ label: 'Storefront', value: 'Headless (Nuxt)' }]);
