@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-13
+
 ### Added
 
 - **Technology checks: how a store is built on its platform** (catalog 0.14.0, decision 0021). Six informational checks record the platform-specific technology a store uses, as facts shown next to the platform at the top of every report and in a "Built with" line of the Markdown report. They are never scored and gate no level.
