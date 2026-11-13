@@ -14,3 +14,4 @@ export * from './accessible-name.js';
 export * from './frontend.js';
 export * from './wordpress.js';
 export * from './storefront.js';
+export * from './poppy.js';

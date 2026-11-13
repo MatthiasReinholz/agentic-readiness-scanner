@@ -169,5 +169,31 @@
         "url": "https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/agentic-files.html"
       }
     ]
+  },
+  {
+    "id": "A4.10",
+    "group": "A4",
+    "title": "Poppy discovery document",
+    "question": "Does the site publish a Personal Agent Protocol (Poppy) discovery document that a personal agent would accept?",
+    "method": "GET /.well-known/poppy.json, the discovery document of the Personal Agent Protocol (Poppy, draft 0.4, the 1.0 release candidate), and apply the checks a personal agent applies before it uses it. Every redirect must be to HTTPS and the last URL must be exactly /.well-known/poppy.json with no query. The document must be a JSON object with protocol_version (major.minor) and organization (name, and a domain equal to the host that served it), declare at least one of agent, apis or web, and give every URL it names as HTTPS, following the spec's JSON Schema; unknown fields are ignored. Then confirm the issuer: GET https://{domain}/.well-known/oauth-protected-resource (RFC 9728), whose resource must be exactly https://{domain}. A 404 or no authorization server means signed-out sessions only, which is valid unless the document declares an issuer, signed_in access or Mediated Sign-In. With one server it is the issuer (auth.issuer must match when given); with several, auth.issuer must name one of them. GET the issuer's RFC 8414 metadata, whose issuer must match exactly and whose protected_resources must list https://{domain}, with token and revocation endpoints and the refresh_token grant. Pass when all of this holds, naming the channels offered and how customers sign in. Fail on any violation, because a personal agent must not use such a document. Skipped as not applicable on 404 or 410, because the file is optional, and as inconclusive when a request was rate limited, failed or kept out by robots.txt. At most three requests; the check never opens a session or signs in.",
+    "weight": 1,
+    "spec": [
+      {
+        "title": "Personal Agent Protocol specification 0.4: Discovery",
+        "url": "https://personalagentprotocol.org/docs/0.4/spec#discovery"
+      },
+      {
+        "title": "Personal Agent Protocol: poppy.json JSON Schema",
+        "url": "https://github.com/personal-agent-protocol/personal-agent-protocol/blob/main/kit/company/schemas/poppy.schema.json"
+      },
+      {
+        "title": "RFC 9728 OAuth 2.0 Protected Resource Metadata",
+        "url": "https://www.rfc-editor.org/rfc/rfc9728"
+      },
+      {
+        "title": "RFC 8414 OAuth 2.0 Authorization Server Metadata",
+        "url": "https://www.rfc-editor.org/rfc/rfc8414"
+      }
+    ]
   }
 ]

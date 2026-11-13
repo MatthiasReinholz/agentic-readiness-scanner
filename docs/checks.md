@@ -4,7 +4,7 @@
 
 Catalog version **0.14.0**, scoring version **0.9.0**.
 
-86 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found. A technology check (weight "info (technology)") records how the store is built on its platform, such as the kind of theme or checkout, as facts shown next to the platform in every report (decision 0021).
+87 checks in 9 groups. Each check answers one question, records the evidence that decided it, and ships with a fix. Weight 1 is nice to have, 2 is expected, 3 is blocking for agents, and "info" checks are reported but never scored. A check marked with a platform, such as (Shopify), runs only when the scan recognises that platform (a WordPress check also runs on WooCommerce). A check marked (products) runs only when product pages were found. A technology check (weight "info (technology)") records how the store is built on its platform, such as the kind of theme or checkout, as facts shown next to the platform in every report (decision 0021).
 
 ## Levels
 
@@ -21,9 +21,9 @@ Catalog version **0.14.0**, scoring version **0.9.0**.
 
 | Profile | Applies | Drops | Max level |
 | --- | --- | --- | --- |
-| WooCommerce store | 70 | 16 checks (all commerce groups) | 5 |
-| Other store | 81 | B1.2, B1.4, B1.7, B5.7, B5.12 | 5 |
-| Content site | 43 | 43 checks (all commerce groups) | 1 |
+| WooCommerce store | 71 | 16 checks (all commerce groups) | 5 |
+| Other store | 82 | B1.2, B1.4, B1.7, B5.7, B5.12 | 5 |
+| Content site | 44 | 43 checks (all commerce groups) | 1 |
 
 ## A1. Discoverability (ingestion)
 
@@ -89,7 +89,7 @@ Can an agent read product content without running JavaScript, get the whole page
 
 ## A4. Protocol discovery (ingestion)
 
-Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog or an A2A agent card? Few stores have them yet, so these checks carry little weight.
+Does the site publish the documents that tell agents which machine interfaces it offers, such as an MCP server card, an API catalog, an A2A agent card or a Poppy discovery document? Few stores have them yet, so these checks carry little weight.
 
 | ID | Check | How it is tested | Weight | Depends on | Spec |
 | --- | --- | --- | --- | --- | --- |
@@ -102,6 +102,7 @@ Does the site publish the documents that tell agents which machine interfaces it
 | A4.7 | WordPress REST API readable (WordPress) | Runs only on WordPress sites (WooCommerce included). Take the REST API root the page advertises with the api.w.org link relation (in the head, else the Link header, if it is on the same origin), else /wp-json/, and GET wp/v2/pages?per_page=1&_fields=id,link without signing in. Pass on 200 with a JSON array, even an empty one. Fail on 401 or 403 (a security plugin or filter refuses anonymous reads, typically with rest_not_logged_in), on 404, and on any other answer that is not a JSON array. Warn when robots.txt keeps the scanner from asking. Skipped on 429, a gateway error or no response. WordPress advises against disabling the API, and the WooCommerce Store API runs on it. | 1 | – | [WordPress REST API Handbook: Discovery](https://developer.wordpress.org/rest-api/using-the-rest-api/discovery/), [WordPress REST API Handbook: Frequently asked questions](https://developer.wordpress.org/rest-api/frequently-asked-questions/) |
 | A4.8 | Wix site MCP server answers (Wix) | Runs only on Wix sites. Send the read-only JSON-RPC server/discover POST to /_api/mcp, where Wix documents an MCP server for every site that needs no authentication and that the generated llms.txt links. When it gets a plain HTTP 400, as a server on the 2025 session transport answers, send the initialize handshake once instead. Pass on a JSON-RPC answer, an event stream or an authorization challenge (401 with WWW-Authenticate). Fail on any other answer, such as a 404, an HTML page or a server error. Warn when robots.txt keeps the scanner from asking. Skipped when the request gets no response, a rate limit (HTTP 429) or a gateway error (502, 503 or 504). | 1 | – | [Wix Developers: About the Wix site MCP](https://dev.wix.com/docs/develop-websites/articles/get-started/ai-agents/about-the-wix-site-mcp), [Model Context Protocol: Transports](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports) |
 | A4.9 | Shopware agentic files (Shopware) | Runs only on Shopware stores. GET /.well-known/ai-catalog.json, one of the three agentic files (with /llms.txt and /agents.md) that Shopware 6.7.12 and later publishes when they are switched on for the sales channel. Pass on 200 with a JSON object. Warn on 404 (the file is off, or the shop runs an older version), on any other answer that is not a JSON object, and when robots.txt keeps the scanner from asking. Skipped on 429, a gateway error or no response. | 1 | – | [Shopware developer documentation: Agentic files](https://developer.shopware.com/docs/guides/plugins/plugins/storefront/templates/agentic-files.html) |
+| A4.10 | Poppy discovery document | GET /.well-known/poppy.json, the discovery document of the Personal Agent Protocol (Poppy, draft 0.4, the 1.0 release candidate), and apply the checks a personal agent applies before it uses it. Every redirect must be to HTTPS and the last URL must be exactly /.well-known/poppy.json with no query. The document must be a JSON object with protocol_version (major.minor) and organization (name, and a domain equal to the host that served it), declare at least one of agent, apis or web, and give every URL it names as HTTPS, following the spec's JSON Schema; unknown fields are ignored. Then confirm the issuer: GET https://{domain}/.well-known/oauth-protected-resource (RFC 9728), whose resource must be exactly https://{domain}. A 404 or no authorization server means signed-out sessions only, which is valid unless the document declares an issuer, signed_in access or Mediated Sign-In. With one server it is the issuer (auth.issuer must match when given); with several, auth.issuer must name one of them. GET the issuer's RFC 8414 metadata, whose issuer must match exactly and whose protected_resources must list https://{domain}, with token and revocation endpoints and the refresh_token grant. Pass when all of this holds, naming the channels offered and how customers sign in. Fail on any violation, because a personal agent must not use such a document. Skipped as not applicable on 404 or 410, because the file is optional, and as inconclusive when a request was rate limited, failed or kept out by robots.txt. At most three requests; the check never opens a session or signs in. | 1 | – | [Personal Agent Protocol specification 0.4: Discovery](https://personalagentprotocol.org/docs/0.4/spec#discovery), [Personal Agent Protocol: poppy.json JSON Schema](https://github.com/personal-agent-protocol/personal-agent-protocol/blob/main/kit/company/schemas/poppy.schema.json), [RFC 9728 OAuth 2.0 Protected Resource Metadata](https://www.rfc-editor.org/rfc/rfc9728), [RFC 8414 OAuth 2.0 Authorization Server Metadata](https://www.rfc-editor.org/rfc/rfc8414) |
 
 ## B1. Catalog exposure (commerce)
 
@@ -461,6 +462,7 @@ Every check has a fix: a summary, a snippet or file when one applies, and a brie
 | A4.7 | Let anonymous visitors read the WordPress REST API: allow the wp/v2 read routes in the security plugin that blocks them, rather than switching the API off, and keep write routes protected by authentication as WordPress already does. | – |
 | A4.8 | Wix serves a site MCP server at `/_api/mcp` for every site. If it does not answer, check that the site is published on its domain and that no proxy or robots.txt rule in front of Wix blocks `/_api/`, then contact Wix support. | – |
 | A4.9 | On Shopware 6.7.12 or later, switch on the agentic files on the storefront sales channel's detail page in the Administration (each file has its own switch), so `/llms.txt`, `/agents.md` and `/.well-known/ai-catalog.json` are published. On older versions, plan the update. | yes |
+| A4.10 | If you want personal agents to work with your store through the Personal Agent Protocol (Poppy), publish `/.well-known/poppy.json` on your own domain, with `organization.domain` set to that exact host and at least one of `agent`, `apis` or `web`. If the domain has an OAuth issuer, make its metadata list the domain, or personal agents will not use the document. | – |
 | B1.1 | Informational, nothing to fix. This check records which platform the scanner recognised, and that decides the profile and the platform-specific checks. | – |
 | B1.2 | Make the WooCommerce Store API readable without credentials. It is public by default, so a security plugin, a REST API restriction or a firewall rule is usually what blocks it. | – |
 | B1.4 | Fill in the product data the Store API shows: name, price, stock status, a product image and a real category for every published product. | – |
