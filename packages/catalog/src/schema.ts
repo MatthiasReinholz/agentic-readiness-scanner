@@ -339,7 +339,7 @@ export const CeilingSchema = z.object({
       commerce: z.number().int().min(0).max(99).optional(),
     })
     .refine((values) => values.ingestion !== undefined || values.commerce !== undefined, {
-      message: 'a ceiling caps at least one dimension',
+      error: 'a ceiling caps at least one dimension',
     }),
 });
 export type Ceiling = z.infer<typeof CeilingSchema>;
