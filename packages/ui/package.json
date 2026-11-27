@@ -36,8 +36,8 @@
   "dependencies": {
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "lucide-static": "1.71.0",
-    "tailwind-merge": "3.7.0"
+    "lucide-static": "1.79.0",
+    "tailwind-merge": "3.7.1"
   },
   "devDependencies": {
     "tailwindcss": "3.4.19",
