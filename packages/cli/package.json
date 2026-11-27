@@ -70,6 +70,6 @@
     "@agentic-readiness/mcp": "workspace:*",
     "@agentic-readiness/ui": "workspace:*",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.1"
   }
 }
