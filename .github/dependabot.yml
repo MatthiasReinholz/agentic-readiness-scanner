@@ -14,6 +14,16 @@ updates:
       interval: weekly
     labels: [dependencies]
     versioning-strategy: increase
+    # Major upgrades of these need a decision, not a grouped weekly bump: Tailwind is held
+    # at 3.4 by decision 0008, TypeScript 7 is a new compiler, and @types/node follows the
+    # Node 24 runtime the packages require (engines, .nvmrc).
+    ignore:
+      - dependency-name: tailwindcss
+        update-types: ['version-update:semver-major']
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       dev-tooling:
         dependency-type: development
